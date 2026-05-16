@@ -1,0 +1,349 @@
+const es = {
+  // Tab navigation
+  tabs: {
+    home: 'Inicio',
+    wardrobe: 'Armario',
+    outfits: 'Atuendos',
+    analytics: 'Estadísticas',
+  },
+
+  // Root layout screen titles
+  screens: {
+    addGarment: 'Agregar Prenda',
+    editGarment: 'Editar Prenda',
+    garmentDetails: 'Detalles de Prenda',
+    outfitDetails: 'Detalles del Atuendo',
+    settings: 'Configuración',
+  },
+
+  // Home screen
+  home: {
+    title: 'Mi Armario',
+    subtitle: 'Lleva el control de todo lo que vistes',
+    stats: {
+      items: 'Prendas',
+      archived: 'Archivadas',
+    },
+    addButton: '+ Agregar Prenda',
+    actions: {
+      outfitIdeas: 'Ideas de Atuendos',
+      outfitDesc: 'Sugerencias con IA',
+      analytics: 'Ver Estadísticas',
+      analyticsDesc: 'Resumen del armario',
+    },
+  },
+
+  // Wardrobe screen
+  wardrobe: {
+    searchPlaceholder: 'Buscar prendas...',
+    showFilters: 'Mostrar filtros',
+    hideFilters: 'Ocultar filtros',
+    clearAll: 'Limpiar todo',
+    brandPlaceholder: 'Filtrar por marca',
+    sizePlaceholder: 'Filtrar por talla',
+    filterAll: 'Todas',
+    sort: {
+      newest: 'Más nuevas',
+      oldest: 'Más antiguas',
+    },
+    itemsCount: '%{count} prendas en el armario',
+    emptyLoading: 'Cargando...',
+    emptyState: 'Aún no hay prendas. ¡Agrega la primera!',
+    emptyFiltered: 'Ninguna prenda coincide con estos filtros.',
+  },
+
+  // Outfits screen
+  outfits: {
+    title: 'Sugerencias de Atuendos',
+    subtitle: 'Califica las sugerencias para que la app aprenda tu estilo',
+    filters: {
+      season: 'Temporada',
+      weather: 'Clima',
+      occasion: 'Ocasión',
+      any: 'Cualquiera',
+    },
+    filterValues: {
+      season: {
+        spring: 'Primavera',
+        summer: 'Verano',
+        fall: 'Otoño',
+        winter: 'Invierno',
+        'all-season': 'Todo el Año',
+      },
+      weather: {
+        hot: 'Caluroso',
+        warm: 'Templado',
+        cool: 'Fresco',
+        cold: 'Frío',
+        rainy: 'Lluvioso',
+        snowy: 'Nevado',
+        windy: 'Ventoso',
+      },
+      occasion: {
+        casual: 'Casual',
+        work: 'Trabajo',
+        formal: 'Formal',
+        sport: 'Deporte',
+        lounge: 'Descanso',
+        party: 'Fiesta',
+        travel: 'Viaje',
+      },
+    },
+    generateButton: '✨ Generar Ideas de Atuendos',
+    generating: 'Generando...',
+    saveOutfit: 'Guardar Atuendo',
+    emptyHint: '¡Agrega prendas a tu armario y luego genera ideas de atuendos!',
+    emptyNudge: 'Agrega etiquetas de temporada, clima y ocasión para mejorar las sugerencias.',
+    savedTitle: 'Atuendos Guardados',
+    itemsCount: '%{count} prendas',
+    pin: 'Fijar',
+    unpin: 'Quitar',
+    saved: '¡Guardado!',
+    savedMsg: 'El atuendo se guardó en tu colección.',
+  },
+
+  // Analytics screen
+  analytics: {
+    totalItems: 'Total Prendas',
+    archivedItems: 'Prendas Archivadas',
+    categoryBreakdown: 'Desglose por Categoría',
+    emptyBreakdown: 'Agrega prendas para ver el desglose',
+    lifespanTitle: 'Vida Util de Prendas',
+    emptyLifespan: 'Marca prendas como no disponibles para ver su vida util.',
+    getStartedTitle: 'Comienza a generar insights',
+    getStartedBody: 'Agrega prendas para empezar a construir el resumen de tu armario.',
+  },
+
+  // Add garment screen
+  addGarment: {
+    tapToChange: 'Toca para cambiar',
+    takePhoto: 'Tomar Foto',
+    chooseGallery: 'Elegir de la Galería',
+    importFromUrl: 'Importar desde URL',
+    importUrlCta: 'Pega un enlace del producto para traer sus imágenes',
+    importUrlButton: 'Importar URL',
+    importUrlLoading: 'Importando imágenes desde el enlace...',
+    importUrlSource: 'Importado desde %{brand}',
+    importUrlWarnings: 'Notas de importación: %{warnings}',
+    importUrlSuccess: 'Se importaron %{count} imágenes de la página del producto.',
+    removeBackground: 'Eliminar Fondo',
+    undoBackground: 'Deshacer eliminación de fondo',
+    analyzePhoto: 'Analizar Foto',
+    analyzingPhoto: 'Analizando foto para autocompletar sugerencias...',
+    labels: {
+      photos: 'Fotos *',
+      category: 'Categoría *',
+      type: 'Tipo',
+      tags: 'Etiquetas',
+      season: 'Temporadas',
+      weather: 'Clima',
+      occasion: 'Ocasiones',
+      colors: 'Colores *',
+      primaryColor: 'Color Principal *',
+      brand: 'Marca',
+      size: 'Talla',
+    },
+    placeholders: {
+      brand: 'ej. Zara, Nike',
+      customSize: 'O escribe una talla personalizada',
+      productUrl: 'https://shop.example.com/producto',
+    },
+    saveButton: 'Guardar Prenda',
+    saveChanges: 'Guardar Cambios',
+    cancelButton: 'Cancelar',
+    addAnotherPhoto: 'Agregar Otra Foto',
+    removePhoto: 'Eliminar Foto',
+    useAsCover: 'Usar como Portada',
+    errors: {
+      permissionPhotos: 'Por favor, permite el acceso a tus fotos.',
+      permissionCamera: 'Por favor, permite el acceso a la cámara.',
+      photoRequired: 'Por favor, agrega una foto de la prenda.',
+      saveFailed: 'No se pudo guardar la prenda.',
+      invalidUrl: 'Ingresa una URL de producto válida.',
+      importFailed: 'No se pudo importar ese enlace del producto.',
+      permissionTitle: 'Permiso requerido',
+      photoRequiredTitle: 'Foto requerida',
+      importTitle: 'Importación por URL',
+      errorTitle: 'Error',
+    },
+    bgRemoval: {
+      errorTitle: 'Eliminación de Fondo',
+      failed: 'No se pudo eliminar el fondo',
+      unavailable: 'La eliminacion de fondo aun no esta disponible en esta plataforma.',
+    },
+  },
+
+  // Garment detail screen
+  garmentDetail: {
+    loading: 'Cargando...',
+    props: {
+      color: 'Color',
+      colors: 'Colores',
+      size: 'Talla',
+      seasons: 'Temporadas',
+      weather: 'Clima',
+      occasions: 'Ocasiones',
+      added: 'Agregado',
+    },
+    tags: 'Etiquetas',
+    markUnavailable: 'Marcar como No Disponible',
+    markAvailable: 'Marcar como Disponible',
+    editGarment: 'Editar Prenda',
+    deleteGarment: 'Eliminar Prenda',
+    unavailableSince: 'No disponible desde %{date}',
+    alerts: {
+      markUnavailableTitle: 'Marcar como No Disponible',
+      markUnavailableMsg: 'Esto marcará la prenda como donada/vendida/dañada. Puedes deshacerlo luego.',
+      markUnavailableConfirm: 'Marcar No Disponible',
+      deleteTitle: 'Eliminar Prenda',
+      deleteMsg: 'Esto eliminará permanentemente esta prenda.',
+      deleteConfirm: 'Eliminar',
+      cancel: 'Cancelar',
+    },
+  },
+
+  // Outfit detail screen
+  outfitDetail: {
+    loading: 'Cargando...',
+    createdAt: 'Creado %{date}',
+    avgRating: 'Calificación Promedio',
+    ratingCount: '%{avg} (%{count} calificaciones)',
+    rateTitle: 'Califica este Atuendo',
+    deleteOutfit: 'Eliminar Atuendo',
+    alerts: {
+      deleteTitle: 'Eliminar Atuendo',
+      deleteMsg: '¿Eliminar este atuendo?',
+      deleteConfirm: 'Eliminar',
+      cancel: 'Cancelar',
+    },
+  },
+
+  // Settings screen
+  settings: {
+    storageTitle: 'Almacenamiento',
+    totalItems: 'Total de Prendas',
+    imageStorage: 'Almacenamiento de Imágenes',
+    storageMb: '%{mb} MB',
+    backupTitle: 'Copia de Seguridad',
+    createBackup: 'Crear Copia Local',
+    backupHint: 'Guarda tu base de datos e imagenes en la carpeta Descargas. En Android puede pedir acceso a la carpeta la primera vez.',
+    connectDrive: 'Conectar Google Drive',
+    disconnectDrive: 'Desconectar Google Drive',
+    createDriveBackup: 'Guardar en Google Drive',
+    driveInfo: 'La copia en Google Drive requiere una compilación nativa de Android con Google Sign-In configurado. Expo Go no es compatible.',
+    driveConnectedAs: 'Conectado como %{email}',
+    driveTitle: 'Copia de Seguridad en Google Drive',
+    driveBackupsTitle: 'Copias en Google Drive',
+    availableBackups: 'Copias Disponibles',
+    restore: 'Restaurar',
+    aboutTitle: 'Acerca de',
+    version: 'Versión',
+    framework: 'Framework',
+    languageTitle: 'Idioma',
+    themeTitle: 'Tema',
+    currencyTitle: 'Moneda',
+    themeModes: {
+      system: 'Sistema',
+      light: 'Claro',
+      dark: 'Oscuro',
+    },
+    currencies: {
+      usd: 'USD (Dólar)',
+      eur: 'EUR (Euro)',
+      gbp: 'GBP (Libra)',
+      mxn: 'MXN (Peso)',
+    },
+    english: 'English',
+    spanish: 'Español',
+    alerts: {
+      backupCreated: 'Copia Creada',
+      backupSaved: 'Copia guardada en Descargas (%{size} MB).',
+      backupFailed: 'Error en la Copia',
+      backupFailedMsg: 'No se pudo crear la copia en este dispositivo.',
+      driveConnected: 'Google Drive Conectado',
+      driveConnectedMsg: 'Sesión iniciada como %{email}.',
+      driveDisconnected: 'Google Drive Desconectado',
+      driveDisconnectedMsg: 'Tu cuenta de Google se ha desconectado.',
+      driveBackupCreated: 'Copia en Drive Creada',
+      driveBackupSaved: 'Copia subida a Google Drive (%{size} MB).',
+      driveBackupFailed: 'Error en la Copia de Drive',
+      driveBackupFailedMsg: 'No se pudo subir la copia a Google Drive.',
+      restoreTitle: 'Restaurar Copia',
+      restoreMsg: '¿Restaurar desde %{name}? Esto reemplazará todos los datos actuales.',
+      restoreConfirm: 'Restaurar',
+      restored: 'Restaurado',
+      restoredMsg: 'Copia restaurada. Por favor, reinicia la app.',
+      restoreFailed: 'Error al Restaurar',
+      restoreFailedMsg: 'No se pudo restaurar este archivo de copia.',
+      driveRestoreFailed: 'No se pudo restaurar esta copia de Google Drive.',
+      cancel: 'Cancelar',
+    },
+  },
+
+  // Components
+  garmentCard: {
+    unavailable: 'No Disponible',
+  },
+  duplicateWarning: {
+    title: 'Posible Duplicado',
+    subtitle: 'Es posible que ya tengas un artículo similar:',
+    matchScore: '%{score}% de coincidencia',
+    goBack: 'Volver',
+    addAnyway: 'Agregar De Todas Formas',
+  },
+  tagInput: {
+    placeholder: 'Agregar etiqueta...',
+  },
+  outfitPreview: {
+    matchScore: 'Puntaje de coincidencia: %{score}%',
+  },
+  colorPicker: {
+    selectColor: 'Selecciona un color',
+    multiShort: 'M',
+  },
+  duplicateReasons: {
+    similarTags: 'etiquetas similares',
+    similarColor: 'color similar',
+    sameSize: 'misma talla',
+    overallSimilarity: 'similitud general',
+  },
+
+  colors: {
+    black: 'Negro', white: 'Blanco', gray: 'Gris', navy: 'Azul marino', blue: 'Azul', lightBlue: 'Celeste',
+    red: 'Rojo', burgundy: 'Borgona', pink: 'Rosa', green: 'Verde', olive: 'Oliva', khaki: 'Caqui',
+    brown: 'Marrón', tan: 'Canela', beige: 'Beige', cream: 'Crema', yellow: 'Amarillo', orange: 'Naranja',
+    purple: 'Morado', lavender: 'Lavanda', coral: 'Coral', teal: 'Verde azulado', gold: 'Dorado', silver: 'Plateado',
+    multi: 'Multicolor',
+  },
+
+  subcategories: {
+    tshirt: 'Camiseta', blouse: 'Blusa', shirt: 'Camisa', tank_top: 'Top de tirantes', sweater: 'Sueter', hoodie: 'Sudadera', crop_top: 'Top corto', polo: 'Polo',
+    jeans: 'Jeans', pants: 'Pantalones', shorts: 'Pantalones cortos', skirt: 'Falda', leggings: 'Leggings', sweatpants: 'Pantalon deportivo', chinos: 'Chinos',
+    mini: 'Mini', midi: 'Midi', maxi: 'Maxi', cocktail: 'Coctel', sundress: 'Vestido de verano', jumpsuit: 'Enterizo', romper: 'Mono corto',
+    jacket: 'Chaqueta', coat: 'Abrigo', blazer: 'Blazer', cardigan: 'Cardigan', vest: 'Chaleco', windbreaker: 'Rompevientos', parka: 'Parka',
+    sneakers: 'Tenis', boots: 'Botas', sandals: 'Sandalias', heels: 'Tacones', flats: 'Flats', loafers: 'Mocasines', athletic: 'Deportivo',
+    hat: 'Sombrero', scarf: 'Bufanda', belt: 'Cinturon', bag: 'Bolso', jewelry: 'Joyeria', watch: 'Reloj', sunglasses: 'Gafas de sol', tie: 'Corbata',
+    sports_bra: 'Bra deportivo', workout_top: 'Top deportivo', workout_shorts: 'Short deportivo', yoga_pants: 'Pantalon de yoga', track_suit: 'Conjunto deportivo',
+    bra: 'Bra', briefs: 'Calzones', boxers: 'Boxers', bodysuit: 'Body', socks: 'Calcetines', tights: 'Medias', thermal: 'Termico',
+    pajama_set: 'Pijama completo', pajama_top: 'Parte de arriba de pijama', pajama_bottoms: 'Parte de abajo de pijama', nightgown: 'Camison', robe: 'Bata', lounge_set: 'Conjunto comodo',
+  },
+
+  // Categories
+  categories: {
+    tops: 'Parte Superior',
+    bottoms: 'Parte Inferior',
+    dresses: 'Vestidos',
+    outerwear: 'Abrigos',
+    shoes: 'Zapatos',
+    accessories: 'Accesorios',
+    activewear: 'Ropa Deportiva',
+    underwear: 'Ropa Interior',
+    loungewear: 'Ropa de casa/Pijamas',
+  },
+};
+
+export default es;
+
+
+
+
