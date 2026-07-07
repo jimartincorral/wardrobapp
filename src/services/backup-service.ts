@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import JSZip from 'jszip';
+import { Directory, File, Paths } from 'expo-file-system';
 import { closeDatabase, getDatabase } from '../db/client';
 
 /**
@@ -21,6 +22,11 @@ import { closeDatabase, getDatabase } from '../db/client';
 
 let _fs: typeof import('expo-file-system/legacy') | null = null;
 const DOWNLOADS_DIR_URI_KEY = 'backup_downloads_directory_uri';
+const BACKUP_PREFIX = 'wardrobapp-backup-';
+const MANIFEST_NAME = 'manifest.json';
+const DB_FILENAME = 'wardrobapp.db';
+const IMAGES_DIRNAME = 'images';
+const FOLDER_BACKUP_VERSION = 3;
 const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const GOOGLE_DRIVE_FILES_URL = 'https://www.googleapis.com/drive/v3/files';
 const GOOGLE_DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files';
@@ -35,7 +41,6 @@ function getFS() {
 
 function getDbPath() { return `${getFS().documentDirectory}SQLite/wardrobapp.db`; }
 function getImageDir() { return `${getFS().documentDirectory}garment-images/`; }
-function getBackupDir() { return `${getFS().documentDirectory}backups/`; }
 function getPreferredDownloadsDirUri() {
   return getFS().StorageAccessFramework.getUriForDirectoryInRoot('Download');
 }
@@ -45,15 +50,6 @@ function ensureNative(action: string) {
     throw new Error(
       `${action} is not available on web. Use the native app for backup/restore.`
     );
-  }
-}
-
-async function ensureBackupDir() {
-  const fs = getFS();
-  const dir = getBackupDir();
-  const dirInfo = await fs.getInfoAsync(dir);
-  if (!dirInfo.exists) {
-    await fs.makeDirectoryAsync(dir, { intermediates: true });
   }
 }
 
@@ -102,6 +98,88 @@ export type BackupProgress = {
 };
 
 type BackupProgressCallback = (progress: BackupProgress) => void;
+
+function toErrorText(error: unknown) {
+  if (error instanceof Error) return error.message || (error as any).code || error.name;
+  if (typeof error === 'string') return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+/** Wrap a step so any thrown error identifies which stage failed. */
+async function step<T>(label: string, operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    throw new Error(`${label}: ${toErrorText(error)}`);
+  }
+}
+
+/** Yield to the RN event loop so progress can render between synchronous copies. */
+function yieldToUi() {
+  return new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
+function getBackupFolderName() {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  return `${BACKUP_PREFIX}${timestamp}`;
+}
+
+// New (SDK 55) File API references — these do native, zero-JS-memory copies.
+function newDbFile() {
+  return new File(Paths.document, 'SQLite', DB_FILENAME);
+}
+function newSqliteDir() {
+  return new Directory(Paths.document, 'SQLite');
+}
+function newImagesDir() {
+  return new Directory(Paths.document, 'garment-images');
+}
+
+function onlyFiles(entries: (Directory | File)[]) {
+  return entries.filter((e): e is File => e instanceof File);
+}
+
+/**
+ * Resolve the base directory backups are written into.
+ * Android: a user-granted SAF folder (persisted across sessions).
+ * Other platforms: <documents>/backups.
+ */
+async function getBackupBaseDirectory(): Promise<Directory> {
+  if (Platform.OS === 'android') {
+    const saved = await AsyncStorage.getItem(DOWNLOADS_DIR_URI_KEY);
+    if (saved) {
+      try {
+        const dir = new Directory(saved);
+        if (dir.exists) {
+          dir.list(); // Throws if the persisted permission is no longer valid.
+          return dir;
+        }
+      } catch {
+        // Fall through and re-request access below.
+      }
+      await AsyncStorage.removeItem(DOWNLOADS_DIR_URI_KEY);
+    }
+
+    let initialUri: string | undefined;
+    try {
+      initialUri = getPreferredDownloadsDirUri();
+    } catch {
+      initialUri = undefined;
+    }
+
+    const picked = await Directory.pickDirectoryAsync(initialUri);
+    await AsyncStorage.setItem(DOWNLOADS_DIR_URI_KEY, picked.uri);
+    return picked;
+  }
+
+  const dir = new Directory(Paths.document, 'backups');
+  dir.create({ intermediates: true, idempotent: true });
+  return dir;
+}
 
 function clampProgress(percent: number) {
   return Math.max(0, Math.min(100, Math.round(percent)));
@@ -463,63 +541,71 @@ async function uploadBackupToGoogleDrive(accessToken: string, fileUri: string, f
   return JSON.parse(uploadResult.body || '{}') as GoogleDriveBackupFile;
 }
 
-async function getAndroidBackupDirectoryUri() {
-  const fs = getFS();
-  const saf = fs.StorageAccessFramework;
-  const savedUri = await AsyncStorage.getItem(DOWNLOADS_DIR_URI_KEY);
-
-  if (savedUri) {
-    try {
-      await saf.readDirectoryAsync(savedUri);
-      return savedUri;
-    } catch {
-      await AsyncStorage.removeItem(DOWNLOADS_DIR_URI_KEY);
-    }
-  }
-
-  const permission = await saf.requestDirectoryPermissionsAsync(getPreferredDownloadsDirUri());
-  if (!permission.granted || !permission.directoryUri) {
-    throw new Error('Downloads directory permission was not granted');
-  }
-
-  await AsyncStorage.setItem(DOWNLOADS_DIR_URI_KEY, permission.directoryUri);
-  return permission.directoryUri;
-}
-
 /**
  * Export the database and image list as a JSON backup.
  * Returns the backup file URI.
  */
 export async function createBackup(options?: { onProgress?: BackupProgressCallback }): Promise<{ uri: string; size: number }> {
   ensureNative('Backup creation');
-  const fs = getFS();
   const onProgress = options?.onProgress;
   emitProgress(onProgress, 'preparing', 0, 'Starting backup');
-  const { name: backupFilename, base64: backupBase64, size } = await createBackupArchive(onProgress);
 
-  if (Platform.OS === 'android') {
-    const backupDirUri = await getAndroidBackupDirectoryUri();
-    emitProgress(onProgress, 'saving', 94, 'Saving backup to Downloads');
-    const backupUri = await fs.StorageAccessFramework.createFileAsync(
-      backupDirUri,
-      backupFilename,
-      'application/zip'
-    );
-    await fs.StorageAccessFramework.writeAsStringAsync(backupUri, backupBase64, {
-      encoding: fs.EncodingType.Base64,
+  const base = await step('Requesting folder access', () => getBackupBaseDirectory());
+  const backupDir = await step('Creating backup folder', async () =>
+    base.createDirectory(getBackupFolderName())
+  );
+
+  let size = 0;
+
+  // 1. Copy the SQLite database with the connection closed so WAL is flushed.
+  emitProgress(onProgress, 'archiving', 8, 'Copying database');
+  await step('Copying database', () =>
+    withClosedDatabase(async () => {
+      const db = newDbFile();
+      if (db.exists) {
+        db.copy(backupDir); // Native copy → written as wardrobapp.db inside the folder.
+        size += db.size ?? 0;
+      }
+    })
+  );
+
+  // 2. Copy every image file natively (no base64, near-zero JS memory).
+  let imageCount = 0;
+  const imagesSrc = newImagesDir();
+  if (imagesSrc.exists) {
+    await step('Copying images', async () => {
+      const imagesDest = backupDir.createDirectory(IMAGES_DIRNAME);
+      const files = onlyFiles(imagesSrc.list());
+      const total = files.length || 1;
+      for (const file of files) {
+        file.copy(imagesDest);
+        size += file.size ?? 0;
+        imageCount++;
+        emitProgress(
+          onProgress,
+          'archiving',
+          15 + (imageCount / total) * 78,
+          `Copying images (${imageCount}/${files.length})`
+        );
+        if (imageCount % 10 === 0) await yieldToUi();
+      }
     });
-    emitProgress(onProgress, 'done', 100, 'Backup complete');
-    return { uri: backupUri, size };
   }
 
-  await ensureBackupDir();
-  const backupUri = `${getBackupDir()}${backupFilename}`;
-  emitProgress(onProgress, 'saving', 94, 'Saving backup');
-  await fs.writeAsStringAsync(backupUri, backupBase64, {
-    encoding: fs.EncodingType.Base64,
+  // 3. Write the manifest last so a folder is only "valid" once fully written.
+  emitProgress(onProgress, 'saving', 96, 'Writing manifest');
+  await step('Writing manifest', async () => {
+    const manifest = {
+      version: FOLDER_BACKUP_VERSION,
+      created_at: new Date().toISOString(),
+      imageCount,
+    };
+    const manifestFile = backupDir.createFile(MANIFEST_NAME, 'application/json');
+    manifestFile.write(JSON.stringify(manifest));
   });
+
   emitProgress(onProgress, 'done', 100, 'Backup complete');
-  return { uri: backupUri, size };
+  return { uri: backupDir.uri, size };
 }
 
 export async function getGoogleDriveStatus(): Promise<{ connected: boolean; email?: string | null }> {
@@ -607,10 +693,75 @@ export async function restoreGoogleDriveBackup(fileId: string): Promise<void> {
 }
 
 /**
- * Restore from a backup JSON file.
+ * Restore from a backup. Handles both the new folder-based format and the
+ * legacy single-file (.zip/.json) archives (the latter is also used by the
+ * Google Drive restore path).
  */
 export async function restoreBackup(backupUri: string): Promise<void> {
   ensureNative('Backup restore');
+
+  let folder: Directory | null = null;
+  try {
+    const dir = new Directory(backupUri);
+    if (dir.exists) folder = dir;
+  } catch {
+    folder = null;
+  }
+
+  if (folder) {
+    await restoreFolderBackup(folder);
+    return;
+  }
+
+  await restoreArchiveBackup(backupUri);
+}
+
+/** Restore a folder-based backup by copying files back natively. */
+async function restoreFolderBackup(dir: Directory): Promise<void> {
+  const entries = dir.list();
+  const manifestFile = onlyFiles(entries).find((f) => f.name === MANIFEST_NAME);
+  if (!manifestFile) {
+    throw new Error('Invalid backup: manifest.json not found');
+  }
+
+  const manifest = JSON.parse(manifestFile.textSync()) as { version?: number };
+  if (manifest.version !== FOLDER_BACKUP_VERSION) {
+    throw new Error('Unsupported backup version');
+  }
+
+  await withClosedDatabase(async () => {
+    const dbEntry = onlyFiles(entries).find((f) => f.name === DB_FILENAME);
+    if (dbEntry) {
+      const sqliteDir = newSqliteDir();
+      sqliteDir.create({ intermediates: true, idempotent: true });
+      // Remove the existing DB (and stale WAL sidecars) before restoring.
+      for (const name of [DB_FILENAME, `${DB_FILENAME}-wal`, `${DB_FILENAME}-shm`]) {
+        const existing = new File(sqliteDir, name);
+        if (existing.exists) existing.delete();
+      }
+      dbEntry.copy(sqliteDir);
+    }
+
+    const imagesEntry = entries.find(
+      (e): e is Directory => e instanceof Directory && e.name === IMAGES_DIRNAME
+    );
+    const destImages = newImagesDir();
+    if (destImages.exists) destImages.delete();
+    destImages.create({ intermediates: true, idempotent: true });
+
+    if (imagesEntry) {
+      const files = onlyFiles(imagesEntry.list());
+      let i = 0;
+      for (const img of files) {
+        img.copy(destImages);
+        if (++i % 10 === 0) await yieldToUi();
+      }
+    }
+  });
+}
+
+/** Restore a legacy single-file (.zip/.json) backup archive. */
+async function restoreArchiveBackup(backupUri: string): Promise<void> {
   const fs = getFS();
   const { payload: backup, images } = await loadBackupData(backupUri);
 
@@ -643,27 +794,27 @@ export async function listBackups(): Promise<{ name: string; uri: string }[]> {
   if (Platform.OS === 'web') return [];
 
   try {
-    const fs = getFS();
-
+    let base: Directory;
     if (Platform.OS === 'android') {
-      const backupDirUri = await AsyncStorage.getItem(DOWNLOADS_DIR_URI_KEY);
-      if (!backupDirUri) return [];
-
-      const files = await fs.StorageAccessFramework.readDirectoryAsync(backupDirUri);
-      return files
-        .map(uri => ({ name: getSafEntryName(uri), uri }))
-        .filter(file => file.name.startsWith('wardrobapp-backup-'))
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .reverse();
+      const savedUri = await AsyncStorage.getItem(DOWNLOADS_DIR_URI_KEY);
+      if (!savedUri) return [];
+      base = new Directory(savedUri);
+    } else {
+      base = new Directory(Paths.document, 'backups');
     }
 
-    await ensureBackupDir();
-    const files = await fs.readDirectoryAsync(getBackupDir());
-    return files
-      .filter(f => f.endsWith('.json') || f.endsWith('.zip'))
-      .sort()
-      .reverse()
-      .map(f => ({ name: f, uri: `${getBackupDir()}${f}` }));
+    if (!base.exists) return [];
+
+    const entries = base.list();
+    const folders = entries
+      .filter((e): e is Directory => e instanceof Directory && e.name.startsWith(BACKUP_PREFIX))
+      .map((d) => ({ name: d.name, uri: d.uri }));
+    // Keep listing any legacy single-file archives so old backups remain restorable.
+    const archives = onlyFiles(entries)
+      .filter((f) => f.name.startsWith(BACKUP_PREFIX) && (f.name.endsWith('.zip') || f.name.endsWith('.json')))
+      .map((f) => ({ name: f.name, uri: f.uri }));
+
+    return [...folders, ...archives].sort((a, b) => b.name.localeCompare(a.name));
   } catch {
     return [];
   }

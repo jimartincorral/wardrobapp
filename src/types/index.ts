@@ -63,6 +63,7 @@ export type GarmentCategory =
   | 'tops'
   | 'bottoms'
   | 'dresses'
+  | 'midlayer'
   | 'outerwear'
   | 'shoes'
   | 'accessories'

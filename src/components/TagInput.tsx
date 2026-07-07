@@ -87,7 +87,12 @@ export function TagInput({ tags, onTagsChange, placeholder }: TagInputProps) {
         value={input}
         onChangeText={text => { setInput(text); setShowSuggestions(text.length > 0); }}
         onFocus={() => setShowSuggestions(true)}
-        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+        onBlur={() => {
+          // Commit any typed-but-unsubmitted tag so tapping "Save" (which blurs
+          // the field before firing) doesn't silently drop it.
+          if (input.trim()) addTag(input);
+          else setTimeout(() => setShowSuggestions(false), 200);
+        }}
         onSubmitEditing={() => addTag(input)}
         placeholder={effectivePlaceholder}
         placeholderTextColor={colors.textTertiary}

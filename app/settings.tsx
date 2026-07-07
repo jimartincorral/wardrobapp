@@ -46,10 +46,19 @@ export default function SettingsScreen() {
   };
 
   const getErrorMessage = (error: unknown) => {
-    if (error instanceof Error && error.message) {
-      return `\n\n${error.message}`;
+    let detail = '';
+    if (error instanceof Error) {
+      detail = error.message || (error as any).code || error.name || '';
+    } else if (typeof error === 'string') {
+      detail = error;
+    } else if (error != null) {
+      try {
+        detail = JSON.stringify(error);
+      } catch {
+        detail = String(error);
+      }
     }
-    return '';
+    return detail ? `\n\n${detail}` : '';
   };
 
   const loadBackups = async () => setBackups(await listBackups());

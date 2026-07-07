@@ -14,6 +14,7 @@ export function useGarments(filters?: {
   occasion?: OccasionOption;
   brand?: string;
   size?: string;
+  color?: string;
   sort?: GarmentSortOption;
 }) {
   const [garments, setGarments] = useState<Garment[]>([]);
@@ -31,6 +32,10 @@ export function useGarments(filters?: {
       }
       if (filters?.size && !(item.size || '').toLowerCase().includes(filters.size.toLowerCase().trim())) {
         return false;
+      }
+      if (filters?.color) {
+        const palette = item.color_palette.length > 0 ? item.color_palette : [item.color_primary];
+        if (!palette.includes(filters.color)) return false;
       }
       return true;
     });
@@ -72,6 +77,7 @@ export function useGarments(filters?: {
     filters?.available_only,
     filters?.brand,
     filters?.category,
+    filters?.color,
     filters?.occasion,
     filters?.search,
     filters?.season,
