@@ -55,6 +55,9 @@ function getGarmentSlots(garment: Garment): OutfitSlot[] {
     case 'shoes':
     case 'accessories':
       return [garment.category];
+    case 'midlayer':
+      // Blazers/vests/ponchos layer over tops like light outerwear.
+      return ['outerwear'];
     case 'activewear': {
       const sub = (garment.subcategory || '').toLowerCase();
       if (sub.includes('track suit')) return ['activewear_sets'];

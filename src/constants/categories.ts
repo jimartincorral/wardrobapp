@@ -14,9 +14,14 @@ export const CATEGORIES = {
     subcategories: ['Mini', 'Midi', 'Maxi', 'Cocktail', 'Sundress', 'Jumpsuit', 'Romper'],
     icon: 'body',
   },
+  midlayer: {
+    label: 'Mid-Layer',
+    subcategories: ['Blazer', 'Vest', 'Poncho', 'Cape'],
+    icon: 'albums',
+  },
   outerwear: {
     label: 'Outerwear',
-    subcategories: ['Jacket', 'Coat', 'Blazer', 'Cardigan', 'Vest', 'Windbreaker', 'Parka'],
+    subcategories: ['Jacket', 'Coat', 'Cardigan', 'Windbreaker', 'Parka'],
     icon: 'cloudy',
   },
   shoes: {
@@ -36,7 +41,7 @@ export const CATEGORIES = {
   },
   underwear: {
     label: 'Underwear',
-    subcategories: ['Bra', 'Briefs', 'Boxers', 'Bodysuit', 'Socks', 'Tights', 'Thermal'],
+    subcategories: ['Bra', 'Briefs', 'Boxers', 'Bodysuit', 'Shapewear', 'Socks', 'Tights', 'Thermal'],
     icon: 'layers',
   },
   loungewear: {
@@ -106,6 +111,8 @@ export const SUBCATEGORY_KEY_MAP: Record<string, string> = {
   'Blazer': 'blazer',
   'Cardigan': 'cardigan',
   'Vest': 'vest',
+  'Poncho': 'poncho',
+  'Cape': 'cape',
   'Windbreaker': 'windbreaker',
   'Parka': 'parka',
   'Sneakers': 'sneakers',
@@ -132,6 +139,7 @@ export const SUBCATEGORY_KEY_MAP: Record<string, string> = {
   'Briefs': 'briefs',
   'Boxers': 'boxers',
   'Bodysuit': 'bodysuit',
+  'Shapewear': 'shapewear',
   'Socks': 'socks',
   'Tights': 'tights',
   'Thermal': 'thermal',

@@ -51,6 +51,17 @@ npm run android
 
 The first launch initializes the SQLite schema automatically.
 
+### Build a release APK (Android)
+
+```bash
+npm run apk
+```
+
+This runs a Gradle `assembleRelease` build via `scripts/build-apk.ps1` and prints the
+output path (`android/app/build/outputs/apk/release/app-release.apk`). The script
+auto-detects a valid JDK 17 at build time, so it isn't affected by a stale `JAVA_HOME`.
+Requires the native project to exist — run `npx expo prebuild` once if `android/` is missing.
+
 ### Optional: pre-bundle the background-removal WASM blob
 
 ```bash
@@ -91,7 +102,7 @@ Tests use Vitest. The current suites cover the suggestion engine and URL import 
 
 ## Limitations & roadmap notes
 
-- **Google Drive backup** requires `@react-native-google-signin/google-signin` native modules and won't work in Expo Go. Use a dev build (`eas build --profile preview`). Local JSON backup works everywhere.
+- **Google Drive backup** requires `@react-native-google-signin/google-signin` native modules, so it needs a native build (`npm run android` for development, or `npm run apk` for a release APK) rather than Expo Go. Local JSON backup works everywhere.
 - **Background removal** is web-only today; a native equivalent is on the TODO.
 - **No cloud sync** between devices — by design, this is a local-first app.
 - **Migrations** aren't versioned yet; schema lives in raw SQL inside `src/db/client.ts`. See the *Phase 3* section of [TODO.md](TODO.md).

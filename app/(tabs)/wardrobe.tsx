@@ -4,6 +4,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { GarmentCard } from '@/src/components/GarmentCard';
 import { useGarments, type GarmentSortOption } from '@/src/hooks/useGarments';
 import { CATEGORIES } from '@/src/constants/categories';
+import { GARMENT_COLORS } from '@/src/constants/colors';
 import { OCCASION_OPTIONS, SEASON_OPTIONS, WEATHER_OPTIONS } from '@/src/constants/style-filters';
 import type { OccasionOption, SeasonOption, WeatherOption } from '@/src/constants/style-filters';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
@@ -19,12 +20,13 @@ export default function WardrobeScreen() {
   const styles = createStyles(colors);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
   const [search, setSearch] = useState('');
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
   const [season, setSeason] = useState<SeasonOption | undefined>();
   const [weather, setWeather] = useState<WeatherOption | undefined>();
   const [occasion, setOccasion] = useState<OccasionOption | undefined>();
   const [brand, setBrand] = useState('');
   const [size, setSize] = useState('');
+  const [color, setColor] = useState<string | undefined>();
   const [sort, setSort] = useState<GarmentSortOption>('newest');
   const { garments, loading, count, refresh } = useGarments({
     category: selectedCategory,
@@ -34,6 +36,7 @@ export default function WardrobeScreen() {
     occasion,
     brand: brand || undefined,
     size: size || undefined,
+    color,
     sort,
   });
 
@@ -60,6 +63,7 @@ export default function WardrobeScreen() {
     occasion,
     brand.trim(),
     size.trim(),
+    color,
     search.trim(),
     sort !== 'newest' ? sort : undefined,
   ].filter(Boolean).length;
@@ -72,6 +76,7 @@ export default function WardrobeScreen() {
     setOccasion(undefined);
     setBrand('');
     setSize('');
+    setColor(undefined);
     setSort('newest');
   };
 
@@ -151,6 +156,41 @@ export default function WardrobeScreen() {
             item => setSelectedCategory(selectedCategory === item.key ? undefined : item.key),
             item => item.label
           )}
+          <ScrollView
+            horizontal
+            style={styles.filterRow}
+            contentContainerStyle={styles.filterContent}
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Pressable
+              style={[styles.filterChip, !color && styles.filterChipActive]}
+              onPress={() => setColor(undefined)}
+            >
+              <Text style={[styles.filterChipText, !color && styles.filterChipTextActive]}>
+                {t('wardrobe.filterAll')}
+              </Text>
+            </Pressable>
+            {GARMENT_COLORS.map(c => {
+              const active = color === c.hex;
+              const isMulti = c.hex === '#RAINBOW';
+              return (
+                <Pressable
+                  key={c.hex}
+                  style={[
+                    styles.colorSwatch,
+                    { backgroundColor: isMulti ? colors.surfaceVariant : c.hex },
+                    isMulti && styles.colorSwatchMulti,
+                    active && styles.colorSwatchActive,
+                  ]}
+                  onPress={() => setColor(active ? undefined : c.hex)}
+                  accessibilityLabel={t(`colors.${c.key}`)}
+                >
+                  {isMulti && <Text style={styles.colorSwatchMultiText}>{t('colorPicker.multiShort')}</Text>}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
           {renderFilterRow(
             [undefined, ...SEASON_OPTIONS],
             item => `season-${item ?? 'all'}`,
@@ -249,6 +289,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   filterChipActive: { backgroundColor: colors.primary },
+  colorSwatch: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: colors.border,
+    marginRight: Spacing.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  colorSwatchMulti: { borderColor: colors.primary },
+  colorSwatchMultiText: { fontSize: FontSize.xs, fontWeight: '700', color: colors.primary },
+  colorSwatchActive: {
+    borderColor: colors.primary,
+    borderWidth: 3,
+    transform: [{ scale: 1.15 }],
+  },
   filterChipText: { fontSize: FontSize.sm, color: colors.textSecondary, fontWeight: '500', includeFontPadding: false },
   filterChipTextActive: { color: '#fff' },
   countText: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm, fontSize: FontSize.xs, color: colors.textTertiary },
