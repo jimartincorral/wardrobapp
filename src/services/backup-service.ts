@@ -84,6 +84,13 @@ type BackupImage = {
   data: string;
 };
 
+// Images held as raw bytes while *building* an archive — avoids the ~33% base64
+// inflation (and the CPU to encode/decode it) that dominated backup time.
+type BackupBuildImage = {
+  name: string;
+  bytes: Uint8Array;
+};
+
 export type GoogleDriveBackupFile = {
   id: string;
   name: string;
@@ -123,15 +130,7 @@ function yieldToUi() {
   return new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
-function getBackupFolderName() {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  return `${BACKUP_PREFIX}${timestamp}`;
-}
-
-// New (SDK 55) File API references — these do native, zero-JS-memory copies.
-function newDbFile() {
-  return new File(Paths.document, 'SQLite', DB_FILENAME);
-}
+// New (SDK 55) File API references used by the folder-restore path.
 function newSqliteDir() {
   return new Directory(Paths.document, 'SQLite');
 }
@@ -141,6 +140,34 @@ function newImagesDir() {
 
 function onlyFiles(entries: (Directory | File)[]) {
   return entries.filter((e): e is File => e instanceof File);
+}
+
+/** Android SAF folders are exposed as content:// URIs. */
+function isContentUri(uri: string) {
+  return uri.startsWith('content://');
+}
+
+/**
+ * Copy a file into a directory.
+ *
+ * `File.copy` performs a fast, low-memory native copy, but the SDK 55 native
+ * implementation throws ("This method cannot be used with content URIs")
+ * whenever either side is an Android SAF content:// URI. That happens both when
+ * writing a backup into a user-picked folder and when restoring from one, so in
+ * those cases we fall back to a bytes read + createFile/write, which is
+ * SAF-aware. Files here (the SQLite DB and individual images) are small enough
+ * to hold in memory one at a time.
+ *
+ * @returns the number of bytes copied.
+ */
+function copyFileInto(src: File, destDir: Directory, name: string, mimeType: string): number {
+  if (isContentUri(destDir.uri) || isContentUri(src.uri)) {
+    const dest = destDir.createFile(name, mimeType);
+    dest.write(src.bytesSync());
+  } else {
+    src.copy(destDir);
+  }
+  return src.size ?? 0;
 }
 
 /**
@@ -198,7 +225,7 @@ function emitProgress(
   });
 }
 
-async function buildBackupData(onProgress?: BackupProgressCallback): Promise<{ payload: BackupPayload; images: BackupImage[] }> {
+async function buildBackupData(onProgress?: BackupProgressCallback): Promise<{ payload: BackupPayload; images: BackupBuildImage[] }> {
   const fs = getFS();
   emitProgress(onProgress, 'preparing', 5, 'Reading database');
 
@@ -210,17 +237,14 @@ async function buildBackupData(onProgress?: BackupProgressCallback): Promise<{ p
     });
   }
 
-  const imageFiles: { name: string; data: string }[] = [];
-  const imgDirInfo = await fs.getInfoAsync(getImageDir());
-  if (imgDirInfo.exists) {
-    const files = await fs.readDirectoryAsync(getImageDir());
+  const imageFiles: BackupBuildImage[] = [];
+  const imagesDir = newImagesDir();
+  if (imagesDir.exists) {
+    const files = onlyFiles(imagesDir.list());
     const totalFiles = files.length || 1;
     for (const file of files) {
       try {
-        const data = await fs.readAsStringAsync(`${getImageDir()}${file}`, {
-          encoding: fs.EncodingType.Base64,
-        });
-        imageFiles.push({ name: file, data });
+        imageFiles.push({ name: file.name, bytes: file.bytesSync() });
       } catch {
         // Skip files that can't be read
       }
@@ -245,11 +269,11 @@ async function buildBackupData(onProgress?: BackupProgressCallback): Promise<{ p
   };
 }
 
-async function buildBackupArchiveBase64(
+async function buildBackupArchive(
   payload: BackupPayload,
-  images: BackupImage[],
+  images: BackupBuildImage[],
   onProgress?: BackupProgressCallback
-) {
+): Promise<Uint8Array> {
   const zip = new JSZip();
 
   zip.file('backup.json', JSON.stringify(payload), {
@@ -258,8 +282,8 @@ async function buildBackupArchiveBase64(
   });
 
   for (const image of images) {
-    zip.file(`images/${image.name}`, image.data, {
-      base64: true,
+    // Already-compressed JPEG/PNG bytes — store without recompressing.
+    zip.file(`images/${image.name}`, image.bytes, {
       compression: 'STORE',
     });
   }
@@ -268,8 +292,9 @@ async function buildBackupArchiveBase64(
 
   return zip.generateAsync(
     {
-      type: 'base64',
+      type: 'uint8array',
       compression: 'STORE',
+      streamFiles: true,
     },
     (metadata) => {
       emitProgress(
@@ -285,10 +310,9 @@ async function buildBackupArchiveBase64(
 async function createBackupArchive(onProgress?: BackupProgressCallback) {
   const name = getBackupFilename();
   const { payload, images } = await withClosedDatabase(() => buildBackupData(onProgress));
-  const base64 = await buildBackupArchiveBase64(payload, images, onProgress);
-  const size = Math.round((base64.length * 3) / 4);
+  const bytes = await buildBackupArchive(payload, images, onProgress);
   emitProgress(onProgress, 'saving', 90, 'Archive ready');
-  return { name, base64, size };
+  return { name, bytes, size: bytes.length };
 }
 
 function getSafEntryName(uri: string) {
@@ -332,14 +356,12 @@ async function ensureTempBackupDir() {
   }
 }
 
-async function writeTempBackupFile(filename: string, base64: string) {
-  const fs = getFS();
+async function writeTempBackupFile(filename: string, bytes: Uint8Array) {
   await ensureTempBackupDir();
-  const uri = `${getTempBackupDir()}${filename}`;
-  await fs.writeAsStringAsync(uri, base64, {
-    encoding: fs.EncodingType.Base64,
-  });
-  return uri;
+  const file = new File(getTempBackupDir(), filename);
+  file.create({ overwrite: true, intermediates: true });
+  file.write(bytes);
+  return file.uri;
 }
 
 async function cleanupTempFile(uri: string) {
@@ -542,8 +564,15 @@ async function uploadBackupToGoogleDrive(accessToken: string, fileUri: string, f
 }
 
 /**
- * Export the database and image list as a JSON backup.
- * Returns the backup file URI.
+ * Export the database and images as a single .zip backup file.
+ *
+ * The archive contains `backup.json` (metadata + the base64 SQLite database,
+ * DEFLATE-compressed) and an `images/` folder (JPEGs stored uncompressed, since
+ * they are already compressed). The whole archive is built in memory and then
+ * written to the chosen folder as one file — writing (rather than `File.copy`)
+ * is what keeps this working on Android SAF `content://` folders.
+ *
+ * Returns the backup file URI and its (approximate) size in bytes.
  */
 export async function createBackup(options?: { onProgress?: BackupProgressCallback }): Promise<{ uri: string; size: number }> {
   ensureNative('Backup creation');
@@ -551,61 +580,21 @@ export async function createBackup(options?: { onProgress?: BackupProgressCallba
   emitProgress(onProgress, 'preparing', 0, 'Starting backup');
 
   const base = await step('Requesting folder access', () => getBackupBaseDirectory());
-  const backupDir = await step('Creating backup folder', async () =>
-    base.createDirectory(getBackupFolderName())
-  );
 
-  let size = 0;
+  const name = getBackupFilename();
+  const { payload, images } = await withClosedDatabase(() => buildBackupData(onProgress));
+  const bytes = await buildBackupArchive(payload, images, onProgress);
+  const size = bytes.length;
 
-  // 1. Copy the SQLite database with the connection closed so WAL is flushed.
-  emitProgress(onProgress, 'archiving', 8, 'Copying database');
-  await step('Copying database', () =>
-    withClosedDatabase(async () => {
-      const db = newDbFile();
-      if (db.exists) {
-        db.copy(backupDir); // Native copy → written as wardrobapp.db inside the folder.
-        size += db.size ?? 0;
-      }
-    })
-  );
-
-  // 2. Copy every image file natively (no base64, near-zero JS memory).
-  let imageCount = 0;
-  const imagesSrc = newImagesDir();
-  if (imagesSrc.exists) {
-    await step('Copying images', async () => {
-      const imagesDest = backupDir.createDirectory(IMAGES_DIRNAME);
-      const files = onlyFiles(imagesSrc.list());
-      const total = files.length || 1;
-      for (const file of files) {
-        file.copy(imagesDest);
-        size += file.size ?? 0;
-        imageCount++;
-        emitProgress(
-          onProgress,
-          'archiving',
-          15 + (imageCount / total) * 78,
-          `Copying images (${imageCount}/${files.length})`
-        );
-        if (imageCount % 10 === 0) await yieldToUi();
-      }
-    });
-  }
-
-  // 3. Write the manifest last so a folder is only "valid" once fully written.
-  emitProgress(onProgress, 'saving', 96, 'Writing manifest');
-  await step('Writing manifest', async () => {
-    const manifest = {
-      version: FOLDER_BACKUP_VERSION,
-      created_at: new Date().toISOString(),
-      imageCount,
-    };
-    const manifestFile = backupDir.createFile(MANIFEST_NAME, 'application/json');
-    manifestFile.write(JSON.stringify(manifest));
+  emitProgress(onProgress, 'saving', 94, 'Saving backup file');
+  const file = await step('Saving backup file', async () => {
+    const f = base.createFile(name, 'application/zip');
+    f.write(bytes);
+    return f;
   });
 
   emitProgress(onProgress, 'done', 100, 'Backup complete');
-  return { uri: backupDir.uri, size };
+  return { uri: file.uri, size };
 }
 
 export async function getGoogleDriveStatus(): Promise<{ connected: boolean; email?: string | null }> {
@@ -644,7 +633,7 @@ export async function createGoogleDriveBackup(): Promise<{ id: string; name: str
   }
 
   const archive = await createBackupArchive();
-  const tempUri = await writeTempBackupFile(archive.name, archive.base64);
+  const tempUri = await writeTempBackupFile(archive.name, archive.bytes);
 
   try {
     const uploadedFile = await uploadBackupToGoogleDrive(session.accessToken, tempUri, archive.name);
@@ -692,6 +681,17 @@ export async function restoreGoogleDriveBackup(fileId: string): Promise<void> {
   }
 }
 
+export async function deleteGoogleDriveBackup(fileId: string): Promise<void> {
+  const session = await ensureGoogleDriveSession(true);
+  if (!session) {
+    throw new Error('Sign in to Google Drive first.');
+  }
+
+  await driveFetch(session.accessToken, `${GOOGLE_DRIVE_FILES_URL}/${fileId}`, {
+    method: 'DELETE',
+  });
+}
+
 /**
  * Restore from a backup. Handles both the new folder-based format and the
  * legacy single-file (.zip/.json) archives (the latter is also used by the
@@ -714,6 +714,72 @@ export async function restoreBackup(backupUri: string): Promise<void> {
   }
 
   await restoreArchiveBackup(backupUri);
+}
+
+/**
+ * Delete a local backup. Handles both the single-file (.zip/.json) archives and
+ * the legacy folder-based backups. Deleting an already-missing backup is a
+ * no-op so the caller can safely refresh its list afterwards.
+ */
+export async function deleteBackup(backupUri: string): Promise<void> {
+  ensureNative('Backup deletion');
+
+  try {
+    const dir = new Directory(backupUri);
+    if (dir.exists) {
+      dir.delete();
+      return;
+    }
+  } catch {
+    // Not a directory (or no longer accessible) — fall through to file delete.
+  }
+
+  const file = new File(backupUri);
+  if (file.exists) file.delete();
+}
+
+/** True for the "user dismissed the picker" error thrown by File.pickFileAsync. */
+function isPickerCancellation(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /cancel/i.test(message);
+}
+
+/**
+ * Let the user pick a backup archive from anywhere on the device — e.g. one
+ * sent from another phone or copied from another device — and restore it.
+ * Returns false if the user dismissed the file picker.
+ */
+export async function restoreBackupFromFile(): Promise<boolean> {
+  ensureNative('Backup restore');
+
+  let picked: File | File[];
+  try {
+    picked = await File.pickFileAsync();
+  } catch (error) {
+    if (isPickerCancellation(error)) return false;
+    throw error;
+  }
+
+  const file = Array.isArray(picked) ? picked[0] : picked;
+  if (!file) return false;
+
+  // Copy the picked file into a temp file with a known extension, then reuse the
+  // shared archive-restore path. Going through a file:// temp avoids depending on
+  // the provider-specific shape of the picker's content:// URI (whose last path
+  // segment often isn't the real filename, so format detection can't use it).
+  await ensureTempBackupDir();
+  const isJson = (file.name ?? '').toLowerCase().endsWith('.json');
+  const dest = new File(getTempBackupDir(), isJson ? 'imported-backup.json' : 'imported-backup.zip');
+  dest.create({ overwrite: true, intermediates: true });
+  dest.write(file.bytesSync());
+
+  try {
+    await restoreBackup(dest.uri);
+  } finally {
+    await cleanupTempFile(dest.uri);
+  }
+
+  return true;
 }
 
 /** Restore a folder-based backup by copying files back natively. */
@@ -739,7 +805,7 @@ async function restoreFolderBackup(dir: Directory): Promise<void> {
         const existing = new File(sqliteDir, name);
         if (existing.exists) existing.delete();
       }
-      dbEntry.copy(sqliteDir);
+      copyFileInto(dbEntry, sqliteDir, DB_FILENAME, 'application/octet-stream');
     }
 
     const imagesEntry = entries.find(
@@ -753,7 +819,7 @@ async function restoreFolderBackup(dir: Directory): Promise<void> {
       const files = onlyFiles(imagesEntry.list());
       let i = 0;
       for (const img of files) {
-        img.copy(destImages);
+        copyFileInto(img, destImages, img.name, 'application/octet-stream');
         if (++i % 10 === 0) await yieldToUi();
       }
     }

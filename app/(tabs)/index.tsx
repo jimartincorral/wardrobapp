@@ -53,6 +53,11 @@ export default function HomeScreen() {
           <Text style={styles.actionTitle}>{t('home.actions.analytics')}</Text>
           <Text style={styles.actionDesc}>{t('home.actions.analyticsDesc')}</Text>
         </Pressable>
+        <Pressable style={styles.actionCard} onPress={() => router.push('/statistics')}>
+          <Text style={styles.actionIcon}>{'∑'}</Text>
+          <Text style={styles.actionTitle}>{t('home.actions.statistics')}</Text>
+          <Text style={styles.actionDesc}>{t('home.actions.statisticsDesc')}</Text>
+        </Pressable>
         <Pressable style={styles.actionCard} onPress={() => router.push('/settings')}>
           <Text style={styles.actionIcon}>{'\u2699'}</Text>
           <Text style={styles.actionTitle}>{t('screens.settings')}</Text>

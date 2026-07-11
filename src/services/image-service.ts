@@ -1,5 +1,5 @@
 import * as ImageManipulator from 'expo-image-manipulator';
-import { Platform } from 'react-native';
+import { Image, Platform } from 'react-native';
 import * as Crypto from 'expo-crypto';
 
 const MAX_DIMENSION = 800;
@@ -150,9 +150,20 @@ export async function saveBgRemovedImage(sourceUri: string): Promise<string> {
   await ensureImageDir();
   const fs = getFileSystem();
 
+  // Downscale to the same cap as regular photos before storing. Background
+  // removal returns a full-resolution image, and copying it verbatim is what
+  // bloats storage and backups. Keep PNG so the transparent background is
+  // preserved — JPEG has no alpha channel, so it would fill transparency with
+  // black. The resize is the dominant size win here.
+  const manipulated = await ImageManipulator.manipulateAsync(
+    sourceUri,
+    [{ resize: { width: MAX_DIMENSION } }],
+    { format: ImageManipulator.SaveFormat.PNG }
+  );
+
   const filename = `${Crypto.randomUUID()}_nobg.png`;
   const destUri = `${getImageDir()}${filename}`;
-  await fs.copyAsync({ from: sourceUri, to: destUri });
+  await fs.copyAsync({ from: manipulated.uri, to: destUri });
 
   return destUri;
 }
@@ -209,6 +220,67 @@ export async function getImageSize(uri: string): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+function getImageDimensions(uri: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    Image.getSize(uri, (width, height) => resolve({ width, height }), reject);
+  });
+}
+
+export type RecompressResult = {
+  processed: number;
+  recompressed: number;
+  bytesSaved: number;
+};
+
+/**
+ * One-time cleanup for background-removed images saved before they were
+ * downscaled on import. Finds every stored `_nobg.png`, and any that is still
+ * larger than the current cap is resized to it in place (URI unchanged, so DB
+ * references stay valid). Regular JPEGs were always downscaled, so they're left
+ * alone. Safe to run repeatedly — already-small images are skipped.
+ */
+export async function recompressLegacyBgRemovedImages(
+  onProgress?: (done: number, total: number) => void
+): Promise<RecompressResult> {
+  if (Platform.OS === 'web') return { processed: 0, recompressed: 0, bytesSaved: 0 };
+
+  const fs = getFileSystem();
+  const dir = getImageDir();
+  const dirInfo = await fs.getInfoAsync(dir);
+  if (!dirInfo.exists) return { processed: 0, recompressed: 0, bytesSaved: 0 };
+
+  const files = (await fs.readDirectoryAsync(dir)).filter((name) => name.endsWith('_nobg.png'));
+  let recompressed = 0;
+  let bytesSaved = 0;
+
+  for (let i = 0; i < files.length; i++) {
+    const uri = `${dir}${files[i]}`;
+    try {
+      const { width } = await getImageDimensions(uri);
+      if (width > MAX_DIMENSION) {
+        const before = await getImageSize(uri);
+        const resized = await ImageManipulator.manipulateAsync(
+          uri,
+          [{ resize: { width: MAX_DIMENSION } }],
+          { format: ImageManipulator.SaveFormat.PNG }
+        );
+        // Overwrite the original file so the stored URI (and every DB row that
+        // references it) keeps pointing at the smaller image.
+        await fs.deleteAsync(uri, { idempotent: true });
+        await fs.copyAsync({ from: resized.uri, to: uri });
+        const after = await getImageSize(uri);
+        recompressed++;
+        bytesSaved += Math.max(0, before - after);
+      }
+    } catch (error) {
+      console.warn('Failed to recompress image, skipping:', files[i], error);
+    }
+    onProgress?.(i + 1, files.length);
+  }
+
+  return { processed: files.length, recompressed, bytesSaved };
 }
 
 /**

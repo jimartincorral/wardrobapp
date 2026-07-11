@@ -362,6 +362,12 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
     selectedImageIndex,
     currentImageUri: imageUris[selectedImageIndex] ?? null,
     currentBgRemovedUri: bgRemovedUris[selectedImageIndex] ?? null,
+    // A separate with-background original exists only when the slot's image
+    // differs from its cut-out. For cut-out-only garments the two are the same
+    // path, so background removal can't be undone/re-run.
+    currentHasOriginal:
+      Boolean(imageUris[selectedImageIndex]) &&
+      imageUris[selectedImageIndex] !== bgRemovedUris[selectedImageIndex],
     displayedPreviewUri: bgRemovedUris[selectedImageIndex] || imageUris[selectedImageIndex] || null,
     showBrandSuggestions,
     setShowBrandSuggestions,

@@ -39,7 +39,7 @@
         }
       ],
       "predictiveBackGestureEnabled": false,
-      "softwareKeyboardLayoutMode": "pan",
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.anonymous.wardrobapp"
     },
     "web": {

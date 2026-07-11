@@ -49,6 +49,11 @@ export default function AnalyticsScreen() {
         </View>
       )}
 
+      <Pressable style={styles.statsLink} onPress={() => router.push('/statistics')}>
+        <Text style={styles.statsLinkText}>{t('statistics.openButton')}</Text>
+        <Text style={styles.statsLinkChevron}>{'›'}</Text>
+      </Pressable>
+
       <Text style={styles.sectionTitle}>{t('analytics.categoryBreakdown')}</Text>
       <View style={styles.chartContainer}>
         {analytics.categoryDistribution.map(cat => {
@@ -100,6 +105,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   barFill: { height: '100%', backgroundColor: colors.primary, borderRadius: BorderRadius.sm },
   barValue: { width: 30, fontSize: FontSize.sm, fontWeight: '600', color: colors.textSecondary, textAlign: 'right' },
   emptyText: { textAlign: 'center', color: colors.textTertiary, fontSize: FontSize.sm, padding: Spacing.md },
+  statsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md },
+  statsLinkText: { fontSize: FontSize.md, fontWeight: '600', color: colors.primary },
+  statsLinkChevron: { fontSize: FontSize.xl, color: colors.primary },
   nudgeCard: { marginBottom: Spacing.lg, backgroundColor: colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md },
   nudgeTitle: { fontSize: FontSize.md, fontWeight: '700', color: colors.text },
   nudgeText: { fontSize: FontSize.sm, color: colors.textSecondary, marginTop: Spacing.xs },

@@ -2,6 +2,7 @@ import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Linking from 'expo-linking';
 import { useEffect, useRef } from 'react';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { LanguageProvider, useTranslation } from '@/src/i18n';
 import { useTheme, ThemeProvider } from '@/src/theme';
 
@@ -77,6 +78,10 @@ function AppStack() {
         name="settings"
         options={{ title: t('screens.settings') }}
       />
+      <Stack.Screen
+        name="statistics"
+        options={{ title: t('screens.statistics') }}
+      />
       </Stack>
     </>
   );
@@ -84,10 +89,12 @@ function AppStack() {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <LanguageProvider>
-        <AppStack />
-      </LanguageProvider>
-    </ThemeProvider>
+    <KeyboardProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <AppStack />
+        </LanguageProvider>
+      </ThemeProvider>
+    </KeyboardProvider>
   );
 }
