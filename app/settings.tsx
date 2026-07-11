@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { getTotalImageStorage } from '@/src/services/image-service';
+import { getTotalImageStorage, recompressLegacyBgRemovedImages } from '@/src/services/image-service';
 import { getGarmentCount } from '@/src/services/garment-service';
 import {
   type BackupProgress,
   connectGoogleDrive,
   createBackup,
   createGoogleDriveBackup,
+  deleteBackup,
+  deleteGoogleDriveBackup,
   disconnectGoogleDrive,
   getGoogleDriveStatus,
   listBackups,
   listGoogleDriveBackups,
   restoreBackup,
+  restoreBackupFromFile,
   restoreGoogleDriveBackup,
   type GoogleDriveBackupFile,
 } from '@/src/services/backup-service';
@@ -27,6 +30,7 @@ export default function SettingsScreen() {
   const [storageUsed, setStorageUsed] = useState(0);
   const [itemCount, setItemCount] = useState(0);
   const [backingUp, setBackingUp] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
   const [backupProgress, setBackupProgress] = useState<BackupProgress | null>(null);
   const [driveBusy, setDriveBusy] = useState(false);
   const [backups, setBackups] = useState<{ name: string; uri: string }[]>([]);
@@ -74,6 +78,29 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleOptimizeStorage = async () => {
+    setOptimizing(true);
+    try {
+      const { recompressed, bytesSaved } = await recompressLegacyBgRemovedImages();
+      if (recompressed === 0) {
+        Alert.alert(t('settings.alerts.optimizeNone'), t('settings.alerts.optimizeNoneMsg'));
+      } else {
+        Alert.alert(
+          t('settings.alerts.optimizeDone'),
+          t('settings.alerts.optimizeDoneMsg', {
+            count: recompressed,
+            mb: (bytesSaved / 1024 / 1024).toFixed(1),
+          })
+        );
+        await loadStats();
+      }
+    } catch (error) {
+      Alert.alert(t('settings.alerts.optimizeFailed'), `${t('settings.alerts.optimizeFailedMsg')}${getErrorMessage(error)}`);
+    } finally {
+      setOptimizing(false);
+    }
+  };
+
   const handleBackup = async () => {
     setBackingUp(true);
     setBackupProgress({ phase: 'preparing', percent: 0, message: 'Starting backup' });
@@ -104,6 +131,53 @@ export default function SettingsScreen() {
             try {
               await restoreBackup(backup.uri);
               Alert.alert(t('settings.alerts.restored'), t('settings.alerts.restoredMsg'));
+            } catch (error) {
+              Alert.alert(t('settings.alerts.restoreFailed'), `${t('settings.alerts.restoreFailedMsg')}${getErrorMessage(error)}`);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDelete = (backup: { name: string; uri: string }) => {
+    Alert.alert(
+      t('settings.alerts.deleteTitle'),
+      t('settings.alerts.deleteMsg', { name: backup.name }),
+      [
+        { text: t('settings.alerts.cancel'), style: 'cancel' },
+        {
+          text: t('settings.alerts.deleteConfirm'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteBackup(backup.uri);
+              await loadBackups();
+              Alert.alert(t('settings.alerts.deleted'), t('settings.alerts.deletedMsg'));
+            } catch (error) {
+              Alert.alert(t('settings.alerts.deleteFailed'), `${t('settings.alerts.deleteFailedMsg')}${getErrorMessage(error)}`);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRestoreFromFile = () => {
+    Alert.alert(
+      t('settings.alerts.restoreTitle'),
+      t('settings.alerts.restoreFileMsg'),
+      [
+        { text: t('settings.alerts.cancel'), style: 'cancel' },
+        {
+          text: t('settings.alerts.restoreConfirm'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const restored = await restoreBackupFromFile();
+              if (restored) {
+                Alert.alert(t('settings.alerts.restored'), t('settings.alerts.restoredMsg'));
+              }
             } catch (error) {
               Alert.alert(t('settings.alerts.restoreFailed'), `${t('settings.alerts.restoreFailedMsg')}${getErrorMessage(error)}`);
             }
@@ -170,6 +244,32 @@ export default function SettingsScreen() {
               Alert.alert(t('settings.alerts.restored'), t('settings.alerts.restoredMsg'));
             } catch (error) {
               Alert.alert(t('settings.alerts.restoreFailed'), `${t('settings.alerts.driveRestoreFailed')}${getErrorMessage(error)}`);
+            } finally {
+              setDriveBusy(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDriveDelete = (backup: GoogleDriveBackupFile) => {
+    Alert.alert(
+      t('settings.alerts.deleteTitle'),
+      t('settings.alerts.deleteMsg', { name: backup.name }),
+      [
+        { text: t('settings.alerts.cancel'), style: 'cancel' },
+        {
+          text: t('settings.alerts.deleteConfirm'),
+          style: 'destructive',
+          onPress: async () => {
+            setDriveBusy(true);
+            try {
+              await deleteGoogleDriveBackup(backup.id);
+              await loadDriveBackups();
+              Alert.alert(t('settings.alerts.deleted'), t('settings.alerts.deletedMsg'));
+            } catch (error) {
+              Alert.alert(t('settings.alerts.deleteFailed'), `${t('settings.alerts.deleteFailedMsg')}${getErrorMessage(error)}`);
             } finally {
               setDriveBusy(false);
             }
@@ -249,6 +349,18 @@ export default function SettingsScreen() {
           <Text style={styles.label}>{t('settings.imageStorage')}</Text>
           <Text style={styles.value}>{t('settings.storageMb', { mb: storageUsed.toFixed(1) })}</Text>
         </View>
+        <Pressable
+          style={[styles.button, styles.buttonSecondary, { marginTop: Spacing.md }, optimizing && { opacity: 0.6 }]}
+          onPress={handleOptimizeStorage}
+          disabled={optimizing}
+        >
+          {optimizing ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <Text style={[styles.buttonText, styles.buttonTextSecondary]}>{t('settings.optimizeStorage')}</Text>
+          )}
+        </Pressable>
+        <Text style={styles.hint}>{t('settings.optimizeStorageHint')}</Text>
       </View>
 
       {/* Backup */}
@@ -269,6 +381,13 @@ export default function SettingsScreen() {
           </View>
         )}
         <Text style={styles.hint}>{t('settings.backupHint')}</Text>
+        <Pressable
+          style={[styles.button, styles.buttonSecondary, { marginTop: Spacing.md }]}
+          onPress={handleRestoreFromFile}
+        >
+          <Text style={[styles.buttonText, styles.buttonTextSecondary]}>{t('settings.restoreFromFile')}</Text>
+        </Pressable>
+        <Text style={styles.hint}>{t('settings.restoreFromFileHint')}</Text>
         <Pressable
           style={[styles.button, styles.buttonSecondary, { marginTop: Spacing.md }, driveBusy && { opacity: 0.6 }]}
           onPress={driveConnectedEmail ? handleDisconnectDrive : handleConnectDrive}
@@ -300,10 +419,15 @@ export default function SettingsScreen() {
               <View style={{ marginTop: Spacing.lg }}>
                 <Text style={styles.subTitle}>{t('settings.driveBackupsTitle')}</Text>
                 {driveBackups.map(backup => (
-                  <Pressable key={backup.id} style={styles.backupRow} onPress={() => handleDriveRestore(backup)}>
+                  <View key={backup.id} style={styles.backupRow}>
                     <Text style={styles.backupName} numberOfLines={1}>{backup.name}</Text>
-                    <Text style={styles.restoreText}>{t('settings.restore')}</Text>
-                  </Pressable>
+                    <Pressable hitSlop={8} disabled={driveBusy} onPress={() => handleDriveRestore(backup)}>
+                      <Text style={styles.restoreText}>{t('settings.restore')}</Text>
+                    </Pressable>
+                    <Pressable hitSlop={8} disabled={driveBusy} style={styles.deleteAction} onPress={() => handleDriveDelete(backup)}>
+                      <Text style={styles.deleteText}>{t('settings.delete')}</Text>
+                    </Pressable>
+                  </View>
                 ))}
               </View>
             )}
@@ -313,10 +437,15 @@ export default function SettingsScreen() {
           <View style={{ marginTop: Spacing.lg }}>
             <Text style={styles.subTitle}>{t('settings.availableBackups')}</Text>
             {backups.map(backup => (
-              <Pressable key={backup.name} style={styles.backupRow} onPress={() => handleRestore(backup)}>
+              <View key={backup.name} style={styles.backupRow}>
                 <Text style={styles.backupName} numberOfLines={1}>{backup.name}</Text>
-                <Text style={styles.restoreText}>{t('settings.restore')}</Text>
-              </Pressable>
+                <Pressable hitSlop={8} onPress={() => handleRestore(backup)}>
+                  <Text style={styles.restoreText}>{t('settings.restore')}</Text>
+                </Pressable>
+                <Pressable hitSlop={8} style={styles.deleteAction} onPress={() => handleDelete(backup)}>
+                  <Text style={styles.deleteText}>{t('settings.delete')}</Text>
+                </Pressable>
+              </View>
             ))}
           </View>
         )}
@@ -366,4 +495,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backupRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
   backupName: { flex: 1, fontSize: FontSize.sm, color: colors.text, marginRight: Spacing.md },
   restoreText: { fontSize: FontSize.sm, fontWeight: '600', color: colors.primary },
+  deleteAction: { marginLeft: Spacing.md },
+  deleteText: { fontSize: FontSize.sm, fontWeight: '600', color: colors.error },
 });

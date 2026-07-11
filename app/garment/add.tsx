@@ -72,18 +72,25 @@ export default function AddGarmentScreen() {
 
     setSaving(true);
     try {
-      const savedImageUris = await Promise.all(data.imageUris.map((uri) => compressAndSaveImage(uri)));
-      const savedBgRemovedUris = await Promise.all(
-        data.bgRemovedUris.map(async (uri) => {
-          if (!uri) return '';
-          try {
-            return await saveBgRemovedImage(uri);
-          } catch (error) {
-            console.warn('Failed to persist background-removed image, saving original only:', error);
-            return '';
+      // When a background was removed we store ONLY the cut-out (used as both the
+      // main and no-bg image) and never persist the original — the point is to
+      // save space. If persisting the cut-out fails, fall back to the original.
+      const saved = await Promise.all(
+        data.imageUris.map(async (uri, index) => {
+          const bgSource = data.bgRemovedUris[index];
+          if (bgSource) {
+            try {
+              const cutout = await saveBgRemovedImage(bgSource);
+              return { image: cutout, nobg: cutout };
+            } catch (error) {
+              console.warn('Failed to persist background-removed image, saving original only:', error);
+            }
           }
+          return { image: await compressAndSaveImage(uri), nobg: '' };
         })
       );
+      const savedImageUris = saved.map((s) => s.image);
+      const savedBgRemovedUris = saved.map((s) => s.nobg);
 
       await createGarment({
         image_uri: savedImageUris[0],

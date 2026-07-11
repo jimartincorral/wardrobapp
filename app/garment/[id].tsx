@@ -3,6 +3,7 @@ import { View, Text, Image, ScrollView, Pressable, StyleSheet, Alert, Platform, 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getGarment, markUnavailable, markAvailable, deleteGarment, updateGarment } from '@/src/services/garment-service';
 import { isBackgroundRemovalAvailable, removeImageBackground } from '@/src/services/background-removal';
+import { deleteImage, saveBgRemovedImage } from '@/src/services/image-service';
 import { CATEGORIES } from '@/src/constants/categories';
 import { GARMENT_COLORS } from '@/src/constants/colors';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
@@ -103,15 +104,24 @@ export default function GarmentDetailScreen() {
 
     try {
       setRemovingBg(true);
-      const imageUris = getGarmentImageUris(garment);
+      const imageUris = [...getGarmentImageUris(garment)];
       const imageUrisNoBg = [...getGarmentNoBgImageUris(garment)];
-      const sourceUri = imageUris[selectedImageIndex] || garment.image_uri;
-      const result = await removeImageBackground(sourceUri);
-      imageUrisNoBg[selectedImageIndex] = result;
+      const originalUri = imageUris[selectedImageIndex] || garment.image_uri;
+      const result = await removeImageBackground(originalUri);
+      // Persist (and downscale) the cut-out, then drop the original: the cut-out
+      // becomes the only stored image for this slot.
+      const cutout = await saveBgRemovedImage(result);
+      imageUris[selectedImageIndex] = cutout;
+      imageUrisNoBg[selectedImageIndex] = cutout;
       await updateGarment(garment.id, {
+        image_uri: imageUris[0],
         image_uri_nobg: imageUrisNoBg[0] || null,
+        image_uris: imageUris,
         image_uris_nobg: imageUrisNoBg,
       });
+      if (originalUri && originalUri !== cutout) {
+        await deleteImage(originalUri);
+      }
       await loadGarment();
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -124,12 +134,18 @@ export default function GarmentDetailScreen() {
   const handleUndoBackground = async () => {
     if (!garment || removingBg) return;
     try {
+      const imageUris = getGarmentImageUris(garment);
       const imageUrisNoBg = [...getGarmentNoBgImageUris(garment)];
+      const discardedCutout = imageUrisNoBg[selectedImageIndex];
       imageUrisNoBg[selectedImageIndex] = '';
       await updateGarment(garment.id, {
         image_uri_nobg: imageUrisNoBg[0] || null,
         image_uris_nobg: imageUrisNoBg,
       });
+      // Reverting to the original — the cut-out is no longer referenced.
+      if (discardedCutout && discardedCutout !== imageUris[selectedImageIndex]) {
+        await deleteImage(discardedCutout);
+      }
       await loadGarment();
     } catch {
       Alert.alert(t('addGarment.errors.errorTitle'), t('addGarment.errors.saveFailed'));
@@ -261,11 +277,12 @@ export default function GarmentDetailScreen() {
               <Text style={styles.editButtonText}>{t('addGarment.removeBackground')}</Text>
             )}
           </Pressable>
-        ) : (
+        ) : garmentImages[selectedImageIndex] && garmentImages[selectedImageIndex] !== garmentNoBgImages[selectedImageIndex] ? (
+          // A separate original still exists (legacy garment) — undo can revert to it.
           <Pressable style={styles.actionButton} onPress={handleUndoBackground} disabled={removingBg}>
             <Text style={styles.actionButtonText}>{t('addGarment.undoBackground')}</Text>
           </Pressable>
-        )}
+        ) : null}
         <Pressable style={styles.deleteButton} onPress={handleDelete}>
           <Text style={styles.deleteButtonText}>{t('garmentDetail.deleteGarment')}</Text>
         </Pressable>

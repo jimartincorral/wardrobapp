@@ -3,7 +3,7 @@ import { Alert, ActivityIndicator, Text, View, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { GarmentForm } from '@/src/components/GarmentForm';
 import { garmentToFormData, useGarmentForm } from '@/src/hooks/useGarmentForm';
-import { compressAndSaveImage, saveBgRemovedImage } from '@/src/services/image-service';
+import { compressAndSaveImage, deleteImage, saveBgRemovedImage } from '@/src/services/image-service';
 import { getGarment, updateGarment } from '@/src/services/garment-service';
 import { mergeStructuredTags } from '@/src/utils/style-tags';
 import { useTranslation } from '@/src/i18n';
@@ -51,21 +51,35 @@ export default function EditGarmentScreen() {
 
     setSaving(true);
     try {
-      const savedImageUris = await Promise.all(
-        data.imageUris.map((uri) => (garment.image_uris.includes(uri) ? uri : compressAndSaveImage(uri)))
-      );
-      const savedBgRemovedUris = await Promise.all(
-        data.bgRemovedUris.map(async (uri) => {
-          if (!uri) return '';
-          if (garment.image_uris_nobg.includes(uri)) return uri;
-          try {
-            return await saveBgRemovedImage(uri);
-          } catch (error) {
-            console.warn('Failed to persist background-removed image, keeping previous value:', error);
-            return '';
+      // Store only the cut-out for slots whose background was removed; never
+      // persist the original alongside it. Reuse already-saved files as-is.
+      const saved = await Promise.all(
+        data.imageUris.map(async (uri, index) => {
+          const bgSource = data.bgRemovedUris[index];
+          if (bgSource) {
+            if (garment.image_uris_nobg.includes(bgSource)) {
+              return { image: bgSource, nobg: bgSource };
+            }
+            try {
+              const cutout = await saveBgRemovedImage(bgSource);
+              return { image: cutout, nobg: cutout };
+            } catch (error) {
+              console.warn('Failed to persist background-removed image, keeping original only:', error);
+            }
           }
+          const image = garment.image_uris.includes(uri) ? uri : await compressAndSaveImage(uri);
+          return { image, nobg: '' };
         })
       );
+      const savedImageUris = saved.map((s) => s.image);
+      const savedBgRemovedUris = saved.map((s) => s.nobg);
+
+      // Any file the garment referenced before but no longer does — the dropped
+      // original of a newly cut-out image, a discarded cut-out, or a removed
+      // photo — is now orphaned. Delete it after the DB write succeeds.
+      const keptFiles = new Set([...savedImageUris, ...savedBgRemovedUris].filter(Boolean));
+      const orphanedFiles = [...new Set([...garment.image_uris, ...garment.image_uris_nobg])]
+        .filter((f) => f && !keptFiles.has(f));
 
       await updateGarment(id, {
         image_uri: savedImageUris[0],
@@ -83,6 +97,8 @@ export default function EditGarmentScreen() {
         size: data.size || null,
         price: null,
       });
+
+      await Promise.all(orphanedFiles.map((uri) => deleteImage(uri)));
 
       router.replace(`/garment/${id}`);
     } catch (error) {

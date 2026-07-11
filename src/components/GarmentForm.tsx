@@ -204,7 +204,7 @@ export function GarmentForm({
                 <Text style={styles.analysisButtonText}>{t('addGarment.analyzePhoto')}</Text>
               </Pressable>
             )}
-            {form.currentBgRemovedUri && (
+            {form.currentBgRemovedUri && form.currentHasOriginal && (
               <Pressable onPress={form.undoCurrentBackground}>
                 <Text style={[styles.changePhotoText, { color: colors.error }]}>{t('addGarment.undoBackground')}</Text>
               </Pressable>
