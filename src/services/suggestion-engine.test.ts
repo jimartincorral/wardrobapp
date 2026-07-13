@@ -36,7 +36,6 @@ const baseGarment = (overrides: Partial<Garment>): Garment => {
     color_secondary: null,
     color_palette: ['#000000'],
     size: null,
-    price: null,
     purchase_date: null,
     is_available: true,
     unavailable_date: null,

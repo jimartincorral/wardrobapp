@@ -150,24 +150,21 @@ function isContentUri(uri: string) {
 /**
  * Copy a file into a directory.
  *
- * `File.copy` performs a fast, low-memory native copy, but the SDK 55 native
- * implementation throws ("This method cannot be used with content URIs")
- * whenever either side is an Android SAF content:// URI. That happens both when
- * writing a backup into a user-picked folder and when restoring from one, so in
- * those cases we fall back to a bytes read + createFile/write, which is
- * SAF-aware. Files here (the SQLite DB and individual images) are small enough
- * to hold in memory one at a time.
- *
- * @returns the number of bytes copied.
+ * `File.copy` does a fast native copy, but the SDK 55 implementation rejects
+ * Android SAF `content://` URIs ("This method cannot be used with content
+ * URIs"). Reading the whole file into JS instead (`bytesSync`) works for small
+ * files but throws OutOfMemoryError on large backups — a restored SQLite DB can
+ * be >100 MB, well past the app's heap limit. So whenever a content:// URI is
+ * involved we use the legacy `copyAsync`, which streams natively through the
+ * content resolver and keeps memory bounded regardless of file size.
  */
-function copyFileInto(src: File, destDir: Directory, name: string, mimeType: string): number {
+async function copyFileInto(src: File, destDir: Directory, name: string): Promise<void> {
   if (isContentUri(destDir.uri) || isContentUri(src.uri)) {
-    const dest = destDir.createFile(name, mimeType);
-    dest.write(src.bytesSync());
+    const destUri = new File(destDir, name).uri;
+    await getFS().copyAsync({ from: src.uri, to: destUri });
   } else {
     src.copy(destDir);
   }
-  return src.size ?? 0;
 }
 
 /**
@@ -320,20 +317,6 @@ function getSafEntryName(uri: string) {
   return decoded.slice(decoded.lastIndexOf('/') + 1);
 }
 
-async function readBackupContents(
-  backupUri: string,
-  encoding?: import('expo-file-system/legacy').EncodingType | 'utf8' | 'base64'
-) {
-  const fs = getFS();
-  const options = encoding ? { encoding } : undefined;
-
-  if (Platform.OS === 'android' && backupUri.startsWith('content://')) {
-    return fs.StorageAccessFramework.readAsStringAsync(backupUri, options);
-  }
-
-  return fs.readAsStringAsync(backupUri, options);
-}
-
 async function readBackupFileName(backupUri: string) {
   if (backupUri.startsWith('content://')) {
     return getSafEntryName(backupUri);
@@ -372,35 +355,48 @@ async function cleanupTempFile(uri: string) {
   }
 }
 
-async function loadBackupData(backupUri: string): Promise<{ payload: BackupPayload; images: BackupImage[] }> {
-  const filename = (await readBackupFileName(backupUri)).toLowerCase();
+/**
+ * Ensure the archive is a local file:// path so it can be read as raw bytes
+ * (never a base64 string, which doubles in UTF-16) and without a SAF
+ * read-the-whole-thing-as-a-string call. content:// archives are streamed to a
+ * temp file via the native copyAsync.
+ */
+async function materializeArchiveLocally(
+  backupUri: string,
+  isJson: boolean
+): Promise<{ uri: string; temporary: boolean }> {
+  if (!isContentUri(backupUri)) return { uri: backupUri, temporary: false };
+  await ensureTempBackupDir();
+  const localUri = `${getTempBackupDir()}restore-src${isJson ? '.json' : '.zip'}`;
+  await getFS().copyAsync({ from: backupUri, to: localUri });
+  return { uri: localUri, temporary: true };
+}
 
-  if (filename.endsWith('.zip')) {
-    const zipBase64 = await readBackupContents(backupUri, getFS().EncodingType.Base64);
-    const zip = await JSZip.loadAsync(zipBase64, { base64: true });
-    const payloadFile = zip.file('backup.json');
-
-    if (!payloadFile) {
-      throw new Error('Invalid backup archive: missing backup.json');
-    }
-
-    const payload = JSON.parse(await payloadFile.async('string')) as BackupPayload;
-    const images: BackupImage[] = [];
-
-    for (const entry of Object.values(zip.files)) {
-      if (entry.dir || !entry.name.startsWith('images/')) continue;
-      images.push({
-        name: entry.name.replace(/^images\//, ''),
-        data: await entry.async('base64'),
-      });
-    }
-
-    return { payload, images };
+async function writeRestoredDatabase(dbBase64?: string) {
+  if (!dbBase64) return;
+  const fs = getFS();
+  const dbDir = `${fs.documentDirectory}SQLite/`;
+  const dirInfo = await fs.getInfoAsync(dbDir);
+  if (!dirInfo.exists) {
+    await fs.makeDirectoryAsync(dbDir, { intermediates: true });
   }
+  await fs.writeAsStringAsync(getDbPath(), dbBase64, {
+    encoding: fs.EncodingType.Base64,
+  });
+}
 
-  const content = await readBackupContents(backupUri);
-  const payload = JSON.parse(content) as BackupPayload;
-  return { payload, images: Array.isArray(payload.images) ? payload.images : [] };
+async function prepareEmptyImageDir() {
+  const fs = getFS();
+  const imageDir = getImageDir();
+  const info = await fs.getInfoAsync(imageDir);
+  if (info.exists) {
+    const existing = await fs.readDirectoryAsync(imageDir);
+    for (const file of existing) {
+      await fs.deleteAsync(`${imageDir}${file}`, { idempotent: true });
+    }
+  } else {
+    await fs.makeDirectoryAsync(imageDir, { intermediates: true });
+  }
 }
 
 async function replaceImageDirectory(images: BackupImage[]) {
@@ -763,20 +759,21 @@ export async function restoreBackupFromFile(): Promise<boolean> {
   const file = Array.isArray(picked) ? picked[0] : picked;
   if (!file) return false;
 
-  // Copy the picked file into a temp file with a known extension, then reuse the
-  // shared archive-restore path. Going through a file:// temp avoids depending on
-  // the provider-specific shape of the picker's content:// URI (whose last path
-  // segment often isn't the real filename, so format detection can't use it).
+  // Stream the picked file into a temp file with a known extension, then reuse
+  // the shared archive-restore path. Going through a file:// temp avoids
+  // depending on the provider-specific shape of the picker's content:// URI
+  // (whose last path segment often isn't the real filename, so format detection
+  // can't use it). copyAsync streams natively — reading the whole archive into
+  // JS first would OutOfMemory on large backups.
   await ensureTempBackupDir();
   const isJson = (file.name ?? '').toLowerCase().endsWith('.json');
-  const dest = new File(getTempBackupDir(), isJson ? 'imported-backup.json' : 'imported-backup.zip');
-  dest.create({ overwrite: true, intermediates: true });
-  dest.write(file.bytesSync());
+  const destUri = `${getTempBackupDir()}${isJson ? 'imported-backup.json' : 'imported-backup.zip'}`;
+  await getFS().copyAsync({ from: file.uri, to: destUri });
 
   try {
-    await restoreBackup(dest.uri);
+    await restoreBackup(destUri);
   } finally {
-    await cleanupTempFile(dest.uri);
+    await cleanupTempFile(destUri);
   }
 
   return true;
@@ -805,7 +802,7 @@ async function restoreFolderBackup(dir: Directory): Promise<void> {
         const existing = new File(sqliteDir, name);
         if (existing.exists) existing.delete();
       }
-      copyFileInto(dbEntry, sqliteDir, DB_FILENAME, 'application/octet-stream');
+      await copyFileInto(dbEntry, sqliteDir, DB_FILENAME);
     }
 
     const imagesEntry = entries.find(
@@ -819,7 +816,7 @@ async function restoreFolderBackup(dir: Directory): Promise<void> {
       const files = onlyFiles(imagesEntry.list());
       let i = 0;
       for (const img of files) {
-        copyFileInto(img, destImages, img.name, 'application/octet-stream');
+        await copyFileInto(img, destImages, img.name);
         if (++i % 10 === 0) await yieldToUi();
       }
     }
@@ -829,28 +826,58 @@ async function restoreFolderBackup(dir: Directory): Promise<void> {
 /** Restore a legacy single-file (.zip/.json) backup archive. */
 async function restoreArchiveBackup(backupUri: string): Promise<void> {
   const fs = getFS();
-  const { payload: backup, images } = await loadBackupData(backupUri);
+  const filename = (await readBackupFileName(backupUri)).toLowerCase();
+  const isJson = filename.endsWith('.json');
+  const local = await materializeArchiveLocally(backupUri, isJson);
 
-  if (![1, 2].includes(backup.version)) {
-    throw new Error('Unsupported backup version');
-  }
-
-  await withClosedDatabase(async () => {
-    if (backup.database) {
-      const dbDir = `${fs.documentDirectory}SQLite/`;
-      const dirInfo = await fs.getInfoAsync(dbDir);
-      if (!dirInfo.exists) {
-        await fs.makeDirectoryAsync(dbDir, { intermediates: true });
+  try {
+    if (!isJson) {
+      // Read the zip as raw bytes rather than a base64 string, and write each
+      // image straight to disk instead of collecting them all in memory.
+      const zip = await JSZip.loadAsync(new File(local.uri).bytesSync());
+      const payloadFile = zip.file('backup.json');
+      if (!payloadFile) {
+        throw new Error('Invalid backup archive: missing backup.json');
       }
-      await fs.writeAsStringAsync(getDbPath(), backup.database, {
-        encoding: fs.EncodingType.Base64,
+      const payload = JSON.parse(await payloadFile.async('string')) as BackupPayload;
+      if (![1, 2].includes(payload.version)) {
+        throw new Error('Unsupported backup version');
+      }
+
+      const imageEntries = Object.values(zip.files).filter(
+        (entry) => !entry.dir && entry.name.startsWith('images/')
+      );
+
+      await withClosedDatabase(async () => {
+        await writeRestoredDatabase(payload.database);
+        await prepareEmptyImageDir();
+        let i = 0;
+        for (const entry of imageEntries) {
+          const name = entry.name.replace(/^images\//, '');
+          const data = await entry.async('base64');
+          await fs.writeAsStringAsync(`${getImageDir()}${name}`, data, {
+            encoding: fs.EncodingType.Base64,
+          });
+          if (++i % 10 === 0) await yieldToUi();
+        }
       });
+      return;
     }
 
-    if (images.length > 0) {
-      await replaceImageDirectory(images);
+    // Legacy .json backup: a single JSON document with an embedded base64 payload.
+    const content = await fs.readAsStringAsync(local.uri);
+    const payload = JSON.parse(content) as BackupPayload;
+    if (![1, 2].includes(payload.version)) {
+      throw new Error('Unsupported backup version');
     }
-  });
+    const images = Array.isArray(payload.images) ? payload.images : [];
+    await withClosedDatabase(async () => {
+      await writeRestoredDatabase(payload.database);
+      if (images.length > 0) await replaceImageDirectory(images);
+    });
+  } finally {
+    if (local.temporary) await cleanupTempFile(local.uri);
+  }
 }
 
 /**

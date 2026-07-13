@@ -1,10 +1,11 @@
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Linking from 'expo-linking';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { LanguageProvider, useTranslation } from '@/src/i18n';
 import { useTheme, ThemeProvider } from '@/src/theme';
+import { AppReloadProvider } from '@/src/app-reload';
 
 function AppStack() {
   const { t } = useTranslation();
@@ -88,11 +89,18 @@ function AppStack() {
 }
 
 export default function RootLayout() {
+  // Bumping this key remounts the whole navigation tree, forcing every screen to
+  // re-fetch — used as a "soft restart" after a backup restore.
+  const [reloadKey, setReloadKey] = useState(0);
+  const reloadApp = useCallback(() => setReloadKey((key) => key + 1), []);
+
   return (
     <KeyboardProvider>
       <ThemeProvider>
         <LanguageProvider>
-          <AppStack />
+          <AppReloadProvider value={reloadApp}>
+            <AppStack key={reloadKey} />
+          </AppReloadProvider>
         </LanguageProvider>
       </ThemeProvider>
     </KeyboardProvider>

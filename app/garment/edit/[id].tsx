@@ -95,7 +95,6 @@ export default function EditGarmentScreen() {
         color_secondary: data.colorPalette[1] ?? null,
         color_palette: data.colorPalette,
         size: data.size || null,
-        price: null,
       });
 
       await Promise.all(orphanedFiles.map((uri) => deleteImage(uri)));

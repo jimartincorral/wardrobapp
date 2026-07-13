@@ -19,8 +19,8 @@ export async function createGarment(
   const primarySubcategory = subcategories[0] ?? null;
 
   await db.runAsync(
-    `INSERT INTO garments (id, image_uri, image_uri_nobg, image_uris, image_uris_nobg, category, subcategory, subcategories, tags, brand, color_primary, color_secondary, color_palette, size, price, purchase_date, is_available, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+    `INSERT INTO garments (id, image_uri, image_uri_nobg, image_uris, image_uris_nobg, category, subcategory, subcategories, tags, brand, color_primary, color_secondary, color_palette, size, purchase_date, is_available, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
     id,
     data.image_uri,
     data.image_uri_nobg ?? null,
@@ -35,7 +35,6 @@ export async function createGarment(
     data.color_secondary ?? null,
     JSON.stringify(data.color_palette),
     data.size ?? null,
-    data.price ?? null,
     data.purchase_date ?? null,
     now,
     now
@@ -100,7 +99,7 @@ export async function updateGarment(id: string, data: Partial<Garment>): Promise
 
   const updatable = [
     'image_uri', 'image_uri_nobg', 'category', 'subcategory',
-    'brand', 'color_primary', 'color_secondary', 'size', 'price', 'purchase_date',
+    'brand', 'color_primary', 'color_secondary', 'size', 'purchase_date',
   ] as const;
 
   for (const field of updatable) {

@@ -131,22 +131,6 @@ async function getPairScore(idA: string, idB: string): Promise<number> {
 }
 
 /**
- * Get days since a garment was last worn.
- */
-async function daysSinceWorn(garmentId: string): Promise<number> {
-  const db = await getDatabase();
-  const result = await db.getFirstAsync<{ worn_at: string }>(
-    'SELECT worn_at FROM wear_history WHERE garment_id = ? ORDER BY worn_at DESC LIMIT 1',
-    garmentId
-  );
-  if (!result) return 999; // Never worn
-  const days = Math.floor(
-    (Date.now() - new Date(result.worn_at).getTime()) / (1000 * 60 * 60 * 24)
-  );
-  return days;
-}
-
-/**
  * Check if garment's tags match the current season.
  */
 function matchesSeason(garment: Garment, seasons?: SeasonOption[]): boolean {
@@ -240,12 +224,6 @@ async function scoreOutfit(garments: Garment[], preferences?: SuggestionPreferen
     }
   }
   if (pairCount > 0) score += (pairTotal / pairCount) * 3; // Weight learned preferences heavily
-
-  // Freshness bonus: prefer garments not worn recently
-  for (const g of garments) {
-    const days = await daysSinceWorn(g.id);
-    score += Math.min(days / 30, 1) * 0.5; // Up to 0.5 per garment
-  }
 
   // Season match
   const seasonMatches = garments.filter(g => matchesSeason(g, preferences?.seasons)).length;
