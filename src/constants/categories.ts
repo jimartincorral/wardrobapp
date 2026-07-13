@@ -16,7 +16,7 @@ export const CATEGORIES = {
   },
   midlayer: {
     label: 'Mid-Layer',
-    subcategories: ['Blazer', 'Vest', 'Poncho', 'Cape'],
+    subcategories: ['Blazer', 'Overshirt', 'Vest', 'Poncho', 'Cape'],
     icon: 'albums',
   },
   outerwear: {
@@ -31,7 +31,7 @@ export const CATEGORIES = {
   },
   accessories: {
     label: 'Accessories',
-    subcategories: ['Hat', 'Scarf', 'Belt', 'Bag', 'Jewelry', 'Watch', 'Sunglasses', 'Tie'],
+    subcategories: ['Hat', 'Scarf', 'Foulard', 'Belt', 'Bag', 'Wallet', 'Gloves', 'Jewelry', 'Watch', 'Sunglasses', 'Tie'],
     icon: 'diamond',
   },
   activewear: {
@@ -109,6 +109,7 @@ export const SUBCATEGORY_KEY_MAP: Record<string, string> = {
   'Jacket': 'jacket',
   'Coat': 'coat',
   'Blazer': 'blazer',
+  'Overshirt': 'overshirt',
   'Cardigan': 'cardigan',
   'Vest': 'vest',
   'Poncho': 'poncho',
@@ -124,8 +125,11 @@ export const SUBCATEGORY_KEY_MAP: Record<string, string> = {
   'Athletic': 'athletic',
   'Hat': 'hat',
   'Scarf': 'scarf',
+  'Foulard': 'foulard',
   'Belt': 'belt',
   'Bag': 'bag',
+  'Wallet': 'wallet',
+  'Gloves': 'gloves',
   'Jewelry': 'jewelry',
   'Watch': 'watch',
   'Sunglasses': 'sunglasses',

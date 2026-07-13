@@ -116,7 +116,6 @@ async function initializeDatabase(database: DatabaseAdapter) {
       color_secondary TEXT,
       color_palette TEXT NOT NULL DEFAULT '[]',
       size TEXT,
-      price REAL,
       purchase_date TEXT,
       is_available INTEGER NOT NULL DEFAULT 1,
       unavailable_date TEXT,
@@ -144,15 +143,6 @@ async function initializeDatabase(database: DatabaseAdapter) {
       FOREIGN KEY (outfit_id) REFERENCES outfits(id) ON DELETE CASCADE
     );
 
-    CREATE TABLE IF NOT EXISTS wear_history (
-      id TEXT PRIMARY KEY,
-      garment_id TEXT NOT NULL,
-      outfit_id TEXT,
-      worn_at TEXT NOT NULL,
-      FOREIGN KEY (garment_id) REFERENCES garments(id) ON DELETE CASCADE,
-      FOREIGN KEY (outfit_id) REFERENCES outfits(id) ON DELETE SET NULL
-    );
-
     CREATE TABLE IF NOT EXISTS garment_pair_scores (
       garment_id_a TEXT NOT NULL,
       garment_id_b TEXT NOT NULL,
@@ -171,8 +161,6 @@ async function initializeDatabase(database: DatabaseAdapter) {
   const indexes = [
     'CREATE INDEX IF NOT EXISTS idx_garments_category ON garments(category)',
     'CREATE INDEX IF NOT EXISTS idx_garments_available ON garments(is_available)',
-    'CREATE INDEX IF NOT EXISTS idx_wear_history_garment ON wear_history(garment_id, worn_at)',
-    'CREATE INDEX IF NOT EXISTS idx_wear_history_date ON wear_history(worn_at)',
     'CREATE INDEX IF NOT EXISTS idx_outfit_ratings_outfit ON outfit_ratings(outfit_id)',
     'CREATE INDEX IF NOT EXISTS idx_pair_scores_score ON garment_pair_scores(score DESC)',
   ];
@@ -203,7 +191,6 @@ async function initializeDatabase(database: DatabaseAdapter) {
   await safeAlter('ALTER TABLE garments ADD COLUMN color_secondary TEXT');
   await safeAlter("ALTER TABLE garments ADD COLUMN color_palette TEXT NOT NULL DEFAULT '[]'");
   await safeAlter('ALTER TABLE garments ADD COLUMN size TEXT');
-  await safeAlter('ALTER TABLE garments ADD COLUMN price REAL');
   await safeAlter('ALTER TABLE garments ADD COLUMN purchase_date TEXT');
   await safeAlter('ALTER TABLE garments ADD COLUMN is_available INTEGER NOT NULL DEFAULT 1');
   await safeAlter('ALTER TABLE garments ADD COLUMN unavailable_date TEXT');

@@ -12,14 +12,6 @@ i18n.defaultLocale = 'en';
 i18n.locale = 'en';
 
 const STORAGE_KEY = 'wardrobapp_lang';
-const CURRENCY_STORAGE_KEY = 'wardrobapp_currency';
-
-const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'MXN'] as const;
-export type CurrencyCode = typeof SUPPORTED_CURRENCIES[number];
-
-function isCurrencyCode(value: string | null): value is CurrencyCode {
-  return !!value && SUPPORTED_CURRENCIES.includes(value as CurrencyCode);
-}
 
 function getSupportedLocale(locale: string): string {
   return locale.slice(0, 2).toLowerCase() === 'es' ? 'es' : 'en';
@@ -49,35 +41,6 @@ async function saveLanguage(lang: string): Promise<void> {
   } catch {}
 }
 
-async function loadSavedCurrency(): Promise<CurrencyCode | null> {
-  try {
-    if (Platform.OS === 'web') {
-      const value = typeof localStorage !== 'undefined' ? localStorage.getItem(CURRENCY_STORAGE_KEY) : null;
-      return isCurrencyCode(value) ? value : null;
-    }
-    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-    const value = await AsyncStorage.getItem(CURRENCY_STORAGE_KEY);
-    return isCurrencyCode(value) ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-async function saveCurrency(currency: CurrencyCode): Promise<void> {
-  try {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') localStorage.setItem(CURRENCY_STORAGE_KEY, currency);
-    } else {
-      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-      await AsyncStorage.setItem(CURRENCY_STORAGE_KEY, currency);
-    }
-  } catch {}
-}
-
-function getLocaleTag(language: string): string {
-  return language === 'es' ? 'es-ES' : 'en-US';
-}
-
 function getDeviceLocale(): string {
   try {
     const { getLocales } = require('expo-localization');
@@ -96,18 +59,12 @@ export function t(key: string, options?: Record<string, any>): string {
 interface LanguageContextValue {
   language: string;
   setLanguage: (lang: string) => void;
-  currency: CurrencyCode;
-  setCurrency: (currency: CurrencyCode) => void;
-  formatCurrency: (value: number, minimumFractionDigits?: number, maximumFractionDigits?: number) => string;
   t: (key: string, options?: Record<string, any>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextValue>({
   language: 'en',
   setLanguage: () => {},
-  currency: 'USD',
-  setCurrency: () => {},
-  formatCurrency: (value) => `$${value.toFixed(2)}`,
   t,
 });
 
@@ -119,14 +76,12 @@ export function useTranslation(): LanguageContextValue {
 // ── Provider ──────────────────────────────────────────────────
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<string>('en');
-  const [currency, setCurrencyState] = useState<CurrencyCode>('USD');
 
   useEffect(() => {
-    Promise.all([loadSavedLanguage(), loadSavedCurrency()]).then(([savedLanguage, savedCurrency]) => {
+    loadSavedLanguage().then((savedLanguage) => {
       const lang = savedLanguage ?? getSupportedLocale(getDeviceLocale());
       i18n.locale = lang;
       setLanguageState(lang);
-      setCurrencyState(savedCurrency ?? 'USD');
     });
   }, []);
 
@@ -136,35 +91,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     saveLanguage(lang);
   };
 
-  const setCurrency = (nextCurrency: CurrencyCode) => {
-    setCurrencyState(nextCurrency);
-    saveCurrency(nextCurrency);
-  };
-
-  const formatCurrency = (
-    value: number,
-    minimumFractionDigits = 2,
-    maximumFractionDigits = 2
-  ): string => {
-    try {
-      return new Intl.NumberFormat(getLocaleTag(language), {
-        style: 'currency',
-        currency,
-        minimumFractionDigits,
-        maximumFractionDigits,
-      }).format(value);
-    } catch {
-      return `${currency} ${value.toFixed(maximumFractionDigits)}`;
-    }
-  };
-
   // Reactive `t` bound to current language
   const translate = (key: string, options?: Record<string, any>): string =>
     i18n.t(key, options);
 
   return createElement(
     LanguageContext.Provider,
-    { value: { language, setLanguage, currency, setCurrency, formatCurrency, t: translate } },
+    { value: { language, setLanguage, t: translate } },
     children
   );
 }

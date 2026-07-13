@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator, Modal } from 'react-native';
 import { getTotalImageStorage, recompressLegacyBgRemovedImages } from '@/src/services/image-service';
 import { getGarmentCount } from '@/src/services/garment-service';
 import {
@@ -19,18 +19,21 @@ import {
   type GoogleDriveBackupFile,
 } from '@/src/services/backup-service';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
+import { useAppReload } from '@/src/app-reload';
 import { useTranslation } from '@/src/i18n';
 import { useTheme } from '@/src/theme';
 import type { ThemeColors } from '@/src/theme';
 
 export default function SettingsScreen() {
-  const { t, language, setLanguage, currency, setCurrency } = useTranslation();
+  const { t, language, setLanguage } = useTranslation();
   const { colors, mode, setMode } = useTheme();
+  const reloadApp = useAppReload();
   const styles = createStyles(colors);
   const [storageUsed, setStorageUsed] = useState(0);
   const [itemCount, setItemCount] = useState(0);
   const [backingUp, setBackingUp] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [backupProgress, setBackupProgress] = useState<BackupProgress | null>(null);
   const [driveBusy, setDriveBusy] = useState(false);
   const [backups, setBackups] = useState<{ name: string; uri: string }[]>([]);
@@ -63,6 +66,17 @@ export default function SettingsScreen() {
       }
     }
     return detail ? `\n\n${detail}` : '';
+  };
+
+  const promptRestored = () => {
+    Alert.alert(
+      t('settings.alerts.restored'),
+      t('settings.alerts.restoredMsg'),
+      [
+        { text: t('settings.alerts.reloadLater'), style: 'cancel' },
+        { text: t('settings.alerts.reloadNow'), onPress: () => reloadApp() },
+      ]
+    );
   };
 
   const loadBackups = async () => setBackups(await listBackups());
@@ -128,11 +142,14 @@ export default function SettingsScreen() {
           text: t('settings.alerts.restoreConfirm'),
           style: 'destructive',
           onPress: async () => {
+            setRestoring(true);
             try {
               await restoreBackup(backup.uri);
-              Alert.alert(t('settings.alerts.restored'), t('settings.alerts.restoredMsg'));
+              promptRestored();
             } catch (error) {
               Alert.alert(t('settings.alerts.restoreFailed'), `${t('settings.alerts.restoreFailedMsg')}${getErrorMessage(error)}`);
+            } finally {
+              setRestoring(false);
             }
           },
         },
@@ -173,13 +190,16 @@ export default function SettingsScreen() {
           text: t('settings.alerts.restoreConfirm'),
           style: 'destructive',
           onPress: async () => {
+            setRestoring(true);
             try {
               const restored = await restoreBackupFromFile();
               if (restored) {
-                Alert.alert(t('settings.alerts.restored'), t('settings.alerts.restoredMsg'));
+                promptRestored();
               }
             } catch (error) {
               Alert.alert(t('settings.alerts.restoreFailed'), `${t('settings.alerts.restoreFailedMsg')}${getErrorMessage(error)}`);
+            } finally {
+              setRestoring(false);
             }
           },
         },
@@ -239,13 +259,15 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             setDriveBusy(true);
+            setRestoring(true);
             try {
               await restoreGoogleDriveBackup(backup.id);
-              Alert.alert(t('settings.alerts.restored'), t('settings.alerts.restoredMsg'));
+              promptRestored();
             } catch (error) {
               Alert.alert(t('settings.alerts.restoreFailed'), `${t('settings.alerts.driveRestoreFailed')}${getErrorMessage(error)}`);
             } finally {
               setDriveBusy(false);
+              setRestoring(false);
             }
           },
         },
@@ -280,6 +302,7 @@ export default function SettingsScreen() {
   };
 
   return (
+    <>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Language */}
       <Text style={styles.sectionTitle}>{t('settings.languageTitle')}</Text>
@@ -315,23 +338,6 @@ export default function SettingsScreen() {
             >
               <Text style={[styles.langButtonText, mode === option && styles.langButtonTextActive]}>
                 {t(`settings.themeModes.${option}`)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
-      <Text style={styles.sectionTitle}>{t('settings.currencyTitle')}</Text>
-      <View style={styles.card}>
-        <View style={styles.languageRow}>
-          {(['USD', 'EUR', 'GBP', 'MXN'] as const).map(code => (
-            <Pressable
-              key={code}
-              style={[styles.langButton, currency === code && styles.langButtonActive, styles.currencyButton]}
-              onPress={() => setCurrency(code)}
-            >
-              <Text style={[styles.langButtonText, currency === code && styles.langButtonTextActive]}>
-                {t(`settings.currencies.${code.toLowerCase()}`)}
               </Text>
             </Pressable>
           ))}
@@ -464,6 +470,17 @@ export default function SettingsScreen() {
         </View>
       </View>
     </ScrollView>
+
+    <Modal visible={restoring} transparent animationType="fade" statusBarTranslucent onRequestClose={() => {}}>
+      <View style={styles.overlay}>
+        <View style={styles.overlayCard}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.overlayText}>{t('settings.alerts.restoring')}</Text>
+          <Text style={styles.overlaySubtext}>{t('settings.alerts.restoringHint')}</Text>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -478,7 +495,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   value: { fontSize: FontSize.md, fontWeight: '600', color: colors.text },
   languageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   langButton: { flex: 1, padding: Spacing.md, borderRadius: BorderRadius.md, backgroundColor: colors.surfaceVariant, alignItems: 'center' },
-  currencyButton: { minWidth: '47%', minHeight: 72, justifyContent: 'center' },
   langButtonActive: { backgroundColor: colors.primary },
   langButtonText: { fontSize: FontSize.md, fontWeight: '600', color: colors.textSecondary },
   langButtonTextActive: { color: '#fff' },
@@ -497,4 +513,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   restoreText: { fontSize: FontSize.sm, fontWeight: '600', color: colors.primary },
   deleteAction: { marginLeft: Spacing.md },
   deleteText: { fontSize: FontSize.sm, fontWeight: '600', color: colors.error },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
+  overlayCard: { backgroundColor: colors.surface, borderRadius: BorderRadius.md, padding: Spacing.xl, alignItems: 'center', maxWidth: 320 },
+  overlayText: { marginTop: Spacing.md, fontSize: FontSize.md, fontWeight: '600', color: colors.text, textAlign: 'center' },
+  overlaySubtext: { marginTop: Spacing.xs, fontSize: FontSize.sm, color: colors.textSecondary, textAlign: 'center' },
 });

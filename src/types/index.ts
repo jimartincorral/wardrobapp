@@ -13,7 +13,6 @@ export interface Garment {
   color_secondary: string | null;
   color_palette: string[];
   size: string | null;
-  price: number | null;
   purchase_date: string | null;
   is_available: boolean;
   unavailable_date: string | null;
@@ -38,13 +37,6 @@ export interface OutfitRating {
   rating: number;
   feedback: string | null;
   rated_at: string;
-}
-
-export interface WearRecord {
-  id: string;
-  garment_id: string;
-  outfit_id: string | null;
-  worn_at: string;
 }
 
 export interface GarmentPairScore {

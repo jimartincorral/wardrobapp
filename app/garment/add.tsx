@@ -106,7 +106,6 @@ export default function AddGarmentScreen() {
         color_secondary: data.colorPalette[1] ?? null,
         color_palette: data.colorPalette,
         size: data.size || null,
-        price: null,
         purchase_date: new Date().toISOString().split('T')[0],
       });
 
