@@ -7,6 +7,7 @@ export type GarmentSortOption = 'newest' | 'oldest';
 
 export function useGarments(filters?: {
   category?: string;
+  subcategory?: string;
   search?: string;
   available_only?: boolean;
   season?: SeasonOption;
@@ -23,6 +24,12 @@ export function useGarments(filters?: {
 
   const applyFilters = (items: Garment[]) => {
     return items.filter(item => {
+      if (filters?.subcategory) {
+        const subs = item.subcategories.length > 0
+          ? item.subcategories
+          : (item.subcategory ? [item.subcategory] : []);
+        if (!subs.includes(filters.subcategory)) return false;
+      }
       const normalizedTags = item.tags.map(tag => tag.toLowerCase());
       if (filters?.season && !normalizedTags.includes(filters.season)) return false;
       if (filters?.weather && !normalizedTags.includes(filters.weather)) return false;
@@ -83,6 +90,7 @@ export function useGarments(filters?: {
     filters?.season,
     filters?.size,
     filters?.sort,
+    filters?.subcategory,
     filters?.weather,
   ]);
 
