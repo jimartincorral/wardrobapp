@@ -9,6 +9,7 @@ import { OCCASION_OPTIONS, SEASON_OPTIONS, WEATHER_OPTIONS } from '@/src/constan
 import type { OccasionOption, SeasonOption, WeatherOption } from '@/src/constants/style-filters';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
 import { useTranslation } from '@/src/i18n';
+import { localizeSubcategory } from '@/src/utils/localization-helpers';
 import type { Garment } from '@/src/types';
 import { useTheme } from '@/src/theme';
 import type { ThemeColors } from '@/src/theme';
@@ -19,6 +20,7 @@ export default function WardrobeScreen() {
   const { colors } = useTheme();
   const styles = createStyles(colors);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | undefined>();
   const [search, setSearch] = useState('');
   const [filtersExpanded, setFiltersExpanded] = useState(true);
   const [season, setSeason] = useState<SeasonOption | undefined>();
@@ -30,6 +32,7 @@ export default function WardrobeScreen() {
   const [sort, setSort] = useState<GarmentSortOption>('newest');
   const { garments, loading, count, refresh } = useGarments({
     category: selectedCategory,
+    subcategory: selectedSubcategory,
     search: search || undefined,
     season,
     weather,
@@ -51,6 +54,16 @@ export default function WardrobeScreen() {
     ...Object.entries(CATEGORIES).map(([key, val]) => ({ key, label: t(`categories.${key}`) })),
   ];
 
+  const subcategories: (string | undefined)[] = selectedCategory
+    ? [undefined, ...(CATEGORIES[selectedCategory as keyof typeof CATEGORIES]?.subcategories ?? [])]
+    : [];
+
+  const selectCategory = (key: string | undefined) => {
+    const next = selectedCategory === key ? undefined : key;
+    setSelectedCategory(next);
+    setSelectedSubcategory(undefined);
+  };
+
   const sortOptions: { key: GarmentSortOption; label: string }[] = [
     { key: 'newest', label: t('wardrobe.sort.newest') },
     { key: 'oldest', label: t('wardrobe.sort.oldest') },
@@ -58,6 +71,7 @@ export default function WardrobeScreen() {
 
   const activeFilterCount = [
     selectedCategory,
+    selectedSubcategory,
     season,
     weather,
     occasion,
@@ -70,6 +84,7 @@ export default function WardrobeScreen() {
 
   const clearAllFilters = () => {
     setSelectedCategory(undefined);
+    setSelectedSubcategory(undefined);
     setSearch('');
     setSeason(undefined);
     setWeather(undefined);
@@ -153,8 +168,15 @@ export default function WardrobeScreen() {
             categories,
             item => item.key ?? 'all',
             item => selectedCategory === item.key,
-            item => setSelectedCategory(selectedCategory === item.key ? undefined : item.key),
+            item => selectCategory(item.key),
             item => item.label
+          )}
+          {subcategories.length > 1 && renderFilterRow(
+            subcategories,
+            item => `sub-${item ?? 'all'}`,
+            item => selectedSubcategory === item,
+            item => setSelectedSubcategory(selectedSubcategory === item ? undefined : item),
+            item => item ? (localizeSubcategory(item, t) ?? item) : t('wardrobe.filterAll')
           )}
           <ScrollView
             horizontal
