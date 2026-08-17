@@ -1,0 +1,60 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # React Native 0.83 pins this NDK (node_modules/react-native/gradle/libs.versions.toml).
+      # Reanimated/Worklets compile C++ from source, so the exact version must be present.
+      # No-op when the runner image already ships it.
+      - name: Install pinned Android NDK
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.1.12297006"
+
+      - name: Cache Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      # android/ is gitignored, so the native project is generated from app.json on every run.
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build release APK
+        env:
+          NODE_ENV: production
+        run: ./gradlew assembleRelease --console=plain --no-daemon
+        working-directory: android
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: wardrobapp-${{ github.run_number }}-${{ github.sha }}
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
