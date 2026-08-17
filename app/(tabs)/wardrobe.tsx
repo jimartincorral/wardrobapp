@@ -1,8 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, FlatList, Pressable, TextInput, StyleSheet, ScrollView } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { GarmentCard } from '@/src/components/GarmentCard';
 import { useGarments, type GarmentSortOption } from '@/src/hooks/useGarments';
+import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
 import { CATEGORIES } from '@/src/constants/categories';
 import { GARMENT_COLORS } from '@/src/constants/colors';
 import { OCCASION_OPTIONS, SEASON_OPTIONS, WEATHER_OPTIONS } from '@/src/constants/style-filters';
@@ -30,20 +31,31 @@ export default function WardrobeScreen() {
   const [size, setSize] = useState('');
   const [color, setColor] = useState<string | undefined>();
   const [sort, setSort] = useState<GarmentSortOption>('newest');
+
+  // Chips and swatches apply immediately; typed filters wait for a pause.
+  const debouncedSearch = useDebouncedValue(search);
+  const debouncedBrand = useDebouncedValue(brand);
+  const debouncedSize = useDebouncedValue(size);
+
   const { garments, loading, count, refresh } = useGarments({
     category: selectedCategory,
     subcategory: selectedSubcategory,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
     season,
     weather,
     occasion,
-    brand: brand || undefined,
-    size: size || undefined,
+    brand: debouncedBrand || undefined,
+    size: debouncedSize || undefined,
     color,
     sort,
   });
 
-  useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
+  // Refetch when the tab regains focus. Kept off `refresh`'s identity on
+  // purpose: useGarments already refetches when a filter changes, so depending
+  // on it here would run a second, redundant query for every filter change.
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+  useFocusEffect(useCallback(() => { refreshRef.current(); }, []));
 
   const handleGarmentPress = (garment: Garment) => {
     router.push(`/garment/${garment.id}`);

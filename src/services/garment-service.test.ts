@@ -52,6 +52,26 @@ const garmentRow = {
   updated_at: '2026-04-11T00:00:00.000Z',
 };
 
+describe('getAllGarments', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('searches size alongside brand, tags and subcategories', async () => {
+    const db = createDb(null);
+    getDatabaseMock.mockResolvedValue(db);
+
+    const { getAllGarments } = await import('./garment-service');
+    await getAllGarments({ search: 'XL' });
+
+    const [sql, ...params] = db.getAllAsync.mock.calls[0];
+    expect(sql).toContain('size LIKE ?');
+    // One bound term per searched column — a mismatch here shifts every
+    // placeholder and silently corrupts the filter.
+    expect(params).toEqual(['%XL%', '%XL%', '%XL%', '%XL%', '%XL%']);
+  });
+});
+
 describe('deleteGarment', () => {
   beforeEach(() => {
     vi.clearAllMocks();

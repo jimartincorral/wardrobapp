@@ -77,9 +77,9 @@ export async function getAllGarments(filters?: {
     query += ' AND is_available = 1';
   }
   if (filters?.search) {
-    query += ' AND (brand LIKE ? OR tags LIKE ? OR subcategory LIKE ? OR subcategories LIKE ?)';
+    query += ' AND (brand LIKE ? OR tags LIKE ? OR subcategory LIKE ? OR subcategories LIKE ? OR size LIKE ?)';
     const term = `%${filters.search}%`;
-    params.push(term, term, term, term);
+    params.push(term, term, term, term, term);
   }
 
   query += ' ORDER BY created_at DESC';

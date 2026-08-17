@@ -56,7 +56,7 @@ describe('generateSuggestions', () => {
     vi.resetModules();
     vi.clearAllMocks();
     getDatabaseMock.mockResolvedValue({
-      getFirstAsync: vi.fn().mockResolvedValue(null),
+      getAllAsync: vi.fn().mockResolvedValue([]),
     });
   });
 
@@ -147,12 +147,9 @@ describe('generateSuggestions', () => {
 
   it('returns a normalized display score between 0 and 1', async () => {
     getDatabaseMock.mockResolvedValue({
-      getFirstAsync: vi.fn((query: string) => {
-        if (query.includes('FROM garment_pair_scores')) {
-          return Promise.resolve({ score: 12 });
-        }
-        return Promise.resolve(null);
-      }),
+      getAllAsync: vi.fn().mockResolvedValue([
+        { garment_id_a: 'coat', garment_id_b: 'dress', score: 12 },
+      ]),
     });
     getAllGarmentsMock.mockResolvedValue([
       baseGarment({
@@ -175,5 +172,47 @@ describe('generateSuggestions', () => {
     expect(suggestions).toHaveLength(1);
     expect(suggestions[0].score).toBeGreaterThanOrEqual(0);
     expect(suggestions[0].score).toBeLessThanOrEqual(1);
+  });
+
+  it('reads the pair-score table once, however large the wardrobe', async () => {
+    const getAllAsync = vi.fn().mockResolvedValue([]);
+    getDatabaseMock.mockResolvedValue({ getAllAsync });
+
+    // Enough garments that a per-lookup query would run hundreds of times.
+    getAllGarmentsMock.mockResolvedValue(
+      Array.from({ length: 40 }, (_, i) =>
+        baseGarment({
+          id: `garment-${i}`,
+          category: i % 2 === 0 ? 'tops' : 'bottoms',
+          subcategory: i % 2 === 0 ? 'T-Shirt' : 'Jeans',
+        })
+      )
+    );
+
+    const { generateSuggestions } = await import('./suggestion-engine');
+    await generateSuggestions({ count: 3 });
+
+    expect(getAllAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('finds a learned pair score regardless of the stored key order', async () => {
+    getDatabaseMock.mockResolvedValue({
+      getAllAsync: vi.fn().mockResolvedValue([
+        // Stored b-before-a; lookups happen in selection order, not sorted order.
+        { garment_id_a: 'z-bottom', garment_id_b: 'a-top', score: 1 },
+      ]),
+    });
+    getAllGarmentsMock.mockResolvedValue([
+      baseGarment({ id: 'a-top', category: 'tops', subcategory: 'T-Shirt' }),
+      baseGarment({ id: 'z-bottom', category: 'bottoms', subcategory: 'Jeans' }),
+    ]);
+
+    const { generateSuggestions } = await import('./suggestion-engine');
+    const suggestions = await generateSuggestions({ count: 1 });
+
+    // A positive learned score pushes the normalized display score above the
+    // 0.5 midpoint it would sit at with no signal at all.
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].score).toBeGreaterThan(0.5);
   });
 });
