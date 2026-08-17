@@ -1,5 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { getDatabase } from '../db/client';
+import { deleteImage } from './image-service';
+import { removeGarmentFromOutfits } from './outfit-service';
 import type { Garment } from '../types';
 import { normalizeGarmentRow } from '../utils/garment-fields';
 
@@ -168,9 +170,37 @@ export async function markAvailable(id: string): Promise<void> {
   );
 }
 
+/**
+ * Delete a garment and everything that only existed because of it: its stored
+ * image files, the learned pair scores that reference it, and its slot in any
+ * saved outfit. Without this the row disappears but its photos stay on disk
+ * forever — inflating storage and every future backup.
+ */
 export async function deleteGarment(id: string): Promise<void> {
   const db = await getDatabase();
+  const garment = await getGarment(id);
+
   await db.runAsync('DELETE FROM garments WHERE id = ?', id);
+  await db.runAsync(
+    'DELETE FROM garment_pair_scores WHERE garment_id_a = ? OR garment_id_b = ?',
+    id, id
+  );
+  await removeGarmentFromOutfits(id);
+
+  // Files last: once the rows are gone nothing references these paths, so a
+  // failure here leaks storage rather than leaving rows pointing at deleted
+  // images. Individual deletes already swallow their own errors.
+  if (garment) {
+    const files = new Set(
+      [
+        ...garment.image_uris,
+        ...garment.image_uris_nobg,
+        garment.image_uri,
+        garment.image_uri_nobg ?? '',
+      ].filter(Boolean)
+    );
+    await Promise.all([...files].map(uri => deleteImage(uri)));
+  }
 }
 
 export async function getGarmentCount(): Promise<number> {

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
 import { getGarmentCount, getUnavailableGarmentCount } from '@/src/services/garment-service';
 import { useTranslation } from '@/src/i18n';
@@ -14,16 +14,18 @@ export default function HomeScreen() {
   const styles = createStyles(colors);
   const [stats, setStats] = useState({ totalItems: 0, archivedItems: 0 });
 
-  useEffect(() => { loadStats(); }, []);
-
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const [totalItems, archivedItems] = await Promise.all([
         getGarmentCount(), getUnavailableGarmentCount(),
       ]);
       setStats({ totalItems, archivedItems });
     } catch (e) { console.error(e); }
-  };
+  }, []);
+
+  // Refetch on focus, not just on mount — adding or archiving a garment and
+  // coming back here should show the new counts.
+  useFocusEffect(useCallback(() => { loadStats(); }, [loadStats]));
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>

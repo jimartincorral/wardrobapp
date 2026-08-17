@@ -33,7 +33,11 @@ export default function OutfitDetailScreen() {
     if (o) {
       const gs = await Promise.all(o.garment_ids.map(gid => getGarment(gid)));
       setGarments(gs.filter((g): g is Garment => g !== null));
-      setRatings(await getOutfitRatings(id));
+
+      const existingRatings = await getOutfitRatings(id);
+      setRatings(existingRatings);
+      // Show the rating already on record (newest first) instead of an empty row.
+      setMyRating(existingRatings[0]?.rating ?? 0);
     }
   };
 

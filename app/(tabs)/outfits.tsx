@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { OutfitPreview } from '@/src/components/OutfitPreview';
@@ -33,6 +33,10 @@ export default function OutfitsScreen() {
   const [seasonFilter, setSeasonFilter] = useState<SeasonOption[]>([]);
   const [weatherFilter, setWeatherFilter] = useState<WeatherOption | undefined>();
   const [occasionFilter, setOccasionFilter] = useState<OccasionOption | undefined>();
+  // Each suggestion is saved as at most one outfit, keyed by its position in the
+  // current batch. Held in a ref (not state) and keyed by the in-flight promise
+  // so two quick taps can't both see "not created yet" and each save a copy.
+  const suggestionOutfitsRef = useRef<Record<number, Promise<string>>>({});
 
   const loadSavedOutfits = useCallback(async () => {
     try {
@@ -46,9 +50,30 @@ export default function OutfitsScreen() {
     loadSavedOutfits();
   }, [loadSavedOutfits]));
 
+  const ensureSuggestionOutfit = (index: number, suggestion: Suggestion): Promise<string> => {
+    const pending = suggestionOutfitsRef.current[index];
+    if (pending) return pending;
+
+    const created = createOutfit({
+      name: suggestion.name,
+      garment_ids: suggestion.garments.map(g => g.id),
+      is_suggested: true,
+    })
+      .then(outfit => outfit.id)
+      .catch(error => {
+        // Don't cache the failure — let the next tap retry.
+        delete suggestionOutfitsRef.current[index];
+        throw error;
+      });
+
+    suggestionOutfitsRef.current[index] = created;
+    return created;
+  };
+
   const handleGenerateSuggestions = async () => {
     setLoading(true);
     setRatings({});
+    suggestionOutfitsRef.current = {};
     try {
       setSuggestions(await generateSuggestions({
         count: 3,
@@ -64,18 +89,17 @@ export default function OutfitsScreen() {
   };
 
   const handleRate = async (index: number, rating: number) => {
-    setRatings({ ...ratings, [index]: rating });
-    const suggestion = suggestions[index];
+    setRatings(current => ({ ...current, [index]: rating }));
     try {
-      const outfit = await createOutfit({ name: suggestion.name, garment_ids: suggestion.garments.map(g => g.id), is_suggested: true });
-      await rateOutfit(outfit.id, rating);
+      const outfitId = await ensureSuggestionOutfit(index, suggestions[index]);
+      await rateOutfit(outfitId, rating);
       await loadSavedOutfits();
     } catch (e) { console.error(e); }
   };
 
-  const handleSaveSuggestion = async (suggestion: Suggestion) => {
+  const handleSaveSuggestion = async (index: number, suggestion: Suggestion) => {
     try {
-      await createOutfit({ name: suggestion.name, garment_ids: suggestion.garments.map(g => g.id), is_suggested: true });
+      await ensureSuggestionOutfit(index, suggestion);
       Alert.alert(t('outfits.saved'), t('outfits.savedMsg'));
       await loadSavedOutfits();
     } catch (e) { console.error(e); }
@@ -154,7 +178,7 @@ export default function OutfitsScreen() {
         <OutfitPreview key={index} garments={suggestion.garments} name={suggestion.name} score={suggestion.score}>
           <View style={styles.ratingRow}>
             <RatingStars rating={ratings[index] ?? 0} onRate={(r) => handleRate(index, r)} />
-            <Pressable style={styles.wearButton} onPress={() => handleSaveSuggestion(suggestion)}>
+            <Pressable style={styles.wearButton} onPress={() => handleSaveSuggestion(index, suggestion)}>
               <Text style={styles.wearButtonText}>{t('outfits.saveOutfit')}</Text>
             </Pressable>
           </View>
