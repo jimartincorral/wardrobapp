@@ -117,17 +117,35 @@ export interface GenerateSuggestionsOptions {
   seedGarments?: Garment[];
 }
 
+/** Looks up the learned score for a garment pair, in either order. */
+type PairScoreLookup = (idA: string, idB: string) => number;
+
+function pairKey(idA: string, idB: string): string {
+  return idA < idB ? `${idA}|${idB}` : `${idB}|${idA}`;
+}
+
 /**
- * Get the pair score between two garments from the learning table.
+ * Read the whole pair-score table into memory once per suggestion run.
+ *
+ * Scoring touches the same handful of rows thousands of times — for every
+ * candidate garment, against every already-selected one, for every slot, for
+ * every attempt. Querying per lookup made generating suggestions issue
+ * thousands of sequential round trips; the table is small (one row per garment
+ * pair the user has actually rated), so loading it up front turns all of that
+ * into map lookups.
  */
-async function getPairScore(idA: string, idB: string): Promise<number> {
+async function loadPairScores(): Promise<PairScoreLookup> {
   const db = await getDatabase();
-  const [a, b] = [idA, idB].sort();
-  const result = await db.getFirstAsync<{ score: number }>(
-    'SELECT score FROM garment_pair_scores WHERE garment_id_a = ? AND garment_id_b = ?',
-    a, b
+  const rows = await db.getAllAsync<{ garment_id_a: string; garment_id_b: string; score: number }>(
+    'SELECT garment_id_a, garment_id_b, score FROM garment_pair_scores'
   );
-  return result?.score ?? 0;
+
+  const scores = new Map<string, number>();
+  for (const row of rows) {
+    scores.set(pairKey(row.garment_id_a, row.garment_id_b), row.score);
+  }
+
+  return (idA, idB) => scores.get(pairKey(idA, idB)) ?? 0;
 }
 
 /**
@@ -211,7 +229,11 @@ function contextScore(garment: Garment, preferences?: SuggestionPreferences): nu
 /**
  * Score a candidate outfit.
  */
-async function scoreOutfit(garments: Garment[], preferences?: SuggestionPreferences): Promise<number> {
+function scoreOutfit(
+  garments: Garment[],
+  getPairScore: PairScoreLookup,
+  preferences?: SuggestionPreferences
+): number {
   let score = 0;
 
   // Pair scores from learning
@@ -219,7 +241,7 @@ async function scoreOutfit(garments: Garment[], preferences?: SuggestionPreferen
   let pairCount = 0;
   for (let i = 0; i < garments.length; i++) {
     for (let j = i + 1; j < garments.length; j++) {
-      pairTotal += await getPairScore(garments[i].id, garments[j].id);
+      pairTotal += getPairScore(garments[i].id, garments[j].id);
       pairCount++;
     }
   }
@@ -262,6 +284,8 @@ export async function generateSuggestions(options: GenerateSuggestionsOptions = 
   const garments = await getAllGarments({ available_only: true });
 
   if (garments.length === 0) return [];
+
+  const getPairScore = await loadPairScores();
 
   const seedSlots = new Set(seedGarments.flatMap(getGarmentSlots));
 
@@ -314,7 +338,7 @@ export async function generateSuggestions(options: GenerateSuggestionsOptions = 
         for (const g of available) {
           let pairScoreSum = 0;
           for (const s of selected) {
-            pairScoreSum += await getPairScore(g.id, s.id);
+            pairScoreSum += getPairScore(g.id, s.id);
           }
           const harmony = selected.reduce(
             (sum, s) => sum + colorHarmonyScore(getGarmentPrimaryColor(g), getGarmentPrimaryColor(s)), 0
@@ -341,7 +365,7 @@ export async function generateSuggestions(options: GenerateSuggestionsOptions = 
 
     if (selected.length === 0) continue;
 
-    const score = await scoreOutfit(selected, preferences);
+    const score = scoreOutfit(selected, getPairScore, preferences);
     const categoryNames = selected.map(g => g.subcategory || g.category).join(' + ');
     candidates.push({
       garments: selected,
