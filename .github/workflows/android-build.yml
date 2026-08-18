@@ -14,6 +14,11 @@ jobs:
     name: Build release APK
     runs-on: ubuntu-latest
 
+    # Needed to publish the APK to a release. The repository default is
+    # read-only; a workflow may request more for itself.
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -51,10 +56,36 @@ jobs:
         run: ./gradlew assembleRelease --console=plain --no-daemon
         working-directory: android
 
-      - name: Upload APK
+      # Kept alongside the release below: artifacts give a per-run history,
+      # the release gives one permanent link to the newest build.
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: wardrobapp-${{ github.run_number }}-${{ github.sha }}
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
+
+      # Publishes to a rolling `nightly` release so the download URL never
+      # changes. Recreated rather than updated so the tag follows main instead
+      # of pointing at whichever commit first created it.
+      - name: Publish APK to the rolling release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk wardrobapp.apk
+
+          {
+            echo "Automatic build of main — run #${GITHUB_RUN_NUMBER}, commit ${GITHUB_SHA}."
+            echo
+            echo "**Signed with the public Android debug key**, so this is a build for"
+            echo "testing, not one to distribute."
+          } > release-notes.md
+
+          gh release delete nightly --yes --cleanup-tag || true
+          gh release create nightly wardrobapp.apk \
+            --target "$GITHUB_SHA" \
+            --title "Latest build" \
+            --prerelease \
+            --notes-file release-notes.md
