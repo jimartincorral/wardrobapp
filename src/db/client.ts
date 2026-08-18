@@ -158,7 +158,8 @@ async function initializeDatabase(database: DatabaseAdapter) {
     );
   `);
 
-  // Indexes must be created in separate statements for sql.js compatibility
+  // Indexes are created as separate statements: the web adapter parses one
+  // statement at a time and cannot handle them batched with the CREATE TABLEs.
   const indexes = [
     'CREATE INDEX IF NOT EXISTS idx_garments_category ON garments(category)',
     'CREATE INDEX IF NOT EXISTS idx_garments_available ON garments(is_available)',
