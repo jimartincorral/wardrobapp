@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getAllGarments, createGarment, deleteGarment, updateGarment, markUnavailable, markAvailable } from '../services/garment-service';
-import type { OccasionOption, SeasonOption, WeatherOption } from '../constants/style-filters';
+import type { OccasionOption, SeasonOption } from '../constants/style-filters';
+import { getGarmentOccasions } from '../utils/garment-occasions';
 import type { Garment } from '../types';
 
 export type GarmentSortOption = 'newest' | 'oldest';
@@ -11,7 +12,6 @@ export function useGarments(filters?: {
   search?: string;
   available_only?: boolean;
   season?: SeasonOption;
-  weather?: WeatherOption;
   occasion?: OccasionOption;
   brand?: string;
   size?: string;
@@ -32,8 +32,8 @@ export function useGarments(filters?: {
       }
       const normalizedTags = item.tags.map(tag => tag.toLowerCase());
       if (filters?.season && !normalizedTags.includes(filters.season)) return false;
-      if (filters?.weather && !normalizedTags.includes(filters.weather)) return false;
-      if (filters?.occasion && !normalizedTags.includes(filters.occasion)) return false;
+      // Occasion is derived from the garment's type, not stored as a tag.
+      if (filters?.occasion && !getGarmentOccasions(item).includes(filters.occasion)) return false;
       if (filters?.brand && !(item.brand || '').toLowerCase().includes(filters.brand.toLowerCase().trim())) {
         return false;
       }
@@ -91,7 +91,6 @@ export function useGarments(filters?: {
     filters?.size,
     filters?.sort,
     filters?.subcategory,
-    filters?.weather,
   ]);
 
   useEffect(() => {

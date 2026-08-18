@@ -5,8 +5,8 @@ import { OutfitPreview } from '@/src/components/OutfitPreview';
 import { RatingStars } from '@/src/components/RatingStars';
 import { generateSuggestions } from '@/src/services/suggestion-engine';
 import { createOutfit, rateOutfit, getAllOutfits, setOutfitPinned } from '@/src/services/outfit-service';
-import { SEASON_OPTIONS, WEATHER_OPTIONS, OCCASION_OPTIONS } from '@/src/constants/style-filters';
-import type { SeasonOption, WeatherOption, OccasionOption } from '@/src/constants/style-filters';
+import { SEASON_OPTIONS, OCCASION_OPTIONS } from '@/src/constants/style-filters';
+import type { SeasonOption, OccasionOption } from '@/src/constants/style-filters';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
 import { useTranslation } from '@/src/i18n';
 import type { Garment, Outfit } from '@/src/types';
@@ -31,7 +31,6 @@ export default function OutfitsScreen() {
   const [loading, setLoading] = useState(false);
   const [ratings, setRatings] = useState<Record<number, number>>({});
   const [seasonFilter, setSeasonFilter] = useState<SeasonOption[]>([]);
-  const [weatherFilter, setWeatherFilter] = useState<WeatherOption | undefined>();
   const [occasionFilter, setOccasionFilter] = useState<OccasionOption | undefined>();
   // Each suggestion is saved as at most one outfit, keyed by its position in the
   // current batch. Held in a ref (not state) and keyed by the in-flight promise
@@ -79,7 +78,6 @@ export default function OutfitsScreen() {
         count: 3,
         preferences: {
           seasons: seasonFilter,
-          weather: weatherFilter,
           occasion: occasionFilter,
         },
       }));
@@ -140,20 +138,6 @@ export default function OutfitsScreen() {
         ))}
       </View>
 
-      <Text style={styles.filterLabel}>{t('outfits.filters.weather')}</Text>
-      <View style={styles.filterRow}>
-        {[undefined, ...WEATHER_OPTIONS].map(value => (
-          <Pressable
-            key={`weather-${value ?? 'any'}`}
-            style={[styles.filterChip, weatherFilter === value && styles.filterChipActive]}
-            onPress={() => setWeatherFilter(weatherFilter === value ? undefined : value)}
-          >
-            <Text style={[styles.filterChipText, weatherFilter === value && styles.filterChipTextActive]}>
-              {value ? t(`outfits.filterValues.weather.${value}`) : t('outfits.filters.any')}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
 
       <Text style={styles.filterLabel}>{t('outfits.filters.occasion')}</Text>
       <View style={styles.filterRow}>

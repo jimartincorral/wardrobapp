@@ -6,8 +6,8 @@ import { useGarments, type GarmentSortOption } from '@/src/hooks/useGarments';
 import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
 import { CATEGORIES } from '@/src/constants/categories';
 import { GARMENT_COLORS } from '@/src/constants/colors';
-import { OCCASION_OPTIONS, SEASON_OPTIONS, WEATHER_OPTIONS } from '@/src/constants/style-filters';
-import type { OccasionOption, SeasonOption, WeatherOption } from '@/src/constants/style-filters';
+import { OCCASION_OPTIONS, SEASON_OPTIONS } from '@/src/constants/style-filters';
+import type { OccasionOption, SeasonOption } from '@/src/constants/style-filters';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
 import { useTranslation } from '@/src/i18n';
 import { localizeSubcategory } from '@/src/utils/localization-helpers';
@@ -25,7 +25,6 @@ export default function WardrobeScreen() {
   const [search, setSearch] = useState('');
   const [filtersExpanded, setFiltersExpanded] = useState(true);
   const [season, setSeason] = useState<SeasonOption | undefined>();
-  const [weather, setWeather] = useState<WeatherOption | undefined>();
   const [occasion, setOccasion] = useState<OccasionOption | undefined>();
   const [brand, setBrand] = useState('');
   const [size, setSize] = useState('');
@@ -42,7 +41,6 @@ export default function WardrobeScreen() {
     subcategory: selectedSubcategory,
     search: debouncedSearch || undefined,
     season,
-    weather,
     occasion,
     brand: debouncedBrand || undefined,
     size: debouncedSize || undefined,
@@ -85,7 +83,6 @@ export default function WardrobeScreen() {
     selectedCategory,
     selectedSubcategory,
     season,
-    weather,
     occasion,
     brand.trim(),
     size.trim(),
@@ -99,7 +96,6 @@ export default function WardrobeScreen() {
     setSelectedSubcategory(undefined);
     setSearch('');
     setSeason(undefined);
-    setWeather(undefined);
     setOccasion(undefined);
     setBrand('');
     setSize('');
@@ -231,13 +227,6 @@ export default function WardrobeScreen() {
             item => season === item,
             item => setSeason(season === item ? undefined : item),
             item => item ? t(`outfits.filterValues.season.${item}`) : t('outfits.filters.any')
-          )}
-          {renderFilterRow(
-            [undefined, ...WEATHER_OPTIONS],
-            item => `weather-${item ?? 'all'}`,
-            item => weather === item,
-            item => setWeather(weather === item ? undefined : item),
-            item => item ? t(`outfits.filterValues.weather.${item}`) : t('outfits.filters.any')
           )}
           {renderFilterRow(
             [undefined, ...OCCASION_OPTIONS],

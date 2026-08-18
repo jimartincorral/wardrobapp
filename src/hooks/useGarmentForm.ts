@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { getExistingBrands } from '../services/garment-service';
-import { analyzeGarmentImage, isGarmentAnalysisAvailable } from '../services/garment-analysis';
+import {
+  detectDominantColor,
+  getSeasonsForSubcategories,
+  isGarmentAnalysisAvailable,
+} from '../services/garment-analysis';
 import {
   isBackgroundRemovalAvailable,
   removeImageBackground,
@@ -10,7 +14,7 @@ import {
 } from '../services/background-removal';
 import type { ImportedGarmentPreview } from '../services/url-import-service';
 import type { Garment } from '../types';
-import type { OccasionOption, SeasonOption, WeatherOption } from '../constants/style-filters';
+import type { SeasonOption } from '../constants/style-filters';
 import { CATEGORIES } from '../constants/categories';
 import { splitStructuredTags } from '../utils/style-tags';
 
@@ -23,8 +27,6 @@ export interface GarmentFormData {
   subcategories: string[];
   tags: string[];
   seasons: SeasonOption[];
-  weather: WeatherOption[];
-  occasions: OccasionOption[];
   brand: string;
   colorPalette: string[];
   size: string;
@@ -37,8 +39,6 @@ const DEFAULT_FORM_DATA: GarmentFormData = {
   subcategories: [],
   tags: [],
   seasons: [],
-  weather: [],
-  occasions: [],
   brand: '',
   colorPalette: ['#000000'],
   size: '',
@@ -59,8 +59,6 @@ function normalizeFormData(data?: Partial<GarmentFormData>): GarmentFormData {
     subcategories: data?.subcategories ?? DEFAULT_FORM_DATA.subcategories,
     tags: data?.tags ?? DEFAULT_FORM_DATA.tags,
     seasons: data?.seasons ?? DEFAULT_FORM_DATA.seasons,
-    weather: data?.weather ?? DEFAULT_FORM_DATA.weather,
-    occasions: data?.occasions ?? DEFAULT_FORM_DATA.occasions,
     brand: data?.brand ?? DEFAULT_FORM_DATA.brand,
     colorPalette,
     size: data?.size ?? DEFAULT_FORM_DATA.size,
@@ -80,8 +78,6 @@ export function garmentToFormData(garment: Garment): GarmentFormData {
     subcategories: garment.subcategories,
     tags: structured.customTags,
     seasons: structured.seasons,
-    weather: structured.weather,
-    occasions: structured.occasions,
     brand: garment.brand ?? '',
     colorPalette: garment.color_palette,
     size: garment.size ?? '',
@@ -97,8 +93,6 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
   const [subcategories, setSubcategories] = useState<string[]>(normalizedInitialData.subcategories);
   const [tags, setTags] = useState<string[]>(normalizedInitialData.tags);
   const [seasons, setSeasons] = useState<SeasonOption[]>(normalizedInitialData.seasons);
-  const [weather, setWeather] = useState<WeatherOption[]>(normalizedInitialData.weather);
-  const [occasions, setOccasions] = useState<OccasionOption[]>(normalizedInitialData.occasions);
   const [brand, setBrand] = useState(normalizedInitialData.brand);
   const [brandSuggestions, setBrandSuggestions] = useState<string[]>([]);
   const [showBrandSuggestions, setShowBrandSuggestions] = useState(false);
@@ -170,8 +164,6 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
     setSubcategories(normalized.subcategories);
     setTags(normalized.tags);
     setSeasons(normalized.seasons);
-    setWeather(normalized.weather);
-    setOccasions(normalized.occasions);
     setBrand(normalized.brand);
     setColorPalette(normalized.colorPalette);
     setSize(normalized.size);
@@ -234,25 +226,33 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
     setAnalyzeProgress(2);
 
     try {
-      const suggestions = await analyzeGarmentImage(uri, setAnalyzeProgress);
-      if (!suggestions) return;
+      const detectedColor = await detectDominantColor(uri, setAnalyzeProgress);
+      if (!detectedColor) return;
 
-      if (suggestions.category) setCategory(suggestions.category);
-      if (suggestions.subcategory) setSubcategories([suggestions.subcategory]);
-      if (suggestions.colorPrimary) {
-        const detectedColor = suggestions.colorPrimary;
-        setColorPalette((current) =>
-          current.length > 0
-            ? [detectedColor, ...current.filter((color) => color !== detectedColor)]
-            : [detectedColor]
-        );
-      }
-      if (suggestions.seasons.length > 0) setSeasons(suggestions.seasons);
-      if (suggestions.weather.length > 0) setWeather(suggestions.weather);
+      // Move the detected colour to the front rather than replacing the
+      // selection, so anything the user already picked is preserved.
+      setColorPalette(current =>
+        current.length > 0
+          ? [detectedColor, ...current.filter(color => color !== detectedColor)]
+          : [detectedColor]
+      );
     } finally {
       setAnalyzingImage(false);
       setTimeout(() => setAnalyzeProgress(0), 250);
     }
+  }, []);
+
+  /**
+   * Choosing a garment type implies seasons (a blazer is not summerwear), so
+   * they are filled in automatically -- but only while the user has not chosen
+   * seasons themselves, so an explicit choice is never overwritten.
+   */
+  const applySubcategories = useCallback((next: string[]) => {
+    setSubcategories(next);
+    setSeasons(current => {
+      if (current.length > 0) return current;
+      return getSeasonsForSubcategories(next);
+    });
   }, []);
 
   const pickImage = useCallback(async (replaceCurrent = false) => {
@@ -351,8 +351,6 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
       subcategories,
       tags,
       seasons,
-      weather,
-      occasions,
       brand,
       colorPalette,
       size,
@@ -378,11 +376,9 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
     analyzeProgress,
     setSelectedImageIndex,
     setCategory,
-    setSubcategories,
+    setSubcategories: applySubcategories,
     setTags,
     setSeasons,
-    setWeather,
-    setOccasions,
     setBrand,
     setColorPalette,
     setSize,

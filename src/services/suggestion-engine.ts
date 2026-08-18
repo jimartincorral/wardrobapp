@@ -2,7 +2,8 @@ import { getDatabase } from '../db/client';
 import { getAllGarments } from './garment-service';
 import { colorHarmonyScore } from '../utils/color-distance';
 import { getCurrentSeason } from '../utils/date-helpers';
-import type { OccasionOption, SeasonOption, WeatherOption } from '../constants/style-filters';
+import type { OccasionOption, SeasonOption } from '../constants/style-filters';
+import { getGarmentOccasions } from '../utils/garment-occasions';
 import type { Garment } from '../types';
 import { getGarmentPrimaryColor } from '../utils/garment-fields';
 
@@ -95,19 +96,8 @@ function isHotCompatibleOuterwear(garment: Garment): boolean {
   return ['vest', 'windbreaker', 'cardigan', 'blazer'].includes(sub);
 }
 
-function isHeavyOuterwear(garment: Garment): boolean {
-  if (garment.category !== 'outerwear') return false;
-  const tags = getNormalizedTags(garment);
-  const sub = (garment.subcategory || '').toLowerCase();
-  if (tags.includes('heavy') || tags.includes('wool') || tags.includes('winter') || tags.includes('thermal')) {
-    return true;
-  }
-  return ['parka', 'coat', 'jacket'].includes(sub);
-}
-
 export interface SuggestionPreferences {
   seasons?: SeasonOption[];
-  weather?: WeatherOption;
   occasion?: OccasionOption;
 }
 
@@ -173,44 +163,10 @@ function matchesSeason(garment: Garment, seasons?: SeasonOption[]): boolean {
   return true; // No season tag = assume ok
 }
 
-function weatherScore(garment: Garment, weather?: WeatherOption): number {
-  if (!weather) return 0;
-  const tags = getNormalizedTags(garment);
-  if (tags.includes(weather)) return 1;
-
-  if (weather === 'rainy') {
-    if (tags.includes('waterproof')) return 0.8;
-    if (tags.includes('linen')) return -0.4;
-  }
-  if (weather === 'snowy') {
-    if (tags.includes('heavy') || tags.includes('winter')) return 0.5;
-    if (tags.includes('summer') || tags.includes('sleeveless')) return -0.6;
-  }
-  if (weather === 'hot') {
-    if (garment.category === 'outerwear') {
-      if (isHotCompatibleOuterwear(garment)) return -0.1;
-      if (isHeavyOuterwear(garment)) return -1.2;
-      return -0.8;
-    }
-    if (tags.includes('lightweight') || tags.includes('summer')) return 0.5;
-    if (tags.includes('heavy') || tags.includes('wool')) return -0.5;
-  }
-  if (weather === 'cold') {
-    if (garment.category === 'outerwear') return 0.5;
-    if (tags.includes('heavy') || tags.includes('wool') || tags.includes('winter')) return 0.5;
-    if (tags.includes('sleeveless') || tags.includes('linen')) return -0.5;
-  }
-
-  return 0;
-}
-
 function occasionScore(garment: Garment, occasion?: OccasionOption): number {
   if (!occasion) return 0;
-  const tags = garment.tags.map(t => t.toLowerCase());
-  if (tags.includes(occasion)) return 1;
-  if (occasion === 'work' && tags.includes('business')) return 0.9;
-  if (occasion === 'sport' && tags.includes('sporty')) return 0.9;
-  return 0;
+  // Derived from the garment's type -- occasion is no longer a stored tag.
+  return getGarmentOccasions(garment).includes(occasion) ? 1 : 0;
 }
 
 function contextScore(garment: Garment, preferences?: SuggestionPreferences): number {
@@ -220,7 +176,6 @@ function contextScore(garment: Garment, preferences?: SuggestionPreferences): nu
   if (preferences.seasons && preferences.seasons.length > 0) {
     score += matchesSeason(garment, preferences.seasons) ? 1 : -1;
   }
-  score += weatherScore(garment, preferences.weather);
   score += occasionScore(garment, preferences.occasion);
 
   return score;
@@ -251,7 +206,7 @@ function scoreOutfit(
   const seasonMatches = garments.filter(g => matchesSeason(g, preferences?.seasons)).length;
   score += (seasonMatches / garments.length) * 1.0;
 
-  // Context preferences: season/weather/occasion
+  // Context preferences: season/occasion
   if (preferences) {
     const contextTotal = garments.reduce((sum, g) => sum + contextScore(g, preferences), 0);
     score += (contextTotal / garments.length) * 1.2;
@@ -276,7 +231,7 @@ function scoreOutfit(
  * Uses epsilon-greedy: 80% best-scoring picks, 20% random for variety.
  * 
  * @param options.count - Number of outfits to generate
- * @param options.preferences - Filter by season/weather/occasion
+ * @param options.preferences - Filter by season/occasion
  * @param options.seedGarments - Garments that MUST be included in the outfit
  */
 export async function generateSuggestions(options: GenerateSuggestionsOptions = {}): Promise<ScoredOutfit[]> {
@@ -298,7 +253,12 @@ export async function generateSuggestions(options: GenerateSuggestionsOptions = 
     }
   }
 
-  if (preferences?.weather === 'hot' && bySlot.outerwear) {
+  // Keep heavy outerwear out of summer outfits. This used to key off a "hot"
+  // weather filter; with weather gone it keys off an explicit summer selection,
+  // which is the same intent expressed with the vocabulary that remains.
+  const summerOnly =
+    preferences?.seasons?.length === 1 && preferences.seasons[0] === 'summer';
+  if (summerOnly && bySlot.outerwear) {
     bySlot.outerwear = bySlot.outerwear.filter(isHotCompatibleOuterwear);
   }
 

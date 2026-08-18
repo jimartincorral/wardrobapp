@@ -1,12 +1,18 @@
 export const SEASON_OPTIONS = ['spring', 'summer', 'fall', 'winter', 'all-season'] as const;
-export const WEATHER_OPTIONS = ['hot', 'warm', 'cool', 'cold', 'rainy', 'snowy', 'windy'] as const;
-export const OCCASION_OPTIONS = ['casual', 'work', 'formal', 'sport', 'lounge', 'party', 'travel'] as const;
+
+/**
+ * Occasions are derived from a garment's type rather than tagged by hand (see
+ * utils/garment-occasions). The list is therefore limited to what a garment's
+ * type can actually imply -- "party" and "travel" used to be options here, but
+ * nothing about a garment tells you it is for travel, so filtering by them
+ * could only ever return nothing. These five match the Occasion domain type.
+ */
+export const OCCASION_OPTIONS = ['casual', 'work', 'formal', 'sport', 'lounge'] as const;
 
 export type SeasonOption = (typeof SEASON_OPTIONS)[number];
-export type WeatherOption = (typeof WEATHER_OPTIONS)[number];
 export type OccasionOption = (typeof OCCASION_OPTIONS)[number];
 
-type StyleFilterOption = SeasonOption | WeatherOption | OccasionOption;
+type StyleFilterOption = SeasonOption | OccasionOption;
 
 export const STYLE_FILTER_EMOJIS: Record<StyleFilterOption, string> = {
   spring: '🌸',
@@ -14,20 +20,11 @@ export const STYLE_FILTER_EMOJIS: Record<StyleFilterOption, string> = {
   fall: '🍂',
   winter: '❄️',
   'all-season': '🧥',
-  hot: '🔥',
-  warm: '🌤️',
-  cool: '🍃',
-  cold: '🧊',
-  rainy: '🌧️',
-  snowy: '🌨️',
-  windy: '💨',
   casual: '😌',
   work: '💼',
   formal: '🎩',
   sport: '🏃',
   lounge: '🛋️',
-  party: '🎉',
-  travel: '✈️',
 };
 
 export const STYLE_FILTER_COLORS: Record<StyleFilterOption, string> = {
@@ -36,18 +33,9 @@ export const STYLE_FILTER_COLORS: Record<StyleFilterOption, string> = {
   fall: '#FB7185',
   winter: '#60A5FA',
   'all-season': '#14B8A6',
-  hot: '#EF4444',
-  warm: '#F97316',
-  cool: '#22C55E',
-  cold: '#3B82F6',
-  rainy: '#0EA5E9',
-  snowy: '#94A3B8',
-  windy: '#06B6D4',
   casual: '#10B981',
   work: '#6366F1',
   formal: '#334155',
   sport: '#F43F5E',
   lounge: '#A855F7',
-  party: '#EC4899',
-  travel: '#14B8A6',
 };

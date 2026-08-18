@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { runDataMigrations } from './migrations';
 
 /**
  * Unified database interface that works on both native (expo-sqlite) and web.
@@ -196,6 +197,8 @@ async function initializeDatabase(database: DatabaseAdapter) {
   await safeAlter('ALTER TABLE garments ADD COLUMN unavailable_date TEXT');
   await safeAlter('ALTER TABLE garments ADD COLUMN created_at TEXT');
   await safeAlter('ALTER TABLE garments ADD COLUMN updated_at TEXT');
+
+  await runDataMigrations(database);
 }
 
 export async function closeDatabase() {
