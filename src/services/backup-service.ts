@@ -5,19 +5,19 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { closeDatabase, getDatabase } from '../db/client';
 
 /**
- * Google Drive Backup Service
+ * Backup and restore.
  *
- * This service handles exporting/importing the wardrobe data.
- * Full Google Drive integration requires:
- * 1. @react-native-google-signin/google-signin (needs dev build, not Expo Go)
- * 2. Google Cloud Console project with Drive API enabled
- * 3. OAuth 2.0 client ID configured
+ * A backup is a single .zip containing `backup.json` (metadata plus the
+ * base64 SQLite database) and an `images/` folder of the garment photos.
+ * Single-file on purpose: it can be copied off the device, sent to another
+ * phone, or kept anywhere the user likes without a folder structure to
+ * preserve.
  *
- * For now, this provides local export/import functionality.
- * Google Drive upload/download can be added when building a dev APK.
+ * Restore also accepts the legacy folder format and legacy .json archives, so
+ * older backups stay usable.
  *
- * NOTE: Backup/restore uses expo-file-system which is native-only.
- * On web these functions throw a clear error.
+ * NOTE: this uses expo-file-system, which is native-only. On web these
+ * functions throw a clear error.
  */
 
 let _fs: typeof import('expo-file-system/legacy') | null = null;
@@ -27,10 +27,6 @@ const MANIFEST_NAME = 'manifest.json';
 const DB_FILENAME = 'wardrobapp.db';
 const IMAGES_DIRNAME = 'images';
 const FOLDER_BACKUP_VERSION = 3;
-const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
-const GOOGLE_DRIVE_FILES_URL = 'https://www.googleapis.com/drive/v3/files';
-const GOOGLE_DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files';
-let _googleConfigured = false;
 
 function getFS() {
   if (!_fs) {
@@ -89,13 +85,6 @@ type BackupImage = {
 type BackupBuildImage = {
   name: string;
   bytes: Uint8Array;
-};
-
-export type GoogleDriveBackupFile = {
-  id: string;
-  name: string;
-  modifiedTime?: string;
-  size?: string;
 };
 
 export type BackupProgress = {
@@ -304,14 +293,6 @@ async function buildBackupArchive(
   );
 }
 
-async function createBackupArchive(onProgress?: BackupProgressCallback) {
-  const name = getBackupFilename();
-  const { payload, images } = await withClosedDatabase(() => buildBackupData(onProgress));
-  const bytes = await buildBackupArchive(payload, images, onProgress);
-  emitProgress(onProgress, 'saving', 90, 'Archive ready');
-  return { name, bytes, size: bytes.length };
-}
-
 function getSafEntryName(uri: string) {
   const decoded = decodeURIComponent(uri);
   return decoded.slice(decoded.lastIndexOf('/') + 1);
@@ -337,14 +318,6 @@ async function ensureTempBackupDir() {
   if (!info.exists) {
     await fs.makeDirectoryAsync(dir, { intermediates: true });
   }
-}
-
-async function writeTempBackupFile(filename: string, bytes: Uint8Array) {
-  await ensureTempBackupDir();
-  const file = new File(getTempBackupDir(), filename);
-  file.create({ overwrite: true, intermediates: true });
-  file.write(bytes);
-  return file.uri;
 }
 
 async function cleanupTempFile(uri: string) {
@@ -380,6 +353,17 @@ async function writeRestoredDatabase(dbBase64?: string) {
   if (!dirInfo.exists) {
     await fs.makeDirectoryAsync(dbDir, { intermediates: true });
   }
+
+  // Clear the WAL sidecars before overwriting the database, exactly as the
+  // folder-restore path does. A clean close checkpoints and removes them, but
+  // if a previous session crashed or the close failed they survive -- and
+  // SQLite would then replay that stale WAL onto the *restored* database,
+  // grafting fragments of the old wardrobe onto it. Most likely to happen
+  // precisely when someone is restoring, because something already went wrong.
+  for (const suffix of ['-wal', '-shm']) {
+    await fs.deleteAsync(`${getDbPath()}${suffix}`, { idempotent: true });
+  }
+
   await fs.writeAsStringAsync(getDbPath(), dbBase64, {
     encoding: fs.EncodingType.Base64,
   });
@@ -420,145 +404,6 @@ async function replaceImageDirectory(images: BackupImage[]) {
   }
 }
 
-function ensureGoogleDriveSupported() {
-  ensureNative('Google Drive backup');
-
-  if (Platform.OS !== 'android') {
-    throw new Error('Google Drive backup is only available on Android.');
-  }
-}
-
-function getGoogleSignin() {
-  return require('@react-native-google-signin/google-signin') as typeof import('@react-native-google-signin/google-signin');
-}
-
-function configureGoogleSignin() {
-  if (_googleConfigured) return;
-
-  const { GoogleSignin } = getGoogleSignin();
-  GoogleSignin.configure({
-    scopes: [GOOGLE_DRIVE_SCOPE],
-  });
-  _googleConfigured = true;
-}
-
-async function ensureGoogleDriveSession(interactive = false) {
-  ensureGoogleDriveSupported();
-  const { GoogleSignin } = getGoogleSignin();
-
-  configureGoogleSignin();
-  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-
-  let user = GoogleSignin.getCurrentUser();
-
-  if (!user) {
-    try {
-      const silent = await GoogleSignin.signInSilently();
-      if (silent.type === 'success') {
-        user = silent.data;
-      }
-    } catch {
-      // Ignore silent sign-in errors and fall back to interactive sign-in if requested.
-    }
-  }
-
-  if (!user && interactive) {
-    const signInResult = await GoogleSignin.signIn();
-    if (signInResult.type !== 'success') {
-      throw new Error('Google sign-in was cancelled.');
-    }
-    user = signInResult.data;
-  }
-
-  if (!user) {
-    return null;
-  }
-
-  if (!user.scopes?.includes(GOOGLE_DRIVE_SCOPE)) {
-    const scopedResult = await GoogleSignin.addScopes({ scopes: [GOOGLE_DRIVE_SCOPE] });
-    if (scopedResult?.type === 'success') {
-      user = scopedResult.data;
-    }
-  }
-
-  if (!user.scopes?.includes(GOOGLE_DRIVE_SCOPE)) {
-    throw new Error('Google Drive permission was not granted.');
-  }
-
-  const { accessToken } = await GoogleSignin.getTokens();
-  return { accessToken, user };
-}
-
-async function parseDriveError(response: Response) {
-  try {
-    const data = await response.json();
-    return data?.error?.message ?? `Google Drive request failed (${response.status}).`;
-  } catch {
-    return `Google Drive request failed (${response.status}).`;
-  }
-}
-
-async function driveFetch(accessToken: string, input: string, init?: RequestInit) {
-  const response = await fetch(input, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      ...(init?.headers ?? {}),
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(await parseDriveError(response));
-  }
-
-  return response;
-}
-
-async function uploadBackupToGoogleDrive(accessToken: string, fileUri: string, filename: string) {
-  const fs = getFS();
-  const sessionResponse = await driveFetch(
-    accessToken,
-    `${GOOGLE_DRIVE_UPLOAD_URL}?uploadType=resumable&fields=id,name,modifiedTime,size`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=UTF-8',
-        'X-Upload-Content-Type': 'application/zip',
-      },
-      body: JSON.stringify({
-        name: filename,
-        parents: ['appDataFolder'],
-      }),
-    }
-  );
-
-  const uploadUrl = sessionResponse.headers.get('location') ?? sessionResponse.headers.get('Location');
-  if (!uploadUrl) {
-    throw new Error('Google Drive upload session did not return an upload URL.');
-  }
-
-  const uploadResult = await fs.uploadAsync(uploadUrl, fileUri, {
-    httpMethod: 'PUT',
-    uploadType: fs.FileSystemUploadType.BINARY_CONTENT,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/zip',
-    },
-  });
-
-  if (uploadResult.status >= 400) {
-    try {
-      const data = JSON.parse(uploadResult.body || '{}');
-      throw new Error(data?.error?.message ?? `Google Drive upload failed (${uploadResult.status}).`);
-    } catch (error) {
-      if (error instanceof Error) throw error;
-      throw new Error(`Google Drive upload failed (${uploadResult.status}).`);
-    }
-  }
-
-  return JSON.parse(uploadResult.body || '{}') as GoogleDriveBackupFile;
-}
-
 /**
  * Export the database and images as a single .zip backup file.
  *
@@ -593,105 +438,9 @@ export async function createBackup(options?: { onProgress?: BackupProgressCallba
   return { uri: file.uri, size };
 }
 
-export async function getGoogleDriveStatus(): Promise<{ connected: boolean; email?: string | null }> {
-  try {
-    const session = await ensureGoogleDriveSession(false);
-    return {
-      connected: Boolean(session),
-      email: session?.user.user.email ?? null,
-    };
-  } catch {
-    return { connected: false, email: null };
-  }
-}
-
-export async function connectGoogleDrive(): Promise<{ email: string }> {
-  const session = await ensureGoogleDriveSession(true);
-  if (!session) {
-    throw new Error('Google sign-in was not completed.');
-  }
-
-  return { email: session.user.user.email };
-}
-
-export async function disconnectGoogleDrive(): Promise<void> {
-  ensureGoogleDriveSupported();
-  const { GoogleSignin } = getGoogleSignin();
-
-  configureGoogleSignin();
-  await GoogleSignin.signOut();
-}
-
-export async function createGoogleDriveBackup(): Promise<{ id: string; name: string; size: number }> {
-  const session = await ensureGoogleDriveSession(true);
-  if (!session) {
-    throw new Error('Sign in to Google Drive first.');
-  }
-
-  const archive = await createBackupArchive();
-  const tempUri = await writeTempBackupFile(archive.name, archive.bytes);
-
-  try {
-    const uploadedFile = await uploadBackupToGoogleDrive(session.accessToken, tempUri, archive.name);
-    return {
-      id: uploadedFile.id,
-      name: uploadedFile.name,
-      size: archive.size,
-    };
-  } finally {
-    await cleanupTempFile(tempUri);
-  }
-}
-
-export async function listGoogleDriveBackups(): Promise<GoogleDriveBackupFile[]> {
-  const session = await ensureGoogleDriveSession(false);
-  if (!session) return [];
-
-  const query = encodeURIComponent(`'appDataFolder' in parents and trashed = false and name contains 'wardrobapp-backup-'`);
-  const response = await driveFetch(
-    session.accessToken,
-    `${GOOGLE_DRIVE_FILES_URL}?spaces=appDataFolder&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime desc&q=${query}`
-  );
-  const data = await response.json();
-  return Array.isArray(data.files) ? data.files : [];
-}
-
-export async function restoreGoogleDriveBackup(fileId: string): Promise<void> {
-  const session = await ensureGoogleDriveSession(true);
-  if (!session) {
-    throw new Error('Sign in to Google Drive first.');
-  }
-
-  const downloadUri = `${getTempBackupDir()}google-drive-restore-${fileId}.zip`;
-  await ensureTempBackupDir();
-
-  try {
-    await getFS().downloadAsync(`${GOOGLE_DRIVE_FILES_URL}/${fileId}?alt=media`, downloadUri, {
-      headers: {
-        Authorization: `Bearer ${session.accessToken}`,
-      },
-    });
-    await restoreBackup(downloadUri);
-  } finally {
-    await cleanupTempFile(downloadUri);
-  }
-}
-
-export async function deleteGoogleDriveBackup(fileId: string): Promise<void> {
-  const session = await ensureGoogleDriveSession(true);
-  if (!session) {
-    throw new Error('Sign in to Google Drive first.');
-  }
-
-  await driveFetch(session.accessToken, `${GOOGLE_DRIVE_FILES_URL}/${fileId}`, {
-    method: 'DELETE',
-  });
-}
-
 /**
- * Restore from a backup. Handles both the new folder-based format and the
- * legacy single-file (.zip/.json) archives (the latter is also used by the
- * Google Drive restore path).
+ * Restore from a backup. Handles the current single-file .zip archives as well
+ * as the legacy folder-based format and legacy .json archives.
  */
 export async function restoreBackup(backupUri: string): Promise<void> {
   ensureNative('Backup restore');
@@ -913,10 +662,3 @@ export async function listBackups(): Promise<{ name: string; uri: string }[]> {
   }
 }
 
-/**
- * Check if Google Drive integration is available.
- * Requires dev build with @react-native-google-signin.
- */
-export function isGoogleDriveAvailable(): boolean {
-  return Platform.OS === 'android';
-}
