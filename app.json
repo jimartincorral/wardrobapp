@@ -51,7 +51,8 @@
       "expo-router",
       "expo-sqlite",
       "expo-localization",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "./plugins/withMlKitVisionDependencies.js"
     ],
     "experiments": {
       "typedRoutes": true
