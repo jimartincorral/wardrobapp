@@ -1,38 +1,64 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import JSZip from 'jszip';
 import { Directory, File, Paths } from 'expo-file-system';
 import { closeDatabase, getDatabase } from '../db/client';
 
 /**
  * Backup and restore.
  *
- * A backup is a single .zip containing `backup.json` (metadata plus the
- * base64 SQLite database) and an `images/` folder of the garment photos.
- * Single-file on purpose: it can be copied off the device, sent to another
- * phone, or kept anywhere the user likes without a folder structure to
- * preserve.
+ * A backup is a single .zip containing `manifest.json`, the raw SQLite database
+ * and an `images/` folder of the garment photos. Single-file on purpose: it can
+ * be copied off the device, sent to another phone, or kept anywhere the user
+ * likes without a folder structure to preserve.
  *
- * Restore also accepts the legacy folder format and legacy .json archives, so
- * older backups stay usable.
+ * Everything is staged on disk and zipped natively, so memory stays flat no
+ * matter how large the wardrobe is. The previous implementation built the whole
+ * archive in JS — every photo as bytes, plus the finished archive as one
+ * Uint8Array — which put peak usage at roughly twice the backup size and ran
+ * the app out of heap on wardrobes of a few hundred megabytes.
  *
- * NOTE: this uses expo-file-system, which is native-only. On web these
- * functions throw a clear error.
+ * The trade is disk for heap: staging holds a second copy of the photos while
+ * the archive is built, so a backup needs roughly twice the wardrobe's size
+ * free in the cache directory. Both copies are deleted as soon as the backup
+ * lands in its destination. Running out of disk fails loudly and recoverably;
+ * running out of heap killed the app.
+ *
+ * Restore also accepts the legacy folder format and the legacy .json/.zip
+ * archives, so older backups stay usable.
+ *
+ * NOTE: this uses expo-file-system and react-native-zip-archive, both
+ * native-only. On web these functions throw a clear error.
  */
 
 let _fs: typeof import('expo-file-system/legacy') | null = null;
+let _zip: typeof import('react-native-zip-archive') | null = null;
+
 const DOWNLOADS_DIR_URI_KEY = 'backup_downloads_directory_uri';
 const BACKUP_PREFIX = 'wardrobapp-backup-';
 const MANIFEST_NAME = 'manifest.json';
+const LEGACY_PAYLOAD_NAME = 'backup.json';
 const DB_FILENAME = 'wardrobapp.db';
 const IMAGES_DIRNAME = 'images';
-const FOLDER_BACKUP_VERSION = 3;
+
+/**
+ * Layout version shared by the .zip archives and the older folder backups —
+ * they hold the same three entries, so a .zip backup is literally a zipped
+ * folder backup and both restore through the same code.
+ */
+const BACKUP_VERSION = 3;
 
 function getFS() {
   if (!_fs) {
     _fs = require('expo-file-system/legacy');
   }
   return _fs!;
+}
+
+function getZip() {
+  if (!_zip) {
+    _zip = require('react-native-zip-archive');
+  }
+  return _zip!;
 }
 
 function getDbPath() { return `${getFS().documentDirectory}SQLite/wardrobapp.db`; }
@@ -51,7 +77,7 @@ function ensureNative(action: string) {
 
 function getBackupFilename() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  return `wardrobapp-backup-${timestamp}.zip`;
+  return `${BACKUP_PREFIX}${timestamp}.zip`;
 }
 
 async function withClosedDatabase<T>(operation: () => Promise<T>): Promise<T> {
@@ -80,15 +106,8 @@ type BackupImage = {
   data: string;
 };
 
-// Images held as raw bytes while *building* an archive — avoids the ~33% base64
-// inflation (and the CPU to encode/decode it) that dominated backup time.
-type BackupBuildImage = {
-  name: string;
-  bytes: Uint8Array;
-};
-
 export type BackupProgress = {
-  phase: 'preparing' | 'archiving' | 'saving' | 'uploading' | 'done';
+  phase: 'preparing' | 'archiving' | 'saving' | 'done';
   percent: number;
   message: string;
 };
@@ -119,7 +138,6 @@ function yieldToUi() {
   return new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
-// New (SDK 55) File API references used by the folder-restore path.
 function newSqliteDir() {
   return new Directory(Paths.document, 'SQLite');
 }
@@ -131,9 +149,38 @@ function onlyFiles(entries: (Directory | File)[]) {
   return entries.filter((e): e is File => e instanceof File);
 }
 
+function onlyDirectories(entries: (Directory | File)[]) {
+  return entries.filter((e): e is Directory => e instanceof Directory);
+}
+
 /** Android SAF folders are exposed as content:// URIs. */
 function isContentUri(uri: string) {
   return uri.startsWith('content://');
+}
+
+/**
+ * react-native-zip-archive works on plain filesystem paths, not `file://` URIs.
+ * Percent-encoding has to come back out too: the URI form escapes spaces and
+ * other characters that are perfectly legal in a path.
+ */
+export function toNativePath(uri: string): string {
+  if (!uri.startsWith('file://')) return uri;
+  return decodeURIComponent(uri.slice('file://'.length));
+}
+
+/** Replace a working directory with an empty one. */
+function resetDirectory(dir: Directory): Directory {
+  if (dir.exists) dir.delete();
+  dir.create({ intermediates: true, idempotent: true });
+  return dir;
+}
+
+function deleteQuietly(dir: Directory) {
+  try {
+    if (dir.exists) dir.delete();
+  } catch {
+    // Cache cleanup is best-effort; the OS reclaims this directory anyway.
+  }
 }
 
 /**
@@ -211,86 +258,136 @@ function emitProgress(
   });
 }
 
-async function buildBackupData(onProgress?: BackupProgressCallback): Promise<{ payload: BackupPayload; images: BackupBuildImage[] }> {
-  const fs = getFS();
-  emitProgress(onProgress, 'preparing', 5, 'Reading database');
+/**
+ * Lay the backup out on disk: the database, every photo, and a manifest. Each
+ * file is copied natively, so the only thing that ever reaches the JS heap is
+ * the manifest.
+ */
+async function stageBackupContents(
+  staging: Directory,
+  onProgress?: BackupProgressCallback
+): Promise<void> {
+  emitProgress(onProgress, 'preparing', 5, 'Copying database');
 
-  let dbBase64 = '';
-  const dbInfo = await fs.getInfoAsync(getDbPath());
-  if (dbInfo.exists) {
-    dbBase64 = await fs.readAsStringAsync(getDbPath(), {
-      encoding: fs.EncodingType.Base64,
-    });
+  const dbFile = new File(newSqliteDir(), DB_FILENAME);
+  if (dbFile.exists) {
+    dbFile.copy(staging);
   }
 
-  const imageFiles: BackupBuildImage[] = [];
-  const imagesDir = newImagesDir();
-  if (imagesDir.exists) {
-    const files = onlyFiles(imagesDir.list());
-    const totalFiles = files.length || 1;
+  const stagedImages = new Directory(staging, IMAGES_DIRNAME);
+  stagedImages.create({ intermediates: true, idempotent: true });
+
+  let copied = 0;
+  const sourceImages = newImagesDir();
+  if (sourceImages.exists) {
+    const files = onlyFiles(sourceImages.list());
+    const total = files.length || 1;
+
     for (const file of files) {
       try {
-        imageFiles.push({ name: file.name, bytes: file.bytesSync() });
+        file.copy(stagedImages);
+        copied++;
       } catch {
-        // Skip files that can't be read
+        // Skip files that can't be read.
       }
       emitProgress(
         onProgress,
         'preparing',
-        10 + (imageFiles.length / totalFiles) * 35,
-        `Collecting images (${Math.min(imageFiles.length, files.length)}/${files.length})`
+        10 + (copied / total) * 40,
+        `Collecting images (${copied}/${files.length})`
       );
+      if (copied % 20 === 0) await yieldToUi();
     }
   }
 
-  emitProgress(onProgress, 'preparing', 45, 'Preparing backup archive');
-
-  return {
-    payload: {
-      version: 2,
+  const manifest = new File(staging, MANIFEST_NAME);
+  manifest.create({ overwrite: true });
+  manifest.write(
+    JSON.stringify({
+      version: BACKUP_VERSION,
       created_at: new Date().toISOString(),
-      database: dbBase64,
-    },
-    images: imageFiles,
-  };
+      image_count: copied,
+    })
+  );
 }
 
-async function buildBackupArchive(
-  payload: BackupPayload,
-  images: BackupBuildImage[],
+/** Zip a staged directory natively, reporting the module's own progress. */
+async function zipDirectory(
+  source: Directory,
+  target: File,
   onProgress?: BackupProgressCallback
-): Promise<Uint8Array> {
-  const zip = new JSZip();
+): Promise<void> {
+  const { zip, subscribe, NO_COMPRESSION } = getZip();
 
-  zip.file('backup.json', JSON.stringify(payload), {
-    compression: 'DEFLATE',
-    compressionOptions: { level: 3 },
+  // Photos are already-compressed JPEG/PNG and dominate the archive, so
+  // deflating would burn CPU for almost nothing. The database is the only
+  // compressible entry and it is small — it holds image paths, not image data.
+  const subscription = subscribe(({ progress }) => {
+    emitProgress(
+      onProgress,
+      'archiving',
+      55 + progress * 38,
+      `Building ZIP archive (${Math.round(progress * 100)}%)`
+    );
   });
 
-  for (const image of images) {
-    // Already-compressed JPEG/PNG bytes — store without recompressing.
-    zip.file(`images/${image.name}`, image.bytes, {
-      compression: 'STORE',
-    });
+  try {
+    await zip(toNativePath(source.uri), toNativePath(target.uri), NO_COMPRESSION);
+  } finally {
+    subscription.remove();
+  }
+}
+
+/** Put the finished archive in the user's chosen folder. */
+async function saveArchiveTo(base: Directory, archive: File, name: string): Promise<string> {
+  if (isContentUri(base.uri)) {
+    const dest = base.createFile(name, 'application/zip');
+    await getFS().copyAsync({ from: archive.uri, to: dest.uri });
+    return dest.uri;
   }
 
-  emitProgress(onProgress, 'archiving', 50, 'Building ZIP archive');
+  const dest = new File(base, name);
+  if (dest.exists) dest.delete();
+  archive.copy(dest);
+  return dest.uri;
+}
 
-  return zip.generateAsync(
-    {
-      type: 'uint8array',
-      compression: 'STORE',
-      streamFiles: true,
-    },
-    (metadata) => {
-      emitProgress(
-        onProgress,
-        'archiving',
-        50 + metadata.percent * 0.4,
-        `Building ZIP archive (${Math.round(metadata.percent)}%)`
-      );
-    }
-  );
+/**
+ * Export the database and images as a single .zip backup file.
+ *
+ * Returns the backup file URI and its size in bytes.
+ */
+export async function createBackup(options?: { onProgress?: BackupProgressCallback }): Promise<{ uri: string; size: number }> {
+  ensureNative('Backup creation');
+  const onProgress = options?.onProgress;
+  emitProgress(onProgress, 'preparing', 0, 'Starting backup');
+
+  const base = await step('Requesting folder access', () => getBackupBaseDirectory());
+  const name = getBackupFilename();
+
+  const work = resetDirectory(new Directory(Paths.cache, 'backup-work'));
+  try {
+    const staging = new Directory(work, 'staging');
+    staging.create({ intermediates: true, idempotent: true });
+
+    await step('Collecting backup contents', () =>
+      withClosedDatabase(() => stageBackupContents(staging, onProgress))
+    );
+
+    const archive = new File(work, name);
+    await step('Building ZIP archive', () => zipDirectory(staging, archive, onProgress));
+
+    // Read the size before the working directory goes away.
+    const size = archive.size;
+
+    emitProgress(onProgress, 'saving', 94, 'Saving backup file');
+    const uri = await step('Saving backup file', () => saveArchiveTo(base, archive, name));
+
+    emitProgress(onProgress, 'done', 100, 'Backup complete');
+    return { uri, size };
+  } finally {
+    deleteQuietly(work);
+  }
 }
 
 function getSafEntryName(uri: string) {
@@ -329,10 +426,8 @@ async function cleanupTempFile(uri: string) {
 }
 
 /**
- * Ensure the archive is a local file:// path so it can be read as raw bytes
- * (never a base64 string, which doubles in UTF-16) and without a SAF
- * read-the-whole-thing-as-a-string call. content:// archives are streamed to a
- * temp file via the native copyAsync.
+ * Ensure the archive is a local file:// path so the native unzip can read it.
+ * content:// archives are streamed to a temp file via the native copyAsync.
  */
 async function materializeArchiveLocally(
   backupUri: string,
@@ -369,20 +464,6 @@ async function writeRestoredDatabase(dbBase64?: string) {
   });
 }
 
-async function prepareEmptyImageDir() {
-  const fs = getFS();
-  const imageDir = getImageDir();
-  const info = await fs.getInfoAsync(imageDir);
-  if (info.exists) {
-    const existing = await fs.readDirectoryAsync(imageDir);
-    for (const file of existing) {
-      await fs.deleteAsync(`${imageDir}${file}`, { idempotent: true });
-    }
-  } else {
-    await fs.makeDirectoryAsync(imageDir, { intermediates: true });
-  }
-}
-
 async function replaceImageDirectory(images: BackupImage[]) {
   const fs = getFS();
   const imageDir = getImageDir();
@@ -402,40 +483,6 @@ async function replaceImageDirectory(images: BackupImage[]) {
       encoding: fs.EncodingType.Base64,
     });
   }
-}
-
-/**
- * Export the database and images as a single .zip backup file.
- *
- * The archive contains `backup.json` (metadata + the base64 SQLite database,
- * DEFLATE-compressed) and an `images/` folder (JPEGs stored uncompressed, since
- * they are already compressed). The whole archive is built in memory and then
- * written to the chosen folder as one file — writing (rather than `File.copy`)
- * is what keeps this working on Android SAF `content://` folders.
- *
- * Returns the backup file URI and its (approximate) size in bytes.
- */
-export async function createBackup(options?: { onProgress?: BackupProgressCallback }): Promise<{ uri: string; size: number }> {
-  ensureNative('Backup creation');
-  const onProgress = options?.onProgress;
-  emitProgress(onProgress, 'preparing', 0, 'Starting backup');
-
-  const base = await step('Requesting folder access', () => getBackupBaseDirectory());
-
-  const name = getBackupFilename();
-  const { payload, images } = await withClosedDatabase(() => buildBackupData(onProgress));
-  const bytes = await buildBackupArchive(payload, images, onProgress);
-  const size = bytes.length;
-
-  emitProgress(onProgress, 'saving', 94, 'Saving backup file');
-  const file = await step('Saving backup file', async () => {
-    const f = base.createFile(name, 'application/zip');
-    f.write(bytes);
-    return f;
-  });
-
-  emitProgress(onProgress, 'done', 100, 'Backup complete');
-  return { uri: file.uri, size };
 }
 
 /**
@@ -537,7 +584,7 @@ async function restoreFolderBackup(dir: Directory): Promise<void> {
   }
 
   const manifest = JSON.parse(manifestFile.textSync()) as { version?: number };
-  if (manifest.version !== FOLDER_BACKUP_VERSION) {
+  if (manifest.version !== BACKUP_VERSION) {
     throw new Error('Unsupported backup version');
   }
 
@@ -554,76 +601,131 @@ async function restoreFolderBackup(dir: Directory): Promise<void> {
       await copyFileInto(dbEntry, sqliteDir, DB_FILENAME);
     }
 
-    const imagesEntry = entries.find(
-      (e): e is Directory => e instanceof Directory && e.name === IMAGES_DIRNAME
+    await replaceImageDirectoryFrom(
+      onlyDirectories(entries).find((e) => e.name === IMAGES_DIRNAME) ?? null
     );
-    const destImages = newImagesDir();
-    if (destImages.exists) destImages.delete();
-    destImages.create({ intermediates: true, idempotent: true });
-
-    if (imagesEntry) {
-      const files = onlyFiles(imagesEntry.list());
-      let i = 0;
-      for (const img of files) {
-        await copyFileInto(img, destImages, img.name);
-        if (++i % 10 === 0) await yieldToUi();
-      }
-    }
   });
 }
 
-/** Restore a legacy single-file (.zip/.json) backup archive. */
-async function restoreArchiveBackup(backupUri: string): Promise<void> {
+/** Swap the live photo directory for the one in an extracted or opened backup. */
+async function replaceImageDirectoryFrom(source: Directory | null): Promise<void> {
+  const destImages = newImagesDir();
+  if (destImages.exists) destImages.delete();
+  destImages.create({ intermediates: true, idempotent: true });
+
+  if (!source) return;
+
+  let i = 0;
+  for (const img of onlyFiles(source.list())) {
+    await copyFileInto(img, destImages, img.name);
+    if (++i % 10 === 0) await yieldToUi();
+  }
+}
+
+export type ArchiveLayout = 'folder' | 'legacy-archive' | 'nested' | 'unknown';
+
+/**
+ * Work out what an extracted archive contains from the names at one level.
+ *
+ * `folder` is the current layout (and the older folder backups). `legacy-archive`
+ * is the v1/v2 zip whose database lived base64-encoded inside backup.json.
+ * `nested` covers zip implementations that wrap everything in a single top-level
+ * directory — the caller descends and classifies again rather than failing.
+ */
+export function classifyArchiveEntries(
+  fileNames: string[],
+  directoryNames: string[]
+): ArchiveLayout {
+  if (fileNames.includes(MANIFEST_NAME)) return 'folder';
+  if (fileNames.includes(LEGACY_PAYLOAD_NAME)) return 'legacy-archive';
+  if (directoryNames.length === 1) return 'nested';
+  return 'unknown';
+}
+
+function classifyDirectory(dir: Directory): ArchiveLayout {
+  const entries = dir.list();
+  return classifyArchiveEntries(
+    onlyFiles(entries).map((f) => f.name),
+    onlyDirectories(entries).map((d) => d.name)
+  );
+}
+
+/** Restore an extracted v1/v2 archive: backup.json plus an images/ folder. */
+async function restoreExtractedLegacyArchive(root: Directory): Promise<void> {
+  const payloadFile = onlyFiles(root.list()).find((f) => f.name === LEGACY_PAYLOAD_NAME)!;
+
+  // The v1/v2 payload embeds the database as base64. Reading it as a string is
+  // safe: the database stores image *paths*, not the images themselves, so it
+  // is a few megabytes at most. The photos are separate entries, already on
+  // disk from the extraction, and get copied natively below.
+  const payload = JSON.parse(payloadFile.textSync()) as BackupPayload;
+  if (![1, 2].includes(payload.version)) {
+    throw new Error('Unsupported backup version');
+  }
+
+  await withClosedDatabase(async () => {
+    await writeRestoredDatabase(payload.database);
+    await replaceImageDirectoryFrom(
+      onlyDirectories(root.list()).find((d) => d.name === IMAGES_DIRNAME) ?? null
+    );
+  });
+}
+
+/** Restore the oldest format: one .json document with everything base64 inside. */
+async function restoreLegacyJsonBackup(localUri: string): Promise<void> {
   const fs = getFS();
+  const payload = JSON.parse(await fs.readAsStringAsync(localUri)) as BackupPayload;
+  if (![1, 2].includes(payload.version)) {
+    throw new Error('Unsupported backup version');
+  }
+
+  const images = Array.isArray(payload.images) ? payload.images : [];
+  await withClosedDatabase(async () => {
+    await writeRestoredDatabase(payload.database);
+    if (images.length > 0) await replaceImageDirectory(images);
+  });
+}
+
+/** Restore a single-file (.zip/.json) backup archive. */
+async function restoreArchiveBackup(backupUri: string): Promise<void> {
   const filename = (await readBackupFileName(backupUri)).toLowerCase();
   const isJson = filename.endsWith('.json');
   const local = await materializeArchiveLocally(backupUri, isJson);
 
   try {
-    if (!isJson) {
-      // Read the zip as raw bytes rather than a base64 string, and write each
-      // image straight to disk instead of collecting them all in memory.
-      const zip = await JSZip.loadAsync(new File(local.uri).bytesSync());
-      const payloadFile = zip.file('backup.json');
-      if (!payloadFile) {
-        throw new Error('Invalid backup archive: missing backup.json');
-      }
-      const payload = JSON.parse(await payloadFile.async('string')) as BackupPayload;
-      if (![1, 2].includes(payload.version)) {
-        throw new Error('Unsupported backup version');
-      }
-
-      const imageEntries = Object.values(zip.files).filter(
-        (entry) => !entry.dir && entry.name.startsWith('images/')
-      );
-
-      await withClosedDatabase(async () => {
-        await writeRestoredDatabase(payload.database);
-        await prepareEmptyImageDir();
-        let i = 0;
-        for (const entry of imageEntries) {
-          const name = entry.name.replace(/^images\//, '');
-          const data = await entry.async('base64');
-          await fs.writeAsStringAsync(`${getImageDir()}${name}`, data, {
-            encoding: fs.EncodingType.Base64,
-          });
-          if (++i % 10 === 0) await yieldToUi();
-        }
-      });
+    if (isJson) {
+      await restoreLegacyJsonBackup(local.uri);
       return;
     }
 
-    // Legacy .json backup: a single JSON document with an embedded base64 payload.
-    const content = await fs.readAsStringAsync(local.uri);
-    const payload = JSON.parse(content) as BackupPayload;
-    if (![1, 2].includes(payload.version)) {
-      throw new Error('Unsupported backup version');
+    // Extract natively: the archive never passes through the JS heap, so a
+    // wardrobe of any size unpacks in the same memory as a tiny one.
+    const work = resetDirectory(new Directory(Paths.cache, 'restore-work'));
+    try {
+      await step('Extracting backup archive', () =>
+        getZip().unzip(toNativePath(local.uri), toNativePath(work.uri))
+      );
+
+      let root = work;
+      let layout = classifyDirectory(root);
+      if (layout === 'nested') {
+        root = onlyDirectories(root.list())[0];
+        layout = classifyDirectory(root);
+      }
+
+      if (layout === 'folder') {
+        await restoreFolderBackup(root);
+        return;
+      }
+      if (layout === 'legacy-archive') {
+        await restoreExtractedLegacyArchive(root);
+        return;
+      }
+
+      throw new Error('Invalid backup archive: no manifest.json found');
+    } finally {
+      deleteQuietly(work);
     }
-    const images = Array.isArray(payload.images) ? payload.images : [];
-    await withClosedDatabase(async () => {
-      await writeRestoredDatabase(payload.database);
-      if (images.length > 0) await replaceImageDirectory(images);
-    });
   } finally {
     if (local.temporary) await cleanupTempFile(local.uri);
   }
@@ -648,8 +750,8 @@ export async function listBackups(): Promise<{ name: string; uri: string }[]> {
     if (!base.exists) return [];
 
     const entries = base.list();
-    const folders = entries
-      .filter((e): e is Directory => e instanceof Directory && e.name.startsWith(BACKUP_PREFIX))
+    const folders = onlyDirectories(entries)
+      .filter((d) => d.name.startsWith(BACKUP_PREFIX))
       .map((d) => ({ name: d.name, uri: d.uri }));
     // Keep listing any legacy single-file archives so old backups remain restorable.
     const archives = onlyFiles(entries)
@@ -661,4 +763,3 @@ export async function listBackups(): Promise<{ name: string; uri: string }[]> {
     return [];
   }
 }
-
