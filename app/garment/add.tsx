@@ -100,7 +100,7 @@ export default function AddGarmentScreen() {
         category: data.category,
         subcategory: data.subcategories[0] || null,
         subcategories: data.subcategories,
-        tags: mergeStructuredTags(data.tags, data.seasons, data.weather, data.occasions),
+        tags: mergeStructuredTags(data.tags, data.seasons),
         brand: data.brand || null,
         color_primary: data.colorPalette[0] ?? '#000000',
         color_secondary: data.colorPalette[1] ?? null,
@@ -131,7 +131,7 @@ export default function AddGarmentScreen() {
     try {
       matches = await findDuplicates({
         category: data.category,
-        tags: mergeStructuredTags(data.tags, data.seasons, data.weather, data.occasions),
+        tags: mergeStructuredTags(data.tags, data.seasons),
         color_primary: data.colorPalette[0] ?? '#000000',
         color_palette: data.colorPalette,
         size: data.size || null,

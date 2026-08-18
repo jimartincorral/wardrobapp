@@ -9,6 +9,7 @@ import { GARMENT_COLORS } from '@/src/constants/colors';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
 import { formatDate } from '@/src/utils/date-helpers';
 import { splitStructuredTags } from '@/src/utils/style-tags';
+import { getGarmentOccasions } from '@/src/utils/garment-occasions';
 import { localizeSubcategories } from '@/src/utils/localization-helpers';
 import { useTranslation } from '@/src/i18n';
 import type { Garment } from '@/src/types';
@@ -164,7 +165,8 @@ export default function GarmentDetailScreen() {
     return colorKey ? t(`colors.${colorKey}`) : color;
   });
   const localizedSubcategories = localizeSubcategories(garment.subcategories, t);
-  const { seasons, weather, occasions, customTags } = splitStructuredTags(garment.tags);
+  const { seasons, customTags } = splitStructuredTags(garment.tags);
+  const occasions = getGarmentOccasions(garment);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -227,12 +229,6 @@ export default function GarmentDetailScreen() {
             <View style={styles.propRow}>
               <Text style={styles.propLabel}>{t('garmentDetail.props.seasons')}</Text>
               <Text style={styles.propValue}>{seasons.map(s => t(`outfits.filterValues.season.${s}`)).join(', ')}</Text>
-            </View>
-          )}
-          {weather.length > 0 && (
-            <View style={styles.propRow}>
-              <Text style={styles.propLabel}>{t('garmentDetail.props.weather')}</Text>
-              <Text style={styles.propValue}>{weather.map(w => t(`outfits.filterValues.weather.${w}`)).join(', ')}</Text>
             </View>
           )}
           {occasions.length > 0 && (

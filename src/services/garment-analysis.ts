@@ -1,127 +1,48 @@
-import { Platform } from 'react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
 import jpeg from 'jpeg-js';
-import { CATEGORIES } from '../constants/categories';
 import { GARMENT_COLORS } from '../constants/colors';
-import { SEASON_OPTIONS, WEATHER_OPTIONS } from '../constants/style-filters';
-import type { SeasonOption, WeatherOption } from '../constants/style-filters';
+import { SEASON_OPTIONS } from '../constants/style-filters';
+import type { SeasonOption } from '../constants/style-filters';
 import { colorDistance } from '../utils/color-distance';
 
-type CategoryKey = keyof typeof CATEGORIES;
-type SubcategoryName = (typeof CATEGORIES)[CategoryKey]['subcategories'][number];
-
-export interface GarmentImageSuggestions {
-  category?: CategoryKey;
-  subcategory?: SubcategoryName;
-  colorPrimary?: string;
-  seasons: SeasonOption[];
-  weather: WeatherOption[];
-  confidence: number;
-  labels: string[];
-}
+/**
+ * Garment analysis.
+ *
+ * This used to run MobileNet (via TensorFlow.js) to guess a garment's type from
+ * its photo. In practice the guesses were not accurate enough to be useful --
+ * the smallest MobileNet variant classifying against ImageNet's vocabulary
+ * cannot reliably tell a blouse from a shirt -- so the model was removed along
+ * with the whole TensorFlow stack.
+ *
+ * What is left is what never needed a model in the first place, and what the
+ * feature was actually delivering:
+ *
+ *   - the dominant colour, read straight from the image's pixels
+ *   - the seasons a garment type implies, from a lookup table
+ *
+ * Dropping the model also made this cross-platform: it no longer depends on
+ * native GL, and there is no ~2MB model download on first use.
+ */
 
 type AnalysisProgressCallback = (percent: number) => void;
 
-type PredictionLike = {
-  className: string;
-  probability: number;
-};
-
-type SubcategoryRule = {
-  category: CategoryKey;
-  subcategory: SubcategoryName;
-  keywords: string[];
-};
-
-const SUBCATEGORY_RULES: SubcategoryRule[] = [
-  { category: 'tops', subcategory: 'T-Shirt', keywords: ['t-shirt', 'jersey', 'tee'] },
-  { category: 'tops', subcategory: 'Shirt', keywords: ['dress shirt', 'shirt'] },
-  { category: 'tops', subcategory: 'Polo', keywords: ['polo'] },
-  { category: 'tops', subcategory: 'Sweater', keywords: ['sweatshirt', 'sweater', 'pullover', 'knit'] },
-  { category: 'tops', subcategory: 'Hoodie', keywords: ['hoodie'] },
-  { category: 'bottoms', subcategory: 'Jeans', keywords: ['jean', 'denim'] },
-  { category: 'bottoms', subcategory: 'Pants', keywords: ['trouser', 'pant'] },
-  { category: 'bottoms', subcategory: 'Shorts', keywords: ['shorts', 'bermuda'] },
-  { category: 'bottoms', subcategory: 'Leggings', keywords: ['leggings', 'tights'] },
-  { category: 'dresses', subcategory: 'Midi', keywords: ['dress', 'gown'] },
-  { category: 'outerwear', subcategory: 'Coat', keywords: ['overcoat', 'coat', 'trench'] },
-  { category: 'outerwear', subcategory: 'Jacket', keywords: ['jacket', 'bomber'] },
-  { category: 'midlayer', subcategory: 'Blazer', keywords: ['blazer', 'suit'] },
-  { category: 'midlayer', subcategory: 'Poncho', keywords: ['poncho'] },
-  { category: 'outerwear', subcategory: 'Cardigan', keywords: ['cardigan'] },
-  { category: 'outerwear', subcategory: 'Windbreaker', keywords: ['windbreaker', 'raincoat'] },
-  { category: 'shoes', subcategory: 'Sneakers', keywords: ['sneaker', 'running shoe', 'tennis shoe'] },
-  { category: 'shoes', subcategory: 'Boots', keywords: ['boot'] },
-  { category: 'shoes', subcategory: 'Sandals', keywords: ['sandal', 'flip-flop'] },
-  { category: 'shoes', subcategory: 'Heels', keywords: ['high heel', 'stiletto'] },
-  { category: 'shoes', subcategory: 'Loafers', keywords: ['loafer', 'moccasin'] },
-  { category: 'accessories', subcategory: 'Bag', keywords: ['handbag', 'backpack', 'purse'] },
-  { category: 'accessories', subcategory: 'Watch', keywords: ['watch'] },
-  { category: 'accessories', subcategory: 'Hat', keywords: ['hat', 'cap'] },
-  { category: 'accessories', subcategory: 'Sunglasses', keywords: ['sunglass'] },
-  { category: 'activewear', subcategory: 'Workout Top', keywords: ['sports jersey', 'tank suit'] },
-  { category: 'activewear', subcategory: 'Track Suit', keywords: ['tracksuit'] },
-  { category: 'underwear', subcategory: 'Bra', keywords: ['bra'] },
-  { category: 'underwear', subcategory: 'Bodysuit', keywords: ['bodysuit', 'body suit', 'leotard'] },
-  { category: 'underwear', subcategory: 'Socks', keywords: ['sock'] },
-  { category: 'loungewear', subcategory: 'Pajama Set', keywords: ['pajama set', 'pyjama set', 'sleep set'] },
-  { category: 'loungewear', subcategory: 'Pajama Top', keywords: ['pajama top', 'pyjama top', 'sleep shirt'] },
-  { category: 'loungewear', subcategory: 'Pajama Bottoms', keywords: ['pajama pants', 'pyjama pants', 'sleep pants', 'sleep shorts'] },
-  { category: 'loungewear', subcategory: 'Nightgown', keywords: ['nightgown', 'nightdress'] },
-  { category: 'loungewear', subcategory: 'Robe', keywords: ['robe', 'bathrobe'] },
-];
-
+/** Seasons implied by a garment type. Occasion is derived separately, from the
+ * same subcategory, in utils/garment-occasions. */
 const SEASON_RULES: Record<string, SeasonOption[]> = {
   Shorts: ['summer'],
   'Tank Top': ['summer'],
   Sandals: ['summer'],
+  Sundress: ['summer'],
   Coat: ['winter'],
   Parka: ['winter'],
+  Thermal: ['winter'],
   Sweater: ['fall', 'winter'],
   Hoodie: ['fall', 'winter'],
+  Boots: ['fall', 'winter'],
   Windbreaker: ['spring', 'fall'],
+  Cardigan: ['spring', 'fall'],
   Robe: ['fall', 'winter'],
 };
-
-const WEATHER_RULES: Record<string, WeatherOption[]> = {
-  Shorts: ['hot', 'warm'],
-  Sandals: ['hot', 'warm'],
-  'Tank Top': ['hot', 'warm'],
-  Coat: ['cold'],
-  Parka: ['cold', 'snowy'],
-  Windbreaker: ['windy', 'rainy'],
-  Sweater: ['cool', 'cold'],
-  Hoodie: ['cool', 'cold'],
-  Robe: ['cool', 'cold'],
-};
-
-let modelPromise: Promise<any> | null = null;
-let tfPromise: Promise<any> | null = null;
-
-async function getTf() {
-  if (!tfPromise) {
-    tfPromise = (async () => {
-      const tfModule = await import('@tensorflow/tfjs');
-      await import('@tensorflow/tfjs-react-native');
-      await tfModule.ready();
-      await tfModule.setBackend('cpu');
-      return tfModule;
-    })();
-  }
-  return tfPromise;
-}
-
-function getModel() {
-  if (!modelPromise) {
-    modelPromise = (async () => {
-      const tf = await getTf();
-      const mobilenet = await import('@tensorflow-models/mobilenet');
-      await tf.ready();
-      return mobilenet.load({ version: 2, alpha: 0.5 });
-    })();
-  }
-  return modelPromise;
-}
 
 function base64ToBytes(base64: string): Uint8Array {
   if (typeof atob === 'function') {
@@ -156,7 +77,7 @@ function nearestGarmentColor(hex: string): string {
   return nearest;
 }
 
-function estimateDominantColor(data: Uint8Array): string {
+export function estimateDominantColor(data: Uint8Array): string {
   const decoded = jpeg.decode(data, { useTArray: true });
   const pixels = decoded.data;
   let rTotal = 0;
@@ -178,115 +99,55 @@ function estimateDominantColor(data: Uint8Array): string {
   return nearestGarmentColor(avgHex);
 }
 
-function predictSubcategory(predictions: PredictionLike[]) {
-  for (const prediction of predictions) {
-    const label = prediction.className.toLowerCase();
-    for (const rule of SUBCATEGORY_RULES) {
-      if (rule.keywords.some(keyword => label.includes(keyword))) {
-        return {
-          category: rule.category,
-          subcategory: rule.subcategory,
-          confidence: prediction.probability,
-        };
-      }
-    }
-  }
-
-  return null;
-}
-
-function inferSeasonAndWeather(subcategory?: SubcategoryName) {
+/**
+ * Seasons implied by the chosen garment types. Returns [] when nothing is
+ * implied, so callers can tell "no opinion" from "all-season".
+ */
+export function getSeasonsForSubcategories(subcategories: string[]): SeasonOption[] {
   const seasons = new Set<SeasonOption>();
-  const weather = new Set<WeatherOption>();
 
-  if (subcategory) {
+  for (const subcategory of subcategories) {
     for (const season of SEASON_RULES[subcategory] ?? []) seasons.add(season);
-    for (const condition of WEATHER_RULES[subcategory] ?? []) weather.add(condition);
   }
 
-  if (seasons.size === 0) seasons.add('all-season');
-  if (weather.size === 0) {
-    weather.add('warm');
-    weather.add('cool');
-  }
-
-  const finalSeasons = SEASON_OPTIONS.filter(option => seasons.has(option));
-  const finalWeather = WEATHER_OPTIONS.filter(option => weather.has(option));
-  return { seasons: finalSeasons, weather: finalWeather };
+  return SEASON_OPTIONS.filter(option => seasons.has(option));
 }
 
-async function imageUriToTensor(imageUri: string, tf: any) {
-  const manipulated = await ImageManipulator.manipulateAsync(
-    imageUri,
-    [{ resize: { width: 224 } }],
-    { format: ImageManipulator.SaveFormat.JPEG, compress: 0.9, base64: true }
-  );
-
-  if (!manipulated.base64) {
-    throw new Error('Could not read image data for analysis');
-  }
-
-  const imageData = base64ToBytes(manipulated.base64);
-  const decoded = jpeg.decode(imageData, { useTArray: true });
-  const rgbaTensor = tf.tensor3d(decoded.data, [decoded.height, decoded.width, 4], 'int32');
-  const rgbTensor = tf.slice(rgbaTensor, [0, 0, 0], [decoded.height, decoded.width, 3]);
-  rgbaTensor.dispose();
-  return rgbTensor;
-}
-
+/**
+ * Pure pixel maths and a lookup table -- available everywhere, unlike the
+ * Android-only TensorFlow path this replaced.
+ */
 export function isGarmentAnalysisAvailable(): boolean {
-  return Platform.OS === 'android';
+  return true;
 }
 
-export async function analyzeGarmentImage(
+/**
+ * Read the dominant colour out of a garment photo, snapped to the nearest
+ * colour in the app's palette. Returns null if the image can't be read.
+ */
+export async function detectDominantColor(
   imageUri: string,
   onProgress?: AnalysisProgressCallback
-): Promise<GarmentImageSuggestions | null> {
-  if (!isGarmentAnalysisAvailable()) return null;
-
-  let imageTensor: any = null;
-  const updateProgress = (percent: number) => {
-    if (!onProgress) return;
-    onProgress(Math.max(0, Math.min(100, Math.round(percent))));
-  };
+): Promise<string | null> {
+  const updateProgress = (percent: number) => onProgress?.(Math.max(0, Math.min(100, Math.round(percent))));
 
   try {
-    updateProgress(5);
-    const tf = await getTf();
-    updateProgress(20);
-    const model = await getModel();
-    updateProgress(35);
-    imageTensor = await imageUriToTensor(imageUri, tf);
-    updateProgress(55);
-    const predictions = await model.classify(imageTensor, 5);
-    const subcategoryMatch = predictSubcategory(predictions);
-    updateProgress(75);
-
+    updateProgress(10);
+    // Downscale hard first: averaging a 64px thumbnail is both faster and less
+    // sensitive to detail than averaging the full image.
     const manipulated = await ImageManipulator.manipulateAsync(
       imageUri,
       [{ resize: { width: 64 } }],
       { format: ImageManipulator.SaveFormat.JPEG, compress: 0.8, base64: true }
     );
-    const colorPrimary = manipulated.base64
-      ? estimateDominantColor(base64ToBytes(manipulated.base64))
-      : '#000000';
-    updateProgress(90);
+    updateProgress(60);
 
-    const { seasons, weather } = inferSeasonAndWeather(subcategoryMatch?.subcategory);
+    if (!manipulated.base64) return null;
+    const color = estimateDominantColor(base64ToBytes(manipulated.base64));
     updateProgress(100);
-    return {
-      category: subcategoryMatch?.category,
-      subcategory: subcategoryMatch?.subcategory,
-      colorPrimary,
-      seasons,
-      weather,
-      confidence: subcategoryMatch?.confidence ?? 0,
-      labels: predictions.map((p: PredictionLike) => p.className),
-    };
+    return color;
   } catch (error) {
-    console.warn('Garment analysis failed:', error);
+    console.warn('Colour detection failed:', error);
     return null;
-  } finally {
-    if (imageTensor) imageTensor.dispose();
   }
 }

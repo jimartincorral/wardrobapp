@@ -1,9 +1,28 @@
-import { OCCASION_OPTIONS, SEASON_OPTIONS, WEATHER_OPTIONS } from '../constants/style-filters';
-import type { OccasionOption, SeasonOption, WeatherOption } from '../constants/style-filters';
+import { SEASON_OPTIONS } from '../constants/style-filters';
+import type { SeasonOption } from '../constants/style-filters';
 
 const seasonSet = new Set<string>(SEASON_OPTIONS);
-const weatherSet = new Set<string>(WEATHER_OPTIONS);
-const occasionSet = new Set<string>(OCCASION_OPTIONS);
+
+/**
+ * Tag values that used to be structured filters and no longer are.
+ *
+ * Weather was removed outright (it largely restated season), and occasion is
+ * now derived from a garment's type rather than tagged. Old rows still contain
+ * these values inside their tags array, so they are filtered out on read as
+ * well as stripped by a one-time migration -- the migration alone is not
+ * enough, because restoring an older backup would reintroduce them and they
+ * would then surface as if the user had typed them as custom tags.
+ */
+const LEGACY_STRUCTURED_TAGS = new Set<string>([
+  // weather
+  'hot', 'warm', 'cool', 'cold', 'rainy', 'snowy', 'windy',
+  // occasion
+  'casual', 'work', 'formal', 'sport', 'lounge', 'party', 'travel',
+]);
+
+export function isLegacyStructuredTag(tag: string): boolean {
+  return LEGACY_STRUCTURED_TAGS.has(normalizeTag(tag));
+}
 
 function normalizeTag(tag: string): string {
   return tag.trim().toLowerCase();
@@ -11,11 +30,9 @@ function normalizeTag(tag: string): string {
 
 export function mergeStructuredTags(
   customTags: string[],
-  seasons: SeasonOption[],
-  weather: WeatherOption[],
-  occasions: OccasionOption[]
+  seasons: SeasonOption[]
 ): string[] {
-  const all = [...customTags, ...seasons, ...weather, ...occasions];
+  const all = [...customTags, ...seasons];
   const seen = new Set<string>();
   const merged: string[] = [];
 
@@ -32,30 +49,20 @@ export function mergeStructuredTags(
 export function splitStructuredTags(tags: string[]): {
   customTags: string[];
   seasons: SeasonOption[];
-  weather: WeatherOption[];
-  occasions: OccasionOption[];
 } {
   const customTags: string[] = [];
   const seasons: SeasonOption[] = [];
-  const weather: WeatherOption[] = [];
-  const occasions: OccasionOption[] = [];
 
   for (const rawTag of tags) {
     const tag = normalizeTag(rawTag);
+    if (!tag) continue;
     if (seasonSet.has(tag)) {
       seasons.push(tag as SeasonOption);
       continue;
     }
-    if (weatherSet.has(tag)) {
-      weather.push(tag as WeatherOption);
-      continue;
-    }
-    if (occasionSet.has(tag)) {
-      occasions.push(tag as OccasionOption);
-      continue;
-    }
+    if (LEGACY_STRUCTURED_TAGS.has(tag)) continue;
     customTags.push(tag);
   }
 
-  return { customTags, seasons, weather, occasions };
+  return { customTags, seasons };
 }

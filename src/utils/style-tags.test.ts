@@ -1,26 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import { mergeStructuredTags, splitStructuredTags } from './style-tags';
+import { mergeStructuredTags, splitStructuredTags, isLegacyStructuredTag } from './style-tags';
 
 describe('mergeStructuredTags', () => {
-  it('normalizes and deduplicates tags across all inputs', () => {
-    const merged = mergeStructuredTags(
-      [' Summer ', 'Denim', 'summer', ''],
-      ['summer'],
-      ['warm'],
-      ['work']
-    );
+  it('lowercases and de-duplicates custom tags and seasons', () => {
+    expect(mergeStructuredTags(['Cotton', 'cotton', 'Striped'], ['summer', 'summer'])).toEqual([
+      'cotton',
+      'striped',
+      'summer',
+    ]);
+  });
 
-    expect(merged).toEqual(['summer', 'denim', 'warm', 'work']);
+  it('drops blank tags', () => {
+    expect(mergeStructuredTags(['  ', 'linen'], [])).toEqual(['linen']);
   });
 });
 
 describe('splitStructuredTags', () => {
-  it('splits structured tags from custom tags case-insensitively', () => {
-    const split = splitStructuredTags([' Summer ', 'RAINY', 'Casual', 'Vintage']);
+  it('separates seasons from custom tags', () => {
+    const result = splitStructuredTags(['cotton', 'winter', 'striped', 'all-season']);
+    expect(result.seasons).toEqual(['winter', 'all-season']);
+    expect(result.customTags).toEqual(['cotton', 'striped']);
+  });
 
-    expect(split.seasons).toEqual(['summer']);
-    expect(split.weather).toEqual(['rainy']);
-    expect(split.occasions).toEqual(['casual']);
-    expect(split.customTags).toEqual(['vintage']);
+  it('discards weather and occasion values left over from older versions', () => {
+    // Restoring an old backup reintroduces these; without this they would
+    // resurface as if the user had typed them as custom tags.
+    const result = splitStructuredTags(['hot', 'casual', 'wool', 'summer', 'party']);
+    expect(result.customTags).toEqual(['wool']);
+    expect(result.seasons).toEqual(['summer']);
+  });
+});
+
+describe('isLegacyStructuredTag', () => {
+  it('recognises removed weather and occasion values regardless of casing', () => {
+    expect(isLegacyStructuredTag('Rainy')).toBe(true);
+    expect(isLegacyStructuredTag(' WORK ')).toBe(true);
+    expect(isLegacyStructuredTag('wool')).toBe(false);
+    expect(isLegacyStructuredTag('summer')).toBe(false);
   });
 });

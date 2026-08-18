@@ -89,7 +89,7 @@ export default function EditGarmentScreen() {
         category: data.category,
         subcategory: data.subcategories[0] || null,
         subcategories: data.subcategories,
-        tags: mergeStructuredTags(data.tags, data.seasons, data.weather, data.occasions),
+        tags: mergeStructuredTags(data.tags, data.seasons),
         brand: data.brand || null,
         color_primary: data.colorPalette[0] ?? '#000000',
         color_secondary: data.colorPalette[1] ?? null,

@@ -97,7 +97,6 @@ export default function OutfitDetailScreen() {
       <Text style={styles.name}>{outfit.name}</Text>
       <Text style={styles.meta}>
         {t('outfitDetail.createdAt', { date: formatDate(outfit.created_at) })}
-        {outfit.occasion ? ` \u2022 ${t(`outfits.filterValues.occasion.${outfit.occasion}`)}` : ''}
       </Text>
       <View style={styles.garmentGrid}>
         {garments.map(g => (

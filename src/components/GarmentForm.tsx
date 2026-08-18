@@ -14,11 +14,9 @@ import { KeyboardAwareScrollView } from './KeyboardAwareScrollView';
 import { ColorPicker } from './ColorPicker';
 import { CATEGORIES, COMMON_SIZES, SUBCATEGORY_KEY_MAP } from '../constants/categories';
 import {
-  OCCASION_OPTIONS,
   SEASON_OPTIONS,
   STYLE_FILTER_COLORS,
   STYLE_FILTER_EMOJIS,
-  WEATHER_OPTIONS,
 } from '../constants/style-filters';
 import { BorderRadius, FontSize, Spacing } from '../constants/theme';
 import { isGarmentAnalysisAvailable } from '../services/garment-analysis';
@@ -294,51 +292,7 @@ export function GarmentForm({
         ))}
       </View>
 
-      <Text style={styles.label}>{t('addGarment.labels.weather')}</Text>
-      <View style={styles.chipWrapRow}>
-        {WEATHER_OPTIONS.map((option) => (
-          <Pressable
-            key={option}
-            style={[
-              styles.chip,
-              styles.filterChip,
-              { backgroundColor: `${STYLE_FILTER_COLORS[option]}22`, borderColor: `${STYLE_FILTER_COLORS[option]}66` },
-              form.data.weather.includes(option) && [
-                styles.chipActive,
-                { backgroundColor: STYLE_FILTER_COLORS[option], borderColor: STYLE_FILTER_COLORS[option] },
-              ],
-            ]}
-            onPress={() => form.setWeather(form.toggleArrayValue(form.data.weather, option))}
-          >
-            <Text style={[styles.chipText, form.data.weather.includes(option) && styles.chipTextActive]}>
-              {`${STYLE_FILTER_EMOJIS[option]} ${t(`outfits.filterValues.weather.${option}`)}`}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
 
-      <Text style={styles.label}>{t('addGarment.labels.occasion')}</Text>
-      <View style={styles.chipWrapRow}>
-        {OCCASION_OPTIONS.map((option) => (
-          <Pressable
-            key={option}
-            style={[
-              styles.chip,
-              styles.filterChip,
-              { backgroundColor: `${STYLE_FILTER_COLORS[option]}22`, borderColor: `${STYLE_FILTER_COLORS[option]}66` },
-              form.data.occasions.includes(option) && [
-                styles.chipActive,
-                { backgroundColor: STYLE_FILTER_COLORS[option], borderColor: STYLE_FILTER_COLORS[option] },
-              ],
-            ]}
-            onPress={() => form.setOccasions(form.toggleArrayValue(form.data.occasions, option))}
-          >
-            <Text style={[styles.chipText, form.data.occasions.includes(option) && styles.chipTextActive]}>
-              {`${STYLE_FILTER_EMOJIS[option]} ${t(`outfits.filterValues.occasion.${option}`)}`}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
 
       <Text style={styles.label}>{t('addGarment.labels.colors')}</Text>
       <ColorPicker
