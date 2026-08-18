@@ -1,42 +1,64 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import JSZip from 'jszip';
 import { Directory, File, Paths } from 'expo-file-system';
 import { closeDatabase, getDatabase } from '../db/client';
 
 /**
- * Google Drive Backup Service
+ * Backup and restore.
  *
- * This service handles exporting/importing the wardrobe data.
- * Full Google Drive integration requires:
- * 1. @react-native-google-signin/google-signin (needs dev build, not Expo Go)
- * 2. Google Cloud Console project with Drive API enabled
- * 3. OAuth 2.0 client ID configured
+ * A backup is a single .zip containing `manifest.json`, the raw SQLite database
+ * and an `images/` folder of the garment photos. Single-file on purpose: it can
+ * be copied off the device, sent to another phone, or kept anywhere the user
+ * likes without a folder structure to preserve.
  *
- * For now, this provides local export/import functionality.
- * Google Drive upload/download can be added when building a dev APK.
+ * Everything is staged on disk and zipped natively, so memory stays flat no
+ * matter how large the wardrobe is. The previous implementation built the whole
+ * archive in JS — every photo as bytes, plus the finished archive as one
+ * Uint8Array — which put peak usage at roughly twice the backup size and ran
+ * the app out of heap on wardrobes of a few hundred megabytes.
  *
- * NOTE: Backup/restore uses expo-file-system which is native-only.
- * On web these functions throw a clear error.
+ * The trade is disk for heap: staging holds a second copy of the photos while
+ * the archive is built, so a backup needs roughly twice the wardrobe's size
+ * free in the cache directory. Both copies are deleted as soon as the backup
+ * lands in its destination. Running out of disk fails loudly and recoverably;
+ * running out of heap killed the app.
+ *
+ * Restore also accepts the legacy folder format and the legacy .json/.zip
+ * archives, so older backups stay usable.
+ *
+ * NOTE: this uses expo-file-system and react-native-zip-archive, both
+ * native-only. On web these functions throw a clear error.
  */
 
 let _fs: typeof import('expo-file-system/legacy') | null = null;
+let _zip: typeof import('react-native-zip-archive') | null = null;
+
 const DOWNLOADS_DIR_URI_KEY = 'backup_downloads_directory_uri';
 const BACKUP_PREFIX = 'wardrobapp-backup-';
 const MANIFEST_NAME = 'manifest.json';
+const LEGACY_PAYLOAD_NAME = 'backup.json';
 const DB_FILENAME = 'wardrobapp.db';
 const IMAGES_DIRNAME = 'images';
-const FOLDER_BACKUP_VERSION = 3;
-const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
-const GOOGLE_DRIVE_FILES_URL = 'https://www.googleapis.com/drive/v3/files';
-const GOOGLE_DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files';
-let _googleConfigured = false;
+
+/**
+ * Layout version shared by the .zip archives and the older folder backups —
+ * they hold the same three entries, so a .zip backup is literally a zipped
+ * folder backup and both restore through the same code.
+ */
+const BACKUP_VERSION = 3;
 
 function getFS() {
   if (!_fs) {
     _fs = require('expo-file-system/legacy');
   }
   return _fs!;
+}
+
+function getZip() {
+  if (!_zip) {
+    _zip = require('react-native-zip-archive');
+  }
+  return _zip!;
 }
 
 function getDbPath() { return `${getFS().documentDirectory}SQLite/wardrobapp.db`; }
@@ -55,7 +77,7 @@ function ensureNative(action: string) {
 
 function getBackupFilename() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  return `wardrobapp-backup-${timestamp}.zip`;
+  return `${BACKUP_PREFIX}${timestamp}.zip`;
 }
 
 async function withClosedDatabase<T>(operation: () => Promise<T>): Promise<T> {
@@ -84,22 +106,8 @@ type BackupImage = {
   data: string;
 };
 
-// Images held as raw bytes while *building* an archive — avoids the ~33% base64
-// inflation (and the CPU to encode/decode it) that dominated backup time.
-type BackupBuildImage = {
-  name: string;
-  bytes: Uint8Array;
-};
-
-export type GoogleDriveBackupFile = {
-  id: string;
-  name: string;
-  modifiedTime?: string;
-  size?: string;
-};
-
 export type BackupProgress = {
-  phase: 'preparing' | 'archiving' | 'saving' | 'uploading' | 'done';
+  phase: 'preparing' | 'archiving' | 'saving' | 'done';
   percent: number;
   message: string;
 };
@@ -130,7 +138,6 @@ function yieldToUi() {
   return new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
-// New (SDK 55) File API references used by the folder-restore path.
 function newSqliteDir() {
   return new Directory(Paths.document, 'SQLite');
 }
@@ -142,9 +149,38 @@ function onlyFiles(entries: (Directory | File)[]) {
   return entries.filter((e): e is File => e instanceof File);
 }
 
+function onlyDirectories(entries: (Directory | File)[]) {
+  return entries.filter((e): e is Directory => e instanceof Directory);
+}
+
 /** Android SAF folders are exposed as content:// URIs. */
 function isContentUri(uri: string) {
   return uri.startsWith('content://');
+}
+
+/**
+ * react-native-zip-archive works on plain filesystem paths, not `file://` URIs.
+ * Percent-encoding has to come back out too: the URI form escapes spaces and
+ * other characters that are perfectly legal in a path.
+ */
+export function toNativePath(uri: string): string {
+  if (!uri.startsWith('file://')) return uri;
+  return decodeURIComponent(uri.slice('file://'.length));
+}
+
+/** Replace a working directory with an empty one. */
+function resetDirectory(dir: Directory): Directory {
+  if (dir.exists) dir.delete();
+  dir.create({ intermediates: true, idempotent: true });
+  return dir;
+}
+
+function deleteQuietly(dir: Directory) {
+  try {
+    if (dir.exists) dir.delete();
+  } catch {
+    // Cache cleanup is best-effort; the OS reclaims this directory anyway.
+  }
 }
 
 /**
@@ -222,94 +258,136 @@ function emitProgress(
   });
 }
 
-async function buildBackupData(onProgress?: BackupProgressCallback): Promise<{ payload: BackupPayload; images: BackupBuildImage[] }> {
-  const fs = getFS();
-  emitProgress(onProgress, 'preparing', 5, 'Reading database');
+/**
+ * Lay the backup out on disk: the database, every photo, and a manifest. Each
+ * file is copied natively, so the only thing that ever reaches the JS heap is
+ * the manifest.
+ */
+async function stageBackupContents(
+  staging: Directory,
+  onProgress?: BackupProgressCallback
+): Promise<void> {
+  emitProgress(onProgress, 'preparing', 5, 'Copying database');
 
-  let dbBase64 = '';
-  const dbInfo = await fs.getInfoAsync(getDbPath());
-  if (dbInfo.exists) {
-    dbBase64 = await fs.readAsStringAsync(getDbPath(), {
-      encoding: fs.EncodingType.Base64,
-    });
+  const dbFile = new File(newSqliteDir(), DB_FILENAME);
+  if (dbFile.exists) {
+    dbFile.copy(staging);
   }
 
-  const imageFiles: BackupBuildImage[] = [];
-  const imagesDir = newImagesDir();
-  if (imagesDir.exists) {
-    const files = onlyFiles(imagesDir.list());
-    const totalFiles = files.length || 1;
+  const stagedImages = new Directory(staging, IMAGES_DIRNAME);
+  stagedImages.create({ intermediates: true, idempotent: true });
+
+  let copied = 0;
+  const sourceImages = newImagesDir();
+  if (sourceImages.exists) {
+    const files = onlyFiles(sourceImages.list());
+    const total = files.length || 1;
+
     for (const file of files) {
       try {
-        imageFiles.push({ name: file.name, bytes: file.bytesSync() });
+        file.copy(stagedImages);
+        copied++;
       } catch {
-        // Skip files that can't be read
+        // Skip files that can't be read.
       }
       emitProgress(
         onProgress,
         'preparing',
-        10 + (imageFiles.length / totalFiles) * 35,
-        `Collecting images (${Math.min(imageFiles.length, files.length)}/${files.length})`
+        10 + (copied / total) * 40,
+        `Collecting images (${copied}/${files.length})`
       );
+      if (copied % 20 === 0) await yieldToUi();
     }
   }
 
-  emitProgress(onProgress, 'preparing', 45, 'Preparing backup archive');
-
-  return {
-    payload: {
-      version: 2,
+  const manifest = new File(staging, MANIFEST_NAME);
+  manifest.create({ overwrite: true });
+  manifest.write(
+    JSON.stringify({
+      version: BACKUP_VERSION,
       created_at: new Date().toISOString(),
-      database: dbBase64,
-    },
-    images: imageFiles,
-  };
-}
-
-async function buildBackupArchive(
-  payload: BackupPayload,
-  images: BackupBuildImage[],
-  onProgress?: BackupProgressCallback
-): Promise<Uint8Array> {
-  const zip = new JSZip();
-
-  zip.file('backup.json', JSON.stringify(payload), {
-    compression: 'DEFLATE',
-    compressionOptions: { level: 3 },
-  });
-
-  for (const image of images) {
-    // Already-compressed JPEG/PNG bytes — store without recompressing.
-    zip.file(`images/${image.name}`, image.bytes, {
-      compression: 'STORE',
-    });
-  }
-
-  emitProgress(onProgress, 'archiving', 50, 'Building ZIP archive');
-
-  return zip.generateAsync(
-    {
-      type: 'uint8array',
-      compression: 'STORE',
-      streamFiles: true,
-    },
-    (metadata) => {
-      emitProgress(
-        onProgress,
-        'archiving',
-        50 + metadata.percent * 0.4,
-        `Building ZIP archive (${Math.round(metadata.percent)}%)`
-      );
-    }
+      image_count: copied,
+    })
   );
 }
 
-async function createBackupArchive(onProgress?: BackupProgressCallback) {
+/** Zip a staged directory natively, reporting the module's own progress. */
+async function zipDirectory(
+  source: Directory,
+  target: File,
+  onProgress?: BackupProgressCallback
+): Promise<void> {
+  const { zip, subscribe, NO_COMPRESSION } = getZip();
+
+  // Photos are already-compressed JPEG/PNG and dominate the archive, so
+  // deflating would burn CPU for almost nothing. The database is the only
+  // compressible entry and it is small — it holds image paths, not image data.
+  const subscription = subscribe(({ progress }) => {
+    emitProgress(
+      onProgress,
+      'archiving',
+      55 + progress * 38,
+      `Building ZIP archive (${Math.round(progress * 100)}%)`
+    );
+  });
+
+  try {
+    await zip(toNativePath(source.uri), toNativePath(target.uri), NO_COMPRESSION);
+  } finally {
+    subscription.remove();
+  }
+}
+
+/** Put the finished archive in the user's chosen folder. */
+async function saveArchiveTo(base: Directory, archive: File, name: string): Promise<string> {
+  if (isContentUri(base.uri)) {
+    const dest = base.createFile(name, 'application/zip');
+    await getFS().copyAsync({ from: archive.uri, to: dest.uri });
+    return dest.uri;
+  }
+
+  const dest = new File(base, name);
+  if (dest.exists) dest.delete();
+  archive.copy(dest);
+  return dest.uri;
+}
+
+/**
+ * Export the database and images as a single .zip backup file.
+ *
+ * Returns the backup file URI and its size in bytes.
+ */
+export async function createBackup(options?: { onProgress?: BackupProgressCallback }): Promise<{ uri: string; size: number }> {
+  ensureNative('Backup creation');
+  const onProgress = options?.onProgress;
+  emitProgress(onProgress, 'preparing', 0, 'Starting backup');
+
+  const base = await step('Requesting folder access', () => getBackupBaseDirectory());
   const name = getBackupFilename();
-  const { payload, images } = await withClosedDatabase(() => buildBackupData(onProgress));
-  const bytes = await buildBackupArchive(payload, images, onProgress);
-  emitProgress(onProgress, 'saving', 90, 'Archive ready');
-  return { name, bytes, size: bytes.length };
+
+  const work = resetDirectory(new Directory(Paths.cache, 'backup-work'));
+  try {
+    const staging = new Directory(work, 'staging');
+    staging.create({ intermediates: true, idempotent: true });
+
+    await step('Collecting backup contents', () =>
+      withClosedDatabase(() => stageBackupContents(staging, onProgress))
+    );
+
+    const archive = new File(work, name);
+    await step('Building ZIP archive', () => zipDirectory(staging, archive, onProgress));
+
+    // Read the size before the working directory goes away.
+    const size = archive.size;
+
+    emitProgress(onProgress, 'saving', 94, 'Saving backup file');
+    const uri = await step('Saving backup file', () => saveArchiveTo(base, archive, name));
+
+    emitProgress(onProgress, 'done', 100, 'Backup complete');
+    return { uri, size };
+  } finally {
+    deleteQuietly(work);
+  }
 }
 
 function getSafEntryName(uri: string) {
@@ -339,14 +417,6 @@ async function ensureTempBackupDir() {
   }
 }
 
-async function writeTempBackupFile(filename: string, bytes: Uint8Array) {
-  await ensureTempBackupDir();
-  const file = new File(getTempBackupDir(), filename);
-  file.create({ overwrite: true, intermediates: true });
-  file.write(bytes);
-  return file.uri;
-}
-
 async function cleanupTempFile(uri: string) {
   try {
     await getFS().deleteAsync(uri, { idempotent: true });
@@ -356,10 +426,8 @@ async function cleanupTempFile(uri: string) {
 }
 
 /**
- * Ensure the archive is a local file:// path so it can be read as raw bytes
- * (never a base64 string, which doubles in UTF-16) and without a SAF
- * read-the-whole-thing-as-a-string call. content:// archives are streamed to a
- * temp file via the native copyAsync.
+ * Ensure the archive is a local file:// path so the native unzip can read it.
+ * content:// archives are streamed to a temp file via the native copyAsync.
  */
 async function materializeArchiveLocally(
   backupUri: string,
@@ -380,23 +448,20 @@ async function writeRestoredDatabase(dbBase64?: string) {
   if (!dirInfo.exists) {
     await fs.makeDirectoryAsync(dbDir, { intermediates: true });
   }
+
+  // Clear the WAL sidecars before overwriting the database, exactly as the
+  // folder-restore path does. A clean close checkpoints and removes them, but
+  // if a previous session crashed or the close failed they survive -- and
+  // SQLite would then replay that stale WAL onto the *restored* database,
+  // grafting fragments of the old wardrobe onto it. Most likely to happen
+  // precisely when someone is restoring, because something already went wrong.
+  for (const suffix of ['-wal', '-shm']) {
+    await fs.deleteAsync(`${getDbPath()}${suffix}`, { idempotent: true });
+  }
+
   await fs.writeAsStringAsync(getDbPath(), dbBase64, {
     encoding: fs.EncodingType.Base64,
   });
-}
-
-async function prepareEmptyImageDir() {
-  const fs = getFS();
-  const imageDir = getImageDir();
-  const info = await fs.getInfoAsync(imageDir);
-  if (info.exists) {
-    const existing = await fs.readDirectoryAsync(imageDir);
-    for (const file of existing) {
-      await fs.deleteAsync(`${imageDir}${file}`, { idempotent: true });
-    }
-  } else {
-    await fs.makeDirectoryAsync(imageDir, { intermediates: true });
-  }
 }
 
 async function replaceImageDirectory(images: BackupImage[]) {
@@ -420,278 +485,9 @@ async function replaceImageDirectory(images: BackupImage[]) {
   }
 }
 
-function ensureGoogleDriveSupported() {
-  ensureNative('Google Drive backup');
-
-  if (Platform.OS !== 'android') {
-    throw new Error('Google Drive backup is only available on Android.');
-  }
-}
-
-function getGoogleSignin() {
-  return require('@react-native-google-signin/google-signin') as typeof import('@react-native-google-signin/google-signin');
-}
-
-function configureGoogleSignin() {
-  if (_googleConfigured) return;
-
-  const { GoogleSignin } = getGoogleSignin();
-  GoogleSignin.configure({
-    scopes: [GOOGLE_DRIVE_SCOPE],
-  });
-  _googleConfigured = true;
-}
-
-async function ensureGoogleDriveSession(interactive = false) {
-  ensureGoogleDriveSupported();
-  const { GoogleSignin } = getGoogleSignin();
-
-  configureGoogleSignin();
-  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-
-  let user = GoogleSignin.getCurrentUser();
-
-  if (!user) {
-    try {
-      const silent = await GoogleSignin.signInSilently();
-      if (silent.type === 'success') {
-        user = silent.data;
-      }
-    } catch {
-      // Ignore silent sign-in errors and fall back to interactive sign-in if requested.
-    }
-  }
-
-  if (!user && interactive) {
-    const signInResult = await GoogleSignin.signIn();
-    if (signInResult.type !== 'success') {
-      throw new Error('Google sign-in was cancelled.');
-    }
-    user = signInResult.data;
-  }
-
-  if (!user) {
-    return null;
-  }
-
-  if (!user.scopes?.includes(GOOGLE_DRIVE_SCOPE)) {
-    const scopedResult = await GoogleSignin.addScopes({ scopes: [GOOGLE_DRIVE_SCOPE] });
-    if (scopedResult?.type === 'success') {
-      user = scopedResult.data;
-    }
-  }
-
-  if (!user.scopes?.includes(GOOGLE_DRIVE_SCOPE)) {
-    throw new Error('Google Drive permission was not granted.');
-  }
-
-  const { accessToken } = await GoogleSignin.getTokens();
-  return { accessToken, user };
-}
-
-async function parseDriveError(response: Response) {
-  try {
-    const data = await response.json();
-    return data?.error?.message ?? `Google Drive request failed (${response.status}).`;
-  } catch {
-    return `Google Drive request failed (${response.status}).`;
-  }
-}
-
-async function driveFetch(accessToken: string, input: string, init?: RequestInit) {
-  const response = await fetch(input, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      ...(init?.headers ?? {}),
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(await parseDriveError(response));
-  }
-
-  return response;
-}
-
-async function uploadBackupToGoogleDrive(accessToken: string, fileUri: string, filename: string) {
-  const fs = getFS();
-  const sessionResponse = await driveFetch(
-    accessToken,
-    `${GOOGLE_DRIVE_UPLOAD_URL}?uploadType=resumable&fields=id,name,modifiedTime,size`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=UTF-8',
-        'X-Upload-Content-Type': 'application/zip',
-      },
-      body: JSON.stringify({
-        name: filename,
-        parents: ['appDataFolder'],
-      }),
-    }
-  );
-
-  const uploadUrl = sessionResponse.headers.get('location') ?? sessionResponse.headers.get('Location');
-  if (!uploadUrl) {
-    throw new Error('Google Drive upload session did not return an upload URL.');
-  }
-
-  const uploadResult = await fs.uploadAsync(uploadUrl, fileUri, {
-    httpMethod: 'PUT',
-    uploadType: fs.FileSystemUploadType.BINARY_CONTENT,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/zip',
-    },
-  });
-
-  if (uploadResult.status >= 400) {
-    try {
-      const data = JSON.parse(uploadResult.body || '{}');
-      throw new Error(data?.error?.message ?? `Google Drive upload failed (${uploadResult.status}).`);
-    } catch (error) {
-      if (error instanceof Error) throw error;
-      throw new Error(`Google Drive upload failed (${uploadResult.status}).`);
-    }
-  }
-
-  return JSON.parse(uploadResult.body || '{}') as GoogleDriveBackupFile;
-}
-
 /**
- * Export the database and images as a single .zip backup file.
- *
- * The archive contains `backup.json` (metadata + the base64 SQLite database,
- * DEFLATE-compressed) and an `images/` folder (JPEGs stored uncompressed, since
- * they are already compressed). The whole archive is built in memory and then
- * written to the chosen folder as one file — writing (rather than `File.copy`)
- * is what keeps this working on Android SAF `content://` folders.
- *
- * Returns the backup file URI and its (approximate) size in bytes.
- */
-export async function createBackup(options?: { onProgress?: BackupProgressCallback }): Promise<{ uri: string; size: number }> {
-  ensureNative('Backup creation');
-  const onProgress = options?.onProgress;
-  emitProgress(onProgress, 'preparing', 0, 'Starting backup');
-
-  const base = await step('Requesting folder access', () => getBackupBaseDirectory());
-
-  const name = getBackupFilename();
-  const { payload, images } = await withClosedDatabase(() => buildBackupData(onProgress));
-  const bytes = await buildBackupArchive(payload, images, onProgress);
-  const size = bytes.length;
-
-  emitProgress(onProgress, 'saving', 94, 'Saving backup file');
-  const file = await step('Saving backup file', async () => {
-    const f = base.createFile(name, 'application/zip');
-    f.write(bytes);
-    return f;
-  });
-
-  emitProgress(onProgress, 'done', 100, 'Backup complete');
-  return { uri: file.uri, size };
-}
-
-export async function getGoogleDriveStatus(): Promise<{ connected: boolean; email?: string | null }> {
-  try {
-    const session = await ensureGoogleDriveSession(false);
-    return {
-      connected: Boolean(session),
-      email: session?.user.user.email ?? null,
-    };
-  } catch {
-    return { connected: false, email: null };
-  }
-}
-
-export async function connectGoogleDrive(): Promise<{ email: string }> {
-  const session = await ensureGoogleDriveSession(true);
-  if (!session) {
-    throw new Error('Google sign-in was not completed.');
-  }
-
-  return { email: session.user.user.email };
-}
-
-export async function disconnectGoogleDrive(): Promise<void> {
-  ensureGoogleDriveSupported();
-  const { GoogleSignin } = getGoogleSignin();
-
-  configureGoogleSignin();
-  await GoogleSignin.signOut();
-}
-
-export async function createGoogleDriveBackup(): Promise<{ id: string; name: string; size: number }> {
-  const session = await ensureGoogleDriveSession(true);
-  if (!session) {
-    throw new Error('Sign in to Google Drive first.');
-  }
-
-  const archive = await createBackupArchive();
-  const tempUri = await writeTempBackupFile(archive.name, archive.bytes);
-
-  try {
-    const uploadedFile = await uploadBackupToGoogleDrive(session.accessToken, tempUri, archive.name);
-    return {
-      id: uploadedFile.id,
-      name: uploadedFile.name,
-      size: archive.size,
-    };
-  } finally {
-    await cleanupTempFile(tempUri);
-  }
-}
-
-export async function listGoogleDriveBackups(): Promise<GoogleDriveBackupFile[]> {
-  const session = await ensureGoogleDriveSession(false);
-  if (!session) return [];
-
-  const query = encodeURIComponent(`'appDataFolder' in parents and trashed = false and name contains 'wardrobapp-backup-'`);
-  const response = await driveFetch(
-    session.accessToken,
-    `${GOOGLE_DRIVE_FILES_URL}?spaces=appDataFolder&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime desc&q=${query}`
-  );
-  const data = await response.json();
-  return Array.isArray(data.files) ? data.files : [];
-}
-
-export async function restoreGoogleDriveBackup(fileId: string): Promise<void> {
-  const session = await ensureGoogleDriveSession(true);
-  if (!session) {
-    throw new Error('Sign in to Google Drive first.');
-  }
-
-  const downloadUri = `${getTempBackupDir()}google-drive-restore-${fileId}.zip`;
-  await ensureTempBackupDir();
-
-  try {
-    await getFS().downloadAsync(`${GOOGLE_DRIVE_FILES_URL}/${fileId}?alt=media`, downloadUri, {
-      headers: {
-        Authorization: `Bearer ${session.accessToken}`,
-      },
-    });
-    await restoreBackup(downloadUri);
-  } finally {
-    await cleanupTempFile(downloadUri);
-  }
-}
-
-export async function deleteGoogleDriveBackup(fileId: string): Promise<void> {
-  const session = await ensureGoogleDriveSession(true);
-  if (!session) {
-    throw new Error('Sign in to Google Drive first.');
-  }
-
-  await driveFetch(session.accessToken, `${GOOGLE_DRIVE_FILES_URL}/${fileId}`, {
-    method: 'DELETE',
-  });
-}
-
-/**
- * Restore from a backup. Handles both the new folder-based format and the
- * legacy single-file (.zip/.json) archives (the latter is also used by the
- * Google Drive restore path).
+ * Restore from a backup. Handles the current single-file .zip archives as well
+ * as the legacy folder-based format and legacy .json archives.
  */
 export async function restoreBackup(backupUri: string): Promise<void> {
   ensureNative('Backup restore');
@@ -788,7 +584,7 @@ async function restoreFolderBackup(dir: Directory): Promise<void> {
   }
 
   const manifest = JSON.parse(manifestFile.textSync()) as { version?: number };
-  if (manifest.version !== FOLDER_BACKUP_VERSION) {
+  if (manifest.version !== BACKUP_VERSION) {
     throw new Error('Unsupported backup version');
   }
 
@@ -805,76 +601,131 @@ async function restoreFolderBackup(dir: Directory): Promise<void> {
       await copyFileInto(dbEntry, sqliteDir, DB_FILENAME);
     }
 
-    const imagesEntry = entries.find(
-      (e): e is Directory => e instanceof Directory && e.name === IMAGES_DIRNAME
+    await replaceImageDirectoryFrom(
+      onlyDirectories(entries).find((e) => e.name === IMAGES_DIRNAME) ?? null
     );
-    const destImages = newImagesDir();
-    if (destImages.exists) destImages.delete();
-    destImages.create({ intermediates: true, idempotent: true });
-
-    if (imagesEntry) {
-      const files = onlyFiles(imagesEntry.list());
-      let i = 0;
-      for (const img of files) {
-        await copyFileInto(img, destImages, img.name);
-        if (++i % 10 === 0) await yieldToUi();
-      }
-    }
   });
 }
 
-/** Restore a legacy single-file (.zip/.json) backup archive. */
-async function restoreArchiveBackup(backupUri: string): Promise<void> {
+/** Swap the live photo directory for the one in an extracted or opened backup. */
+async function replaceImageDirectoryFrom(source: Directory | null): Promise<void> {
+  const destImages = newImagesDir();
+  if (destImages.exists) destImages.delete();
+  destImages.create({ intermediates: true, idempotent: true });
+
+  if (!source) return;
+
+  let i = 0;
+  for (const img of onlyFiles(source.list())) {
+    await copyFileInto(img, destImages, img.name);
+    if (++i % 10 === 0) await yieldToUi();
+  }
+}
+
+export type ArchiveLayout = 'folder' | 'legacy-archive' | 'nested' | 'unknown';
+
+/**
+ * Work out what an extracted archive contains from the names at one level.
+ *
+ * `folder` is the current layout (and the older folder backups). `legacy-archive`
+ * is the v1/v2 zip whose database lived base64-encoded inside backup.json.
+ * `nested` covers zip implementations that wrap everything in a single top-level
+ * directory — the caller descends and classifies again rather than failing.
+ */
+export function classifyArchiveEntries(
+  fileNames: string[],
+  directoryNames: string[]
+): ArchiveLayout {
+  if (fileNames.includes(MANIFEST_NAME)) return 'folder';
+  if (fileNames.includes(LEGACY_PAYLOAD_NAME)) return 'legacy-archive';
+  if (directoryNames.length === 1) return 'nested';
+  return 'unknown';
+}
+
+function classifyDirectory(dir: Directory): ArchiveLayout {
+  const entries = dir.list();
+  return classifyArchiveEntries(
+    onlyFiles(entries).map((f) => f.name),
+    onlyDirectories(entries).map((d) => d.name)
+  );
+}
+
+/** Restore an extracted v1/v2 archive: backup.json plus an images/ folder. */
+async function restoreExtractedLegacyArchive(root: Directory): Promise<void> {
+  const payloadFile = onlyFiles(root.list()).find((f) => f.name === LEGACY_PAYLOAD_NAME)!;
+
+  // The v1/v2 payload embeds the database as base64. Reading it as a string is
+  // safe: the database stores image *paths*, not the images themselves, so it
+  // is a few megabytes at most. The photos are separate entries, already on
+  // disk from the extraction, and get copied natively below.
+  const payload = JSON.parse(payloadFile.textSync()) as BackupPayload;
+  if (![1, 2].includes(payload.version)) {
+    throw new Error('Unsupported backup version');
+  }
+
+  await withClosedDatabase(async () => {
+    await writeRestoredDatabase(payload.database);
+    await replaceImageDirectoryFrom(
+      onlyDirectories(root.list()).find((d) => d.name === IMAGES_DIRNAME) ?? null
+    );
+  });
+}
+
+/** Restore the oldest format: one .json document with everything base64 inside. */
+async function restoreLegacyJsonBackup(localUri: string): Promise<void> {
   const fs = getFS();
+  const payload = JSON.parse(await fs.readAsStringAsync(localUri)) as BackupPayload;
+  if (![1, 2].includes(payload.version)) {
+    throw new Error('Unsupported backup version');
+  }
+
+  const images = Array.isArray(payload.images) ? payload.images : [];
+  await withClosedDatabase(async () => {
+    await writeRestoredDatabase(payload.database);
+    if (images.length > 0) await replaceImageDirectory(images);
+  });
+}
+
+/** Restore a single-file (.zip/.json) backup archive. */
+async function restoreArchiveBackup(backupUri: string): Promise<void> {
   const filename = (await readBackupFileName(backupUri)).toLowerCase();
   const isJson = filename.endsWith('.json');
   const local = await materializeArchiveLocally(backupUri, isJson);
 
   try {
-    if (!isJson) {
-      // Read the zip as raw bytes rather than a base64 string, and write each
-      // image straight to disk instead of collecting them all in memory.
-      const zip = await JSZip.loadAsync(new File(local.uri).bytesSync());
-      const payloadFile = zip.file('backup.json');
-      if (!payloadFile) {
-        throw new Error('Invalid backup archive: missing backup.json');
-      }
-      const payload = JSON.parse(await payloadFile.async('string')) as BackupPayload;
-      if (![1, 2].includes(payload.version)) {
-        throw new Error('Unsupported backup version');
-      }
-
-      const imageEntries = Object.values(zip.files).filter(
-        (entry) => !entry.dir && entry.name.startsWith('images/')
-      );
-
-      await withClosedDatabase(async () => {
-        await writeRestoredDatabase(payload.database);
-        await prepareEmptyImageDir();
-        let i = 0;
-        for (const entry of imageEntries) {
-          const name = entry.name.replace(/^images\//, '');
-          const data = await entry.async('base64');
-          await fs.writeAsStringAsync(`${getImageDir()}${name}`, data, {
-            encoding: fs.EncodingType.Base64,
-          });
-          if (++i % 10 === 0) await yieldToUi();
-        }
-      });
+    if (isJson) {
+      await restoreLegacyJsonBackup(local.uri);
       return;
     }
 
-    // Legacy .json backup: a single JSON document with an embedded base64 payload.
-    const content = await fs.readAsStringAsync(local.uri);
-    const payload = JSON.parse(content) as BackupPayload;
-    if (![1, 2].includes(payload.version)) {
-      throw new Error('Unsupported backup version');
+    // Extract natively: the archive never passes through the JS heap, so a
+    // wardrobe of any size unpacks in the same memory as a tiny one.
+    const work = resetDirectory(new Directory(Paths.cache, 'restore-work'));
+    try {
+      await step('Extracting backup archive', () =>
+        getZip().unzip(toNativePath(local.uri), toNativePath(work.uri))
+      );
+
+      let root = work;
+      let layout = classifyDirectory(root);
+      if (layout === 'nested') {
+        root = onlyDirectories(root.list())[0];
+        layout = classifyDirectory(root);
+      }
+
+      if (layout === 'folder') {
+        await restoreFolderBackup(root);
+        return;
+      }
+      if (layout === 'legacy-archive') {
+        await restoreExtractedLegacyArchive(root);
+        return;
+      }
+
+      throw new Error('Invalid backup archive: no manifest.json found');
+    } finally {
+      deleteQuietly(work);
     }
-    const images = Array.isArray(payload.images) ? payload.images : [];
-    await withClosedDatabase(async () => {
-      await writeRestoredDatabase(payload.database);
-      if (images.length > 0) await replaceImageDirectory(images);
-    });
   } finally {
     if (local.temporary) await cleanupTempFile(local.uri);
   }
@@ -899,8 +750,8 @@ export async function listBackups(): Promise<{ name: string; uri: string }[]> {
     if (!base.exists) return [];
 
     const entries = base.list();
-    const folders = entries
-      .filter((e): e is Directory => e instanceof Directory && e.name.startsWith(BACKUP_PREFIX))
+    const folders = onlyDirectories(entries)
+      .filter((d) => d.name.startsWith(BACKUP_PREFIX))
       .map((d) => ({ name: d.name, uri: d.uri }));
     // Keep listing any legacy single-file archives so old backups remain restorable.
     const archives = onlyFiles(entries)
@@ -911,12 +762,4 @@ export async function listBackups(): Promise<{ name: string; uri: string }[]> {
   } catch {
     return [];
   }
-}
-
-/**
- * Check if Google Drive integration is available.
- * Requires dev build with @react-native-google-signin.
- */
-export function isGoogleDriveAvailable(): boolean {
-  return Platform.OS === 'android';
 }

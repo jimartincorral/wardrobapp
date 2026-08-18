@@ -4,19 +4,11 @@ import { getTotalImageStorage, recompressLegacyBgRemovedImages } from '@/src/ser
 import { getGarmentCount } from '@/src/services/garment-service';
 import {
   type BackupProgress,
-  connectGoogleDrive,
   createBackup,
-  createGoogleDriveBackup,
   deleteBackup,
-  deleteGoogleDriveBackup,
-  disconnectGoogleDrive,
-  getGoogleDriveStatus,
   listBackups,
-  listGoogleDriveBackups,
   restoreBackup,
   restoreBackupFromFile,
-  restoreGoogleDriveBackup,
-  type GoogleDriveBackupFile,
 } from '@/src/services/backup-service';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
 import { useAppReload } from '@/src/app-reload';
@@ -35,15 +27,11 @@ export default function SettingsScreen() {
   const [optimizing, setOptimizing] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [backupProgress, setBackupProgress] = useState<BackupProgress | null>(null);
-  const [driveBusy, setDriveBusy] = useState(false);
   const [backups, setBackups] = useState<{ name: string; uri: string }[]>([]);
-  const [driveConnectedEmail, setDriveConnectedEmail] = useState<string | null>(null);
-  const [driveBackups, setDriveBackups] = useState<GoogleDriveBackupFile[]>([]);
 
   useEffect(() => {
     loadStats();
     loadBackups();
-    loadDriveState();
   }, []);
 
   const loadStats = async () => {
@@ -80,17 +68,7 @@ export default function SettingsScreen() {
   };
 
   const loadBackups = async () => setBackups(await listBackups());
-  const loadDriveBackups = async () => setDriveBackups(await listGoogleDriveBackups());
 
-  const loadDriveState = async () => {
-    const status = await getGoogleDriveStatus();
-    setDriveConnectedEmail(status.connected ? status.email ?? null : null);
-    if (status.connected) {
-      await loadDriveBackups();
-    } else {
-      setDriveBackups([]);
-    }
-  };
 
   const handleOptimizeStorage = async () => {
     setOptimizing(true);
@@ -207,99 +185,10 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleConnectDrive = async () => {
-    setDriveBusy(true);
-    try {
-      const { email } = await connectGoogleDrive();
-      setDriveConnectedEmail(email);
-      await loadDriveBackups();
-      Alert.alert(t('settings.alerts.driveConnected'), t('settings.alerts.driveConnectedMsg', { email }));
-    } catch (error) {
-      Alert.alert(t('settings.alerts.driveBackupFailed'), `${t('settings.alerts.driveBackupFailedMsg')}${getErrorMessage(error)}`);
-    } finally {
-      setDriveBusy(false);
-    }
-  };
 
-  const handleDisconnectDrive = async () => {
-    setDriveBusy(true);
-    try {
-      await disconnectGoogleDrive();
-      setDriveConnectedEmail(null);
-      setDriveBackups([]);
-      Alert.alert(t('settings.alerts.driveDisconnected'), t('settings.alerts.driveDisconnectedMsg'));
-    } catch (error) {
-      Alert.alert(t('settings.alerts.driveBackupFailed'), `${t('settings.alerts.driveBackupFailedMsg')}${getErrorMessage(error)}`);
-    } finally {
-      setDriveBusy(false);
-    }
-  };
 
-  const handleDriveBackup = async () => {
-    setDriveBusy(true);
-    try {
-      const { size } = await createGoogleDriveBackup();
-      Alert.alert(t('settings.alerts.driveBackupCreated'), t('settings.alerts.driveBackupSaved', { size: (size / 1024 / 1024).toFixed(1) }));
-      await loadDriveState();
-    } catch (error) {
-      Alert.alert(t('settings.alerts.driveBackupFailed'), `${t('settings.alerts.driveBackupFailedMsg')}${getErrorMessage(error)}`);
-    } finally {
-      setDriveBusy(false);
-    }
-  };
 
-  const handleDriveRestore = (backup: GoogleDriveBackupFile) => {
-    Alert.alert(
-      t('settings.alerts.restoreTitle'),
-      t('settings.alerts.restoreMsg', { name: backup.name }),
-      [
-        { text: t('settings.alerts.cancel'), style: 'cancel' },
-        {
-          text: t('settings.alerts.restoreConfirm'),
-          style: 'destructive',
-          onPress: async () => {
-            setDriveBusy(true);
-            setRestoring(true);
-            try {
-              await restoreGoogleDriveBackup(backup.id);
-              promptRestored();
-            } catch (error) {
-              Alert.alert(t('settings.alerts.restoreFailed'), `${t('settings.alerts.driveRestoreFailed')}${getErrorMessage(error)}`);
-            } finally {
-              setDriveBusy(false);
-              setRestoring(false);
-            }
-          },
-        },
-      ]
-    );
-  };
 
-  const handleDriveDelete = (backup: GoogleDriveBackupFile) => {
-    Alert.alert(
-      t('settings.alerts.deleteTitle'),
-      t('settings.alerts.deleteMsg', { name: backup.name }),
-      [
-        { text: t('settings.alerts.cancel'), style: 'cancel' },
-        {
-          text: t('settings.alerts.deleteConfirm'),
-          style: 'destructive',
-          onPress: async () => {
-            setDriveBusy(true);
-            try {
-              await deleteGoogleDriveBackup(backup.id);
-              await loadDriveBackups();
-              Alert.alert(t('settings.alerts.deleted'), t('settings.alerts.deletedMsg'));
-            } catch (error) {
-              Alert.alert(t('settings.alerts.deleteFailed'), `${t('settings.alerts.deleteFailedMsg')}${getErrorMessage(error)}`);
-            } finally {
-              setDriveBusy(false);
-            }
-          },
-        },
-      ]
-    );
-  };
 
   return (
     <>
@@ -394,51 +283,6 @@ export default function SettingsScreen() {
           <Text style={[styles.buttonText, styles.buttonTextSecondary]}>{t('settings.restoreFromFile')}</Text>
         </Pressable>
         <Text style={styles.hint}>{t('settings.restoreFromFileHint')}</Text>
-        <Pressable
-          style={[styles.button, styles.buttonSecondary, { marginTop: Spacing.md }, driveBusy && { opacity: 0.6 }]}
-          onPress={driveConnectedEmail ? handleDisconnectDrive : handleConnectDrive}
-          disabled={driveBusy}
-        >
-          {driveBusy ? (
-            <ActivityIndicator color={colors.primary} />
-          ) : (
-            <Text style={[styles.buttonText, styles.buttonTextSecondary]}>
-              {driveConnectedEmail ? t('settings.disconnectDrive') : t('settings.connectDrive')}
-            </Text>
-          )}
-        </Pressable>
-        <Text style={styles.hint}>
-          {driveConnectedEmail
-            ? t('settings.driveConnectedAs', { email: driveConnectedEmail })
-            : t('settings.driveInfo')}
-        </Text>
-        {driveConnectedEmail && (
-          <>
-            <Pressable
-              style={[styles.button, { marginTop: Spacing.md }, driveBusy && { opacity: 0.6 }]}
-              onPress={handleDriveBackup}
-              disabled={driveBusy}
-            >
-              {driveBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>{t('settings.createDriveBackup')}</Text>}
-            </Pressable>
-            {driveBackups.length > 0 && (
-              <View style={{ marginTop: Spacing.lg }}>
-                <Text style={styles.subTitle}>{t('settings.driveBackupsTitle')}</Text>
-                {driveBackups.map(backup => (
-                  <View key={backup.id} style={styles.backupRow}>
-                    <Text style={styles.backupName} numberOfLines={1}>{backup.name}</Text>
-                    <Pressable hitSlop={8} disabled={driveBusy} onPress={() => handleDriveRestore(backup)}>
-                      <Text style={styles.restoreText}>{t('settings.restore')}</Text>
-                    </Pressable>
-                    <Pressable hitSlop={8} disabled={driveBusy} style={styles.deleteAction} onPress={() => handleDriveDelete(backup)}>
-                      <Text style={styles.deleteText}>{t('settings.delete')}</Text>
-                    </Pressable>
-                  </View>
-                ))}
-              </View>
-            )}
-          </>
-        )}
         {backups.length > 0 && (
           <View style={{ marginTop: Spacing.lg }}>
             <Text style={styles.subTitle}>{t('settings.availableBackups')}</Text>
