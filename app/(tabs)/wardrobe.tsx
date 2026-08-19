@@ -189,7 +189,7 @@ export default function WardrobeScreen() {
           <ScrollView
             horizontal
             style={styles.filterRow}
-            contentContainerStyle={styles.filterContent}
+            contentContainerStyle={[styles.filterContent, styles.colorFilterContent]}
             showsHorizontalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -300,8 +300,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     margin: 0,
   },
-  filterRow: { marginBottom: Spacing.sm },
+  // ScrollView defaults to flexGrow/flexShrink 1, which lets these rows get
+  // squeezed vertically once the expanded filter panel plus the grid overflow
+  // the screen — that clipped the round color swatches. Pin them instead.
+  filterRow: { marginBottom: Spacing.sm, flexGrow: 0, flexShrink: 0 },
   filterContent: { paddingHorizontal: Spacing.md, paddingVertical: 2, alignItems: 'center' },
+  // Room for the active swatch's 1.15 scale (32 -> 36.8) on top of its own box.
+  colorFilterContent: { paddingVertical: Spacing.xs },
   filterChip: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
