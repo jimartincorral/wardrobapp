@@ -18,20 +18,46 @@ export interface DatabaseAdapter {
 let db: DatabaseAdapter | null = null;
 let dbInitPromise: Promise<DatabaseAdapter> | null = null;
 
+/**
+ * Held while the database *file* is being replaced or copied wholesale — a
+ * backup or a restore. `getDatabase` waits on it rather than opening, because
+ * both operations run with the connection deliberately closed and a caller that
+ * reopened underneath them would be catastrophic:
+ *
+ *  - During a backup, reopening sets `journal_mode = WAL` and starts writing
+ *    while the file is being copied, so the backup captures a torn database.
+ *  - During a restore, reopening recreates the very WAL sidecars the restore
+ *    deleted, and SQLite then replays that stale WAL onto the *restored* file,
+ *    grafting fragments of the old wardrobe onto it.
+ *
+ * Nothing else stops that: screens refetch on focus, so navigating a tab during
+ * a multi-minute backup was enough to trigger it.
+ */
+let maintenanceLock: Promise<void> | null = null;
+
 export async function getDatabase(): Promise<DatabaseAdapter> {
+  // Wait for a backup/restore to finish before touching the file it owns.
+  while (maintenanceLock) {
+    await maintenanceLock;
+  }
+
   if (db) return db;
   if (dbInitPromise) return dbInitPromise;
 
   dbInitPromise = (async () => {
-    if (Platform.OS === 'web') {
-      const { createMemoryAdapter } = await import('./web-memory-db');
-      db = createMemoryAdapter();
-    } else {
-      db = await openNativeDatabase();
-    }
+    const opened =
+      Platform.OS === 'web'
+        ? (await import('./web-memory-db')).createMemoryAdapter()
+        : await openNativeDatabase();
 
-    await initializeDatabase(db);
-    return db;
+    // Only publish the connection once the schema is in place. Assigning `db`
+    // first made it visible to concurrent callers mid-initialization, so a
+    // second screen mounting on a fresh install could query before
+    // CREATE TABLE finished ("no such table: garments") or, on an upgrade, hit a
+    // column a pending ALTER had not added yet.
+    await initializeDatabase(opened);
+    db = opened;
+    return opened;
   })();
 
   try {
@@ -41,6 +67,39 @@ export async function getDatabase(): Promise<DatabaseAdapter> {
     throw error;
   } finally {
     dbInitPromise = null;
+  }
+}
+
+/**
+ * Run an operation that owns the database file, with the connection closed and
+ * every other caller held off until it finishes.
+ */
+export async function withDatabaseClosed<T>(operation: () => Promise<T>): Promise<T> {
+  while (maintenanceLock) {
+    await maintenanceLock;
+  }
+
+  let release!: () => void;
+  maintenanceLock = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  try {
+    await closeDatabase();
+    return await operation();
+  } finally {
+    // Drop the lock before reopening: getDatabase() is what reopens, and it
+    // waits on this very promise.
+    maintenanceLock = null;
+    release();
+    try {
+      await getDatabase();
+    } catch (error) {
+      // Reopening is best-effort. Surfacing this would replace the caller's own
+      // error -- the one describing what actually went wrong -- with a
+      // secondary one, and the next getDatabase() will retry anyway.
+      console.warn('Failed to reopen the database after maintenance:', error);
+    }
   }
 }
 

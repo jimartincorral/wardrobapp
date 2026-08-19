@@ -126,3 +126,81 @@ describe('deleteGarment', () => {
     expect(removeGarmentFromOutfitsMock).toHaveBeenCalledWith('missing');
   });
 });
+
+describe('portable image references', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const newGarment = {
+    image_uri: 'file:///data/user/0/app/files/garment-images/front.jpg',
+    image_uri_nobg: 'file:///data/user/0/app/files/garment-images/front_nobg.png',
+    image_uris: [
+      'file:///data/user/0/app/files/garment-images/front.jpg',
+      'file:///data/user/0/app/files/garment-images/back.jpg',
+    ],
+    image_uris_nobg: ['file:///data/user/0/app/files/garment-images/front_nobg.png'],
+    category: 'tops',
+    subcategory: 'T-Shirt',
+    subcategories: ['T-Shirt'],
+    tags: [],
+    brand: null,
+    color_primary: '#000000',
+    color_secondary: null,
+    color_palette: ['#000000'],
+    size: null,
+    purchase_date: null,
+  };
+
+  it('stores photo filenames without their directory on create', async () => {
+    // The documents directory is not stable across installs, so persisting the
+    // absolute path is what breaks every photo after a restore.
+    const db = createDb(null);
+    getDatabaseMock.mockResolvedValue(db);
+
+    const { createGarment } = await import('./garment-service');
+    await createGarment(newGarment as any);
+
+    const [, , imageUri, imageUriNobg, imageUris, imageUrisNobg] = db.runAsync.mock.calls[0];
+    expect(imageUri).toBe('front.jpg');
+    expect(imageUriNobg).toBe('front_nobg.png');
+    expect(JSON.parse(imageUris as string)).toEqual(['front.jpg', 'back.jpg']);
+    expect(JSON.parse(imageUrisNobg as string)).toEqual(['front_nobg.png']);
+  });
+
+  it('stores photo filenames without their directory on update', async () => {
+    // Reads hand back resolved absolute URIs, and the garment screen writes
+    // those straight back, so the reduction has to happen here too.
+    const db = createDb(null);
+    getDatabaseMock.mockResolvedValue(db);
+
+    const { updateGarment } = await import('./garment-service');
+    await updateGarment('garment-1', {
+      image_uri: 'file:///data/user/0/app/files/garment-images/front.jpg',
+      image_uris: ['file:///data/user/0/app/files/garment-images/front.jpg'],
+    });
+
+    const [sql, ...params] = db.runAsync.mock.calls[0];
+    expect(sql).toMatch(/UPDATE garments SET/);
+    expect(params).toContain('front.jpg');
+    expect(params.some(p => typeof p === 'string' && p.includes('garment-images/'))).toBe(false);
+  });
+
+  it('keeps web data URIs intact on create', async () => {
+    const dataUri = 'data:image/jpeg;base64,AAA/BBB';
+    const db = createDb(null);
+    getDatabaseMock.mockResolvedValue(db);
+
+    const { createGarment } = await import('./garment-service');
+    await createGarment({
+      ...newGarment,
+      image_uri: dataUri,
+      image_uri_nobg: null,
+      image_uris: [dataUri],
+      image_uris_nobg: [],
+    } as any);
+
+    const [, , imageUri] = db.runAsync.mock.calls[0];
+    expect(imageUri).toBe(dataUri);
+  });
+});
