@@ -91,6 +91,18 @@ export default function WardrobeScreen() {
     sort !== 'newest' ? sort : undefined,
   ].filter(Boolean).length;
 
+  // Each filter row scrolls on its own, so a swipe can leave the first option
+  // ("All" / "Any") parked off the left edge. Rewind them all when the filters
+  // reset, so what you see matches the cleared state.
+  const filterRowRefs = useRef(new Map<string, ScrollView>());
+  const registerFilterRow = (id: string) => (row: ScrollView | null) => {
+    if (row) filterRowRefs.current.set(id, row);
+    else filterRowRefs.current.delete(id);
+  };
+  const rewindFilterRows = () => {
+    filterRowRefs.current.forEach(row => row.scrollTo({ x: 0, animated: false }));
+  };
+
   const clearAllFilters = () => {
     setSelectedCategory(undefined);
     setSelectedSubcategory(undefined);
@@ -101,9 +113,11 @@ export default function WardrobeScreen() {
     setSize('');
     setColor(undefined);
     setSort('newest');
+    rewindFilterRows();
   };
 
   const renderFilterRow = <T,>(
+    id: string,
     data: readonly T[],
     keyExtractor: (item: T, index: number) => string,
     isActive: (item: T) => boolean,
@@ -112,6 +126,7 @@ export default function WardrobeScreen() {
   ) => (
     <ScrollView
       horizontal
+      ref={registerFilterRow(id)}
       style={styles.filterRow}
       contentContainerStyle={styles.filterContent}
       showsHorizontalScrollIndicator={false}
@@ -173,6 +188,7 @@ export default function WardrobeScreen() {
             />
           </View>
           {renderFilterRow(
+            'category',
             categories,
             item => item.key ?? 'all',
             item => selectedCategory === item.key,
@@ -180,6 +196,7 @@ export default function WardrobeScreen() {
             item => item.label
           )}
           {subcategories.length > 1 && renderFilterRow(
+            'subcategory',
             subcategories,
             item => `sub-${item ?? 'all'}`,
             item => selectedSubcategory === item,
@@ -188,6 +205,7 @@ export default function WardrobeScreen() {
           )}
           <ScrollView
             horizontal
+            ref={registerFilterRow('color')}
             style={styles.filterRow}
             contentContainerStyle={[styles.filterContent, styles.colorFilterContent]}
             showsHorizontalScrollIndicator={false}
@@ -222,6 +240,7 @@ export default function WardrobeScreen() {
             })}
           </ScrollView>
           {renderFilterRow(
+            'season',
             [undefined, ...SEASON_OPTIONS],
             item => `season-${item ?? 'all'}`,
             item => season === item,
@@ -229,6 +248,7 @@ export default function WardrobeScreen() {
             item => item ? t(`outfits.filterValues.season.${item}`) : t('outfits.filters.any')
           )}
           {renderFilterRow(
+            'occasion',
             [undefined, ...OCCASION_OPTIONS],
             item => `occasion-${item ?? 'all'}`,
             item => occasion === item,
@@ -236,6 +256,7 @@ export default function WardrobeScreen() {
             item => item ? t(`outfits.filterValues.occasion.${item}`) : t('outfits.filters.any')
           )}
           {renderFilterRow(
+            'sort',
             sortOptions,
             item => item.key,
             item => sort === item.key,
