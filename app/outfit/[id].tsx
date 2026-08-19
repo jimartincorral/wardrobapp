@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, ScrollView, Pressable, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, Image, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getOutfit, getOutfitRatings, rateOutfit, deleteOutfit } from '@/src/services/outfit-service';
 import { getGarment } from '@/src/services/garment-service';
@@ -62,13 +62,6 @@ export default function OutfitDetailScreen() {
 
     const title = t('outfitDetail.alerts.deleteTitle');
     const message = t('outfitDetail.alerts.deleteMsg');
-
-    if (Platform.OS === 'web' && typeof globalThis.confirm === 'function') {
-      if (globalThis.confirm(`${title}\n\n${message}`)) {
-        void onConfirm();
-      }
-      return;
-    }
 
     Alert.alert(
       title,
