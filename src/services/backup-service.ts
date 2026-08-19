@@ -183,21 +183,60 @@ function deleteQuietly(dir: Directory) {
   }
 }
 
+/** How much of a file crosses into JS at a time when streaming into SAF. */
+const SAF_CHUNK_BYTES = 4 * 1024 * 1024;
+
 /**
- * Copy a file into a directory.
+ * Copy a local file to an Android SAF `content://` destination.
  *
- * `File.copy` does a fast native copy, but the SDK 55 implementation rejects
- * Android SAF `content://` URIs ("This method cannot be used with content
- * URIs"). Reading the whole file into JS instead (`bytesSync`) works for small
- * files but throws OutOfMemoryError on large backups — a restored SQLite DB can
- * be >100 MB, well past the app's heap limit. So whenever a content:// URI is
- * involved we use the legacy `copyAsync`, which streams natively through the
- * content resolver and keeps memory bounded regardless of file size.
+ * Neither native copy can do this. `File.copy` reaches for `javaFile` and
+ * throws outright ("This method cannot be used with content URIs"). The legacy
+ * `copyAsync` branches on the *source* scheme: given a file:// source it calls
+ * `toFile()` on the destination, which turns
+ * `content://…/tree/primary:Download/Wardrobapp/document/…` into the literal
+ * path `/tree/primary:Download/Wardrobapp/document/…` and fails with
+ * "directory cannot be created".
+ *
+ * So stream it here instead: read the source through a file handle and append
+ * each chunk to the destination, which SAF does support — it opens the document
+ * in "wa" mode. Only one chunk is ever in memory, whatever the file size.
+ */
+async function streamFileInto(
+  src: File,
+  dest: File,
+  onChunk?: (bytesWritten: number) => void
+): Promise<void> {
+  const handle = src.open();
+  try {
+    let written = 0;
+    // The first write truncates, the rest append.
+    let append = false;
+    for (;;) {
+      const chunk = handle.readBytes(SAF_CHUNK_BYTES);
+      if (chunk.length === 0) break;
+      dest.write(chunk, { append });
+      append = true;
+      written += chunk.length;
+      onChunk?.(written);
+      await yieldToUi();
+    }
+  } finally {
+    handle.close();
+  }
+}
+
+/**
+ * Copy a file into a directory, picking whichever mechanism handles the URI
+ * schemes involved: a native copy when both sides are ordinary paths, the
+ * legacy `copyAsync` when reading *from* a content:// URI (that direction it
+ * streams correctly through the content resolver), and a chunked stream when
+ * writing *to* one.
  */
 async function copyFileInto(src: File, destDir: Directory, name: string): Promise<void> {
-  if (isContentUri(destDir.uri) || isContentUri(src.uri)) {
-    const destUri = new File(destDir, name).uri;
-    await getFS().copyAsync({ from: src.uri, to: destUri });
+  if (isContentUri(destDir.uri)) {
+    await streamFileInto(src, destDir.createFile(name, null));
+  } else if (isContentUri(src.uri)) {
+    await getFS().copyAsync({ from: src.uri, to: new File(destDir, name).uri });
   } else {
     src.copy(destDir);
   }
@@ -339,10 +378,23 @@ async function zipDirectory(
 }
 
 /** Put the finished archive in the user's chosen folder. */
-async function saveArchiveTo(base: Directory, archive: File, name: string): Promise<string> {
+async function saveArchiveTo(
+  base: Directory,
+  archive: File,
+  name: string,
+  onProgress?: BackupProgressCallback
+): Promise<string> {
   if (isContentUri(base.uri)) {
     const dest = base.createFile(name, 'application/zip');
-    await getFS().copyAsync({ from: archive.uri, to: dest.uri });
+    const total = archive.size || 1;
+    await streamFileInto(archive, dest, (written) => {
+      emitProgress(
+        onProgress,
+        'saving',
+        94 + (written / total) * 5,
+        'Saving backup file'
+      );
+    });
     return dest.uri;
   }
 
@@ -381,7 +433,9 @@ export async function createBackup(options?: { onProgress?: BackupProgressCallba
     const size = archive.size;
 
     emitProgress(onProgress, 'saving', 94, 'Saving backup file');
-    const uri = await step('Saving backup file', () => saveArchiveTo(base, archive, name));
+    const uri = await step('Saving backup file', () =>
+      saveArchiveTo(base, archive, name, onProgress)
+    );
 
     emitProgress(onProgress, 'done', 100, 'Backup complete');
     return { uri, size };
