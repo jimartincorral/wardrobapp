@@ -1,27 +1,26 @@
 # Wardrobapp
 
-A local-first wardrobe and outfit planner built with React Native + Expo. Catalog the clothes you own, log what you wear, and get outfit suggestions that learn from your ratings — all stored on-device.
+A local-first wardrobe and outfit planner for Android, built with React Native + Expo. Catalog the clothes you own, log what you wear, and get outfit suggestions that learn from your ratings — all stored on-device.
 
 > Status: pre-1.0, actively developed. The roadmap lives in [TODO.md](TODO.md).
 
 ## Features
 
 - **Garment catalog** — photo, category, color palette, tags, brand, size, price. Photos are auto-resized to 800px / 70% JPEG to keep the DB small.
-- **Local background removal** — strip backgrounds from garment photos in-browser via [`@imgly/background-removal`](https://github.com/imgly/background-removal-js) (WASM, runs client-side).
+- **On-device background removal** — strip backgrounds from garment photos via [`@six33/react-native-bg-removal`](https://www.npmjs.com/package/@six33/react-native-bg-removal). Runs locally; needs a dev or release build, not Expo Go.
 - **Duplicate detection** — when you add a new garment, the app warns about likely duplicates using a weighted score (0.6 × tag Jaccard + 0.3 × color CIE76 ΔE + 0.1 × size match).
 - **Outfit suggestions** — epsilon-greedy engine that combines category templates, color harmony, season/weather/occasion filters, and pair scores learned from your ratings.
 - **Wear log + analytics** — track what you wore and when. Cost-per-wear, monthly trends, garment lifespan stats.
-- **Backup/restore** — local JSON export with embedded base64 images. Google Drive backup is scaffolded but requires a dev build (see *Limitations*).
-- **Multi-platform** — runs on Android, iOS, and the web. SQLite on native; an in-memory adapter with `localStorage` persistence on web.
+- **Backup/restore** — a single `.zip` holding the SQLite database and your garment photos, written to a folder you pick. Staged and zipped on disk, so memory stays flat no matter how large the wardrobe is.
 
 ## Tech stack
 
 - **Runtime:** React Native 0.83, Expo SDK 55, React 19
 - **Navigation:** expo-router (file-based, typed routes)
-- **Storage:** expo-sqlite (WAL mode) on native, in-memory adapter on web
-- **State:** zustand
+- **Storage:** expo-sqlite (WAL mode)
+- **State:** React Context
 - **Images:** expo-image-picker + expo-image-manipulator
-- **Background removal:** `@imgly/background-removal` (WASM, web only)
+- **Background removal:** `@six33/react-native-bg-removal` (on-device)
 - **Language:** TypeScript
 
 ## Getting started
@@ -29,8 +28,7 @@ A local-first wardrobe and outfit planner built with React Native + Expo. Catalo
 ### Prerequisites
 
 - Node.js 20+ and npm
-- For Android: Android Studio + SDK (or use Expo Go for managed-workflow testing)
-- For iOS: Xcode + a Mac (or use Expo Go)
+- Android Studio + SDK (or use Expo Go for managed-workflow testing)
 
 ### Install & run
 
@@ -39,15 +37,15 @@ git clone https://github.com/jimartincorral/wardrobapp.git
 cd wardrobapp
 npm install
 
-# Web — full feature set including background removal
-npm run web
-
-# Native — scan the QR code with Expo Go on your phone
+# Scan the QR code with Expo Go on your phone
 npm start
 
 # Or build to a connected Android device / emulator
 npm run android
 ```
+
+Background removal and backup/restore need the native modules, so they only
+work in a dev or release build — `npm run android`, not Expo Go.
 
 The first launch initializes the SQLite schema automatically.
 
@@ -62,14 +60,6 @@ output path (`android/app/build/outputs/apk/release/app-release.apk`). The scrip
 auto-detects a valid JDK 17 at build time, so it isn't affected by a stale `JAVA_HOME`.
 Requires the native project to exist — run `npx expo prebuild` once if `android/` is missing.
 
-### Optional: pre-bundle the background-removal WASM blob
-
-```bash
-npm run bundle:bg-removal
-```
-
-This produces `public/vendor/imgly-background-removal.bundle.mjs` so the web build doesn't pull from a CDN at runtime.
-
 ## Project structure
 
 ```
@@ -79,7 +69,7 @@ app/                 Expo Router screens
   outfit/[id].tsx      outfit detail
   settings.tsx
 src/
-  db/                  SQLite client + web in-memory adapter + schema
+  db/                  SQLite client + schema + data migrations
   services/            Business logic (garment, outfit, wear, analytics,
                        duplicate-detector, suggestion-engine, image,
                        background-removal, backup, url-import)
@@ -88,7 +78,7 @@ src/
   utils/               Color distance (CIE76 ΔE), tag similarity (Jaccard),
                        date helpers
   hooks/  i18n/  theme/  types/
-assets/                App icon, splash, favicon
+assets/                App icon, splash, adaptive icon layers
 ```
 
 ## Testing
@@ -98,12 +88,12 @@ npm test           # one-shot
 npm run test:watch # watch mode
 ```
 
-Tests use Vitest. The current suites cover the suggestion engine and URL import service.
+Tests use Vitest — 12 suites covering the suggestion engine, URL import, backup archive parsing, garment and outfit services, data migrations, and the color/tag/date utilities.
 
 ## Limitations & roadmap notes
 
-- **Google Drive backup** requires `@react-native-google-signin/google-signin` native modules, so it needs a native build (`npm run android` for development, or `npm run apk` for a release APK) rather than Expo Go. Local JSON backup works everywhere.
-- **Background removal** is web-only today; a native equivalent is on the TODO.
+- **Android only.** iOS and web were dropped — see `platforms` in `app.json`.
+- **Background removal and backup/restore need native modules**, so they don't work in Expo Go. Use `npm run android` for development or `npm run apk` for a release APK.
 - **No cloud sync** between devices — by design, this is a local-first app.
 - **Migrations** aren't versioned yet; schema lives in raw SQL inside `src/db/client.ts`. See the *Phase 3* section of [TODO.md](TODO.md).
 

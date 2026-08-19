@@ -35,6 +35,13 @@ jobs:
       - name: Test
         run: npm test
 
+      # tsc does not enable noUnusedLocals and vitest mocks the native modules,
+      # so neither notices a deleted module that is still imported. Bundling is
+      # what catches it. The APK job would too, but it is skipped on pull
+      # requests — which is exactly when the mistake gets made.
+      - name: Bundle check
+        run: npx expo export --platform android --output-dir "$RUNNER_TEMP/export-check"
+
   build:
     name: Build release APK
     needs: verify
@@ -74,6 +81,19 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # app.json carries a versionCode floor for local builds. Play needs a
+      # strictly increasing value per upload, and the run number is the only
+      # monotonic counter available here.
+      - name: Set versionCode from the run number
+        run: |
+          node -e '
+            const fs = require("fs");
+            const app = JSON.parse(fs.readFileSync("app.json", "utf8"));
+            app.expo.android.versionCode = Number(process.env.GITHUB_RUN_NUMBER);
+            fs.writeFileSync("app.json", JSON.stringify(app, null, 2) + "\n");
+            console.log("versionCode =", app.expo.android.versionCode);
+          '
 
       # android/ is gitignored, so the native project is generated from app.json on every run.
       - name: Generate native Android project
