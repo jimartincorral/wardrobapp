@@ -1,10 +1,10 @@
-import { Platform } from 'react-native';
 import { runDataMigrations } from './migrations';
 
 /**
- * Unified database interface that works on both native (expo-sqlite) and web.
- * On web, uses a lightweight in-memory SQL adapter (no WASM) with localStorage persistence.
- * On native, uses expo-sqlite (full SQLite).
+ * Database interface over expo-sqlite.
+ *
+ * The adapter indirection is kept so services and their tests can depend on a
+ * small surface rather than on expo-sqlite's own types.
  */
 
 export interface DatabaseAdapter {
@@ -23,12 +23,7 @@ export async function getDatabase(): Promise<DatabaseAdapter> {
   if (dbInitPromise) return dbInitPromise;
 
   dbInitPromise = (async () => {
-    if (Platform.OS === 'web') {
-      const { createMemoryAdapter } = await import('./web-memory-db');
-      db = createMemoryAdapter();
-    } else {
-      db = await openNativeDatabase();
-    }
+    db = await openNativeDatabase();
 
     await initializeDatabase(db);
     return db;
@@ -156,19 +151,12 @@ async function initializeDatabase(database: DatabaseAdapter) {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
-  `);
 
-  // Indexes are created as separate statements: the web adapter parses one
-  // statement at a time and cannot handle them batched with the CREATE TABLEs.
-  const indexes = [
-    'CREATE INDEX IF NOT EXISTS idx_garments_category ON garments(category)',
-    'CREATE INDEX IF NOT EXISTS idx_garments_available ON garments(is_available)',
-    'CREATE INDEX IF NOT EXISTS idx_outfit_ratings_outfit ON outfit_ratings(outfit_id)',
-    'CREATE INDEX IF NOT EXISTS idx_pair_scores_score ON garment_pair_scores(score DESC)',
-  ];
-  for (const idx of indexes) {
-    await database.execAsync(idx);
-  }
+    CREATE INDEX IF NOT EXISTS idx_garments_category ON garments(category);
+    CREATE INDEX IF NOT EXISTS idx_garments_available ON garments(is_available);
+    CREATE INDEX IF NOT EXISTS idx_outfit_ratings_outfit ON outfit_ratings(outfit_id);
+    CREATE INDEX IF NOT EXISTS idx_pair_scores_score ON garment_pair_scores(score DESC);
+  `);
 
   const safeAlter = async (sql: string) => {
     try {
