@@ -1,5 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { I18n } from 'i18n-js';
-import { Platform } from 'react-native';
 import { createContext, useContext, useState, useEffect, createElement } from 'react';
 import type { ReactNode } from 'react';
 import en from './en';
@@ -20,11 +20,7 @@ function getSupportedLocale(locale: string): string {
 // ── Storage helpers ───────────────────────────────────────────
 async function loadSavedLanguage(): Promise<string | null> {
   try {
-    if (Platform.OS === 'web') {
-      return typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
-    }
-    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-    return AsyncStorage.getItem(STORAGE_KEY);
+    return await AsyncStorage.getItem(STORAGE_KEY);
   } catch {
     return null;
   }
@@ -32,12 +28,7 @@ async function loadSavedLanguage(): Promise<string | null> {
 
 async function saveLanguage(lang: string): Promise<void> {
   try {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY, lang);
-    } else {
-      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-      await AsyncStorage.setItem(STORAGE_KEY, lang);
-    }
+    await AsyncStorage.setItem(STORAGE_KEY, lang);
   } catch {}
 }
 
