@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 import { Directory, File, Paths } from 'expo-file-system';
 import { closeDatabase, getDatabase } from '../db/client';
 
@@ -26,8 +25,8 @@ import { closeDatabase, getDatabase } from '../db/client';
  * Restore also accepts the legacy folder format and the legacy .json/.zip
  * archives, so older backups stay usable.
  *
- * NOTE: this uses expo-file-system and react-native-zip-archive, both
- * native-only. On web these functions throw a clear error.
+ * Android-only: the destination is a user-granted SAF directory, and the
+ * archive is zipped natively by react-native-zip-archive.
  */
 
 let _fs: typeof import('expo-file-system/legacy') | null = null;
@@ -81,24 +80,12 @@ function getPreferredDownloadsDirUri() {
   return getFS().StorageAccessFramework.getUriForDirectoryInRoot('Download');
 }
 
-function ensureNative(action: string) {
-  if (Platform.OS === 'web') {
-    throw new Error(
-      `${action} is not available on web. Use the native app for backup/restore.`
-    );
-  }
-}
-
 function getBackupFilename() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   return `${BACKUP_PREFIX}${timestamp}.zip`;
 }
 
 async function withClosedDatabase<T>(operation: () => Promise<T>): Promise<T> {
-  if (Platform.OS === 'web') {
-    return operation();
-  }
-
   await closeDatabase();
 
   try {
@@ -261,41 +248,34 @@ async function copyFileInto(src: File, destDir: Directory, name: string): Promis
 }
 
 /**
- * Resolve the base directory backups are written into.
- * Android: a user-granted SAF folder (persisted across sessions).
- * Other platforms: <documents>/backups.
+ * Resolve the base directory backups are written into: a user-granted SAF
+ * folder, persisted across sessions.
  */
 async function getBackupBaseDirectory(): Promise<Directory> {
-  if (Platform.OS === 'android') {
-    const saved = await AsyncStorage.getItem(DOWNLOADS_DIR_URI_KEY);
-    if (saved) {
-      try {
-        const dir = new Directory(saved);
-        if (dir.exists) {
-          dir.list(); // Throws if the persisted permission is no longer valid.
-          return dir;
-        }
-      } catch {
-        // Fall through and re-request access below.
-      }
-      await AsyncStorage.removeItem(DOWNLOADS_DIR_URI_KEY);
-    }
-
-    let initialUri: string | undefined;
+  const saved = await AsyncStorage.getItem(DOWNLOADS_DIR_URI_KEY);
+  if (saved) {
     try {
-      initialUri = getPreferredDownloadsDirUri();
+      const dir = new Directory(saved);
+      if (dir.exists) {
+        dir.list(); // Throws if the persisted permission is no longer valid.
+        return dir;
+      }
     } catch {
-      initialUri = undefined;
+      // Fall through and re-request access below.
     }
-
-    const picked = await Directory.pickDirectoryAsync(initialUri);
-    await AsyncStorage.setItem(DOWNLOADS_DIR_URI_KEY, picked.uri);
-    return picked;
+    await AsyncStorage.removeItem(DOWNLOADS_DIR_URI_KEY);
   }
 
-  const dir = new Directory(Paths.document, 'backups');
-  dir.create({ intermediates: true, idempotent: true });
-  return dir;
+  let initialUri: string | undefined;
+  try {
+    initialUri = getPreferredDownloadsDirUri();
+  } catch {
+    initialUri = undefined;
+  }
+
+  const picked = await Directory.pickDirectoryAsync(initialUri);
+  await AsyncStorage.setItem(DOWNLOADS_DIR_URI_KEY, picked.uri);
+  return picked;
 }
 
 function clampProgress(percent: number) {
@@ -428,7 +408,6 @@ async function saveArchiveTo(
  * Returns the backup file URI and its size in bytes.
  */
 export async function createBackup(options?: { onProgress?: BackupProgressCallback }): Promise<{ uri: string; size: number }> {
-  ensureNative('Backup creation');
   const onProgress = options?.onProgress;
   emitProgress(onProgress, 'preparing', 0, 'Starting backup');
 
@@ -798,8 +777,6 @@ async function writeBase64DatabaseInto(
  * as the legacy folder-based format and legacy .json archives.
  */
 export async function restoreBackup(backupUri: string): Promise<void> {
-  ensureNative('Backup restore');
-
   let folder: Directory | null = null;
   try {
     const dir = new Directory(backupUri);
@@ -822,8 +799,6 @@ export async function restoreBackup(backupUri: string): Promise<void> {
  * no-op so the caller can safely refresh its list afterwards.
  */
 export async function deleteBackup(backupUri: string): Promise<void> {
-  ensureNative('Backup deletion');
-
   try {
     const dir = new Directory(backupUri);
     if (dir.exists) {
@@ -850,8 +825,6 @@ function isPickerCancellation(error: unknown): boolean {
  * Returns false if the user dismissed the file picker.
  */
 export async function restoreBackupFromFile(): Promise<boolean> {
-  ensureNative('Backup restore');
-
   let picked: File | File[];
   try {
     picked = await File.pickFileAsync();
@@ -1040,18 +1013,11 @@ async function restoreArchiveBackup(backupUri: string): Promise<void> {
  * List available local backups.
  */
 export async function listBackups(): Promise<{ name: string; uri: string }[]> {
-  if (Platform.OS === 'web') return [];
-
   try {
-    let base: Directory;
-    if (Platform.OS === 'android') {
-      const savedUri = await AsyncStorage.getItem(DOWNLOADS_DIR_URI_KEY);
-      if (!savedUri) return [];
-      base = new Directory(savedUri);
-    } else {
-      base = new Directory(Paths.document, 'backups');
-    }
+    const savedUri = await AsyncStorage.getItem(DOWNLOADS_DIR_URI_KEY);
+    if (!savedUri) return [];
 
+    const base = new Directory(savedUri);
     if (!base.exists) return [];
 
     const entries = base.list();

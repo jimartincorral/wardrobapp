@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
-// backup-service is native-only; these tests cover the pure helpers that decide
-// how an archive is read, so the native surface is stubbed away at import time.
-vi.mock('react-native', () => ({ Platform: { OS: 'android' } }));
+// These tests cover the pure helpers that decide how an archive is read, so the
+// native surface is stubbed away at import time. expo-file-system/legacy and
+// react-native-zip-archive need no stub: backup-service reaches them through
+// lazy require()s that these helpers never trigger.
 vi.mock('expo-file-system', () => ({
   Directory: class {},
   File: class {},
