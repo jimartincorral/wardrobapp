@@ -38,7 +38,23 @@ const BACKUP_PREFIX = 'wardrobapp-backup-';
 const MANIFEST_NAME = 'manifest.json';
 const LEGACY_PAYLOAD_NAME = 'backup.json';
 const DB_FILENAME = 'wardrobapp.db';
+/** Name of the photo folder *inside* an archive. */
 const IMAGES_DIRNAME = 'images';
+/** Name of the live photo folder in the app's documents directory. */
+const LIVE_IMAGES_DIRNAME = 'garment-images';
+
+/**
+ * Names used while a restore is in flight.
+ *
+ * The incoming copies are built beside the files they replace — same volume, so
+ * the final swap is a rename rather than another copy — and the displaced
+ * originals are kept under `.previous` until the swap has fully succeeded.
+ */
+const DB_STAGING_NAME = `${DB_FILENAME}.incoming`;
+const DB_PREVIOUS_NAME = `${DB_FILENAME}.previous`;
+const IMAGES_STAGING_DIRNAME = `${LIVE_IMAGES_DIRNAME}.incoming`;
+const IMAGES_PREVIOUS_DIRNAME = `${LIVE_IMAGES_DIRNAME}.previous`;
+const DB_SIDECAR_SUFFIXES = ['-wal', '-shm'];
 
 /**
  * Layout version shared by the .zip archives and the older folder backups —
@@ -61,8 +77,6 @@ function getZip() {
   return _zip!;
 }
 
-function getDbPath() { return `${getFS().documentDirectory}SQLite/wardrobapp.db`; }
-function getImageDir() { return `${getFS().documentDirectory}garment-images/`; }
 function getPreferredDownloadsDirUri() {
   return getFS().StorageAccessFramework.getUriForDirectoryInRoot('Download');
 }
@@ -142,7 +156,7 @@ function newSqliteDir() {
   return new Directory(Paths.document, 'SQLite');
 }
 function newImagesDir() {
-  return new Directory(Paths.document, 'garment-images');
+  return new Directory(Paths.document, LIVE_IMAGES_DIRNAME);
 }
 
 function onlyFiles(entries: (Directory | File)[]) {
@@ -175,11 +189,12 @@ function resetDirectory(dir: Directory): Directory {
   return dir;
 }
 
-function deleteQuietly(dir: Directory) {
+function deleteQuietly(entry: Directory | File) {
   try {
-    if (dir.exists) dir.delete();
+    if (entry.exists) entry.delete();
   } catch {
-    // Cache cleanup is best-effort; the OS reclaims this directory anyway.
+    // Cleanup is best-effort: a leftover working copy costs disk, and failing
+    // the caller over it would replace a working outcome with an error.
   }
 }
 
@@ -238,7 +253,10 @@ async function copyFileInto(src: File, destDir: Directory, name: string): Promis
   } else if (isContentUri(src.uri)) {
     await getFS().copyAsync({ from: src.uri, to: new File(destDir, name).uri });
   } else {
-    src.copy(destDir);
+    // Copy to an explicit File, not to the directory: given a Directory the
+    // native copy derives the target name from the *source* and ignores `name`
+    // entirely, which would land a staged database on top of the live one.
+    src.copy(new File(destDir, name));
   }
 }
 
@@ -494,49 +512,285 @@ async function materializeArchiveLocally(
   return { uri: localUri, temporary: true };
 }
 
-async function writeRestoredDatabase(dbBase64?: string) {
-  if (!dbBase64) return;
-  const fs = getFS();
-  const dbDir = `${fs.documentDirectory}SQLite/`;
-  const dirInfo = await fs.getInfoAsync(dbDir);
-  if (!dirInfo.exists) {
-    await fs.makeDirectoryAsync(dbDir, { intermediates: true });
+export type ArchiveManifest = {
+  version: number;
+  created_at?: string;
+  image_count?: number;
+};
+
+/**
+ * Read a manifest and decide whether this build can restore it.
+ *
+ * Called before anything is overwritten, so every rejection here is free: the
+ * wardrobe is still untouched. The messages name both versions, because
+ * "Unsupported backup version" on its own leaves the user with no idea whether
+ * to update the app or give up on the file.
+ */
+export function parseArchiveManifest(text: string): ArchiveManifest {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    throw new Error(`Invalid backup: ${MANIFEST_NAME} is not readable JSON.`);
   }
 
-  // Clear the WAL sidecars before overwriting the database, exactly as the
-  // folder-restore path does. A clean close checkpoints and removes them, but
-  // if a previous session crashed or the close failed they survive -- and
-  // SQLite would then replay that stale WAL onto the *restored* database,
-  // grafting fragments of the old wardrobe onto it. Most likely to happen
-  // precisely when someone is restoring, because something already went wrong.
-  for (const suffix of ['-wal', '-shm']) {
-    await fs.deleteAsync(`${getDbPath()}${suffix}`, { idempotent: true });
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error(`Invalid backup: ${MANIFEST_NAME} does not describe a backup.`);
   }
 
-  await fs.writeAsStringAsync(getDbPath(), dbBase64, {
-    encoding: fs.EncodingType.Base64,
-  });
+  const { version, created_at: createdAt, image_count: imageCount } = raw as Record<string, unknown>;
+
+  if (typeof version !== 'number' || !Number.isInteger(version)) {
+    throw new Error(`Invalid backup: ${MANIFEST_NAME} has no version number.`);
+  }
+  if (version > BACKUP_VERSION) {
+    throw new Error(
+      `This backup was made by a newer version of Wardrobapp (backup format ${version}; ` +
+        `this app reads ${BACKUP_VERSION}). Update the app and try again.`
+    );
+  }
+  if (version < BACKUP_VERSION) {
+    throw new Error(
+      `Unsupported backup format ${version}; this app reads ${BACKUP_VERSION}.`
+    );
+  }
+
+  return {
+    version,
+    created_at: typeof createdAt === 'string' ? createdAt : undefined,
+    image_count: typeof imageCount === 'number' ? imageCount : undefined,
+  };
 }
 
-async function replaceImageDirectory(images: BackupImage[]) {
-  const fs = getFS();
-  const imageDir = getImageDir();
-  const imgDirInfo = await fs.getInfoAsync(imageDir);
-
-  if (imgDirInfo.exists) {
-    const existingFiles = await fs.readDirectoryAsync(imageDir);
-    for (const file of existingFiles) {
-      await fs.deleteAsync(`${imageDir}${file}`, { idempotent: true });
-    }
-  } else {
-    await fs.makeDirectoryAsync(imageDir, { intermediates: true });
+/**
+ * Reject an archive that is missing pieces, before the live data is touched.
+ *
+ * The database check is the important one. Deleting the photo directory used to
+ * be unconditional while restoring the database was not, so an archive that had
+ * lost its database wiped every photo and reported success — leaving rows that
+ * all pointed at files that no longer existed.
+ */
+export function checkArchiveCompleteness(archive: {
+  manifest: ArchiveManifest;
+  hasDatabase: boolean;
+  imageCount: number;
+}): void {
+  if (!archive.hasDatabase) {
+    throw new Error(
+      `Invalid backup: ${DB_FILENAME} is missing from the archive. Nothing was changed.`
+    );
   }
 
-  for (const img of images) {
-    await fs.writeAsStringAsync(`${imageDir}${img.name}`, img.data, {
+  const expected = archive.manifest.image_count;
+  if (typeof expected === 'number' && archive.imageCount < expected) {
+    throw new Error(
+      `Incomplete backup: the manifest lists ${expected} photo(s) but only ` +
+        `${archive.imageCount} are present, so the archive is truncated. Nothing was changed.`
+    );
+  }
+}
+
+/** Remove the WAL sidecars belonging to one database file, if present. */
+function deleteDbSidecars(dbName: string) {
+  const sqliteDir = newSqliteDir();
+  for (const suffix of DB_SIDECAR_SUFFIXES) {
+    deleteQuietly(new File(sqliteDir, `${dbName}${suffix}`));
+  }
+}
+
+/** Throw away a half-built restore. Safe to call at any point. */
+function discardStagedRestore() {
+  deleteQuietly(new File(newSqliteDir(), DB_STAGING_NAME));
+  deleteDbSidecars(DB_STAGING_NAME);
+  deleteQuietly(new Directory(Paths.document, IMAGES_STAGING_DIRNAME));
+}
+
+/** Throw away the displaced originals once the new data is safely in place. */
+function discardReplacedData() {
+  deleteQuietly(new File(newSqliteDir(), DB_PREVIOUS_NAME));
+  deleteQuietly(new Directory(Paths.document, IMAGES_PREVIOUS_DIRNAME));
+}
+
+/**
+ * Confirm SQLite can actually read the staged database before it replaces the
+ * live one. A truncated or garbage file inside an otherwise valid archive would
+ * otherwise be installed happily and only fail on the next query, by which
+ * point the original is gone.
+ */
+async function verifyStagedDatabase(): Promise<void> {
+  const SQLite = await import('expo-sqlite');
+  let handle: Awaited<ReturnType<typeof SQLite.openDatabaseAsync>> | null = null;
+
+  try {
+    handle = await SQLite.openDatabaseAsync(DB_STAGING_NAME, { useNewConnection: true });
+
+    const integrity = await handle.getFirstAsync<{ integrity_check: string }>(
+      'PRAGMA integrity_check;'
+    );
+    if (integrity?.integrity_check !== 'ok') {
+      throw new Error(
+        `it failed SQLite's integrity check (${integrity?.integrity_check ?? 'no result'})`
+      );
+    }
+
+    // A readable database that has no garments table is some other app's file.
+    await handle.getFirstAsync('SELECT count(*) AS count FROM garments;');
+  } catch (error) {
+    throw new Error(`Invalid backup: ${toErrorText(error)}. Nothing was changed.`);
+  } finally {
+    if (handle) {
+      try {
+        await handle.closeAsync();
+      } catch {
+        // The verification handle is disposable either way.
+      }
+    }
+    // Opening the file may have created sidecars; they must not travel with it.
+    deleteDbSidecars(DB_STAGING_NAME);
+  }
+}
+
+/**
+ * How a particular backup format produces its replacement data. Both are
+ * required: a restore that cannot supply a database is not a restore.
+ */
+type RestoreSources = {
+  writeDatabase: (destinationDir: Directory, name: string) => Promise<void>;
+  writeImages: (destination: Directory) => Promise<void>;
+};
+
+/**
+ * Install a restore as close to atomically as the filesystem allows.
+ *
+ * Build the replacement beside the live data, verify it, then swap both halves
+ * by rename and only then drop the originals. Any failure before the swap
+ * leaves the wardrobe untouched; any failure during it is rolled back.
+ *
+ * The cost is disk: staging holds a second copy of the photos, so a restore
+ * needs roughly the archive's size free in the documents directory. That is the
+ * same trade the backup path makes, and it buys the property that matters —
+ * a failed restore leaves the user exactly where they started rather than with
+ * neither their old wardrobe nor a complete new one.
+ */
+async function commitRestore(sources: RestoreSources): Promise<void> {
+  const sqliteDir = newSqliteDir();
+  sqliteDir.create({ intermediates: true, idempotent: true });
+
+  // An earlier restore may have died midway; its leftovers are not ours to keep.
+  discardStagedRestore();
+
+  try {
+    await sources.writeDatabase(sqliteDir, DB_STAGING_NAME);
+
+    const stagedDb = new File(sqliteDir, DB_STAGING_NAME);
+    if (!stagedDb.exists || stagedDb.size === 0) {
+      throw new Error(`Invalid backup: ${DB_FILENAME} is empty. Nothing was changed.`);
+    }
+
+    await sources.writeImages(resetDirectory(new Directory(Paths.document, IMAGES_STAGING_DIRNAME)));
+    await verifyStagedDatabase();
+  } catch (error) {
+    discardStagedRestore();
+    throw error;
+  }
+
+  await swapInStagedRestore();
+}
+
+/**
+ * Move the staged data into place, putting everything back if any step fails.
+ *
+ * Ordering matters: both originals are moved aside before either replacement
+ * moves in, so at every intermediate point the user's data still exists under a
+ * known name and the rollback can find it.
+ */
+async function swapInStagedRestore(): Promise<void> {
+  const sqliteDir = newSqliteDir();
+  let dbMovedAside = false;
+  let imagesMovedAside = false;
+  let dbSwappedIn = false;
+
+  try {
+    // A stale WAL would be replayed onto the *restored* database, grafting
+    // fragments of the old wardrobe onto it. Most likely to exist precisely
+    // when someone is restoring, because something already went wrong.
+    deleteDbSidecars(DB_FILENAME);
+
+    const liveDb = new File(sqliteDir, DB_FILENAME);
+    if (liveDb.exists) {
+      liveDb.rename(DB_PREVIOUS_NAME);
+      dbMovedAside = true;
+    }
+
+    const liveImages = newImagesDir();
+    if (liveImages.exists) {
+      liveImages.rename(IMAGES_PREVIOUS_DIRNAME);
+      imagesMovedAside = true;
+    }
+
+    new File(sqliteDir, DB_STAGING_NAME).rename(DB_FILENAME);
+    dbSwappedIn = true;
+
+    new Directory(Paths.document, IMAGES_STAGING_DIRNAME).rename(LIVE_IMAGES_DIRNAME);
+  } catch (error) {
+    try {
+      if (dbSwappedIn) new File(sqliteDir, DB_FILENAME).rename(DB_STAGING_NAME);
+      if (dbMovedAside) new File(sqliteDir, DB_PREVIOUS_NAME).rename(DB_FILENAME);
+      if (imagesMovedAside) {
+        deleteQuietly(newImagesDir());
+        new Directory(Paths.document, IMAGES_PREVIOUS_DIRNAME).rename(LIVE_IMAGES_DIRNAME);
+      }
+    } catch (rollbackError) {
+      // Say exactly where the data is rather than pretending it is lost.
+      throw new Error(
+        `Restore failed (${toErrorText(error)}) and the wardrobe could not be put back ` +
+          `(${toErrorText(rollbackError)}). Your original data is still on the device as ` +
+          `${DB_PREVIOUS_NAME} and ${IMAGES_PREVIOUS_DIRNAME}.`
+      );
+    }
+
+    discardStagedRestore();
+    throw new Error(`Restore failed: ${toErrorText(error)}. Your wardrobe was left unchanged.`);
+  }
+
+  // Only now is the displaced copy expendable.
+  discardReplacedData();
+}
+
+/** Copy archive photos into a staging directory. */
+async function copyImagesInto(images: File[], destination: Directory): Promise<void> {
+  let handled = 0;
+  for (const image of images) {
+    await copyFileInto(image, destination, image.name);
+    if (++handled % 10 === 0) await yieldToUi();
+  }
+}
+
+/** Write base64 photos from a legacy payload into a staging directory. */
+async function writeBase64ImagesInto(
+  images: BackupImage[],
+  destination: Directory
+): Promise<void> {
+  const fs = getFS();
+  let handled = 0;
+  for (const image of images) {
+    await fs.writeAsStringAsync(new File(destination, image.name).uri, image.data, {
       encoding: fs.EncodingType.Base64,
     });
+    if (++handled % 10 === 0) await yieldToUi();
   }
+}
+
+/** Write a base64 database from a legacy payload into a staging directory. */
+async function writeBase64DatabaseInto(
+  destinationDir: Directory,
+  name: string,
+  base64: string
+): Promise<void> {
+  const fs = getFS();
+  await fs.writeAsStringAsync(new File(destinationDir, name).uri, base64, {
+    encoding: fs.EncodingType.Base64,
+  });
 }
 
 /**
@@ -637,43 +891,24 @@ async function restoreFolderBackup(dir: Directory): Promise<void> {
     throw new Error('Invalid backup: manifest.json not found');
   }
 
-  const manifest = JSON.parse(manifestFile.textSync()) as { version?: number };
-  if (manifest.version !== BACKUP_VERSION) {
-    throw new Error('Unsupported backup version');
-  }
+  const manifest = parseArchiveManifest(manifestFile.textSync());
 
-  await withClosedDatabase(async () => {
-    const dbEntry = onlyFiles(entries).find((f) => f.name === DB_FILENAME);
-    if (dbEntry) {
-      const sqliteDir = newSqliteDir();
-      sqliteDir.create({ intermediates: true, idempotent: true });
-      // Remove the existing DB (and stale WAL sidecars) before restoring.
-      for (const name of [DB_FILENAME, `${DB_FILENAME}-wal`, `${DB_FILENAME}-shm`]) {
-        const existing = new File(sqliteDir, name);
-        if (existing.exists) existing.delete();
-      }
-      await copyFileInto(dbEntry, sqliteDir, DB_FILENAME);
-    }
+  const dbEntry = onlyFiles(entries).find((f) => f.name === DB_FILENAME);
+  const archiveImages = onlyDirectories(entries).find((e) => e.name === IMAGES_DIRNAME) ?? null;
+  const imageFiles = archiveImages ? onlyFiles(archiveImages.list()) : [];
 
-    await replaceImageDirectoryFrom(
-      onlyDirectories(entries).find((e) => e.name === IMAGES_DIRNAME) ?? null
-    );
+  checkArchiveCompleteness({
+    manifest,
+    hasDatabase: Boolean(dbEntry),
+    imageCount: imageFiles.length,
   });
-}
 
-/** Swap the live photo directory for the one in an extracted or opened backup. */
-async function replaceImageDirectoryFrom(source: Directory | null): Promise<void> {
-  const destImages = newImagesDir();
-  if (destImages.exists) destImages.delete();
-  destImages.create({ intermediates: true, idempotent: true });
-
-  if (!source) return;
-
-  let i = 0;
-  for (const img of onlyFiles(source.list())) {
-    await copyFileInto(img, destImages, img.name);
-    if (++i % 10 === 0) await yieldToUi();
-  }
+  await withClosedDatabase(() =>
+    commitRestore({
+      writeDatabase: (dir, name) => copyFileInto(dbEntry!, dir, name),
+      writeImages: (destination) => copyImagesInto(imageFiles, destination),
+    })
+  );
 }
 
 export type ArchiveLayout = 'folder' | 'legacy-archive' | 'nested' | 'unknown';
@@ -713,31 +948,47 @@ async function restoreExtractedLegacyArchive(root: Directory): Promise<void> {
   // is a few megabytes at most. The photos are separate entries, already on
   // disk from the extraction, and get copied natively below.
   const payload = JSON.parse(payloadFile.textSync()) as BackupPayload;
-  if (![1, 2].includes(payload.version)) {
-    throw new Error('Unsupported backup version');
-  }
+  checkLegacyPayload(payload);
 
-  await withClosedDatabase(async () => {
-    await writeRestoredDatabase(payload.database);
-    await replaceImageDirectoryFrom(
-      onlyDirectories(root.list()).find((d) => d.name === IMAGES_DIRNAME) ?? null
+  const archiveImages = onlyDirectories(root.list()).find((d) => d.name === IMAGES_DIRNAME) ?? null;
+  const imageFiles = archiveImages ? onlyFiles(archiveImages.list()) : [];
+
+  await withClosedDatabase(() =>
+    commitRestore({
+      writeDatabase: (dir, name) => writeBase64DatabaseInto(dir, name, payload.database),
+      writeImages: (destination) => copyImagesInto(imageFiles, destination),
+    })
+  );
+}
+
+/**
+ * Check a legacy v1/v2 payload before it is applied. Same contract as
+ * `parseArchiveManifest`: reject while the wardrobe is still untouched.
+ */
+export function checkLegacyPayload(payload: Pick<BackupPayload, 'version' | 'database'>): void {
+  if (![1, 2].includes(payload.version)) {
+    throw new Error(
+      `Unsupported backup format ${payload.version}; this app reads 1, 2 and ${BACKUP_VERSION}.`
     );
-  });
+  }
+  if (!payload.database) {
+    throw new Error('Invalid backup: it contains no database. Nothing was changed.');
+  }
 }
 
 /** Restore the oldest format: one .json document with everything base64 inside. */
 async function restoreLegacyJsonBackup(localUri: string): Promise<void> {
   const fs = getFS();
   const payload = JSON.parse(await fs.readAsStringAsync(localUri)) as BackupPayload;
-  if (![1, 2].includes(payload.version)) {
-    throw new Error('Unsupported backup version');
-  }
+  checkLegacyPayload(payload);
 
   const images = Array.isArray(payload.images) ? payload.images : [];
-  await withClosedDatabase(async () => {
-    await writeRestoredDatabase(payload.database);
-    if (images.length > 0) await replaceImageDirectory(images);
-  });
+  await withClosedDatabase(() =>
+    commitRestore({
+      writeDatabase: (dir, name) => writeBase64DatabaseInto(dir, name, payload.database),
+      writeImages: (destination) => writeBase64ImagesInto(images, destination),
+    })
+  );
 }
 
 /** Restore a single-file (.zip/.json) backup archive. */
