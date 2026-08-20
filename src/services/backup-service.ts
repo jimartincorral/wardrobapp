@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { Directory, File, Paths } from 'expo-file-system';
-import { closeDatabase, getDatabase } from '../db/client';
+import { withDatabaseClosed } from '../db/client';
 
 /**
  * Backup and restore.
@@ -94,18 +94,20 @@ function getBackupFilename() {
   return `${BACKUP_PREFIX}${timestamp}.zip`;
 }
 
+/**
+ * Run an operation that owns the database file.
+ *
+ * Delegates to the client's maintenance lock, which also holds off any
+ * `getDatabase()` call for the duration -- without that, a screen refetching on
+ * focus could reopen the connection mid-copy and leave the backup torn or the
+ * restore grafted onto a stale WAL.
+ */
 async function withClosedDatabase<T>(operation: () => Promise<T>): Promise<T> {
   if (Platform.OS === 'web') {
     return operation();
   }
 
-  await closeDatabase();
-
-  try {
-    return await operation();
-  } finally {
-    await getDatabase();
-  }
+  return withDatabaseClosed(operation);
 }
 
 type BackupPayload = {

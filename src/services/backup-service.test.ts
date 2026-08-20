@@ -12,8 +12,7 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
   default: { getItem: vi.fn(), setItem: vi.fn(), removeItem: vi.fn() },
 }));
 vi.mock('../db/client', () => ({
-  getDatabase: vi.fn(),
-  closeDatabase: vi.fn(),
+  withDatabaseClosed: vi.fn(async (operation: () => Promise<unknown>) => operation()),
 }));
 
 const {

@@ -1,4 +1,30 @@
 import type { Garment } from '../types';
+import { GARMENT_IMAGE_DIRNAME, resolveImageRef } from './image-paths';
+
+let cachedImageDirectory: string | null = null;
+
+/**
+ * Where garment photos live, or '' where there is no filesystem (web, tests).
+ *
+ * Looked up lazily and cached rather than imported at module scope:
+ * expo-file-system is native-only, and this module is otherwise pure so it can
+ * be unit-tested and bundled for web without it.
+ */
+function garmentImageDirectory(): string {
+  if (cachedImageDirectory !== null) return cachedImageDirectory;
+
+  try {
+    const fs = require('expo-file-system/legacy') as typeof import('expo-file-system/legacy');
+    cachedImageDirectory = fs.documentDirectory
+      ? `${fs.documentDirectory}${GARMENT_IMAGE_DIRNAME}/`
+      : '';
+  } catch {
+    // No filesystem here; references are used exactly as stored.
+    cachedImageDirectory = '';
+  }
+
+  return cachedImageDirectory;
+}
 
 function parseStringArray(value: unknown, preserveEmpty = false): string[] {
   if (Array.isArray(value)) {
@@ -34,7 +60,8 @@ function uniqueCaseInsensitive(values: string[]): string[] {
   return result;
 }
 
-export function normalizeGarmentRow(row: any): Garment {
+export function normalizeGarmentRow(row: any, imageDirectory = garmentImageDirectory()): Garment {
+  const resolve = (ref: string) => resolveImageRef(ref, imageDirectory);
   const tags = parseStringArray(row.tags).map(tag => tag.toLowerCase());
   const subcategories = uniqueCaseInsensitive([
     ...parseStringArray(row.subcategories),
@@ -59,12 +86,18 @@ export function normalizeGarmentRow(row: any): Garment {
   const color_primary = color_palette[0] ?? String(row.color_primary ?? '#000000');
   const color_secondary = color_palette[1] ?? (typeof row.color_secondary === 'string' ? row.color_secondary : null);
 
+  // Photo references are stored as bare filenames (and, in rows from older
+  // builds, as absolute paths that may no longer exist). Re-attach the current
+  // directory here so every consumer gets something loadable.
+  const resolvedUris = (image_uris.length > 0 ? image_uris : [image_uri].filter(Boolean)).map(resolve);
+  const resolvedNoBgUris = image_uris_nobg.map(resolve);
+
   return {
     ...row,
-    image_uri,
-    image_uri_nobg,
-    image_uris: image_uris.length > 0 ? image_uris : [image_uri].filter(Boolean),
-    image_uris_nobg,
+    image_uri: resolve(image_uri),
+    image_uri_nobg: image_uri_nobg ? resolve(image_uri_nobg) : image_uri_nobg,
+    image_uris: resolvedUris,
+    image_uris_nobg: resolvedNoBgUris,
     subcategory: subcategories[0] ?? (typeof row.subcategory === 'string' ? row.subcategory : null),
     subcategories,
     tags,

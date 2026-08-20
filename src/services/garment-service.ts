@@ -4,9 +4,19 @@ import { deleteImage } from './image-service';
 import { removeGarmentFromOutfits } from './outfit-service';
 import type { Garment } from '../types';
 import { normalizeGarmentRow } from '../utils/garment-fields';
+import { toStoredImageRef } from '../utils/image-paths';
 
 function rowToGarment(row: any): Garment {
   return normalizeGarmentRow(row);
+}
+
+/**
+ * Photo references are stored without their directory so they survive a restore
+ * onto a different install. Callers keep passing the full URIs that image
+ * pickers hand them; the reduction happens here, at the write boundary.
+ */
+function toStoredRefs(refs: string[]): string[] {
+  return refs.map(toStoredImageRef);
 }
 
 export async function createGarment(
@@ -24,10 +34,10 @@ export async function createGarment(
     `INSERT INTO garments (id, image_uri, image_uri_nobg, image_uris, image_uris_nobg, category, subcategory, subcategories, tags, brand, color_primary, color_secondary, color_palette, size, purchase_date, is_available, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
     id,
-    data.image_uri,
-    data.image_uri_nobg ?? null,
-    JSON.stringify(data.image_uris),
-    JSON.stringify(data.image_uris_nobg),
+    toStoredImageRef(data.image_uri),
+    data.image_uri_nobg ? toStoredImageRef(data.image_uri_nobg) : null,
+    JSON.stringify(toStoredRefs(data.image_uris)),
+    JSON.stringify(toStoredRefs(data.image_uris_nobg)),
     data.category,
     primarySubcategory,
     JSON.stringify(subcategories),
@@ -104,10 +114,17 @@ export async function updateGarment(id: string, data: Partial<Garment>): Promise
     'brand', 'color_primary', 'color_secondary', 'size', 'purchase_date',
   ] as const;
 
+  const imageFields = new Set<string>(['image_uri', 'image_uri_nobg']);
+
   for (const field of updatable) {
     if (data[field] !== undefined) {
+      const value = data[field];
       fields.push(`${field} = ?`);
-      values.push(normalizeSqlValue(data[field]));
+      values.push(
+        imageFields.has(field) && typeof value === 'string'
+          ? toStoredImageRef(value)
+          : normalizeSqlValue(value)
+      );
     }
   }
 
@@ -117,11 +134,11 @@ export async function updateGarment(id: string, data: Partial<Garment>): Promise
   }
   if (data.image_uris !== undefined) {
     fields.push('image_uris = ?');
-    values.push(JSON.stringify(data.image_uris));
+    values.push(JSON.stringify(toStoredRefs(data.image_uris)));
   }
   if (data.image_uris_nobg !== undefined) {
     fields.push('image_uris_nobg = ?');
-    values.push(JSON.stringify(data.image_uris_nobg));
+    values.push(JSON.stringify(toStoredRefs(data.image_uris_nobg)));
   }
   if (data.color_palette !== undefined) {
     fields.push('color_palette = ?');
