@@ -82,7 +82,7 @@ describe('store/resolve round trip', () => {
   });
 
   it('does not corrupt a data URI across a round trip', () => {
-    // Data URIs contain slashes, so a naive basename would shred them.
+    // Inline data contains slashes, so a naive basename would shred it.
     const dataUri = 'data:image/jpeg;base64,AAA/BBB';
     expect(resolveImageRef(toStoredImageRef(dataUri), DIR)).toBe(dataUri);
   });

@@ -14,15 +14,15 @@
  * also re-bases those onto the current directory: reads are correct immediately,
  * whether or not the migration that rewrites them has run.
  *
- * On web there is no filesystem — photos are data URIs stored inline — so both
- * directions pass those through untouched.
+ * Values that are not local paths — Android SAF documents, remote URLs, and any
+ * inline data — are passed through untouched in both directions.
  */
 
 export const GARMENT_IMAGE_DIRNAME = 'garment-images';
 
 /**
  * References that are already portable and must never be reduced to a
- * filename: web data URIs, blob URLs, remote images, and Android SAF documents.
+ * filename: Android SAF documents, remote images, and inline data.
  */
 const NON_FILE_REF = /^(data:|blob:|https?:|content:)/i;
 
@@ -48,8 +48,8 @@ export function toStoredImageRef(ref: string): string {
  * Expand a stored reference into something the platform can load.
  *
  * `imageDirectory` is passed explicitly by the caller that knows it (and by
- * tests); when it is empty — on web, or before the filesystem is available —
- * the reference is returned unchanged rather than resolved against nothing.
+ * tests); when it is empty — before the filesystem is available — the
+ * reference is returned unchanged rather than resolved against nothing.
  */
 export function resolveImageRef(ref: string, imageDirectory: string): string {
   if (!ref) return '';

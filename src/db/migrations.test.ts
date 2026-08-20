@@ -168,8 +168,8 @@ describe('storeBareImageRefs', () => {
     expect(JSON.parse(db.rows[0].image_uris_nobg!)).toEqual(['front_nobg.png']);
   });
 
-  it('leaves web data URIs alone', async () => {
-    // On web the column holds the image itself, not a path to one.
+  it('leaves inline data references alone', async () => {
+    // A reference that is not a path must never be reduced to a filename.
     const dataUri = 'data:image/jpeg;base64,AAAA';
     const db = createFakeDb([
       { id: 'a', image_uri: dataUri, image_uris: JSON.stringify([dataUri]) },

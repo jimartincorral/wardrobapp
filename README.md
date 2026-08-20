@@ -1,120 +1,116 @@
 # Wardrobapp
 
-A local-first wardrobe and outfit planner built with React Native + Expo. Catalog the clothes you own, log what you wear, and get outfit suggestions that learn from your ratings — all stored on-device.
+A local-first wardrobe and outfit planner for **Android**, built with React Native + Expo. Catalog the clothes you own, rate outfit suggestions, and let the app learn what you like — all stored on-device, with no account and no server.
 
 > Status: pre-1.0, actively developed. The roadmap lives in [TODO.md](TODO.md).
 
 ## Features
 
-- **Garment catalog** — photo, category, color palette, tags, brand, size, price. Photos are auto-resized to 800px / 70% JPEG to keep the DB small.
-- **Local background removal** — strip backgrounds from garment photos in-browser via [`@imgly/background-removal`](https://github.com/imgly/background-removal-js) (WASM, runs client-side).
-- **Duplicate detection** — when you add a new garment, the app warns about likely duplicates using a weighted score (0.6 × tag Jaccard + 0.3 × color CIE76 ΔE + 0.1 × size match).
-- **Outfit suggestions** — epsilon-greedy engine that combines category templates, color harmony, season/weather/occasion filters, and pair scores learned from your ratings.
-- **Wear log + analytics** — track what you wore and when. Cost-per-wear, monthly trends, garment lifespan stats.
-- **Backup/restore** — local JSON export with embedded base64 images. Google Drive backup is scaffolded but requires a dev build (see *Limitations*).
-- **Multi-platform** — runs on Android, iOS, and the web. SQLite on native; an in-memory adapter with `localStorage` persistence on web.
+- **Garment catalog** — photos, category and type, colour palette, tags, brand, size. Photos are resized to 800px and re-encoded at 70% JPEG on import to keep the database and backups small.
+- **On-device background removal** — strips the background from a garment photo via [`@six33/react-native-bg-removal`](https://www.npmjs.com/package/@six33/react-native-bg-removal). Needs the native module linked, so a development or release build rather than Expo Go.
+- **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged using a weighted score (0.6 × tag Jaccard + 0.3 × colour similarity + 0.1 × size match).
+- **Outfit suggestions** — an epsilon-greedy engine combining category templates, colour harmony, season filters, and pair scores learned from your ratings.
+- **Wardrobe analytics** — breakdowns by category, subcategory, colour and brand, plus garment lifespan for items you've marked unavailable.
+- **Backup and restore** — a single `.zip` containing the SQLite database and every photo, written to a folder you pick. Restore stages and verifies the archive before replacing anything, and rolls back if it can't finish.
+- **English and Spanish** — full UI localization, selectable in Settings.
 
 ## Tech stack
 
 - **Runtime:** React Native 0.83, Expo SDK 55, React 19
 - **Navigation:** expo-router (file-based, typed routes)
-- **Storage:** expo-sqlite (WAL mode) on native, in-memory adapter on web
-- **State:** zustand
+- **Storage:** expo-sqlite in WAL mode; photos as files under `<documents>/garment-images/`, referenced from the database by filename
+- **State:** React context (theme, language) plus local hooks — no global store
 - **Images:** expo-image-picker + expo-image-manipulator
-- **Background removal:** `@imgly/background-removal` (WASM, web only)
-- **Language:** TypeScript
+- **Language:** TypeScript, `strict` mode
 
 ## Getting started
 
 ### Prerequisites
 
 - Node.js 20+ and npm
-- For Android: Android Studio + SDK (or use Expo Go for managed-workflow testing)
-- For iOS: Xcode + a Mac (or use Expo Go)
+- Android Studio with the Android SDK, plus JDK 17
 
-### Install & run
+### Install and run
 
 ```bash
 git clone https://github.com/jimartincorral/wardrobapp.git
 cd wardrobapp
 npm install
 
-# Web — full feature set including background removal
-npm run web
-
-# Native — scan the QR code with Expo Go on your phone
-npm start
-
-# Or build to a connected Android device / emulator
+# Build and run on a connected device or emulator
 npm run android
+
+# Or start the dev server and connect an existing build
+npm start
 ```
 
-The first launch initializes the SQLite schema automatically.
+The first launch creates the SQLite schema automatically.
 
-### Build a release APK (Android)
+> Expo Go will run most of the app, but anything backed by a native module — background removal, and backup/restore via the Storage Access Framework — needs `npm run android`.
+
+### Build a release APK
+
+CI builds one on every push to `main` and publishes it to the rolling [`nightly` release](https://github.com/jimartincorral/wardrobapp/releases/tag/nightly). Note that it is **signed with the public Android debug key**, so it is for testing rather than distribution.
+
+To build locally, the portable path is what CI runs:
 
 ```bash
-npm run apk
+npx expo prebuild --platform android --no-install
+cd android && ./gradlew assembleRelease
 ```
 
-This runs a Gradle `assembleRelease` build via `scripts/build-apk.ps1` and prints the
-output path (`android/app/build/outputs/apk/release/app-release.apk`). The script
-auto-detects a valid JDK 17 at build time, so it isn't affected by a stale `JAVA_HOME`.
-Requires the native project to exist — run `npx expo prebuild` once if `android/` is missing.
-
-### Optional: pre-bundle the background-removal WASM blob
-
-```bash
-npm run bundle:bg-removal
-```
-
-This produces `public/vendor/imgly-background-removal.bundle.mjs` so the web build doesn't pull from a CDN at runtime.
+The output lands at `android/app/build/outputs/apk/release/app-release.apk`. There is also `npm run apk`, a PowerShell script that wraps the same steps and auto-detects a JDK 17 — Windows only.
 
 ## Project structure
 
 ```
-app/                 Expo Router screens
-  (tabs)/              index, wardrobe, outfits, analytics
-  garment/             add + [id] (detail/edit)
-  outfit/[id].tsx      outfit detail
+app/                      expo-router screens
+  (tabs)/                   index, wardrobe, outfits, analytics
+  garment/                  add, [id] (detail), edit/[id]
+  outfit/[id].tsx
   settings.tsx
+  statistics.tsx
 src/
-  db/                  SQLite client + web in-memory adapter + schema
-  services/            Business logic (garment, outfit, wear, analytics,
-                       duplicate-detector, suggestion-engine, image,
-                       background-removal, backup, url-import)
-  components/          GarmentCard, TagInput, ColorPicker, RatingStars, ...
-  constants/           Categories, color palettes, theme tokens
-  utils/               Color distance (CIE76 ΔE), tag similarity (Jaccard),
-                       date helpers
-  hooks/  i18n/  theme/  types/
-assets/                App icon, splash, favicon
+  db/                     SQLite client, schema, keyed data migrations
+  services/               garment, outfit, analytics, image, backup,
+                          background-removal, duplicate-detector,
+                          suggestion-engine, garment-analysis, url-import
+  components/             GarmentCard, GarmentForm, TagInput, ColorPicker,
+                          OutfitPreview, RatingStars, DuplicateWarning, ...
+  hooks/                  useGarments, useGarmentForm, useAnalytics, ...
+  utils/                  colour distance (CIE76 ΔE), tag similarity (Jaccard),
+                          image paths, garment fields, dates, style tags
+  constants/  i18n/  theme/  types/
+assets/                   App icon and splash
+scripts/                  build-apk.ps1
 ```
 
 ## Testing
 
 ```bash
-npm test           # one-shot
-npm run test:watch # watch mode
+npm run typecheck  # tsc --noEmit
+npm test           # vitest, one-shot
+npm run test:watch
 ```
 
-Tests use Vitest. The current suites cover the suggestion engine and URL import service.
+15 suites, 114 tests, covering the suggestion engine, backup validation, the database lock and migrations, URL import, garment and outfit services, and the pure utilities. Both `typecheck` and `test` run in CI on every pull request.
 
-## Limitations & roadmap notes
+## Limitations
 
-- **Google Drive backup** requires `@react-native-google-signin/google-signin` native modules, so it needs a native build (`npm run android` for development, or `npm run apk` for a release APK) rather than Expo Go. Local JSON backup works everywhere.
-- **Background removal** is web-only today; a native equivalent is on the TODO.
-- **No cloud sync** between devices — by design, this is a local-first app.
-- **Migrations** aren't versioned yet; schema lives in raw SQL inside `src/db/client.ts`. See the *Phase 3* section of [TODO.md](TODO.md).
+- **Android only.** Web and iOS support were removed — the web build had its own storage layer that could silently lose data, and iOS was never finished.
+- **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
+- **Released APKs are debug-signed**, so they can't be upgraded in place from a properly signed build later.
+- **The schema is applied idempotently** at startup from raw SQL in `src/db/client.ts` — `CREATE TABLE IF NOT EXISTS` plus additive `ALTER`s. There's no `PRAGMA user_version` yet. Keyed, run-once data migrations live in `src/db/migrations.ts`.
+- **No wear log.** The app records outfit ratings, not what you wore on a given day, so there is no cost-per-wear or wear-trend reporting.
 
 ## Contributing
 
-This is currently a personal project, but issues and PRs are welcome. If you're planning a non-trivial change, open an issue first so we can talk through scope.
+This is a personal project, but issues and PRs are welcome. For anything non-trivial, open an issue first so we can talk through scope. Pull requests must pass `typecheck` and `test`.
 
-By contributing, you agree that your contributions are licensed under the project's AGPL-3.0 license (see below).
+By contributing, you agree that your contributions are licensed under the project's AGPL-3.0 license.
 
 ## License
 
 [AGPL-3.0](LICENSE) — GNU Affero General Public License v3.0.
 
-In plain English: you can use, modify, and redistribute Wardrobapp freely, including running it as a hosted service, **provided that** you publish the full source code of your modified version under the same AGPL-3.0 license. If you want to use Wardrobapp in a closed-source or proprietary commercial product, contact the author to discuss a commercial license.
+In plain English: you can use, modify, and redistribute Wardrobapp freely, including running it as a hosted service, **provided that** you publish the full source of your modified version under the same AGPL-3.0 license. For closed-source or proprietary commercial use, contact the author to discuss a commercial license.

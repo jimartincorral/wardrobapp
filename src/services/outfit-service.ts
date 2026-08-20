@@ -67,8 +67,8 @@ export async function setOutfitPinned(id: string, isPinned: boolean): Promise<vo
 
 export async function deleteOutfit(id: string): Promise<void> {
   const db = await getDatabase();
-  // Native SQLite cascades this via the foreign key, but the web adapter has no
-  // FK support — delete explicitly so both platforms behave the same.
+  // The foreign key cascades this, but only while `PRAGMA foreign_keys = ON`
+  // holds; deleting explicitly keeps it correct either way.
   await db.runAsync('DELETE FROM outfit_ratings WHERE outfit_id = ?', id);
   await db.runAsync('DELETE FROM outfits WHERE id = ?', id);
 }

@@ -1,4 +1,4 @@
-import { Platform, useColorScheme } from 'react-native';
+import { useColorScheme } from 'react-native';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Colors } from '../constants/theme';
@@ -27,10 +27,6 @@ const ThemeContext = createContext<ThemeContextValue>({
 
 async function loadSavedThemeMode(): Promise<ThemeMode | null> {
   try {
-    if (Platform.OS === 'web') {
-      const value = typeof localStorage !== 'undefined' ? localStorage.getItem(THEME_STORAGE_KEY) : null;
-      return value === 'light' || value === 'dark' || value === 'system' ? value : null;
-    }
     const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
     const value = await AsyncStorage.getItem(THEME_STORAGE_KEY);
     return value === 'light' || value === 'dark' || value === 'system' ? value : null;
@@ -41,10 +37,6 @@ async function loadSavedThemeMode(): Promise<ThemeMode | null> {
 
 async function saveThemeMode(mode: ThemeMode): Promise<void> {
   try {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') localStorage.setItem(THEME_STORAGE_KEY, mode);
-      return;
-    }
     const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
     await AsyncStorage.setItem(THEME_STORAGE_KEY, mode);
   } catch {}

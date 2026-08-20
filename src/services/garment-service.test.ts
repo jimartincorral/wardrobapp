@@ -186,7 +186,7 @@ describe('portable image references', () => {
     expect(params.some(p => typeof p === 'string' && p.includes('garment-images/'))).toBe(false);
   });
 
-  it('keeps web data URIs intact on create', async () => {
+  it('keeps inline data references intact on create', async () => {
     const dataUri = 'data:image/jpeg;base64,AAA/BBB';
     const db = createDb(null);
     getDatabaseMock.mockResolvedValue(db);

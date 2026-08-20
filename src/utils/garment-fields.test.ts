@@ -49,7 +49,7 @@ describe('normalizeGarmentRow image resolution', () => {
     expect(garment.image_uris).toEqual([`${DIR}front.jpg`]);
   });
 
-  it('leaves web data URIs untouched', async () => {
+  it('leaves inline data references untouched', async () => {
     const dataUri = 'data:image/jpeg;base64,AAA/BBB';
     const garment = normalizeGarmentRow(
       { ...row, image_uri: dataUri, image_uris: JSON.stringify([dataUri]) },

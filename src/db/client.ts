@@ -1,10 +1,7 @@
-import { Platform } from 'react-native';
 import { runDataMigrations } from './migrations';
 
 /**
- * Unified database interface that works on both native (expo-sqlite) and web.
- * On web, uses a lightweight in-memory SQL adapter (no WASM) with localStorage persistence.
- * On native, uses expo-sqlite (full SQLite).
+ * SQLite access, via expo-sqlite.
  */
 
 export interface DatabaseAdapter {
@@ -45,10 +42,7 @@ export async function getDatabase(): Promise<DatabaseAdapter> {
   if (dbInitPromise) return dbInitPromise;
 
   dbInitPromise = (async () => {
-    const opened =
-      Platform.OS === 'web'
-        ? (await import('./web-memory-db')).createMemoryAdapter()
-        : await openNativeDatabase();
+    const opened = await openNativeDatabase();
 
     // Only publish the connection once the schema is in place. Assigning `db`
     // first made it visible to concurrent callers mid-initialization, so a
@@ -103,7 +97,6 @@ export async function withDatabaseClosed<T>(operation: () => Promise<T>): Promis
   }
 }
 
-// ── Native: expo-sqlite ──────────────────────────────────────
 async function openNativeDatabase(): Promise<DatabaseAdapter> {
   const SQLite = await import('expo-sqlite');
   let nativeDb = await SQLite.openDatabaseAsync('wardrobapp.db');
@@ -217,8 +210,7 @@ async function initializeDatabase(database: DatabaseAdapter) {
     );
   `);
 
-  // Indexes are created as separate statements: the web adapter parses one
-  // statement at a time and cannot handle them batched with the CREATE TABLEs.
+  // Indexes go out one statement at a time so a failure names the index.
   const indexes = [
     'CREATE INDEX IF NOT EXISTS idx_garments_category ON garments(category)',
     'CREATE INDEX IF NOT EXISTS idx_garments_available ON garments(is_available)',

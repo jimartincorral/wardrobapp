@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, ScrollView, Pressable, StyleSheet, Alert, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, Image, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getGarment, markUnavailable, markAvailable, deleteGarment, updateGarment } from '@/src/services/garment-service';
 import { isBackgroundRemovalAvailable, removeImageBackground } from '@/src/services/background-removal';
@@ -42,13 +42,6 @@ export default function GarmentDetailScreen() {
     confirmLabel: string,
     onConfirm: () => Promise<void>
   ) => {
-    if (Platform.OS === 'web' && typeof globalThis.confirm === 'function') {
-      if (globalThis.confirm(`${title}\n\n${message}`)) {
-        void onConfirm();
-      }
-      return;
-    }
-
     Alert.alert(
       title,
       message,
