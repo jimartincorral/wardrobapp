@@ -77,7 +77,10 @@ export function findDuplicatesAmong(
       getGarmentColorPalette(garment)[0] ?? garment.color_primary
     );
 
-    const bothSizesKnown = Boolean(newGarment.size && garment.size);
+    // A blank size is not a size. Without the trim, '   ' counted as recorded
+    // and scored a *mismatch* against a real size -- absence arguing against a
+    // match, which is exactly what the abstention below exists to prevent.
+    const bothSizesKnown = Boolean(newGarment.size?.trim() && garment.size?.trim());
     const sizeMatch = bothSizesKnown
       ? (newGarment.size!.trim().toLowerCase() === garment.size!.trim().toLowerCase() ? 1 : 0)
       : null;

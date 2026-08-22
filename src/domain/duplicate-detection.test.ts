@@ -76,6 +76,16 @@ describe('what gets flagged', () => {
     expect(flags(noSize, [garment({ id: 'twin', tags: ['cotton', 'basic'], size: null })])).toBe(true);
   });
 
+  it('treats a blank size as no size at all', () => {
+    // '   ' is truthy in JS, so it used to count as recorded and score a
+    // mismatch against a real size.
+    const partial = { ...candidate, tags: ['a', 'b'] };
+    const blank = scoreOf(partial, garment({ tags: ['a', 'c'], size: '   ' }));
+    const absent = scoreOf(partial, garment({ tags: ['a', 'c'], size: null }));
+
+    expect(blank).toBeCloseTo(absent, 10);
+  });
+
   it('does not credit an unrecorded size as a size match', () => {
     // An unanswered question lowers confidence; it must not argue for the match.
     // Same imperfect tag overlap and identical colour either way, so the only

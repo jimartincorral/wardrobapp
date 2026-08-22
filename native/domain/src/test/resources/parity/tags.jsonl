@@ -1,0 +1,169 @@
+{"a":[],"b":[],"similarity":null}
+{"a":[],"b":[""],"similarity":null}
+{"a":[],"b":["  "],"similarity":null}
+{"a":[],"b":["cotton"],"similarity":0}
+{"a":[],"b":["cotton","basic"],"similarity":0}
+{"a":[],"b":["Cotton","BASIC"],"similarity":0}
+{"a":[],"b":["cotton","basic","summer"],"similarity":0}
+{"a":[],"b":["cotton",""],"similarity":0}
+{"a":[],"b":["  cotton  "],"similarity":0}
+{"a":[],"b":["wool","formal"],"similarity":0}
+{"a":[],"b":["a","b"],"similarity":0}
+{"a":[],"b":["a","c"],"similarity":0}
+{"a":[],"b":["cotton","cotton"],"similarity":0}
+{"a":[""],"b":[],"similarity":null}
+{"a":[""],"b":[""],"similarity":null}
+{"a":[""],"b":["  "],"similarity":null}
+{"a":[""],"b":["cotton"],"similarity":0}
+{"a":[""],"b":["cotton","basic"],"similarity":0}
+{"a":[""],"b":["Cotton","BASIC"],"similarity":0}
+{"a":[""],"b":["cotton","basic","summer"],"similarity":0}
+{"a":[""],"b":["cotton",""],"similarity":0}
+{"a":[""],"b":["  cotton  "],"similarity":0}
+{"a":[""],"b":["wool","formal"],"similarity":0}
+{"a":[""],"b":["a","b"],"similarity":0}
+{"a":[""],"b":["a","c"],"similarity":0}
+{"a":[""],"b":["cotton","cotton"],"similarity":0}
+{"a":["  "],"b":[],"similarity":null}
+{"a":["  "],"b":[""],"similarity":null}
+{"a":["  "],"b":["  "],"similarity":null}
+{"a":["  "],"b":["cotton"],"similarity":0}
+{"a":["  "],"b":["cotton","basic"],"similarity":0}
+{"a":["  "],"b":["Cotton","BASIC"],"similarity":0}
+{"a":["  "],"b":["cotton","basic","summer"],"similarity":0}
+{"a":["  "],"b":["cotton",""],"similarity":0}
+{"a":["  "],"b":["  cotton  "],"similarity":0}
+{"a":["  "],"b":["wool","formal"],"similarity":0}
+{"a":["  "],"b":["a","b"],"similarity":0}
+{"a":["  "],"b":["a","c"],"similarity":0}
+{"a":["  "],"b":["cotton","cotton"],"similarity":0}
+{"a":["cotton"],"b":[],"similarity":0}
+{"a":["cotton"],"b":[""],"similarity":0}
+{"a":["cotton"],"b":["  "],"similarity":0}
+{"a":["cotton"],"b":["cotton"],"similarity":1}
+{"a":["cotton"],"b":["cotton","basic"],"similarity":0.5}
+{"a":["cotton"],"b":["Cotton","BASIC"],"similarity":0.5}
+{"a":["cotton"],"b":["cotton","basic","summer"],"similarity":0.3333333333333333}
+{"a":["cotton"],"b":["cotton",""],"similarity":1}
+{"a":["cotton"],"b":["  cotton  "],"similarity":1}
+{"a":["cotton"],"b":["wool","formal"],"similarity":0}
+{"a":["cotton"],"b":["a","b"],"similarity":0}
+{"a":["cotton"],"b":["a","c"],"similarity":0}
+{"a":["cotton"],"b":["cotton","cotton"],"similarity":1}
+{"a":["cotton","basic"],"b":[],"similarity":0}
+{"a":["cotton","basic"],"b":[""],"similarity":0}
+{"a":["cotton","basic"],"b":["  "],"similarity":0}
+{"a":["cotton","basic"],"b":["cotton"],"similarity":0.5}
+{"a":["cotton","basic"],"b":["cotton","basic"],"similarity":1}
+{"a":["cotton","basic"],"b":["Cotton","BASIC"],"similarity":1}
+{"a":["cotton","basic"],"b":["cotton","basic","summer"],"similarity":0.6666666666666666}
+{"a":["cotton","basic"],"b":["cotton",""],"similarity":0.5}
+{"a":["cotton","basic"],"b":["  cotton  "],"similarity":0.5}
+{"a":["cotton","basic"],"b":["wool","formal"],"similarity":0}
+{"a":["cotton","basic"],"b":["a","b"],"similarity":0}
+{"a":["cotton","basic"],"b":["a","c"],"similarity":0}
+{"a":["cotton","basic"],"b":["cotton","cotton"],"similarity":0.5}
+{"a":["Cotton","BASIC"],"b":[],"similarity":0}
+{"a":["Cotton","BASIC"],"b":[""],"similarity":0}
+{"a":["Cotton","BASIC"],"b":["  "],"similarity":0}
+{"a":["Cotton","BASIC"],"b":["cotton"],"similarity":0.5}
+{"a":["Cotton","BASIC"],"b":["cotton","basic"],"similarity":1}
+{"a":["Cotton","BASIC"],"b":["Cotton","BASIC"],"similarity":1}
+{"a":["Cotton","BASIC"],"b":["cotton","basic","summer"],"similarity":0.6666666666666666}
+{"a":["Cotton","BASIC"],"b":["cotton",""],"similarity":0.5}
+{"a":["Cotton","BASIC"],"b":["  cotton  "],"similarity":0.5}
+{"a":["Cotton","BASIC"],"b":["wool","formal"],"similarity":0}
+{"a":["Cotton","BASIC"],"b":["a","b"],"similarity":0}
+{"a":["Cotton","BASIC"],"b":["a","c"],"similarity":0}
+{"a":["Cotton","BASIC"],"b":["cotton","cotton"],"similarity":0.5}
+{"a":["cotton","basic","summer"],"b":[],"similarity":0}
+{"a":["cotton","basic","summer"],"b":[""],"similarity":0}
+{"a":["cotton","basic","summer"],"b":["  "],"similarity":0}
+{"a":["cotton","basic","summer"],"b":["cotton"],"similarity":0.3333333333333333}
+{"a":["cotton","basic","summer"],"b":["cotton","basic"],"similarity":0.6666666666666666}
+{"a":["cotton","basic","summer"],"b":["Cotton","BASIC"],"similarity":0.6666666666666666}
+{"a":["cotton","basic","summer"],"b":["cotton","basic","summer"],"similarity":1}
+{"a":["cotton","basic","summer"],"b":["cotton",""],"similarity":0.3333333333333333}
+{"a":["cotton","basic","summer"],"b":["  cotton  "],"similarity":0.3333333333333333}
+{"a":["cotton","basic","summer"],"b":["wool","formal"],"similarity":0}
+{"a":["cotton","basic","summer"],"b":["a","b"],"similarity":0}
+{"a":["cotton","basic","summer"],"b":["a","c"],"similarity":0}
+{"a":["cotton","basic","summer"],"b":["cotton","cotton"],"similarity":0.3333333333333333}
+{"a":["cotton",""],"b":[],"similarity":0}
+{"a":["cotton",""],"b":[""],"similarity":0}
+{"a":["cotton",""],"b":["  "],"similarity":0}
+{"a":["cotton",""],"b":["cotton"],"similarity":1}
+{"a":["cotton",""],"b":["cotton","basic"],"similarity":0.5}
+{"a":["cotton",""],"b":["Cotton","BASIC"],"similarity":0.5}
+{"a":["cotton",""],"b":["cotton","basic","summer"],"similarity":0.3333333333333333}
+{"a":["cotton",""],"b":["cotton",""],"similarity":1}
+{"a":["cotton",""],"b":["  cotton  "],"similarity":1}
+{"a":["cotton",""],"b":["wool","formal"],"similarity":0}
+{"a":["cotton",""],"b":["a","b"],"similarity":0}
+{"a":["cotton",""],"b":["a","c"],"similarity":0}
+{"a":["cotton",""],"b":["cotton","cotton"],"similarity":1}
+{"a":["  cotton  "],"b":[],"similarity":0}
+{"a":["  cotton  "],"b":[""],"similarity":0}
+{"a":["  cotton  "],"b":["  "],"similarity":0}
+{"a":["  cotton  "],"b":["cotton"],"similarity":1}
+{"a":["  cotton  "],"b":["cotton","basic"],"similarity":0.5}
+{"a":["  cotton  "],"b":["Cotton","BASIC"],"similarity":0.5}
+{"a":["  cotton  "],"b":["cotton","basic","summer"],"similarity":0.3333333333333333}
+{"a":["  cotton  "],"b":["cotton",""],"similarity":1}
+{"a":["  cotton  "],"b":["  cotton  "],"similarity":1}
+{"a":["  cotton  "],"b":["wool","formal"],"similarity":0}
+{"a":["  cotton  "],"b":["a","b"],"similarity":0}
+{"a":["  cotton  "],"b":["a","c"],"similarity":0}
+{"a":["  cotton  "],"b":["cotton","cotton"],"similarity":1}
+{"a":["wool","formal"],"b":[],"similarity":0}
+{"a":["wool","formal"],"b":[""],"similarity":0}
+{"a":["wool","formal"],"b":["  "],"similarity":0}
+{"a":["wool","formal"],"b":["cotton"],"similarity":0}
+{"a":["wool","formal"],"b":["cotton","basic"],"similarity":0}
+{"a":["wool","formal"],"b":["Cotton","BASIC"],"similarity":0}
+{"a":["wool","formal"],"b":["cotton","basic","summer"],"similarity":0}
+{"a":["wool","formal"],"b":["cotton",""],"similarity":0}
+{"a":["wool","formal"],"b":["  cotton  "],"similarity":0}
+{"a":["wool","formal"],"b":["wool","formal"],"similarity":1}
+{"a":["wool","formal"],"b":["a","b"],"similarity":0}
+{"a":["wool","formal"],"b":["a","c"],"similarity":0}
+{"a":["wool","formal"],"b":["cotton","cotton"],"similarity":0}
+{"a":["a","b"],"b":[],"similarity":0}
+{"a":["a","b"],"b":[""],"similarity":0}
+{"a":["a","b"],"b":["  "],"similarity":0}
+{"a":["a","b"],"b":["cotton"],"similarity":0}
+{"a":["a","b"],"b":["cotton","basic"],"similarity":0}
+{"a":["a","b"],"b":["Cotton","BASIC"],"similarity":0}
+{"a":["a","b"],"b":["cotton","basic","summer"],"similarity":0}
+{"a":["a","b"],"b":["cotton",""],"similarity":0}
+{"a":["a","b"],"b":["  cotton  "],"similarity":0}
+{"a":["a","b"],"b":["wool","formal"],"similarity":0}
+{"a":["a","b"],"b":["a","b"],"similarity":1}
+{"a":["a","b"],"b":["a","c"],"similarity":0.3333333333333333}
+{"a":["a","b"],"b":["cotton","cotton"],"similarity":0}
+{"a":["a","c"],"b":[],"similarity":0}
+{"a":["a","c"],"b":[""],"similarity":0}
+{"a":["a","c"],"b":["  "],"similarity":0}
+{"a":["a","c"],"b":["cotton"],"similarity":0}
+{"a":["a","c"],"b":["cotton","basic"],"similarity":0}
+{"a":["a","c"],"b":["Cotton","BASIC"],"similarity":0}
+{"a":["a","c"],"b":["cotton","basic","summer"],"similarity":0}
+{"a":["a","c"],"b":["cotton",""],"similarity":0}
+{"a":["a","c"],"b":["  cotton  "],"similarity":0}
+{"a":["a","c"],"b":["wool","formal"],"similarity":0}
+{"a":["a","c"],"b":["a","b"],"similarity":0.3333333333333333}
+{"a":["a","c"],"b":["a","c"],"similarity":1}
+{"a":["a","c"],"b":["cotton","cotton"],"similarity":0}
+{"a":["cotton","cotton"],"b":[],"similarity":0}
+{"a":["cotton","cotton"],"b":[""],"similarity":0}
+{"a":["cotton","cotton"],"b":["  "],"similarity":0}
+{"a":["cotton","cotton"],"b":["cotton"],"similarity":1}
+{"a":["cotton","cotton"],"b":["cotton","basic"],"similarity":0.5}
+{"a":["cotton","cotton"],"b":["Cotton","BASIC"],"similarity":0.5}
+{"a":["cotton","cotton"],"b":["cotton","basic","summer"],"similarity":0.3333333333333333}
+{"a":["cotton","cotton"],"b":["cotton",""],"similarity":1}
+{"a":["cotton","cotton"],"b":["  cotton  "],"similarity":1}
+{"a":["cotton","cotton"],"b":["wool","formal"],"similarity":0}
+{"a":["cotton","cotton"],"b":["a","b"],"similarity":0}
+{"a":["cotton","cotton"],"b":["a","c"],"similarity":0}
+{"a":["cotton","cotton"],"b":["cotton","cotton"],"similarity":1}
