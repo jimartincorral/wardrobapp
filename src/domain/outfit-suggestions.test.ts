@@ -28,7 +28,7 @@ const garment = (id: string, category: string, overrides: Partial<Garment> = {})
   ...overrides,
 });
 
-const noLearning = () => 0;
+const noLearning = (_a: string, _b: string) => 0;
 
 const baseContext = {
   getPairScore: noLearning,
@@ -43,7 +43,11 @@ const wardrobe = (size = 10) => [
 ];
 
 /** How often each garment is chosen across many runs. */
-function selectionCounts(garments: Garment[], getPairScore = noLearning, runs = 200) {
+function selectionCounts(
+  garments: Garment[],
+  getPairScore: (a: string, b: string) => number = noLearning,
+  runs = 200
+) {
   const counts = new Map<string, number>();
   for (let run = 0; run < runs; run++) {
     for (const outfit of buildSuggestions({ ...baseContext, garments, getPairScore }, { count: 3 })) {

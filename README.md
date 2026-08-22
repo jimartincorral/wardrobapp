@@ -8,8 +8,8 @@ A local-first wardrobe and outfit planner for **Android**, built with React Nati
 
 - **Garment catalog** — photos, category and type, colour palette, tags, brand, size. Photos are resized to 800px and re-encoded at 70% JPEG on import to keep the database and backups small.
 - **On-device background removal** — strips the background from a garment photo via [`@six33/react-native-bg-removal`](https://www.npmjs.com/package/@six33/react-native-bg-removal). Needs the native module linked, so a development or release build rather than Expo Go.
-- **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged using a weighted score (0.6 × tag Jaccard + 0.3 × colour similarity + 0.1 × size match).
-- **Outfit suggestions** — an epsilon-greedy engine combining category templates, colour harmony, season filters, and pair scores learned from your ratings.
+- **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged by a weighted average of tag overlap (Jaccard, 0.6), colour similarity (0.3) and size match (0.1). Signals with nothing to compare abstain rather than scoring zero, so an untagged garment can still be recognised as a duplicate.
+- **Outfit suggestions** — an epsilon-greedy engine combining category templates, colour harmony judged by hue, season and occasion fit, and pair scores learned from your ratings.
 - **Wardrobe analytics** — breakdowns by category, subcategory, colour and brand, plus garment lifespan for items you've marked unavailable.
 - **Backup and restore** — a single `.zip` containing the SQLite database and every photo, written to a folder you pick. Restore stages and verifies the archive before replacing anything, and rolls back if it can't finish.
 - **English and Spanish** — full UI localization, selectable in Settings.
@@ -105,7 +105,9 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-17 suites, 134 tests, covering the suggestion engine, duplicate detection, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities. Both `typecheck` and `test` run in CI on every pull request.
+18 suites, 175 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities. Both `typecheck` and `test` run in CI on every pull request.
+
+Domain algorithms are checked by mutation: each behaviour the tests claim to protect is removed in turn, and the intended test must fail. A test that passes without the code it covers is not a test.
 
 ## Limitations
 
