@@ -113,10 +113,14 @@ cd native && ./gradlew test
 | Module | What |
 |---|---|
 | `:domain` | The algorithms — colour, tags, occasions, duplicates, suggestions |
-| `:data` | The mapping layer — database rows and photo references into domain types |
+| `:data` | Reading the database — row and photo-reference mapping, plus the read-only queries |
 | `:parity-testing` | Shared fixture-loading for the parity suites |
 
-The Android-specific layers (SQLite, filesystem, Compose) arrive as separate modules later. Keeping the pure parts pure is what lets everything so far be verified on any machine — and `:data` is the code that decides whether an *existing* wardrobe opens correctly, so it is the code most worth being able to test anywhere.
+The Android-specific layers (the filesystem, Compose) arrive as separate modules later. Keeping the pure parts pure is what lets everything so far be verified on any machine — and `:data` is the code that decides whether an *existing* wardrobe opens correctly, so it is the code most worth being able to test anywhere.
+
+`:data` reaches SQLite through a one-method `SqlDriver` interface rather than depending on `androidx.sqlite`. On Android that wraps a `SupportSQLiteDatabase`; in the tests it wraps JDBC. Both run the same SQL against the same schema, which is what lets the read paths be exercised without an emulator.
+
+The schema those tests run against is emitted from `src/db/schema.ts` as `schema-fresh.sql` and `schema-upgraded.sql`, so the port is tested against the schema the app really applies rather than a copy that can drift. Every read-path test runs against both, because the two are not the same shape (see Limitations).
 
 The React Native app is untouched and keeps shipping; nothing is removed until the native app reaches parity.
 
@@ -132,9 +136,9 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-18 suites, 178 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
+19 suites, 182 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
 
-The Kotlin port adds 22 more:
+The Kotlin port adds 33 more:
 
 ```bash
 cd native && ./gradlew test
@@ -151,7 +155,7 @@ Domain algorithms are checked by mutation: each behaviour the tests claim to pro
 - **The `garments` schema is not uniform.** `created_at` and `updated_at` are `NOT NULL` on a fresh install but nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist, so readers must tolerate both — and it is why the native data layer will use plain SQL rather than Room, whose schema validation would reject one of them.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **Released APKs are debug-signed**, so they can't be upgraded in place from a properly signed build later.
-- **The schema is applied idempotently** at startup from raw SQL in `src/db/client.ts` — `CREATE TABLE IF NOT EXISTS` plus additive `ALTER`s. There's no `PRAGMA user_version` yet. Keyed, run-once data migrations live in `src/db/migrations.ts`.
+- **The schema is applied idempotently** at startup from `src/db/schema.ts` — `CREATE TABLE IF NOT EXISTS`, then additive `ALTER`s, then the indexes over them. There's no `PRAGMA user_version` yet. Keyed, run-once data migrations live in `src/db/migrations.ts`.
 - **No wear log.** The app records outfit ratings, not what you wore on a given day, so there is no cost-per-wear or wear-trend reporting.
 
 ## Contributing

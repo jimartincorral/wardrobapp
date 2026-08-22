@@ -34,6 +34,7 @@ import {
   toStoredImageRef,
 } from '../src/utils/image-paths';
 import { normalizeGarmentRow } from '../src/utils/garment-fields';
+import { ALTER_STATEMENTS, CREATE_TABLES_SQL, INDEX_STATEMENTS } from '../src/db/schema';
 import { CATEGORIES } from '../src/constants/categories';
 import type { Garment } from '../src/types';
 
@@ -545,6 +546,44 @@ function dumpGarmentRows() {
   return lines;
 }
 
+
+/**
+ * The two schemas that exist in the wild, as SQL the port's tests can execute.
+ *
+ * Emitted from src/db/schema.ts rather than hand-copied, so the native data
+ * layer is tested against the schema the app actually applies -- and so a change
+ * to it shows up here as a fixture diff rather than as a surprise at runtime.
+ *
+ * The "upgraded" script starts from a table old enough to predate every ALTER,
+ * which is what an install carried forward for long enough produces. It is the
+ * one whose created_at/updated_at end up nullable.
+ */
+function dumpSchemas() {
+  const fresh = [
+    '-- A fresh install: CREATE TABLE, then the indexes.',
+    CREATE_TABLES_SQL.trim(),
+    ...INDEX_STATEMENTS.map(s => `${s};`),
+  ].join('\n\n');
+
+  const upgraded = [
+    '-- An upgraded install: an old table, then every additive ALTER.',
+    '-- Statements failing because the column exists are expected. The runner',
+    '-- ignores those, exactly as the app does. Columns are added before the',
+    '-- indexes over them, which is the order the app applies.',
+    `CREATE TABLE garments (
+      id TEXT PRIMARY KEY,
+      image_uri TEXT NOT NULL,
+      category TEXT NOT NULL
+    );`,
+    'CREATE TABLE outfits (id TEXT PRIMARY KEY, name TEXT NOT NULL, garment_ids TEXT NOT NULL DEFAULT \'[]\', occasion TEXT, season TEXT, created_at TEXT NOT NULL, is_suggested INTEGER NOT NULL DEFAULT 0);',
+    CREATE_TABLES_SQL.trim(),
+    ...ALTER_STATEMENTS.map(s => `${s};`),
+    ...INDEX_STATEMENTS.map(s => `${s};`),
+  ].join('\n\n');
+
+  return { fresh, upgraded };
+}
+
 mkdirSync(OUT_DIR, { recursive: true });
 mkdirSync(DATA_OUT_DIR, { recursive: true });
 
@@ -578,3 +617,9 @@ for (const [name, lines] of Object.entries(dataFiles)) {
   writeFileSync(join(DATA_OUT_DIR, name), lines.join('\n') + '\n');
   console.log(`data/${name}: ${lines.length} cases`);
 }
+
+const schemas = dumpSchemas();
+writeFileSync(join(DATA_OUT_DIR, 'schema-fresh.sql'), schemas.fresh + '\n');
+writeFileSync(join(DATA_OUT_DIR, 'schema-upgraded.sql'), schemas.upgraded + '\n');
+console.log(`data/schema-fresh.sql: ${schemas.fresh.split('\n').length} lines`);
+console.log(`data/schema-upgraded.sql: ${schemas.upgraded.split('\n').length} lines`);
