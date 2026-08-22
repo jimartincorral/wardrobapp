@@ -1,29 +1,5 @@
 import type { Garment } from '../types';
-import { GARMENT_IMAGE_DIRNAME, resolveImageRef } from './image-paths';
-
-let cachedImageDirectory: string | null = null;
-
-/**
- * Where garment photos live, or '' where there is no filesystem (unit tests).
- *
- * Looked up lazily and cached rather than imported at module scope, so this
- * module stays pure enough to unit-test without the native filesystem.
- */
-function garmentImageDirectory(): string {
-  if (cachedImageDirectory !== null) return cachedImageDirectory;
-
-  try {
-    const fs = require('expo-file-system/legacy') as typeof import('expo-file-system/legacy');
-    cachedImageDirectory = fs.documentDirectory
-      ? `${fs.documentDirectory}${GARMENT_IMAGE_DIRNAME}/`
-      : '';
-  } catch {
-    // No filesystem here; references are used exactly as stored.
-    cachedImageDirectory = '';
-  }
-
-  return cachedImageDirectory;
-}
+import { resolveImageRef } from './image-paths';
 
 function parseStringArray(value: unknown, preserveEmpty = false): string[] {
   if (Array.isArray(value)) {
@@ -59,7 +35,14 @@ function uniqueCaseInsensitive(values: string[]): string[] {
   return result;
 }
 
-export function normalizeGarmentRow(row: any, imageDirectory = garmentImageDirectory()): Garment {
+/**
+ * Turn a database row into a `Garment`.
+ *
+ * Pure: `imageDirectory` is supplied by the caller rather than looked up here,
+ * so this module — the one every garment read passes through — has no
+ * dependency on the filesystem, the database, or the platform.
+ */
+export function normalizeGarmentRow(row: any, imageDirectory: string): Garment {
   const resolve = (ref: string) => resolveImageRef(ref, imageDirectory);
   const tags = parseStringArray(row.tags).map(tag => tag.toLowerCase());
   const subcategories = uniqueCaseInsensitive([

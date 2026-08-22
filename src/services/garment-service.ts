@@ -1,13 +1,13 @@
 import * as Crypto from 'expo-crypto';
 import { getDatabase } from '../db/client';
-import { deleteImage } from './image-service';
+import { deleteImage, getGarmentImageDirectory } from './image-service';
 import { removeGarmentFromOutfits } from './outfit-service';
 import type { Garment } from '../types';
 import { normalizeGarmentRow } from '../utils/garment-fields';
 import { toStoredImageRef } from '../utils/image-paths';
 
-function rowToGarment(row: any): Garment {
-  return normalizeGarmentRow(row);
+function rowToGarment(row: any, imageDirectory: string): Garment {
+  return normalizeGarmentRow(row, imageDirectory);
 }
 
 /**
@@ -67,7 +67,7 @@ export async function createGarment(
 export async function getGarment(id: string): Promise<Garment | null> {
   const db = await getDatabase();
   const row = await db.getFirstAsync('SELECT * FROM garments WHERE id = ?', id);
-  return row ? rowToGarment(row) : null;
+  return row ? rowToGarment(row, getGarmentImageDirectory()) : null;
 }
 
 export async function getAllGarments(filters?: {
@@ -94,7 +94,10 @@ export async function getAllGarments(filters?: {
 
   query += ' ORDER BY created_at DESC';
   const rows = await db.getAllAsync(query, ...params);
-  return rows.map(rowToGarment);
+  // Resolve the directory once, and never hand rowToGarment straight to map --
+  // map would pass the row index as the second argument.
+  const imageDirectory = getGarmentImageDirectory();
+  return rows.map(row => rowToGarment(row, imageDirectory));
 }
 
 export async function updateGarment(id: string, data: Partial<Garment>): Promise<void> {

@@ -71,10 +71,12 @@ app/                      expo-router screens
   settings.tsx
   statistics.tsx
 src/
+  domain/                 Pure algorithms: outfit suggestion, duplicate
+                          detection (no platform dependencies — see Architecture)
   db/                     SQLite client, schema, keyed data migrations
   services/               garment, outfit, analytics, image, backup,
-                          background-removal, duplicate-detector,
-                          suggestion-engine, garment-analysis, url-import
+                          background-removal, garment-analysis, url-import,
+                          plus thin wiring for the domain algorithms
   components/             GarmentCard, GarmentForm, TagInput, ColorPicker,
                           OutfitPreview, RatingStars, DuplicateWarning, ...
   hooks/                  useGarments, useGarmentForm, useAnalytics, ...
@@ -85,6 +87,16 @@ assets/                   App icon and splash
 scripts/                  build-apk.ps1
 ```
 
+## Architecture
+
+Three layers, with a deliberate boundary between them:
+
+- **`src/domain/`** — the algorithms: outfit suggestion and duplicate detection. No database, no filesystem, no clock, no React Native. Everything arrives as an argument, so a run is reproducible. `src/domain/purity.test.ts` walks the real import graph and fails if anything platform-bound creeps in, directly or transitively.
+- **`src/utils/`, `src/constants/`, `src/types/`** — pure helpers the domain layer builds on (colour distance, tag similarity, occasion derivation, photo-reference handling).
+- **`src/services/`, `src/db/`, `src/hooks/`, `app/`** — everything that talks to SQLite, the filesystem, the Storage Access Framework or the UI. The services that wrap a domain algorithm are thin: they load data, call the algorithm, and re-export its public API so callers see one module.
+
+The split is deliberate: the domain layer is the part that would survive a rewrite of everything around it.
+
 ## Testing
 
 ```bash
@@ -93,7 +105,7 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-15 suites, 114 tests, covering the suggestion engine, backup validation, the database lock and migrations, URL import, garment and outfit services, and the pure utilities. Both `typecheck` and `test` run in CI on every pull request.
+17 suites, 134 tests, covering the suggestion engine, duplicate detection, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities. Both `typecheck` and `test` run in CI on every pull request.
 
 ## Limitations
 

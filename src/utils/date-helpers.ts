@@ -16,8 +16,8 @@ export function formatShortDate(dateString: string): string {
   return format(parseISO(dateString), 'MMM d');
 }
 
-export function getCurrentSeason(): string {
-  const month = new Date().getMonth();
+export function getCurrentSeason(now: Date = new Date()): string {
+  const month = now.getMonth();
   if (month >= 2 && month <= 4) return 'spring';
   if (month >= 5 && month <= 7) return 'summer';
   if (month >= 8 && month <= 10) return 'fall';

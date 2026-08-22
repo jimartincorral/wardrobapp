@@ -1,6 +1,7 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Image } from 'react-native';
 import * as Crypto from 'expo-crypto';
+import { GARMENT_IMAGE_DIRNAME } from '../utils/image-paths';
 
 const MAX_DIMENSION = 800;
 const JPEG_QUALITY = 0.7;
@@ -14,9 +15,19 @@ function getFileSystem() {
   return FileSystem!;
 }
 
-function getImageDir(): string {
+/**
+ * Absolute path of the garment photo directory.
+ *
+ * Exported because the read path needs it to expand stored filenames, and this
+ * module is the one that owns where photos live.
+ */
+export function getGarmentImageDirectory(): string {
   const fs = getFileSystem();
-  return `${fs.documentDirectory}garment-images/`;
+  return `${fs.documentDirectory}${GARMENT_IMAGE_DIRNAME}/`;
+}
+
+function getImageDir(): string {
+  return getGarmentImageDirectory();
 }
 
 function getImportTempDir(): string {
