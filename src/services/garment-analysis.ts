@@ -69,7 +69,9 @@ function nearestGarmentColor(hex: string): string {
   let nearestDistance = Number.POSITIVE_INFINITY;
   for (const color of palette) {
     const dist = colorDistance(hex, color.hex);
-    if (dist < nearestDistance) {
+    // Skip unparseable comparisons explicitly: `null < Infinity` is true in JS,
+    // so a bare comparison would pick an unknown colour as the nearest one.
+    if (dist !== null && dist < nearestDistance) {
       nearestDistance = dist;
       nearest = color.hex;
     }
