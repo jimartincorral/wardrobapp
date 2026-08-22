@@ -1,14 +1,15 @@
 import { getDatabase } from '../db/client';
 import type { Garment } from '../types';
 import { normalizeGarmentRow } from '../utils/garment-fields';
+import { getGarmentImageDirectory } from './image-service';
 
 interface CategoryStat {
   category: string;
   count: number;
 }
 
-function rowToGarment(row: any): Garment {
-  return normalizeGarmentRow(row);
+function rowToGarment(row: any, imageDirectory: string): Garment {
+  return normalizeGarmentRow(row, imageDirectory);
 }
 
 export async function getCategoryDistribution(): Promise<CategoryStat[]> {
@@ -98,5 +99,6 @@ export async function getGarmentLifespan(): Promise<{ garment: Garment; days: nu
        AND g.purchase_date IS NOT NULL
      ORDER BY lifespan_days DESC`
   );
-  return rows.map(r => ({ garment: rowToGarment(r), days: r.lifespan_days }));
+  const imageDirectory = getGarmentImageDirectory();
+  return rows.map(r => ({ garment: rowToGarment(r, imageDirectory), days: r.lifespan_days }));
 }

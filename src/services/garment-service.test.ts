@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const IMAGE_DIR = 'file:///data/user/0/app/files/garment-images/';
+
 const getDatabaseMock = vi.fn();
 const deleteImageMock = vi.fn(async (_uri: string) => {});
 const removeGarmentFromOutfitsMock = vi.fn(async (_garmentId: string) => {});
@@ -10,6 +12,9 @@ vi.mock('../db/client', () => ({
 
 vi.mock('./image-service', () => ({
   deleteImage: deleteImageMock,
+  // The read path resolves stored filenames against this; a fixed value keeps
+  // the assertions below independent of any real documents directory.
+  getGarmentImageDirectory: () => IMAGE_DIR,
 }));
 
 vi.mock('./outfit-service', () => ({
@@ -96,8 +101,14 @@ describe('deleteGarment', () => {
 
     expect(removeGarmentFromOutfitsMock).toHaveBeenCalledWith('garment-1');
 
+    // Resolved against the image directory, so the paths handed to deleteImage
+    // are ones the filesystem can actually find.
     const deleted = deleteImageMock.mock.calls.map(call => call[0]).sort();
-    expect(deleted).toEqual(['file://back.jpg', 'file://front.jpg', 'file://front_nobg.png']);
+    expect(deleted).toEqual([
+      `${IMAGE_DIR}back.jpg`,
+      `${IMAGE_DIR}front.jpg`,
+      `${IMAGE_DIR}front_nobg.png`,
+    ]);
   });
 
   it('deletes each file once when the cover duplicates the first image', async () => {
@@ -112,7 +123,7 @@ describe('deleteGarment', () => {
     const { deleteGarment } = await import('./garment-service');
     await deleteGarment('garment-1');
 
-    expect(deleteImageMock.mock.calls.map(call => call[0])).toEqual(['file://front.jpg']);
+    expect(deleteImageMock.mock.calls.map(call => call[0])).toEqual([`${IMAGE_DIR}front.jpg`]);
   });
 
   it('still clears the row when the garment is already gone', async () => {
