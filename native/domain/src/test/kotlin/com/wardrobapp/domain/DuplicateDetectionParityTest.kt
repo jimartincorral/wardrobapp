@@ -1,12 +1,13 @@
 package com.wardrobapp.domain
 
-import com.wardrobapp.domain.Parity.double
-import com.wardrobapp.domain.Parity.objects
-import com.wardrobapp.domain.Parity.sameNumber
-import com.wardrobapp.domain.Parity.string
-import com.wardrobapp.domain.Parity.stringOrNull
-import com.wardrobapp.domain.Parity.strings
+import com.wardrobapp.parity.Parity.double
+import com.wardrobapp.parity.Parity.objects
+import com.wardrobapp.parity.Parity.sameNumber
+import com.wardrobapp.parity.Parity.string
+import com.wardrobapp.parity.Parity.stringOrNull
+import com.wardrobapp.parity.Parity.strings
 import kotlinx.serialization.json.JsonObject
+import com.wardrobapp.parity.Parity
 import kotlin.test.Test
 import kotlin.test.assertTrue
 

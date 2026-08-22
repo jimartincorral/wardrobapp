@@ -88,6 +88,8 @@ scripts/                  build-apk.ps1, dump-domain-parity.ts
 native/                   The Kotlin/Android port (see Architecture)
   domain/                   Ported algorithms, plain Kotlin/JVM — no Android SDK
                             needed to build or test
+  data/                     Row and photo-reference mapping into domain types
+  parity-testing/           Shared fixture loading for the parity suites
 ```
 
 ## Architecture
@@ -102,15 +104,23 @@ The split is deliberate: the domain layer is the part that would survive a rewri
 
 ### The native port
 
-`native/` holds a Kotlin port of the domain layer, the first phase of moving this app to native Android. `native/domain` is a plain Kotlin/JVM Gradle module, deliberately *not* an Android one, so it builds and tests with nothing but a JDK:
+`native/` holds the Kotlin port, the first phase of moving this app to native Android. Every module there is a plain Kotlin/JVM one, deliberately *not* an Android module, so the whole thing builds and tests with nothing but a JDK:
 
 ```bash
-cd native && ./gradlew :domain:test
+cd native && ./gradlew test
 ```
+
+| Module | What |
+|---|---|
+| `:domain` | The algorithms — colour, tags, occasions, duplicates, suggestions |
+| `:data` | The mapping layer — database rows and photo references into domain types |
+| `:parity-testing` | Shared fixture-loading for the parity suites |
+
+The Android-specific layers (SQLite, filesystem, Compose) arrive as separate modules later. Keeping the pure parts pure is what lets everything so far be verified on any machine — and `:data` is the code that decides whether an *existing* wardrobe opens correctly, so it is the code most worth being able to test anywhere.
 
 The React Native app is untouched and keeps shipping; nothing is removed until the native app reaches parity.
 
-Because it is a port rather than a rewrite, the tests ask whether the Kotlin **agrees with the TypeScript it came from**, not merely whether it passes tests written for it. `npm run parity:dump` records the TypeScript answers for a fixed corpus — 1156 colour pairs, 169 tag-set pairs, 60 duplicate scenarios, 700 category/subcategory pairings and 432 engine runs — and the Kotlin tests replay it. The engine is compared draw for draw: both sides step the same linear congruential generator, so an agreeing outfit list means every intermediate choice matched — the same template, epsilon branch, tie-break and roulette slot.
+Because it is a port rather than a rewrite, the tests ask whether the Kotlin **agrees with the TypeScript it came from**, not merely whether it passes tests written for it. `npm run parity:dump` records the TypeScript answers for a fixed corpus — 1156 colour pairs, 169 tag-set pairs, 60 duplicate scenarios, 700 category/subcategory pairings, 432 engine runs, 48 photo references and 45 row shapes — and the Kotlin tests replay it. The engine is compared draw for draw: both sides step the same linear congruential generator, so an agreeing outfit list means every intermediate choice matched — the same template, epsilon branch, tie-break and roulette slot.
 
 Drift is caught from both sides. CI regenerates the fixtures and fails if they moved, so changing a TypeScript algorithm without regenerating cannot leave the port pinned to old behaviour; and the Kotlin tests fail if the fixtures move without the Kotlin following. After changing either side, run `npm run parity:dump` and commit the result.
 
@@ -122,12 +132,12 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-18 suites, 176 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
+18 suites, 178 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
 
-The Kotlin port adds 11 more:
+The Kotlin port adds 22 more:
 
 ```bash
-cd native && ./gradlew :domain:test
+cd native && ./gradlew test
 ```
 
 `typecheck`, `test` and the Kotlin domain tests all run in CI on every pull request.
@@ -137,7 +147,8 @@ Domain algorithms are checked by mutation: each behaviour the tests claim to pro
 ## Limitations
 
 - **Android only.** Web and iOS support were removed — the web build had its own storage layer that could silently lose data, and iOS was never finished.
-- **The native port is early.** `native/domain` carries the algorithms; the data layer and UI are not written yet, so the shipped APK is still the React Native app.
+- **The native port is early.** `native/domain` carries the algorithms and `native/data` the row mapping, but nothing yet opens a database or draws a screen, so the shipped APK is still the React Native app.
+- **The `garments` schema is not uniform.** `created_at` and `updated_at` are `NOT NULL` on a fresh install but nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist, so readers must tolerate both — and it is why the native data layer will use plain SQL rather than Room, whose schema validation would reject one of them.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **Released APKs are debug-signed**, so they can't be upgraded in place from a properly signed build later.
 - **The schema is applied idempotently** at startup from raw SQL in `src/db/client.ts` — `CREATE TABLE IF NOT EXISTS` plus additive `ALTER`s. There's no `PRAGMA user_version` yet. Keyed, run-once data migrations live in `src/db/migrations.ts`.

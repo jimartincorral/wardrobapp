@@ -1,7 +1,8 @@
 package com.wardrobapp.domain
 
-import com.wardrobapp.domain.Parity.string
-import com.wardrobapp.domain.Parity.strings
+import com.wardrobapp.parity.Parity.string
+import com.wardrobapp.parity.Parity.strings
+import com.wardrobapp.parity.Parity
 import kotlin.test.Test
 import kotlin.test.assertTrue
 

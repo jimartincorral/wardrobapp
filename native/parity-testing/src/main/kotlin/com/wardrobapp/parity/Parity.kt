@@ -1,4 +1,4 @@
-package com.wardrobapp.domain
+package com.wardrobapp.parity
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -19,7 +19,7 @@ import kotlin.test.fail
  *
  * Regenerate with `npm run parity:dump` after changing either side.
  */
-internal object Parity {
+object Parity {
     /**
      * Doubles are compared to this tolerance rather than exactly. Both sides do
      * IEEE-754 arithmetic in the same order, but library primitives (cbrt, hypot,
@@ -78,21 +78,4 @@ internal object Parity {
         expected == null || actual == null -> expected == null && actual == null
         else -> kotlin.math.abs(expected - actual) <= TOLERANCE
     }
-}
-
-/** The i18n keys the TypeScript emits, so reasons can be compared across sides. */
-internal fun DuplicateReason.tsKey(): String = when (this) {
-    DuplicateReason.SIMILAR_TAGS -> "duplicateReasons.similarTags"
-    DuplicateReason.SIMILAR_COLOR -> "duplicateReasons.similarColor"
-    DuplicateReason.SAME_SIZE -> "duplicateReasons.sameSize"
-    DuplicateReason.OVERALL_SIMILARITY -> "duplicateReasons.overallSimilarity"
-}
-
-internal fun ColorRelationship.tsKey(): String = when (this) {
-    ColorRelationship.UNKNOWN -> "unknown"
-    ColorRelationship.SAME -> "same"
-    ColorRelationship.NEUTRAL -> "neutral"
-    ColorRelationship.ANALOGOUS -> "analogous"
-    ColorRelationship.NEAR_MISS -> "near-miss"
-    ColorRelationship.CONTRASTING -> "contrasting"
 }

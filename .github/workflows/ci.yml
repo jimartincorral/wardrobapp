@@ -35,11 +35,11 @@ jobs:
       - name: Test
         run: npm test
 
-  # The Kotlin domain module: the native port's algorithms. A plain Kotlin/JVM
-  # module by design, so this job needs a JDK and nothing else -- no Android SDK,
-  # no emulator, and it finishes in about the time the verify job does.
+  # The Kotlin modules of the native port: the algorithms and the mapping layer.
+  # Plain Kotlin/JVM by design, so this job needs a JDK and nothing else -- no
+  # Android SDK, no emulator, and it finishes in about the time verify does.
   domain:
-    name: Kotlin domain tests
+    name: Kotlin tests
     runs-on: ubuntu-latest
 
     steps:
@@ -75,14 +75,20 @@ jobs:
           # --porcelain rather than `git diff`, which says nothing about files
           # that are untracked: a fixture dropped from the repo (or accidentally
           # ignored) would otherwise regenerate and pass in silence.
-          if [ -n "$(git status --porcelain -- native/domain/src/test/resources/parity)" ]; then
+          #
+          # Filtered with grep rather than a `native/**/...parity` pathspec:
+          # git does not expand `**` that way without :(glob) magic, so that
+          # pathspec matches nothing at all and the check passes regardless.
+          # This also picks up new modules without needing to be updated.
+          STALE=$(git status --porcelain -- native | grep 'src/test/resources/parity/' || true)
+          if [ -n "$STALE" ]; then
             echo "::error::Parity fixtures are stale. Run 'npm run parity:dump' and commit the result."
-            git diff --stat -- native/domain/src/test/resources/parity
+            echo "$STALE"
             exit 1
           fi
 
       - name: Test
-        run: ./gradlew :domain:test --console=plain
+        run: ./gradlew test --console=plain
         working-directory: native
 
   build:

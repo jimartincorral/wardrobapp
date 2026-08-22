@@ -28,10 +28,19 @@ import { findDuplicatesAmong } from '../src/domain/duplicate-detection';
 import { buildSuggestions, pairKey } from '../src/domain/outfit-suggestions';
 import type { SeasonOption, OccasionOption } from '../src/constants/style-filters';
 import { getOccasionsFor } from '../src/utils/garment-occasions';
+import {
+  isLegacyAbsoluteImageRef,
+  resolveImageRef,
+  toStoredImageRef,
+} from '../src/utils/image-paths';
+import { normalizeGarmentRow } from '../src/utils/garment-fields';
 import { CATEGORIES } from '../src/constants/categories';
 import type { Garment } from '../src/types';
 
 const OUT_DIR = join(__dirname, '..', 'native', 'domain', 'src', 'test', 'resources', 'parity');
+
+/** The mapping layer lives in its own module, so its fixtures do too. */
+const DATA_OUT_DIR = join(__dirname, '..', 'native', 'data', 'src', 'test', 'resources', 'parity');
 
 /** Every colour the picker offers, plus the shapes that arrive from elsewhere. */
 const EDGE_CASE_COLORS = [
@@ -355,7 +364,189 @@ function dumpSuggestions() {
   return lines;
 }
 
+
+/** Photo references in every shape the app has ever written or received. */
+const IMAGE_REFS = [
+  '',
+  'front.jpg',
+  'garment-images/front.jpg',
+  'file:///data/user/0/com.anonymous.wardrobapp/files/garment-images/front.jpg',
+  'file:///var/mobile/Containers/Data/Application/OLD-UUID/Documents/garment-images/x.jpg',
+  '/absolute/no/scheme/front.jpg',
+  'content://com.android.providers.media.documents/document/image%3A1000',
+  'CONTENT://Uppercase/Scheme',
+  'https://example.com/shirt.jpg',
+  'HTTP://example.com/shirt.jpg',
+  'data:image/png;base64,iVBORw0KGgo=',
+  'blob:abcdef',
+  'trailing/slash/',
+  'no-extension',
+  'spaces in name.jpg',
+  'weird?query=1',
+];
+
+const IMAGE_DIRECTORIES = [
+  '',
+  'file:///data/user/0/com.anonymous.wardrobapp/files/garment-images/',
+  '/tmp/garment-images/',
+];
+
+function dumpImagePaths() {
+  const lines: string[] = [];
+  for (const ref of IMAGE_REFS) {
+    for (const directory of IMAGE_DIRECTORIES) {
+      lines.push(JSON.stringify({
+        ref,
+        directory,
+        stored: toStoredImageRef(ref),
+        resolved: resolveImageRef(ref, directory),
+        legacy: isLegacyAbsoluteImageRef(ref),
+      }));
+    }
+  }
+  return lines;
+}
+
+/**
+ * Rows in the shapes the table actually holds.
+ *
+ * List columns arrive as a JSON array from current builds, a bare
+ * comma-separated string from much older ones, and sometimes as nothing at all.
+ * Colour and photo columns each exist in a single-value and a list form, either
+ * of which may be the populated one. is_available comes back as a SQLite
+ * integer, but a restore can leave a string there -- and "0" is truthy in JS.
+ */
+const ROW_VARIANTS: Record<string, unknown>[] = [
+  // A current, well-formed row.
+  {
+    id: 'g1', image_uri: 'front.jpg', image_uri_nobg: 'front-nobg.png',
+    image_uris: '["front.jpg","back.jpg"]', image_uris_nobg: '["front-nobg.png",""]',
+    category: 'tops', subcategory: 'T-Shirt', subcategories: '["T-Shirt"]',
+    tags: '["Cotton","BASIC"]', brand: 'Uniqlo',
+    color_primary: '#000000', color_secondary: '#FFFFFF',
+    color_palette: '["#000000","#FFFFFF"]', size: 'M',
+    purchase_date: '2026-01-01', is_available: 1, unavailable_date: null,
+    created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-02T00:00:00.000Z',
+  },
+  // The upgraded-install shape: nullable timestamps, empty list columns.
+  {
+    id: 'g2', image_uri: 'only.jpg', image_uri_nobg: null,
+    image_uris: '[]', image_uris_nobg: '[]',
+    category: 'bottoms', subcategory: null, subcategories: '[]',
+    tags: '[]', brand: null,
+    color_primary: '#000080', color_secondary: null, color_palette: '[]', size: null,
+    purchase_date: null, is_available: 1, unavailable_date: null,
+    created_at: null, updated_at: null,
+  },
+  // The oldest shape: comma-separated lists, no JSON anywhere.
+  {
+    id: 'g3', image_uri: 'a.jpg', image_uri_nobg: '',
+    image_uris: 'a.jpg, b.jpg', image_uris_nobg: '',
+    category: 'shoes', subcategory: 'Boots', subcategories: 'Boots, Sneakers',
+    tags: 'winter, leather', brand: '',
+    color_primary: '#8B4513', color_secondary: '', color_palette: '#8B4513, #000000',
+    size: '42', purchase_date: '', is_available: 0, unavailable_date: '2026-02-01',
+    created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z',
+  },
+  // Columns missing entirely, as a partial SELECT or a very old row gives.
+  { id: 'g4', category: 'accessories' },
+  // is_available as the string "0" -- truthy in JS, so this garment is available.
+  {
+    id: 'g5', image_uri: 'x.jpg', category: 'tops', is_available: '0',
+    tags: '["a"]', color_primary: '#CC0000',
+  },
+  // is_available as the empty string and as 0, which are both falsy.
+  { id: 'g6', image_uri: 'x.jpg', category: 'tops', is_available: '' },
+  { id: 'g7', image_uri: 'x.jpg', category: 'tops', is_available: 0 },
+  // Duplicates differing only in case, which the dedup has to collapse.
+  {
+    id: 'g8', image_uri: 'Front.JPG', image_uris: '["front.jpg","FRONT.JPG"]',
+    category: 'tops', subcategories: '["T-Shirt","t-shirt"]',
+    color_primary: '#ABCDEF', color_palette: '["#abcdef","#ABCDEF"]',
+  },
+  // Blank and whitespace entries that are not real values.
+  {
+    id: 'g9', image_uri: '   ', image_uris: '["  ","front.jpg"]',
+    category: 'tops', tags: '["  ","cotton",""]',
+    color_primary: '  ', color_palette: '["","#000000"]', size: '   ',
+  },
+  // Legacy absolute paths, which must be re-based rather than trusted.
+  {
+    id: 'g10',
+    image_uri: 'file:///old/install/garment-images/front.jpg',
+    image_uris: '["file:///old/install/garment-images/front.jpg"]',
+    image_uri_nobg: 'file:///old/install/garment-images/front-nobg.png',
+    category: 'tops', color_primary: '#000000',
+  },
+  // A SAF document and a remote URL, which must pass through untouched.
+  {
+    id: 'g11',
+    image_uri: 'content://media/external/images/1',
+    image_uris: '["content://media/external/images/1","https://example.com/a.jpg"]',
+    category: 'tops', color_primary: '#000000',
+  },
+  // A list column holding valid JSON that is not an array.
+  {
+    id: 'g12', image_uri: 'x.jpg', category: 'tops',
+    tags: '123', subcategories: '"T-Shirt"', color_palette: 'null',
+    color_primary: '#000000',
+  },
+  // Malformed JSON, which falls back to the comma split.
+  {
+    id: 'g13', image_uri: 'x.jpg', category: 'tops',
+    tags: '["unclosed', color_palette: '#000000',
+    color_primary: '#000000',
+  },
+  // Non-string scalars where strings are expected.
+  {
+    id: 'g14', image_uri: 42, category: 'tops', color_primary: 7,
+    is_available: true, size: 10, brand: 99,
+  },
+  // A no-background list shorter than the photo list, with its gap preserved.
+  {
+    id: 'g15', image_uri: 'a.jpg', image_uris: '["a.jpg","b.jpg","c.jpg"]',
+    image_uris_nobg: '["a-nobg.png","","c-nobg.png"]',
+    category: 'tops', color_primary: '#000000',
+  },
+];
+
+function dumpGarmentRows() {
+  const lines: string[] = [];
+  for (const row of ROW_VARIANTS) {
+    for (const directory of IMAGE_DIRECTORIES) {
+      const normalized = normalizeGarmentRow(row, directory);
+      lines.push(JSON.stringify({
+        row,
+        directory,
+        normalized: {
+          id: normalized.id,
+          image_uri: normalized.image_uri,
+          image_uri_nobg: normalized.image_uri_nobg,
+          image_uris: normalized.image_uris,
+          image_uris_nobg: normalized.image_uris_nobg,
+          category: normalized.category,
+          subcategory: normalized.subcategory,
+          subcategories: normalized.subcategories,
+          tags: normalized.tags,
+          brand: normalized.brand ?? null,
+          color_primary: normalized.color_primary,
+          color_secondary: normalized.color_secondary,
+          color_palette: normalized.color_palette,
+          size: normalized.size ?? null,
+          purchase_date: normalized.purchase_date ?? null,
+          is_available: normalized.is_available,
+          unavailable_date: normalized.unavailable_date ?? null,
+          created_at: normalized.created_at ?? null,
+          updated_at: normalized.updated_at ?? null,
+        },
+      }));
+    }
+  }
+  return lines;
+}
+
 mkdirSync(OUT_DIR, { recursive: true });
+mkdirSync(DATA_OUT_DIR, { recursive: true });
 
 const files: Record<string, string[]> = {
   'colors.jsonl': dumpColors(),
@@ -373,7 +564,17 @@ writeFileSync(
   JSON.stringify({ garments: WARDROBE, pairScores: PAIR_SCORES }, null, 2) + '\n'
 );
 
+const dataFiles: Record<string, string[]> = {
+  'image-paths.jsonl': dumpImagePaths(),
+  'garment-rows.jsonl': dumpGarmentRows(),
+};
+
 for (const [name, lines] of Object.entries(files)) {
   writeFileSync(join(OUT_DIR, name), lines.join('\n') + '\n');
-  console.log(`${name}: ${lines.length} cases`);
+  console.log(`domain/${name}: ${lines.length} cases`);
+}
+
+for (const [name, lines] of Object.entries(dataFiles)) {
+  writeFileSync(join(DATA_OUT_DIR, name), lines.join('\n') + '\n');
+  console.log(`data/${name}: ${lines.length} cases`);
 }
