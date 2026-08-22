@@ -148,26 +148,38 @@ function matchesSeason(
   return true; // No season tag = assume ok
 }
 
-function occasionScore(garment: Garment, occasion?: OccasionOption): number {
-  if (!occasion) return 0;
+function occasionFit(garment: Garment, preferences?: SuggestionPreferences): number {
+  if (!preferences?.occasion) return 0;
   // Derived from the garment's type -- occasion is no longer a stored tag.
-  return getGarmentOccasions(garment).includes(occasion) ? 1 : 0;
+  return getGarmentOccasions(garment).includes(preferences.occasion) ? 1 : 0;
 }
 
+/**
+ * Whether a garment suits the season in play: +1 for a fit, -1 against an
+ * explicit selection it contradicts, 0 when there is nothing to say.
+ */
+function seasonFit(
+  garment: Garment,
+  currentSeason: string,
+  preferences?: SuggestionPreferences
+): number {
+  const hasSelection = Boolean(preferences?.seasons?.length);
+  const fits = matchesSeason(garment, currentSeason, preferences?.seasons);
+  if (hasSelection) return fits ? 1 : -1;
+  // With no selection, reward a seasonal fit but do not punish a silent garment.
+  return fits ? 1 : 0;
+}
+
+/**
+ * Per-garment steer used while *choosing* garments, as opposed to scoring a
+ * finished outfit. Season and occasion both belong here.
+ */
 function contextScore(
   garment: Garment,
   currentSeason: string,
   preferences?: SuggestionPreferences
 ): number {
-  if (!preferences) return 0;
-  let score = 0;
-
-  if (preferences.seasons && preferences.seasons.length > 0) {
-    score += matchesSeason(garment, currentSeason, preferences.seasons) ? 1 : -1;
-  }
-  score += occasionScore(garment, preferences.occasion);
-
-  return score;
+  return seasonFit(garment, currentSeason, preferences) + occasionFit(garment, preferences);
 }
 
 /**
@@ -192,15 +204,14 @@ function scoreOutfit(
   }
   if (pairCount > 0) score += (pairTotal / pairCount) * 3; // Weight learned preferences heavily
 
-  // Season match
-  const seasonMatches = garments.filter(g => matchesSeason(g, currentSeason, preferences?.seasons)).length;
-  score += (seasonMatches / garments.length) * 1.0;
+  // Season and occasion, each counted exactly once. Season used to be added
+  // here at weight 1.0 and again inside contextScore at weight 1.2, giving it an
+  // effective weight of 2.2 -- more than colour harmony, and more than intended.
+  const seasonTotal = garments.reduce((sum, g) => sum + seasonFit(g, currentSeason, preferences), 0);
+  score += (seasonTotal / garments.length) * 1.0;
 
-  // Context preferences: season/occasion
-  if (preferences) {
-    const contextTotal = garments.reduce((sum, g) => sum + contextScore(g, currentSeason, preferences), 0);
-    score += (contextTotal / garments.length) * 1.2;
-  }
+  const occasionTotal = garments.reduce((sum, g) => sum + occasionFit(g, preferences), 0);
+  score += (occasionTotal / garments.length) * 1.2;
 
   // Color harmony
   let harmonyTotal = 0;
@@ -214,6 +225,81 @@ function scoreOutfit(
   if (harmonyCount > 0) score += (harmonyTotal / harmonyCount) * 1.5;
 
   return score;
+}
+
+/** Scores within this of the best count as tied rather than beaten. */
+const SCORE_TIE_EPSILON = 1e-9;
+
+/**
+ * Pick whichever candidate fits the outfit so far best, choosing at random
+ * between equals.
+ *
+ * Cold, everything ties: no pair has a learned score, and harmony is the same
+ * bucket for most palette pairs. The comparison used to be a strict `>` against
+ * `-Infinity`, which always kept the *first* candidate -- and candidates arrive
+ * newest-first, so one garment took 722 of 900 slots in a 20-garment wardrobe.
+ */
+function pickBestFit(
+  available: Garment[],
+  selected: Garment[],
+  getPairScore: PairScoreLookup,
+  currentSeason: string,
+  random: () => number,
+  preferences?: SuggestionPreferences
+): Garment {
+  let bestScore = -Infinity;
+  let tied: Garment[] = [];
+
+  for (const candidate of available) {
+    const pairScoreSum = selected.reduce(
+      (sum, s) => sum + getPairScore(candidate.id, s.id), 0
+    );
+    const harmony = selected.reduce(
+      (sum, s) => sum + colorHarmonyScore(
+        getGarmentPrimaryColor(candidate), getGarmentPrimaryColor(s)
+      ), 0
+    );
+    const total = pairScoreSum + harmony + contextScore(candidate, currentSeason, preferences) * 1.5;
+
+    if (total > bestScore + SCORE_TIE_EPSILON) {
+      bestScore = total;
+      tied = [candidate];
+    } else if (Math.abs(total - bestScore) <= SCORE_TIE_EPSILON) {
+      tied.push(candidate);
+    }
+  }
+
+  return tied[Math.floor(random() * tied.length)];
+}
+
+/**
+ * Pick at random, in proportion to how well each candidate fits the context.
+ *
+ * This is the exploration half of epsilon-greedy, and it has to be able to
+ * reach everything. It used to sort by weight and sample from the top 60%, so
+ * with no preferences set every weight was equal, the sort was a no-op, and the
+ * oldest 40% of every slot could never be picked at all -- never suggested, so
+ * never rated, so never able to earn a score that would make them reachable. A
+ * roulette-wheel draw keeps the bias towards good fits without excluding anyone.
+ */
+function pickWeightedAtRandom(
+  available: Garment[],
+  currentSeason: string,
+  random: () => number,
+  preferences?: SuggestionPreferences
+): Garment {
+  const weights = available.map(
+    g => Math.max(0.1, 1 + contextScore(g, currentSeason, preferences))
+  );
+  const total = weights.reduce((sum, w) => sum + w, 0);
+
+  let ticket = random() * total;
+  for (let i = 0; i < available.length; i++) {
+    ticket -= weights[i];
+    if (ticket <= 0) return available[i];
+  }
+  // Only reachable through floating-point drift at the very end of the wheel.
+  return available[available.length - 1];
 }
 
 /**
@@ -298,39 +384,20 @@ export function buildSuggestions(
     const usedGarmentIds = new Set(seedGarments.map(g => g.id));
 
     for (const slot of template) {
+      // A seeded garment already fills its slot. Without this the loop filled it
+      // again -- seeding a top produced outfits containing two tops, because
+      // usedGarmentIds blocks repeating a garment but not repeating a slot.
+      if (seedSlots.has(slot)) continue;
+
       const available = (bySlot[slot] || []).filter(g => !usedGarmentIds.has(g.id));
       if (available.length === 0) continue;
 
-      if (random() < 0.8 && selected.length > 0) {
-        // Pick best-scoring with existing selections
-        let bestGarment = available[0];
-        let bestScore = -Infinity;
-        for (const g of available) {
-          let pairScoreSum = 0;
-          for (const s of selected) {
-            pairScoreSum += getPairScore(g.id, s.id);
-          }
-          const harmony = selected.reduce(
-            (sum, s) => sum + colorHarmonyScore(getGarmentPrimaryColor(g), getGarmentPrimaryColor(s)), 0
-          );
-          const totalScore = pairScoreSum + harmony + contextScore(g, currentSeason, preferences) * 1.5;
-          if (totalScore > bestScore) {
-            bestScore = totalScore;
-            bestGarment = g;
-          }
-        }
-        selected.push(bestGarment);
-        usedGarmentIds.add(bestGarment.id);
-      } else {
-        // Random pick with bias toward context matches
-        const weighted = available
-          .map(g => ({ garment: g, weight: Math.max(0.1, 1 + contextScore(g, currentSeason, preferences)) }))
-          .sort((a, b) => b.weight - a.weight);
-        const topSlice = weighted.slice(0, Math.max(1, Math.ceil(weighted.length * 0.6)));
-        const picked = topSlice[Math.floor(random() * topSlice.length)].garment;
-        selected.push(picked);
-        usedGarmentIds.add(picked.id);
-      }
+      const picked = random() < 0.8 && selected.length > 0
+        ? pickBestFit(available, selected, getPairScore, currentSeason, random, preferences)
+        : pickWeightedAtRandom(available, currentSeason, random, preferences);
+
+      selected.push(picked);
+      usedGarmentIds.add(picked.id);
     }
 
     if (selected.length === 0) continue;
