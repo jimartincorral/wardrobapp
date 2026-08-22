@@ -25,6 +25,8 @@ import {
 } from '../src/utils/color-distance';
 import { jaccardSimilarity } from '../src/utils/tag-similarity';
 import { findDuplicatesAmong } from '../src/domain/duplicate-detection';
+import { buildSuggestions, pairKey } from '../src/domain/outfit-suggestions';
+import type { SeasonOption, OccasionOption } from '../src/constants/style-filters';
 import { getOccasionsFor } from '../src/utils/garment-occasions';
 import { CATEGORIES } from '../src/constants/categories';
 import type { Garment } from '../src/types';
@@ -201,6 +203,158 @@ function dumpOccasions() {
   return lines;
 }
 
+
+/**
+ * A linear congruential generator, specified precisely enough to reimplement.
+ *
+ * The engine takes its randomness as a parameter, which is what makes a run
+ * reproducible -- and what lets the port be compared draw for draw. Math.random
+ * cannot do that, so both sides run this instead: state and output are exact in
+ * IEEE-754 doubles (the widest intermediate is under 2^53), so the Kotlin and
+ * TypeScript sequences are identical rather than merely similar.
+ */
+function lcg(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) % 4294967296;
+    return state / 4294967296;
+  };
+}
+
+/** A wardrobe spanning the category, colour and tag space the engine branches on. */
+function buildWardrobe(): Garment[] {
+  // subcategory is nullable on purpose: a garment with none takes the
+  // category-fallback path in both slot mapping and occasion derivation.
+  const specs: [string, string | null, string, string[]][] = [
+    ['tops', 'T-Shirt', '#000000', ['cotton', 'summer']],
+    ['tops', 'Blouse', '#FFFFFF', ['work']],
+    ['tops', 'Sweater', '#000080', ['winter', 'wool']],
+    ['tops', 'Hoodie', '#808080', ['all-season']],
+    ['tops', 'Polo', '#CC0000', []],
+    ['bottoms', 'Jeans', '#000080', ['all-season']],
+    ['bottoms', 'Chinos', '#C3B091', ['work']],
+    ['bottoms', 'Shorts', '#F5F5DC', ['summer']],
+    ['bottoms', 'Sweatpants', '#808080', ['winter']],
+    ['dresses', 'Midi', '#800020', ['work']],
+    ['dresses', 'Sundress', '#FF69B4', ['summer']],
+    ['outerwear', 'Parka', '#228B22', ['winter']],
+    ['outerwear', 'Windbreaker', '#FF8C00', ['lightweight']],
+    ['outerwear', 'Cardigan', '#D2B48C', []],
+    ['outerwear', 'Coat', '#000000', ['winter', 'wool']],
+    ['midlayer', 'Blazer', '#000080', ['work']],
+    ['shoes', 'Sneakers', '#FFFFFF', []],
+    ['shoes', 'Heels', '#000000', ['formal']],
+    ['shoes', 'Boots', '#8B4513', ['winter']],
+    ['accessories', 'Belt', '#8B4513', []],
+    ['accessories', 'Scarf', '#RAINBOW', ['winter']],
+    ['accessories', 'Watch', '#C0C0C0', []],
+    ['activewear', 'Track Suit', '#000000', ['sport']],
+    ['activewear', 'Yoga Pants', '#800080', ['sport']],
+    ['activewear', 'Workout Top', '#008080', ['sport', 'summer']],
+    ['loungewear', 'Lounge Set', '#E6E6FA', ['lounge']],
+    ['loungewear', 'Robe', '#FFFDD0', []],
+    ['underwear', 'Thermal', '#FFFFFF', ['winter']],
+    ['tops', null, '#DAA520', ['spring']],
+    ['bottoms', 'Skirt', '#fff', ['spring']],
+  ];
+
+  return specs.map(([category, subcategory, hex, tags], i) => garment({
+    // Zero-padded so the lexicographic sort the dedup key relies on is stable.
+    id: `g${String(i).padStart(2, '0')}`,
+    category,
+    subcategory,
+    subcategories: subcategory ? [subcategory] : [],
+    tags,
+    color_primary: hex,
+    color_palette: [hex],
+    size: i % 3 === 0 ? 'M' : (i % 3 === 1 ? 'L' : null),
+  }));
+}
+
+const WARDROBE = buildWardrobe();
+
+/**
+ * Learned pair scores for a slice of the wardrobe, so the branch that weights
+ * them is exercised rather than left at a uniform zero.
+ */
+function buildPairScores(): Record<string, number> {
+  const scores: Record<string, number> = {};
+  for (let i = 0; i < WARDROBE.length; i += 3) {
+    for (let j = i + 1; j < Math.min(i + 4, WARDROBE.length); j++) {
+      // Deterministic, spread across positive and negative.
+      scores[pairKey(WARDROBE[i].id, WARDROBE[j].id)] = ((i * 7 + j * 13) % 9) / 4 - 1;
+    }
+  }
+  return scores;
+}
+
+const PAIR_SCORES = buildPairScores();
+
+function dumpSuggestions() {
+  const lines: string[] = [];
+
+  const preferenceSets: { seasons?: SeasonOption[]; occasion?: OccasionOption }[] = [
+    {},
+    { seasons: ['summer'] },
+    { seasons: ['winter'] },
+    { seasons: ['all-season'] },
+    { seasons: ['spring', 'fall'] },
+    { occasion: 'work' },
+    { occasion: 'sport' },
+    { seasons: ['summer'], occasion: 'casual' },
+  ];
+
+  const seedSets: string[][] = [[], ['g00'], ['g05'], ['g00', 'g16']];
+  const wardrobeSizes = [WARDROBE.length, 8, 2];
+
+  let scenario = 0;
+  for (const size of wardrobeSizes) {
+    const garments = WARDROBE.slice(0, size);
+    const ids = new Set(garments.map(g => g.id));
+
+    for (const preferences of preferenceSets) {
+      for (const seedIds of seedSets) {
+        // Skip seeds the trimmed wardrobe does not contain.
+        if (!seedIds.every(id => ids.has(id))) continue;
+
+        for (const withLearning of [false, true]) {
+          for (const seed of [1, 20260822, 4294967295]) {
+            const getPairScore = withLearning
+              ? (a: string, b: string) => PAIR_SCORES[pairKey(a, b)] ?? 0
+              : (_a: string, _b: string) => 0;
+
+            const outfits = buildSuggestions(
+              { garments, getPairScore, currentSeason: 'fall', random: lcg(seed) },
+              {
+                count: 3,
+                preferences: Object.keys(preferences).length > 0 ? preferences : undefined,
+                seedGarments: garments.filter(g => seedIds.includes(g.id)),
+              }
+            );
+
+            lines.push(JSON.stringify({
+              scenario: scenario++,
+              seed,
+              wardrobeSize: size,
+              currentSeason: 'fall',
+              preferences,
+              seedIds,
+              withLearning,
+              outfits: outfits.map(o => ({
+                ids: o.garments.map(g => g.id),
+                score: o.score,
+                name: o.name,
+              })),
+            }));
+          }
+        }
+      }
+    }
+  }
+
+  return lines;
+}
+
 mkdirSync(OUT_DIR, { recursive: true });
 
 const files: Record<string, string[]> = {
@@ -208,7 +362,16 @@ const files: Record<string, string[]> = {
   'tags.jsonl': dumpTags(),
   'duplicates.jsonl': dumpDuplicates(),
   'occasions.jsonl': dumpOccasions(),
+  'suggestions.jsonl': dumpSuggestions(),
 };
+
+// The wardrobe and pair scores live in the fixture rather than being rebuilt on
+// the Kotlin side: two generators that were meant to agree would be one more
+// thing that can silently disagree.
+writeFileSync(
+  join(OUT_DIR, 'wardrobe.json'),
+  JSON.stringify({ garments: WARDROBE, pairScores: PAIR_SCORES }, null, 2) + '\n'
+);
 
 for (const [name, lines] of Object.entries(files)) {
   writeFileSync(join(OUT_DIR, name), lines.join('\n') + '\n');

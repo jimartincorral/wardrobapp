@@ -84,7 +84,10 @@ src/
                           image paths, garment fields, dates, style tags
   constants/  i18n/  theme/  types/
 assets/                   App icon and splash
-scripts/                  build-apk.ps1
+scripts/                  build-apk.ps1, dump-domain-parity.ts
+native/                   The Kotlin/Android port (see Architecture)
+  domain/                   Ported algorithms, plain Kotlin/JVM — no Android SDK
+                            needed to build or test
 ```
 
 ## Architecture
@@ -95,7 +98,21 @@ Three layers, with a deliberate boundary between them:
 - **`src/utils/`, `src/constants/`, `src/types/`** — pure helpers the domain layer builds on (colour distance, tag similarity, occasion derivation, photo-reference handling).
 - **`src/services/`, `src/db/`, `src/hooks/`, `app/`** — everything that talks to SQLite, the filesystem, the Storage Access Framework or the UI. The services that wrap a domain algorithm are thin: they load data, call the algorithm, and re-export its public API so callers see one module.
 
-The split is deliberate: the domain layer is the part that would survive a rewrite of everything around it.
+The split is deliberate: the domain layer is the part that would survive a rewrite of everything around it — which is now underway.
+
+### The native port
+
+`native/` holds a Kotlin port of the domain layer, the first phase of moving this app to native Android. `native/domain` is a plain Kotlin/JVM Gradle module, deliberately *not* an Android one, so it builds and tests with nothing but a JDK:
+
+```bash
+cd native && ./gradlew :domain:test
+```
+
+The React Native app is untouched and keeps shipping; nothing is removed until the native app reaches parity.
+
+Because it is a port rather than a rewrite, the tests ask whether the Kotlin **agrees with the TypeScript it came from**, not merely whether it passes tests written for it. `npm run parity:dump` records the TypeScript answers for a fixed corpus — 1156 colour pairs, 169 tag-set pairs, 60 duplicate scenarios, 700 category/subcategory pairings and 432 engine runs — and the Kotlin tests replay it. The engine is compared draw for draw: both sides step the same linear congruential generator, so an agreeing outfit list means every intermediate choice matched — the same template, epsilon branch, tie-break and roulette slot.
+
+Drift is caught from both sides. CI regenerates the fixtures and fails if they moved, so changing a TypeScript algorithm without regenerating cannot leave the port pinned to old behaviour; and the Kotlin tests fail if the fixtures move without the Kotlin following. After changing either side, run `npm run parity:dump` and commit the result.
 
 ## Testing
 
@@ -105,13 +122,22 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-18 suites, 175 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities. Both `typecheck` and `test` run in CI on every pull request.
+18 suites, 176 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
+
+The Kotlin port adds 11 more:
+
+```bash
+cd native && ./gradlew :domain:test
+```
+
+`typecheck`, `test` and the Kotlin domain tests all run in CI on every pull request.
 
 Domain algorithms are checked by mutation: each behaviour the tests claim to protect is removed in turn, and the intended test must fail. A test that passes without the code it covers is not a test.
 
 ## Limitations
 
 - **Android only.** Web and iOS support were removed — the web build had its own storage layer that could silently lose data, and iOS was never finished.
+- **The native port is early.** `native/domain` carries the algorithms; the data layer and UI are not written yet, so the shipped APK is still the React Native app.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **Released APKs are debug-signed**, so they can't be upgraded in place from a properly signed build later.
 - **The schema is applied idempotently** at startup from raw SQL in `src/db/client.ts` — `CREATE TABLE IF NOT EXISTS` plus additive `ALTER`s. There's no `PRAGMA user_version` yet. Keyed, run-once data migrations live in `src/db/migrations.ts`.
