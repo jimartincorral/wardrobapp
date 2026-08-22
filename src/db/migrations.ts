@@ -59,13 +59,11 @@ async function stripLegacyStructuredTags(db: DatabaseAdapter): Promise<void> {
  * Rewrite absolute garment photo paths to bare filenames.
  *
  * Older builds stored the full path, including a documents directory whose
- * location is not stable across installs — on iOS the app container UUID
- * changes on reinstall, so those paths point nowhere after a restore. Reads
- * already re-base them (see utils/image-paths), so this is a tidy-up that makes
- * the stored data portable rather than a correctness fix; that is exactly why it
- * is safe to retry and safe to fail.
- *
- * A no-op on web, where photos are data URIs and have no path to strip.
+ * location is not guaranteed stable across installs, so those paths can point
+ * nowhere after a restore onto a reinstalled app. Reads already re-base them
+ * (see utils/image-paths), so this is a tidy-up that makes the stored data
+ * portable rather than a correctness fix — which is exactly why it is safe to
+ * retry and safe to fail.
  */
 async function storeBareImageRefs(db: DatabaseAdapter): Promise<void> {
   const done = await db.getFirstAsync<{ value: string }>(

@@ -1,14 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// client.ts is platform-aware; pinning it to web exercises the real in-memory
-// adapter, so the locking below runs against a genuine database rather than a stub.
-vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
+// Stub expo-sqlite so the locking below can be exercised in Node: importing the
+// real module pulls in the Expo runtime, which needs __DEV__ and a native build.
+// The fake only has to be well-behaved enough for schema setup and the data
+// migrations to run against it.
+vi.mock('expo-sqlite', () => {
+  const openDatabaseAsync = vi.fn(async () => ({
+    execAsync: vi.fn(async () => {}),
+    runAsync: vi.fn(async () => ({ changes: 0, lastInsertRowId: 0 })),
+    getFirstAsync: vi.fn(async () => null),
+    getAllAsync: vi.fn(async () => []),
+    closeAsync: vi.fn(async () => {}),
+  }));
+  return { openDatabaseAsync };
+});
 
 const { closeDatabase, getDatabase, withDatabaseClosed } = await import('./client');
 
 describe('withDatabaseClosed', () => {
   beforeEach(async () => {
-    // Open once before closing so the dynamic import of the adapter is already
+    // Open once before closing so the dynamic import of expo-sqlite is already
     // cached. Otherwise a first-time open costs tens of milliseconds and the
     // timing assertion below would pass whether or not the lock works.
     await getDatabase();

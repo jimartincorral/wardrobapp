@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, type ScrollViewProps } from 'react-native';
+import { type ScrollViewProps } from 'react-native';
 import { KeyboardAwareScrollView as KCKeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 type KeyboardAwareScrollViewProps = ScrollViewProps & {
@@ -19,7 +19,7 @@ type KeyboardAwareScrollViewProps = ScrollViewProps & {
 export function KeyboardAwareScrollView({
   children,
   keyboardShouldPersistTaps = 'handled',
-  keyboardDismissMode = Platform.OS === 'ios' ? 'interactive' : 'on-drag',
+  keyboardDismissMode = 'on-drag',
   bottomOffset = 24,
   ...props
 }: KeyboardAwareScrollViewProps) {

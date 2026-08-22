@@ -4,11 +4,10 @@ import { GARMENT_IMAGE_DIRNAME, resolveImageRef } from './image-paths';
 let cachedImageDirectory: string | null = null;
 
 /**
- * Where garment photos live, or '' where there is no filesystem (web, tests).
+ * Where garment photos live, or '' where there is no filesystem (unit tests).
  *
- * Looked up lazily and cached rather than imported at module scope:
- * expo-file-system is native-only, and this module is otherwise pure so it can
- * be unit-tested and bundled for web without it.
+ * Looked up lazily and cached rather than imported at module scope, so this
+ * module stays pure enough to unit-test without the native filesystem.
  */
 function garmentImageDirectory(): string {
   if (cachedImageDirectory !== null) return cachedImageDirectory;
