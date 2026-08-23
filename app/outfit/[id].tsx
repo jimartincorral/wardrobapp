@@ -7,6 +7,7 @@ import { RatingStars } from '@/src/components/RatingStars';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
 import { formatDate } from '@/src/utils/date-helpers';
 import { localizeGarmentLabel } from '@/src/utils/localization-helpers';
+import { ratingSummary } from '@/src/domain/outfit-rating';
 import { useTranslation } from '@/src/i18n';
 import type { Outfit, OutfitRating, Garment } from '@/src/types';
 import { getGarmentDisplayImage } from '@/src/utils/garment-fields';
@@ -81,9 +82,7 @@ export default function OutfitDetailScreen() {
     return <View style={styles.loading}><Text>{t('outfitDetail.loading')}</Text></View>;
   }
 
-  const avgRating = ratings.length > 0
-    ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
-    : 0;
+  const summary = ratingSummary(ratings.map(r => r.rating));
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -100,11 +99,11 @@ export default function OutfitDetailScreen() {
           </Pressable>
         ))}
       </View>
-      {avgRating > 0 && (
+      {summary.showsAverage && (
         <View style={styles.avgSection}>
           <Text style={styles.avgLabel}>{t('outfitDetail.avgRating')}</Text>
-          <RatingStars rating={Math.round(avgRating)} readonly size={24} />
-          <Text style={styles.avgText}>{t('outfitDetail.ratingCount', { avg: avgRating.toFixed(1), count: ratings.length })}</Text>
+          <RatingStars rating={summary.stars} readonly size={24} />
+          <Text style={styles.avgText}>{t('outfitDetail.ratingCount', { avg: summary.label, count: summary.count })}</Text>
         </View>
       )}
       <View style={styles.rateSection}>

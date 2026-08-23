@@ -63,6 +63,7 @@ import {
   parseArchiveManifest,
 } from '../src/domain/backup-archive';
 import { analyticsView } from '../src/domain/analytics-view';
+import { ratingSummary } from '../src/domain/outfit-rating';
 import { garmentDetail } from '../src/domain/garment-detail';
 import {
   NO_FILTERS,
@@ -1419,6 +1420,49 @@ const ANALYTICS_CASES: {
   },
 ];
 
+/**
+ * Rating sets worth being sure about: the halves that decide a star, the values
+ * that mean "unrated", and the ones no star row can produce but a restored
+ * backup can.
+ */
+const RATING_CASES: { name: string; ratings: number[] }[] = [
+  { name: 'no ratings', ratings: [] },
+  { name: 'one rating', ratings: [3] },
+  { name: 'the lowest', ratings: [1] },
+  { name: 'the highest', ratings: [5] },
+  { name: 'rounds up at the half', ratings: [4, 5] },
+  { name: 'rounds up at the half, lower', ratings: [3, 4] },
+  { name: 'rounds down below the half', ratings: [3, 3, 4] },
+  { name: 'a whole average still shows a decimal', ratings: [4, 4] },
+  { name: 'every rating the same', ratings: [2, 2, 2, 2] },
+  { name: 'the full spread', ratings: [1, 2, 3, 4, 5] },
+  { name: 'a zero means unrated, not terrible', ratings: [0, 4] },
+  { name: 'nothing but zeroes', ratings: [0, 0] },
+  { name: 'a negative rating', ratings: [-3, 4] },
+  { name: 'above the scale, from a restored backup', ratings: [9, 9] },
+  { name: 'above the scale, mixed', ratings: [9, 1] },
+  { name: 'a repeating average', ratings: [1, 2] },
+  { name: 'a third', ratings: [1, 1, 2] },
+];
+
+function dumpOutfitRating() {
+  return RATING_CASES.map(testCase => {
+    const summary = ratingSummary(testCase.ratings);
+
+    return JSON.stringify({
+      name: testCase.name,
+      input: { ratings: testCase.ratings },
+      summary: {
+        count: summary.count,
+        average: summary.average,
+        stars: summary.stars,
+        label: summary.label,
+        showsAverage: summary.showsAverage,
+      },
+    });
+  });
+}
+
 function dumpAnalyticsView() {
   return ANALYTICS_CASES.map(testCase => {
     const view = analyticsView({
@@ -1547,6 +1591,10 @@ console.log(`presentation/garment-detail.jsonl: ${detail.length} cases`);
 const outfitFilters = dumpOutfitFilters();
 writeFileSync(join(PRESENTATION_OUT_DIR, 'outfit-filters.jsonl'), outfitFilters.join('\n') + '\n');
 console.log(`presentation/outfit-filters.jsonl: ${outfitFilters.length} cases`);
+
+const outfitRating = dumpOutfitRating();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'outfit-rating.jsonl'), outfitRating.join('\n') + '\n');
+console.log(`presentation/outfit-rating.jsonl: ${outfitRating.length} cases`);
 
 const analytics = dumpAnalyticsView();
 writeFileSync(join(PRESENTATION_OUT_DIR, 'analytics-view.jsonl'), analytics.join('\n') + '\n');
