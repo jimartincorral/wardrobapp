@@ -45,6 +45,7 @@ import {
   type GarmentFormState,
 } from '../src/domain/garment-form';
 import type { GarmentFilter, GarmentSortOption } from '../src/domain/garment-filtering';
+import { OCCASION_OPTIONS, SEASON_OPTIONS } from '../src/constants/style-filters';
 import type { SeasonOption, OccasionOption } from '../src/constants/style-filters';
 import { getOccasionsFor } from '../src/utils/garment-occasions';
 import {
@@ -60,6 +61,15 @@ import {
   parseArchiveManifest,
 } from '../src/domain/backup-archive';
 import { garmentDetail } from '../src/domain/garment-detail';
+import {
+  NO_FILTERS,
+  isUnfiltered,
+  occasionChips,
+  seasonChips,
+  withOccasionSelected,
+  withSeasonToggled,
+  type OutfitFilters,
+} from '../src/domain/outfit-filters';
 import { CATEGORIES } from '../src/constants/categories';
 import type { Garment } from '../src/types';
 
@@ -1138,6 +1148,114 @@ function dumpGarmentDetail() {
   return lines;
 }
 
+/**
+ * Filter chip taps, recorded step by step.
+ *
+ * Each step is a tap and records the whole row afterwards, so the port is
+ * compared at every point in a sequence rather than only at the end: two
+ * implementations can disagree in the middle and coincide by the finish.
+ */
+const FILTER_SCRIPTS: { name: string; taps: { row: 'season' | 'occasion'; value: string | null }[] }[] = [
+  { name: 'nothing tapped', taps: [] },
+  {
+    name: 'one season on and off',
+    taps: [
+      { row: 'season', value: 'summer' },
+      { row: 'season', value: 'summer' },
+    ],
+  },
+  {
+    name: 'seasons tapped out of order',
+    taps: [
+      { row: 'season', value: 'winter' },
+      { row: 'season', value: 'spring' },
+      { row: 'season', value: 'all-season' },
+    ],
+  },
+  {
+    name: 'several seasons, then any',
+    taps: [
+      { row: 'season', value: 'fall' },
+      { row: 'season', value: 'winter' },
+      { row: 'season', value: null },
+    ],
+  },
+  {
+    name: 'one occasion replaced by another',
+    taps: [
+      { row: 'occasion', value: 'work' },
+      { row: 'occasion', value: 'sport' },
+    ],
+  },
+  {
+    name: 'the active occasion tapped again',
+    taps: [
+      { row: 'occasion', value: 'formal' },
+      { row: 'occasion', value: 'formal' },
+    ],
+  },
+  {
+    name: 'occasion cleared with any',
+    taps: [
+      { row: 'occasion', value: 'lounge' },
+      { row: 'occasion', value: null },
+    ],
+  },
+  {
+    name: 'both rows, then each cleared in turn',
+    taps: [
+      { row: 'season', value: 'summer' },
+      { row: 'occasion', value: 'casual' },
+      { row: 'season', value: null },
+      { row: 'occasion', value: null },
+    ],
+  },
+  {
+    name: 'every season on',
+    taps: SEASON_OPTIONS.map(season => ({ row: 'season' as const, value: season })),
+  },
+  {
+    name: 'every occasion in turn',
+    taps: OCCASION_OPTIONS.map(occasion => ({ row: 'occasion' as const, value: occasion })),
+  },
+];
+
+function outfitFilterState(filters: OutfitFilters) {
+  return {
+    seasons: filters.seasons,
+    occasion: filters.occasion ?? null,
+    unfiltered: isUnfiltered(filters),
+    seasonChips: seasonChips(filters).map(c => ({ value: c.value, active: c.active })),
+    occasionChips: occasionChips(filters).map(c => ({ value: c.value, active: c.active })),
+  };
+}
+
+function dumpOutfitFilters() {
+  const lines: string[] = [];
+
+  for (const script of FILTER_SCRIPTS) {
+    let filters = NO_FILTERS;
+    // The starting row matters as much as the end of the sequence: "any" is
+    // derived, so an implementation that stored it would already differ here.
+    lines.push(JSON.stringify({ script: script.name, step: 0, tap: null, state: outfitFilterState(filters) }));
+
+    script.taps.forEach((tap, index) => {
+      filters = tap.row === 'season'
+        ? withSeasonToggled(filters, tap.value as SeasonOption | null)
+        : withOccasionSelected(filters, tap.value as OccasionOption | null);
+
+      lines.push(JSON.stringify({
+        script: script.name,
+        step: index + 1,
+        tap,
+        state: outfitFilterState(filters),
+      }));
+    });
+  }
+
+  return lines;
+}
+
 mkdirSync(OUT_DIR, { recursive: true });
 mkdirSync(DATA_OUT_DIR, { recursive: true });
 
@@ -1212,6 +1330,10 @@ console.log(`data/archive-validation.jsonl: ${archiveValidation.length} cases`);
 const detail = dumpGarmentDetail();
 writeFileSync(join(PRESENTATION_OUT_DIR, 'garment-detail.jsonl'), detail.join('\n') + '\n');
 console.log(`presentation/garment-detail.jsonl: ${detail.length} cases`);
+
+const outfitFilters = dumpOutfitFilters();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'outfit-filters.jsonl'), outfitFilters.join('\n') + '\n');
+console.log(`presentation/outfit-filters.jsonl: ${outfitFilters.length} cases`);
 
 const schemas = dumpSchemas();
 writeFileSync(join(DATA_OUT_DIR, 'schema-fresh.sql'), schemas.fresh + '\n');

@@ -48,6 +48,25 @@ enum class Occasion(val id: String) {
     }
 }
 
+/**
+ * The season a date falls in.
+ *
+ * The month arrives as an argument rather than being read from a clock, which is
+ * the same reason the suggestion engine takes its randomness that way: a
+ * suggestion run has to be reproducible. Zero-based to match what both
+ * `Date.getMonth()` and `Calendar.MONTH` hand over, so neither caller has to
+ * remember to shift it.
+ *
+ * Never returns [Season.ALL_SEASON]: that is a property a garment can have, not
+ * a time of year it can be.
+ */
+fun seasonOfMonth(monthZeroBased: Int): Season = when (monthZeroBased) {
+    in 2..4 -> Season.SPRING
+    in 5..7 -> Season.SUMMER
+    in 8..10 -> Season.FALL
+    else -> Season.WINTER
+}
+
 /** What the user asked for, if anything. */
 data class SuggestionPreferences(
     val seasons: List<Season> = emptyList(),
