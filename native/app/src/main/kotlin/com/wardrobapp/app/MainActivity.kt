@@ -148,6 +148,16 @@ class MainActivity : ComponentActivity() {
             onGarmentOpened = onGarmentOpened,
             onAddRequested = onAddRequested,
             onSettingsRequested = onSettingsRequested,
+            onFiltersToggled = model::onFiltersToggled,
+            onFiltersCleared = model::onFiltersCleared,
+            onBrandChanged = model::onBrandChanged,
+            onSizeChanged = model::onSizeChanged,
+            onCategoryTapped = model::onCategoryTapped,
+            onSubcategoryTapped = model::onSubcategoryTapped,
+            onSeasonTapped = model::onSeasonTapped,
+            onOccasionTapped = model::onOccasionTapped,
+            onColorTapped = model::onColorTapped,
+            onRetiredToggled = model::onRetiredToggled,
         )
     }
 
