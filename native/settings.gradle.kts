@@ -16,8 +16,8 @@ pluginManagement {
         // unreachable in some sandboxes, and an unreachable repository breaks
         // resolution for the pure modules too -- the ones meant to build
         // anywhere.
-        val hasSdk = System.getenv("ANDROID_HOME")
-                ?: System.getenv("ANDROID_SDK_ROOT")
+        val hasSdk = System.getenv("ANDROID_HOME")?.takeIf { it.isNotBlank() }
+                ?: System.getenv("ANDROID_SDK_ROOT")?.takeIf { it.isNotBlank() }
                 ?: java.io.File(rootDir, "local.properties")
                     .takeIf { it.exists() }
                     ?.readLines()
@@ -30,8 +30,8 @@ pluginManagement {
 dependencyResolutionManagement {
     repositories {
         mavenCentral()
-        val hasSdk = System.getenv("ANDROID_HOME")
-                ?: System.getenv("ANDROID_SDK_ROOT")
+        val hasSdk = System.getenv("ANDROID_HOME")?.takeIf { it.isNotBlank() }
+                ?: System.getenv("ANDROID_SDK_ROOT")?.takeIf { it.isNotBlank() }
                 ?: java.io.File(rootDir, "local.properties")
                     .takeIf { it.exists() }
                     ?.readLines()
@@ -48,8 +48,8 @@ include(":data")
 include(":presentation")
 include(":parity-testing")
 
-val androidSdk = System.getenv("ANDROID_HOME")
-                ?: System.getenv("ANDROID_SDK_ROOT")
+val androidSdk = System.getenv("ANDROID_HOME")?.takeIf { it.isNotBlank() }
+                ?: System.getenv("ANDROID_SDK_ROOT")?.takeIf { it.isNotBlank() }
                 ?: java.io.File(rootDir, "local.properties")
                     .takeIf { it.exists() }
                     ?.readLines()
