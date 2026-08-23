@@ -53,6 +53,55 @@ fun resolveImageRef(ref: String, imageDirectory: String): String {
     return "$imageDirectory${basename(ref)}"
 }
 
+/**
+ * References a garment used to hold and no longer does.
+ *
+ * Compared as stored *filenames* rather than as the references were given, because
+ * the same photo can be named either way -- an absolute path from an older build, a
+ * resolved `file://` URI from a read, a bare filename from the database -- and a
+ * mismatch either way is a quiet failure: report a file still in use and it gets
+ * deleted out from under the garment; miss one and it stays on the phone with
+ * nothing pointing at it.
+ *
+ * Only names them, so the caller decides when it is safe to act -- which is after
+ * the row is written, never before.
+ */
+fun orphanedImageRefs(previous: List<String>, kept: List<String>): List<String> {
+    val keptNames = kept.filter { it.isNotEmpty() }.map(::toStoredImageRef).toSet()
+    val seen = mutableSetOf<String>()
+
+    return previous.filter { ref ->
+        if (ref.isEmpty()) return@filter false
+
+        val name = toStoredImageRef(ref)
+        if (name in keptNames || name in seen) return@filter false
+
+        seen.add(name)
+        true
+    }
+}
+
+/**
+ * True when a reference points at a photo the app already owns.
+ *
+ * The distinction that keeps a cleanup from deleting live data. A cut-out written
+ * for a form that is then abandoned is disposable; one belonging to a garment
+ * already in the database is not, and is still referenced by its row until the
+ * next save goes through.
+ *
+ * `imageDirectory` is passed in rather than read, exactly as [resolveImageRef]
+ * takes it: this file knows the layout, not where the filesystem is mounted.
+ */
+fun isStoredGarmentImage(ref: String, imageDirectory: String): Boolean {
+    if (ref.isEmpty() || imageDirectory.isEmpty()) return false
+    if (!ref.startsWith(imageDirectory)) return false
+
+    // Photos are stored flat, so anything nested is not one of ours -- and the
+    // comparison is against the directory rather than a search for the folder name,
+    // so a temp path that merely mentions it does not pass.
+    return !ref.removePrefix(imageDirectory).contains('/')
+}
+
 /** True when a reference still carries a directory, i.e. predates the rewrite. */
 fun isLegacyAbsoluteImageRef(ref: String): Boolean =
     ref.isNotEmpty() && !isNonFileRef(ref) && ref.contains('/')

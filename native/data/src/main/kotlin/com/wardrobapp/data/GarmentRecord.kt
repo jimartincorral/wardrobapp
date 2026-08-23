@@ -53,9 +53,34 @@ data class GarmentRecord(
         isAvailable = isAvailable,
     )
 
+    /**
+     * Subcategories, falling back to the singular column.
+     *
+     * normalizeGarmentRow already merges the two, so this is normally just the
+     * list -- but a record built any other way should behave the same.
+     */
+    val effectiveSubcategories: List<String>
+        get() = subcategories.ifEmpty { listOfNotNull(subcategory).filter { it.isNotBlank() } }
+
+    /** The colour palette, falling back to the primary/secondary pair. */
+    val palette: List<String>
+        get() = colorPalette.ifEmpty {
+            listOfNotNull(colorPrimary, colorSecondary).filter { it.isNotBlank() }
+        }
+
     /** Photos to show, falling back to the single stored reference. */
     val displayImageUris: List<String>
         get() = imageUris.ifEmpty { listOfNotNull(imageUri).filter { it.isNotEmpty() } }
+
+    /**
+     * Cut-outs to show, one slot per photo, falling back to the single stored
+     * reference.
+     *
+     * Empty strings are kept rather than filtered: an entry of "" means "this
+     * photo has no cut-out", and the position is what says which photo.
+     */
+    val displayNoBgImageUris: List<String>
+        get() = imageUrisNoBg.ifEmpty { listOf(imageUriNoBg ?: "") }
 
     /** The background-removed photo if there is one, else the plain photo. */
     val displayImage: String

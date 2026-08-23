@@ -6,6 +6,8 @@ import { garmentToFormData, useGarmentForm } from '@/src/hooks/useGarmentForm';
 import { compressAndSaveImage, deleteImage, saveBgRemovedImage } from '@/src/services/image-service';
 import { getGarment, updateGarment } from '@/src/services/garment-service';
 import { mergeStructuredTags } from '@/src/utils/style-tags';
+import { slotSources } from '@/src/domain/garment-form';
+import { orphanedImageRefs } from '@/src/utils/image-paths';
 import { useTranslation } from '@/src/i18n';
 import { useTheme } from '@/src/theme';
 import type { Garment } from '@/src/types';
@@ -51,22 +53,23 @@ export default function EditGarmentScreen() {
 
     setSaving(true);
     try {
-      // Store only the cut-out for slots whose background was removed; never
-      // persist the original alongside it. Reuse already-saved files as-is.
+      // Which file each slot contributes is decided in the domain layer, shared
+      // with the Kotlin port; persisting it, and reusing what is already stored,
+      // is this screen's job.
       const saved = await Promise.all(
-        data.imageUris.map(async (uri, index) => {
-          const bgSource = data.bgRemovedUris[index];
-          if (bgSource) {
-            if (garment.image_uris_nobg.includes(bgSource)) {
-              return { image: bgSource, nobg: bgSource };
+        slotSources(data).map(async ({ source, isCutout }, index) => {
+          if (isCutout) {
+            if (garment.image_uris_nobg.includes(source)) {
+              return { image: source, nobg: source };
             }
             try {
-              const cutout = await saveBgRemovedImage(bgSource);
+              const cutout = await saveBgRemovedImage(source);
               return { image: cutout, nobg: cutout };
             } catch (error) {
               console.warn('Failed to persist background-removed image, keeping original only:', error);
             }
           }
+          const uri = data.imageUris[index];
           const image = garment.image_uris.includes(uri) ? uri : await compressAndSaveImage(uri);
           return { image, nobg: '' };
         })
@@ -76,10 +79,14 @@ export default function EditGarmentScreen() {
 
       // Any file the garment referenced before but no longer does — the dropped
       // original of a newly cut-out image, a discarded cut-out, or a removed
-      // photo — is now orphaned. Delete it after the DB write succeeds.
-      const keptFiles = new Set([...savedImageUris, ...savedBgRemovedUris].filter(Boolean));
-      const orphanedFiles = [...new Set([...garment.image_uris, ...garment.image_uris_nobg])]
-        .filter((f) => f && !keptFiles.has(f));
+      // photo — is now orphaned. Deleted after the DB write succeeds, never before.
+      // The comparison is in the domain layer, shared with the Kotlin port: it
+      // matches on stored filenames rather than on the references as given, since
+      // the same photo is named differently depending on where it came from.
+      const orphanedFiles = orphanedImageRefs(
+        [...garment.image_uris, ...garment.image_uris_nobg],
+        [...savedImageUris, ...savedBgRemovedUris]
+      );
 
       await updateGarment(id, {
         image_uri: savedImageUris[0],

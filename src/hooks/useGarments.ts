@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getAllGarments, createGarment, deleteGarment, updateGarment, markUnavailable, markAvailable } from '../services/garment-service';
 import type { OccasionOption, SeasonOption } from '../constants/style-filters';
-import { getGarmentOccasions } from '../utils/garment-occasions';
+import {
+  filterGarments,
+  sortGarments,
+  type GarmentSortOption,
+} from '../domain/garment-filtering';
 import type { Garment } from '../types';
 
-export type GarmentSortOption = 'newest' | 'oldest';
+export type { GarmentSortOption };
 
 export function useGarments(filters?: {
   category?: string;
@@ -22,47 +26,6 @@ export function useGarments(filters?: {
   const [loading, setLoading] = useState(true);
   const [count, setCount] = useState(0);
 
-  const applyFilters = (items: Garment[]) => {
-    return items.filter(item => {
-      if (filters?.subcategory) {
-        const subs = item.subcategories.length > 0
-          ? item.subcategories
-          : (item.subcategory ? [item.subcategory] : []);
-        if (!subs.includes(filters.subcategory)) return false;
-      }
-      const normalizedTags = item.tags.map(tag => tag.toLowerCase());
-      if (filters?.season && !normalizedTags.includes(filters.season)) return false;
-      // Occasion is derived from the garment's type, not stored as a tag.
-      if (filters?.occasion && !getGarmentOccasions(item).includes(filters.occasion)) return false;
-      if (filters?.brand && !(item.brand || '').toLowerCase().includes(filters.brand.toLowerCase().trim())) {
-        return false;
-      }
-      if (filters?.size && !(item.size || '').toLowerCase().includes(filters.size.toLowerCase().trim())) {
-        return false;
-      }
-      if (filters?.color) {
-        const palette = item.color_palette.length > 0 ? item.color_palette : [item.color_primary];
-        if (!palette.includes(filters.color)) return false;
-      }
-      return true;
-    });
-  };
-
-  const applySort = async (items: Garment[]) => {
-    const sort = filters?.sort ?? 'newest';
-    const sorted = [...items];
-
-    if (sort === 'newest') {
-      return sorted.sort((a, b) => b.created_at.localeCompare(a.created_at));
-    }
-
-    if (sort === 'oldest') {
-      return sorted.sort((a, b) => a.created_at.localeCompare(b.created_at));
-    }
-
-    return sorted;
-  };
-
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
@@ -71,10 +34,11 @@ export function useGarments(filters?: {
         search: filters?.search,
         available_only: filters?.available_only,
       });
-      const filtered = applyFilters(items);
-      const sorted = await applySort(filtered);
-      setGarments(sorted);
-      setCount(sorted.length);
+      // Filtering and ordering live in src/domain/garment-filtering, where they
+      // can be tested without React.
+      const shown = sortGarments(filterGarments(items, filters ?? {}), filters?.sort);
+      setGarments(shown);
+      setCount(shown.length);
     } catch (e) {
       console.error('Failed to load garments:', e);
     } finally {
@@ -109,4 +73,3 @@ export function useGarmentActions() {
     markAvailable,
   };
 }
-

@@ -25,11 +25,14 @@ export async function getCategoryDistribution(): Promise<CategoryStat[]> {
 
 export async function getColorDistribution(): Promise<CategoryStat[]> {
   const db = await getDatabase();
+  // Grouped case-insensitively: normalizeGarmentRow already dedupes palettes
+  // that way, so '#abcdef' and '#ABCDEF' are one colour everywhere else in the
+  // app. Grouping on the raw column reported them as two.
   const rows = await db.getAllAsync<{ color_primary: string; count: number }>(
-    `SELECT color_primary, COUNT(*) as count
+    `SELECT UPPER(color_primary) as color_primary, COUNT(*) as count
      FROM garments
      WHERE is_available = 1 AND color_primary IS NOT NULL AND color_primary != ''
-     GROUP BY color_primary
+     GROUP BY UPPER(color_primary)
      ORDER BY count DESC`
   );
   return rows.map(r => ({ category: r.color_primary, count: r.count }));
@@ -78,11 +81,14 @@ export async function getSubcategoryDistribution(): Promise<Record<string, Categ
 
 export async function getBrandDistribution(): Promise<CategoryStat[]> {
   const db = await getDatabase();
+  // Grouped on the trimmed value, matching the brand picker's
+  // `DISTINCT TRIM(brand)`. Grouping on the raw column listed 'Uniqlo',
+  // ' Uniqlo' and 'Uniqlo ' as three separate brands with one garment each.
   const rows = await db.getAllAsync<{ brand: string; count: number }>(
-    `SELECT brand, COUNT(*) as count
+    `SELECT TRIM(brand) as brand, COUNT(*) as count
      FROM garments
      WHERE is_available = 1 AND brand IS NOT NULL AND TRIM(brand) != ''
-     GROUP BY brand
+     GROUP BY TRIM(brand)
      ORDER BY count DESC`
   );
   return rows.map(r => ({ category: r.brand, count: r.count }));

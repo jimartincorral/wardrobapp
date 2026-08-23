@@ -26,6 +26,28 @@ import {
 import { jaccardSimilarity } from '../src/utils/tag-similarity';
 import { findDuplicatesAmong } from '../src/domain/duplicate-detection';
 import { buildSuggestions, pairKey } from '../src/domain/outfit-suggestions';
+import { foldRatingIntoPair, garmentPairs } from '../src/domain/pair-learning';
+import { filterGarments, sortGarments } from '../src/domain/garment-filtering';
+import {
+  EMPTY_FORM,
+  brandSuggestions,
+  displayedPreviewUri,
+  galleryItems,
+  imagesToStore,
+  normalizeForm,
+  selectedHasOriginal,
+  withBackgroundRemoved,
+  withColorToggled,
+  withDetectedColor,
+  withImage,
+  withImagesReordered,
+  withImportedPreview,
+  withSubcategories,
+  withoutImageAt,
+  type GarmentFormState,
+} from '../src/domain/garment-form';
+import type { GarmentFilter, GarmentSortOption } from '../src/domain/garment-filtering';
+import { OCCASION_OPTIONS, SEASON_OPTIONS } from '../src/constants/style-filters';
 import type { SeasonOption, OccasionOption } from '../src/constants/style-filters';
 import { getOccasionsFor } from '../src/utils/garment-occasions';
 import {
@@ -35,7 +57,23 @@ import {
 } from '../src/utils/image-paths';
 import { normalizeGarmentRow } from '../src/utils/garment-fields';
 import { ALTER_STATEMENTS, CREATE_TABLES_SQL, INDEX_STATEMENTS } from '../src/db/schema';
-import { CATEGORIES } from '../src/constants/categories';
+import {
+  checkArchiveCompleteness,
+  checkLegacyPayload,
+  parseArchiveManifest,
+} from '../src/domain/backup-archive';
+import { analyticsView } from '../src/domain/analytics-view';
+import { garmentDetail } from '../src/domain/garment-detail';
+import {
+  NO_FILTERS,
+  isUnfiltered,
+  occasionChips,
+  seasonChips,
+  withOccasionSelected,
+  withSeasonToggled,
+  type OutfitFilters,
+} from '../src/domain/outfit-filters';
+import { CATEGORIES, COMMON_SIZES } from '../src/constants/categories';
 import type { Garment } from '../src/types';
 
 const OUT_DIR = join(__dirname, '..', 'native', 'domain', 'src', 'test', 'resources', 'parity');
@@ -565,23 +603,870 @@ function dumpSchemas() {
     ...INDEX_STATEMENTS.map(s => `${s};`),
   ].join('\n\n');
 
-  const upgraded = [
-    '-- An upgraded install: an old table, then every additive ALTER.',
-    '-- Statements failing because the column exists are expected. The runner',
-    '-- ignores those, exactly as the app does. Columns are added before the',
-    '-- indexes over them, which is the order the app applies.',
+  // An install old enough to predate every ALTER. Emitted on its own as well as
+  // inside the upgraded script, so the Kotlin schema test can start from
+  // literally the same state rather than a second copy of it that can drift.
+  const oldInstall = [
+    '-- An install old enough to predate every additive ALTER.',
     `CREATE TABLE garments (
       id TEXT PRIMARY KEY,
       image_uri TEXT NOT NULL,
       category TEXT NOT NULL
     );`,
-    'CREATE TABLE outfits (id TEXT PRIMARY KEY, name TEXT NOT NULL, garment_ids TEXT NOT NULL DEFAULT \'[]\', occasion TEXT, season TEXT, created_at TEXT NOT NULL, is_suggested INTEGER NOT NULL DEFAULT 0);',
+    `CREATE TABLE outfits (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      garment_ids TEXT NOT NULL DEFAULT '[]',
+      occasion TEXT,
+      season TEXT,
+      created_at TEXT NOT NULL,
+      is_suggested INTEGER NOT NULL DEFAULT 0
+    );`,
+  ].join('\n\n');
+
+  const upgraded = [
+    oldInstall,
+    '-- Then the schema as applied on every start. Statements failing because',
+    '-- the column exists are expected and ignored, exactly as the app does.',
+    '-- Columns are added before the indexes over them, which is the order the',
+    '-- app applies -- the other way round throws on an install this old.',
     CREATE_TABLES_SQL.trim(),
     ...ALTER_STATEMENTS.map(s => `${s};`),
     ...INDEX_STATEMENTS.map(s => `${s};`),
   ].join('\n\n');
 
-  return { fresh, upgraded };
+  return { fresh, upgraded, oldInstall };
+}
+
+
+/**
+ * The pair-learning arithmetic, across every rating transition.
+ *
+ * The undo step is the part worth pinning: a correction has to move the score to
+ * where it would have been had the user rated correctly the first time, and must
+ * not count a second wear. Every (existing state, rating, previous rating)
+ * combination is recorded, including chains, so the inverse is checked at the
+ * scores it actually reaches rather than only from zero.
+ */
+function dumpPairLearning() {
+  const lines: string[] = [];
+  const ratings = [1, 2, 3, 4, 5];
+
+  const startingStates: (null | { score: number; wear_count: number })[] = [
+    null,
+    { score: 0, wear_count: 0 },
+    { score: 0.3, wear_count: 1 },
+    { score: -0.3, wear_count: 1 },
+    { score: 0.9, wear_count: 7 },
+    { score: -0.9, wear_count: 7 },
+    { score: 0.123456789, wear_count: 3 },
+  ];
+
+  for (const existing of startingStates) {
+    for (const rating of ratings) {
+      // A fresh rating.
+      lines.push(JSON.stringify({
+        existing, rating, previous: null,
+        next: foldRatingIntoPair(existing, rating, null),
+      }));
+
+      // A correction replacing each possible earlier rating.
+      for (const previous of ratings) {
+        lines.push(JSON.stringify({
+          existing, rating, previous,
+          next: foldRatingIntoPair(existing, rating, previous),
+        }));
+      }
+    }
+  }
+
+  // Chains: rate, then correct, then correct again. The undo has to hold at
+  // scores the process actually produces, not just at the round numbers above.
+  let state = foldRatingIntoPair(null, 5, null);
+  for (const [rating, previous] of [[1, 5], [4, 1], [2, 4], [5, 2]] as [number, number][]) {
+    const next = foldRatingIntoPair(state, rating, previous);
+    lines.push(JSON.stringify({ existing: state, rating, previous, next }));
+    state = next;
+  }
+
+  return lines;
+}
+
+/** Pair enumeration, including the id-ordering that makes storage stable. */
+function dumpGarmentPairs() {
+  const wardrobes = [
+    [],
+    ['a'],
+    ['a', 'b'],
+    ['b', 'a'],
+    ['c', 'a', 'b'],
+    ['g10', 'g2', 'g1'],
+    ['same', 'same'],
+    ['a', 'b', 'c', 'd'],
+  ];
+
+  return wardrobes.map(ids => JSON.stringify({ ids, pairs: garmentPairs(ids) }));
+}
+
+
+/**
+ * Wardrobe filtering and ordering, across the filter combinations the screens
+ * can produce.
+ *
+ * The wardrobe below deliberately includes a garment with no timestamp: that is
+ * the shape an install upgraded through the ALTER path can hold, and it used to
+ * make the whole list disappear.
+ */
+function dumpGarmentFiltering() {
+  const wardrobe: Garment[] = [
+    garment({ id: 'a', subcategories: ['T-Shirt'], subcategory: 'T-Shirt', tags: ['cotton', 'summer'], brand: 'Uniqlo', color_primary: '#000000', color_palette: ['#000000'], size: 'M', created_at: '2026-01-01' }),
+    garment({ id: 'b', subcategories: ['Blouse'], subcategory: 'Blouse', tags: ['Winter'], brand: 'COS', color_primary: '#FFFFFF', color_palette: ['#FFFFFF', '#CC0000'], size: 'S', created_at: '2026-03-01' }),
+    garment({ id: 'c', subcategories: ['Hoodie'], subcategory: 'Hoodie', tags: [], brand: 'uniqlo', color_primary: '#808080', color_palette: ['#808080'], size: 'XL', created_at: '2026-02-01' }),
+    garment({ id: 'd', subcategories: [], subcategory: 'Polo', tags: ['all-season'], brand: null, color_primary: '#000080', color_palette: ['#000080'], size: null, created_at: '2026-05-01' }),
+    garment({ id: 'e', subcategories: ['Sneakers'], subcategory: 'Sneakers', category: 'shoes', tags: ['summer'], brand: 'Nike', color_primary: '#FFFFFF', color_palette: ['#FFFFFF'], size: '42', created_at: '2026-04-01' }),
+    // No timestamp: the upgraded-install shape.
+    garment({ id: 'f', subcategories: ['Jeans'], subcategory: 'Jeans', category: 'bottoms', tags: [], brand: 'Levi', color_primary: '#000080', color_palette: ['#000080'], size: 'M', created_at: null as unknown as string }),
+  ];
+
+  const filters: GarmentFilter[] = [
+    {},
+    { subcategory: 'T-Shirt' },
+    { subcategory: 'Polo' },
+    { season: 'summer' },
+    { season: 'winter' },
+    { season: 'all-season' },
+    { occasion: 'work' },
+    { occasion: 'sport' },
+    { occasion: 'lounge' },
+    { brand: 'uniqlo' },
+    { brand: '  UNIQ ' },
+    { brand: 'nope' },
+    { size: 'm' },
+    { size: '4' },
+    { color: '#FFFFFF' },
+    { color: '#CC0000' },
+    { brand: 'Uniqlo', season: 'summer' },
+    { occasion: 'casual', size: 'm' },
+  ];
+
+  const sorts: GarmentSortOption[] = ['newest', 'oldest'];
+  const lines: string[] = [];
+
+  for (const filter of filters) {
+    const filtered = filterGarments(wardrobe, filter);
+    for (const sort of sorts) {
+      lines.push(JSON.stringify({
+        filter,
+        sort,
+        ids: sortGarments(filtered, sort).map(g => g.id),
+      }));
+    }
+  }
+
+  return { lines, wardrobe };
+}
+
+
+/**
+ * Form transitions, recorded step by step.
+ *
+ * Each step names an operation and records the whole state after it, so the port
+ * is compared at every point in a sequence rather than only at the end -- two
+ * implementations can disagree in the middle and coincide by the finish.
+ */
+type FormStep = { op: string; args?: unknown[] };
+
+const FORM_SCRIPTS: { name: string; steps: FormStep[] }[] = [
+  {
+    // Removal, undo, and removal on a photo that is not the first one -- the
+    // arrangements the collapse has to get right.
+    name: 'remove a background, undo it, remove another',
+    steps: [
+      { op: 'withImage', args: ['a.jpg'] },
+      { op: 'withImage', args: ['b.jpg'] },
+      { op: 'withBackgroundRemoved', args: ['b-cut.png'] },
+      { op: 'withBackgroundRemoved', args: [''] },
+      { op: 'withBackgroundRemoved', args: ['b-again.png'] },
+    ],
+  },
+  {
+    name: 'a cut-out that is also the photo',
+    steps: [
+      { op: 'withImage', args: ['only-cut.png'] },
+      { op: 'withBackgroundRemoved', args: ['only-cut.png'] },
+    ],
+  },
+  {
+    // The palette is never allowed to be empty: a garment always has at least
+    // one colour, so taking the last one off puts the default back.
+    name: 'pick colours, then take them all off again',
+    steps: [
+      { op: 'withColorToggled', args: ['#CC0000'] },
+      { op: 'withColorToggled', args: ['#FFFFFF'] },
+      { op: 'withColorToggled', args: ['#000000'] },
+      { op: 'withColorToggled', args: ['#CC0000'] },
+      { op: 'withColorToggled', args: ['#FFFFFF'] },
+      { op: 'withColorToggled', args: ['#000000'] },
+    ],
+  },
+  {
+    name: 'toggle the default colour off first',
+    steps: [
+      { op: 'withColorToggled', args: ['#000000'] },
+      { op: 'withColorToggled', args: ['#0066CC'] },
+    ],
+  },
+  {
+    name: 'build up a gallery',
+    steps: [
+      { op: 'withImage', args: ['a.jpg'] },
+      { op: 'withImage', args: ['b.jpg'] },
+      { op: 'withImage', args: ['c.jpg'] },
+      { op: 'withBackgroundRemoved', args: ['c-nobg.png'] },
+      { op: 'withImagesReordered', args: [2, 0] },
+      { op: 'withoutImageAt', args: [1] },
+      { op: 'withImage', args: ['d.jpg', true] },
+    ],
+  },
+  {
+    name: 'replace and remove around the selection',
+    steps: [
+      { op: 'withImage', args: ['a.jpg'] },
+      { op: 'withImage', args: ['b.jpg'] },
+      { op: 'withBackgroundRemoved', args: ['b-nobg.png'] },
+      { op: 'withImage', args: ['b2.jpg', true] },
+      { op: 'withoutImageAt', args: [0] },
+      { op: 'withoutImageAt', args: [0] },
+      { op: 'withImage', args: ['fresh.jpg', true] },
+    ],
+  },
+  {
+    name: 'seasons, colours and an import',
+    steps: [
+      { op: 'withSubcategories', args: [['Parka']] },
+      { op: 'withDetectedColor', args: ['#000080'] },
+      { op: 'withDetectedColor', args: ['#000080'] },
+      { op: 'withDetectedColor', args: ['#CC0000'] },
+      { op: 'withSubcategories', args: [['Sundress']] },
+      { op: 'withImportedPreview', args: [['x.jpg', 'y.jpg'], 'Imported'] },
+      { op: 'withImportedPreview', args: [['z.jpg'], 'Ignored'] },
+    ],
+  },
+  {
+    name: 'a cut-out-only photo has no original',
+    steps: [
+      { op: 'withImage', args: ['only.png'] },
+      // Same path in both slots: imported already cut out.
+      { op: 'withBackgroundRemoved', args: ['only.png'] },
+      { op: 'withImage', args: ['second.jpg'] },
+      { op: 'withBackgroundRemoved', args: ['second-nobg.png'] },
+      { op: 'withImagesReordered', args: [1, 0] },
+    ],
+  },
+  {
+    name: 'out-of-range moves are no-ops',
+    steps: [
+      { op: 'withImage', args: ['a.jpg'] },
+      { op: 'withImagesReordered', args: [0, 5] },
+      { op: 'withImagesReordered', args: [-1, 0] },
+      { op: 'withImagesReordered', args: [0, 0] },
+      { op: 'withoutImageAt', args: [0] },
+    ],
+  },
+];
+
+/** A fixed season rule, so the fixture does not depend on the lookup table. */
+const SCRIPT_SEASONS: Record<string, string[]> = {
+  Parka: ['winter'],
+  Sundress: ['summer'],
+};
+
+function dumpFormTransitions() {
+  const lines: string[] = [];
+
+  for (const script of FORM_SCRIPTS) {
+    let state: GarmentFormState = normalizeForm(EMPTY_FORM);
+
+    for (const [index, step] of script.steps.entries()) {
+      const args = step.args ?? [];
+
+      switch (step.op) {
+        case 'withImage':
+          state = withImage(state, args[0] as string, (args[1] as boolean) ?? false);
+          break;
+        case 'withoutImageAt':
+          state = withoutImageAt(state, args[0] as number);
+          break;
+        case 'withImagesReordered':
+          state = withImagesReordered(state, args[0] as number, args[1] as number);
+          break;
+        case 'withBackgroundRemoved':
+          state = withBackgroundRemoved(state, args[0] as string);
+          break;
+        case 'withSubcategories':
+          state = withSubcategories(
+            state,
+            args[0] as string[],
+            subs => subs.flatMap(sub => SCRIPT_SEASONS[sub] ?? []) as GarmentFormState['seasons']
+          );
+          break;
+        case 'withColorToggled':
+          state = withColorToggled(state, args[0] as string);
+          break;
+        case 'withDetectedColor':
+          state = withDetectedColor(state, args[0] as string);
+          break;
+        case 'withImportedPreview':
+          state = withImportedPreview(state, {
+            downloadedImageUris: args[0] as string[],
+            brand: args[1] as string | null,
+          });
+          break;
+        default:
+          throw new Error(`Unknown form op: ${step.op}`);
+      }
+
+      lines.push(JSON.stringify({
+        script: script.name,
+        step: index,
+        op: step.op,
+        args,
+        state,
+        derived: {
+          gallery: galleryItems(state),
+          preview: displayedPreviewUri(state),
+          hasOriginal: selectedHasOriginal(state),
+          // Recorded at every step rather than as its own script, so the collapse
+          // is compared over every photo arrangement the corpus reaches.
+          stored: imagesToStore(state),
+        },
+      }));
+    }
+  }
+
+  return lines;
+}
+
+const BRAND_LISTS = [
+  [],
+  ['Uniqlo'],
+  ['Uniqlo', 'Nike', 'New Balance', 'Adidas', 'COS'],
+  Array.from({ length: 20 }, (_, i) => `Brand${i}`),
+];
+
+/**
+ * Bringing a state into shape.
+ *
+ * The transition scripts all start from an already-aligned empty form, so the
+ * padding and trimming never has work to do there. These are the inputs that
+ * give it some.
+ */
+function dumpFormNormalization() {
+  const inputs: Partial<GarmentFormState>[] = [
+    {},
+    { imageUris: ['a', 'b', 'c'] },
+    { imageUris: ['a', 'b', 'c'], bgRemovedUris: ['a1'] },
+    { imageUris: ['a', 'b', 'c'], bgRemovedUris: ['a1', '', 'c1'] },
+    { imageUris: ['a'], bgRemovedUris: ['x', 'y', 'z'] },
+    { imageUris: [], bgRemovedUris: ['orphan'] },
+    { colorPalette: [] },
+    { colorPalette: ['#FFFFFF', '#000000'] },
+    { imageUris: ['a', 'b'], bgRemovedUris: ['a1'], colorPalette: [], brand: '  spaced  ', size: 'M' },
+  ];
+
+  return inputs.map(input => JSON.stringify({ input, normalized: normalizeForm(input) }));
+}
+
+function dumpBrandSuggestions() {
+  const typed = ['', '   ', 'ni', 'NI', 'Nike', '  nike  ', 'qlo', 'zzz', 'brand1', 'a'];
+  const lines: string[] = [];
+
+  for (const known of BRAND_LISTS) {
+    for (const input of typed) {
+      lines.push(JSON.stringify({ known, typed: input, suggestions: brandSuggestions(known, input) }));
+    }
+  }
+
+  return lines;
+}
+
+
+/**
+ * Archive validation, which decides whether a wardrobe gets overwritten.
+ *
+ * Recorded as accept-or-reject *plus the message*, because the message is the
+ * only thing telling someone whether to update the app or give up on the file.
+ * A port that rejected the right archives with the wrong explanation would be a
+ * worse app, and a comparison of booleans would not notice.
+ */
+function attempt(operation: () => void): { ok: true } | { ok: false; message: string } {
+  try {
+    operation();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function dumpArchiveValidation() {
+  const manifests = [
+    // Valid.
+    '{"version":3}',
+    '{"version":3,"created_at":"2026-01-01T00:00:00.000Z","image_count":12}',
+    '{"version":3.0}',
+    '{"version":3,"unexpected":"ignored"}',
+    '{"version":3,"created_at":42,"image_count":"twelve"}',
+    // Not JSON at all.
+    '',
+    'not json',
+    '{"version":3',
+    // JSON, but not an object describing a backup.
+    '[]',
+    '"3"',
+    'null',
+    '42',
+    // No usable version.
+    '{}',
+    '{"version":"3"}',
+    '{"version":null}',
+    '{"version":true}',
+    '{"version":3.5}',
+    // Wrong version, in both directions.
+    '{"version":4}',
+    '{"version":99}',
+    '{"version":2}',
+    '{"version":1}',
+    '{"version":0}',
+    '{"version":-1}',
+  ];
+
+  const lines: string[] = [];
+
+  for (const text of manifests) {
+    lines.push(JSON.stringify({
+      kind: 'manifest',
+      input: text,
+      result: attempt(() => parseArchiveManifest(text)),
+    }));
+  }
+
+  // Completeness, against a valid manifest.
+  const completeness: { imageCount?: number; hasDatabase: boolean; present: number }[] = [
+    { hasDatabase: true, present: 0 },
+    { hasDatabase: false, present: 0 },
+    { hasDatabase: false, present: 5 },
+    { imageCount: 0, hasDatabase: true, present: 0 },
+    { imageCount: 5, hasDatabase: true, present: 5 },
+    { imageCount: 5, hasDatabase: true, present: 4 },
+    { imageCount: 5, hasDatabase: true, present: 6 },
+    { imageCount: 5, hasDatabase: false, present: 5 },
+  ];
+
+  for (const c of completeness) {
+    lines.push(JSON.stringify({
+      kind: 'completeness',
+      input: c,
+      result: attempt(() => checkArchiveCompleteness({
+        manifest: { version: 3, image_count: c.imageCount },
+        hasDatabase: c.hasDatabase,
+        imageCount: c.present,
+      })),
+    }));
+  }
+
+  // Legacy payloads.
+  for (const version of [1, 2, 3, 0, 4]) {
+    for (const database of ['data', '']) {
+      lines.push(JSON.stringify({
+        kind: 'legacy',
+        input: { version, hasDatabase: Boolean(database) },
+        result: attempt(() => checkLegacyPayload({ version, database })),
+      }));
+    }
+  }
+
+  return lines;
+}
+
+/**
+ * What the detail screen shows, from the row up.
+ *
+ * The input is a raw row rather than a built garment, so the fixture exercises
+ * the whole path -- normalization and then the view -- and a divergence in
+ * either shows up here.
+ */
+const DETAIL_ROWS: Record<string, unknown>[] = [
+  // The ordinary case: one photo, one colour, a brand and a size.
+  {
+    id: 'plain', image_uri: 'front.jpg', image_uri_nobg: null,
+    image_uris: '["front.jpg"]', image_uris_nobg: '[]',
+    category: 'tops', subcategory: 'T-Shirt', subcategories: '["T-Shirt"]',
+    tags: '["cotton","summer","striped"]', brand: 'Uniqlo',
+    color_primary: '#000000', color_secondary: null, color_palette: '["#000000"]',
+    size: 'M', purchase_date: '2026-01-15', is_available: 1, unavailable_date: null,
+    created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z',
+  },
+  // Several photos, cut-outs on some of them.
+  {
+    id: 'gallery', image_uri: 'a.jpg', image_uri_nobg: 'a-cut.png',
+    image_uris: '["a.jpg","b.jpg","c.jpg"]', image_uris_nobg: '["a-cut.png","","c-cut.png"]',
+    category: 'outerwear', subcategory: 'Coat', subcategories: '["Coat"]',
+    tags: '["wool","winter","fall"]', brand: ' COS ',
+    color_primary: '#000080', color_secondary: '#FFFFFF',
+    color_palette: '["#000080","#FFFFFF","#123456"]',
+    size: ' L ', purchase_date: null, is_available: 1, unavailable_date: null,
+    created_at: '2026-02-01T00:00:00.000Z', updated_at: '2026-02-01T00:00:00.000Z',
+  },
+  // A cut-out that replaced its original: no undo to offer.
+  {
+    id: 'replaced', image_uri: 'only-cut.png', image_uri_nobg: 'only-cut.png',
+    image_uris: '["only-cut.png"]', image_uris_nobg: '["only-cut.png"]',
+    category: 'bottoms', subcategory: 'Jeans', subcategories: '["Jeans"]',
+    tags: '[]', brand: null,
+    color_primary: '#000080', color_secondary: null, color_palette: '[]',
+    size: null, purchase_date: null, is_available: 1, unavailable_date: null,
+    created_at: '2026-03-01T00:00:00.000Z', updated_at: '2026-03-01T00:00:00.000Z',
+  },
+  // Unavailable, with the date it went.
+  {
+    id: 'retired', image_uri: 'old.jpg', image_uri_nobg: null,
+    image_uris: '["old.jpg"]', image_uris_nobg: '[]',
+    category: 'shoes', subcategory: 'Heels', subcategories: '["Heels"]',
+    tags: '["leather"]', brand: 'Zara',
+    color_primary: '#CC0000', color_secondary: null, color_palette: '["#cc0000"]',
+    size: '38', purchase_date: '2024-06-01', is_available: 0,
+    unavailable_date: '2026-04-02T10:11:12.000Z',
+    created_at: '2024-06-01T00:00:00.000Z', updated_at: '2026-04-02T00:00:00.000Z',
+  },
+  // Available again, but the old unavailable_date is still on the row.
+  {
+    id: 'back-in-use', image_uri: 'again.jpg', image_uri_nobg: null,
+    image_uris: '["again.jpg"]', image_uris_nobg: '[]',
+    category: 'tops', subcategory: 'Shirt', subcategories: '["Shirt"]',
+    tags: '["formal","rainy","linen"]', brand: '   ',
+    color_primary: '#FFFFFF', color_secondary: null, color_palette: '["#FFFFFF"]',
+    size: '', purchase_date: null, is_available: 1,
+    unavailable_date: '2026-04-02T10:11:12.000Z',
+    created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z',
+  },
+  // No photo at all, and the multi-colour sentinel.
+  {
+    id: 'photoless', image_uri: '', image_uri_nobg: null,
+    image_uris: '[]', image_uris_nobg: '[]',
+    category: 'accessories', subcategory: 'Scarf', subcategories: '["Scarf","  "]',
+    tags: '["silk","all-season"]', brand: 'Hermes',
+    color_primary: '#RAINBOW', color_secondary: null, color_palette: '["#RAINBOW"]',
+    size: null, purchase_date: null, is_available: 1, unavailable_date: null,
+    created_at: '2026-06-01T00:00:00.000Z', updated_at: '2026-06-01T00:00:00.000Z',
+  },
+  // The much older row shape: comma-separated lists, no timestamps, no
+  // subcategories list -- so occasions come from the singular column.
+  {
+    id: 'legacy', image_uri: 'legacy.jpg',
+    image_uris: 'legacy.jpg,legacy-2.jpg',
+    category: 'activewear', subcategory: 'Yoga Pants',
+    tags: 'Stretch, SUMMER, stretch',
+    color_primary: '#808080',
+  },
+  // A type the occasion table does not know, in a category that has a fallback.
+  {
+    id: 'unknown-type', image_uri: 'x.jpg', image_uri_nobg: null,
+    image_uris: '["x.jpg"]', image_uris_nobg: '[]',
+    category: 'loungewear', subcategory: 'Something New', subcategories: '["Something New"]',
+    tags: '[]', brand: null,
+    color_primary: '#F5F5DC', color_secondary: null, color_palette: '["#F5F5DC"]',
+    size: 'S', purchase_date: null, is_available: 1, unavailable_date: null,
+    created_at: '2026-07-01T00:00:00.000Z', updated_at: '2026-07-01T00:00:00.000Z',
+  },
+];
+
+function dumpGarmentDetail() {
+  const lines: string[] = [];
+
+  for (const row of DETAIL_ROWS) {
+    const garment = normalizeGarmentRow(row, '');
+    // Every index the screen could hand over, plus two it should not: a
+    // remembered selection can outlive the photo it referred to.
+    for (const selected of [-1, 0, 1, 2, 5]) {
+      const view = garmentDetail(garment, selected);
+      lines.push(JSON.stringify({ row, selected, view }));
+    }
+  }
+
+  return lines;
+}
+
+/**
+ * Filter chip taps, recorded step by step.
+ *
+ * Each step is a tap and records the whole row afterwards, so the port is
+ * compared at every point in a sequence rather than only at the end: two
+ * implementations can disagree in the middle and coincide by the finish.
+ */
+const FILTER_SCRIPTS: { name: string; taps: { row: 'season' | 'occasion'; value: string | null }[] }[] = [
+  { name: 'nothing tapped', taps: [] },
+  {
+    name: 'one season on and off',
+    taps: [
+      { row: 'season', value: 'summer' },
+      { row: 'season', value: 'summer' },
+    ],
+  },
+  {
+    name: 'seasons tapped out of order',
+    taps: [
+      { row: 'season', value: 'winter' },
+      { row: 'season', value: 'spring' },
+      { row: 'season', value: 'all-season' },
+    ],
+  },
+  {
+    name: 'several seasons, then any',
+    taps: [
+      { row: 'season', value: 'fall' },
+      { row: 'season', value: 'winter' },
+      { row: 'season', value: null },
+    ],
+  },
+  {
+    name: 'one occasion replaced by another',
+    taps: [
+      { row: 'occasion', value: 'work' },
+      { row: 'occasion', value: 'sport' },
+    ],
+  },
+  {
+    name: 'the active occasion tapped again',
+    taps: [
+      { row: 'occasion', value: 'formal' },
+      { row: 'occasion', value: 'formal' },
+    ],
+  },
+  {
+    name: 'occasion cleared with any',
+    taps: [
+      { row: 'occasion', value: 'lounge' },
+      { row: 'occasion', value: null },
+    ],
+  },
+  {
+    name: 'both rows, then each cleared in turn',
+    taps: [
+      { row: 'season', value: 'summer' },
+      { row: 'occasion', value: 'casual' },
+      { row: 'season', value: null },
+      { row: 'occasion', value: null },
+    ],
+  },
+  {
+    name: 'every season on',
+    taps: SEASON_OPTIONS.map(season => ({ row: 'season' as const, value: season })),
+  },
+  {
+    name: 'every occasion in turn',
+    taps: OCCASION_OPTIONS.map(occasion => ({ row: 'occasion' as const, value: occasion })),
+  },
+];
+
+function outfitFilterState(filters: OutfitFilters) {
+  return {
+    seasons: filters.seasons,
+    occasion: filters.occasion ?? null,
+    unfiltered: isUnfiltered(filters),
+    seasonChips: seasonChips(filters).map(c => ({ value: c.value, active: c.active })),
+    occasionChips: occasionChips(filters).map(c => ({ value: c.value, active: c.active })),
+  };
+}
+
+function dumpOutfitFilters() {
+  const lines: string[] = [];
+
+  for (const script of FILTER_SCRIPTS) {
+    let filters = NO_FILTERS;
+    // The starting row matters as much as the end of the sequence: "any" is
+    // derived, so an implementation that stored it would already differ here.
+    lines.push(JSON.stringify({ script: script.name, step: 0, tap: null, state: outfitFilterState(filters) }));
+
+    script.taps.forEach((tap, index) => {
+      filters = tap.row === 'season'
+        ? withSeasonToggled(filters, tap.value as SeasonOption | null)
+        : withOccasionSelected(filters, tap.value as OccasionOption | null);
+
+      lines.push(JSON.stringify({
+        script: script.name,
+        step: index + 1,
+        tap,
+        state: outfitFilterState(filters),
+      }));
+    });
+  }
+
+  return lines;
+}
+
+/**
+ * The analytics bars.
+ *
+ * A corpus of shapes rather than of realistic wardrobes: the arithmetic is what
+ * is being compared, so the interesting inputs are the ones at the edges -- an
+ * empty wardrobe, counts that exceed the total, a negative lifespan, a garment
+ * owned for a decade.
+ */
+const ANALYTICS_CASES: {
+  name: string;
+  totalItems: number;
+  archivedItems: number;
+  categoryCounts: { category: string; count: number }[];
+  lifespans: { garmentId: string; category: string; subcategories: string[]; days: number }[];
+}[] = [
+  { name: 'empty wardrobe', totalItems: 0, archivedItems: 0, categoryCounts: [], lifespans: [] },
+  {
+    name: 'nothing but retired garments',
+    totalItems: 0,
+    archivedItems: 4,
+    categoryCounts: [],
+    lifespans: [{ garmentId: 'r1', category: 'tops', subcategories: ['T-Shirt'], days: 500 }],
+  },
+  {
+    name: 'one category',
+    totalItems: 4,
+    archivedItems: 0,
+    categoryCounts: [{ category: 'tops', count: 4 }],
+    lifespans: [],
+  },
+  {
+    name: 'an even split',
+    totalItems: 10,
+    archivedItems: 2,
+    categoryCounts: [
+      { category: 'tops', count: 5 },
+      { category: 'bottoms', count: 5 },
+    ],
+    lifespans: [],
+  },
+  {
+    name: 'thirds, which do not divide evenly',
+    totalItems: 3,
+    archivedItems: 0,
+    categoryCounts: [
+      { category: 'tops', count: 1 },
+      { category: 'bottoms', count: 1 },
+      { category: 'shoes', count: 1 },
+    ],
+    lifespans: [],
+  },
+  {
+    name: 'a long tail',
+    totalItems: 21,
+    archivedItems: 7,
+    categoryCounts: [
+      { category: 'tops', count: 9 },
+      { category: 'bottoms', count: 6 },
+      { category: 'shoes', count: 3 },
+      { category: 'outerwear', count: 2 },
+      { category: 'accessories', count: 1 },
+    ],
+    lifespans: [],
+  },
+  {
+    // Impossible from the queries as they stand -- both count the same rows --
+    // which is exactly why it is here: the guard exists for the day they stop
+    // agreeing, and dividing by zero is a NaN rather than a rounding error.
+    name: 'a category count against a zero total',
+    totalItems: 0,
+    archivedItems: 0,
+    categoryCounts: [{ category: 'tops', count: 3 }],
+    lifespans: [],
+  },
+  {
+    name: 'counts that exceed the total',
+    totalItems: 2,
+    archivedItems: 0,
+    categoryCounts: [{ category: 'tops', count: 5 }],
+    lifespans: [],
+  },
+  {
+    name: 'a zero count',
+    totalItems: 5,
+    archivedItems: 0,
+    categoryCounts: [
+      { category: 'tops', count: 5 },
+      { category: 'shoes', count: 0 },
+    ],
+    lifespans: [],
+  },
+  {
+    name: 'lifespans around the year mark',
+    totalItems: 6,
+    archivedItems: 4,
+    categoryCounts: [{ category: 'tops', count: 6 }],
+    lifespans: [
+      { garmentId: 'a', category: 'outerwear', subcategories: ['Coat'], days: 3650 },
+      { garmentId: 'b', category: 'tops', subcategories: ['T-Shirt'], days: 365 },
+      { garmentId: 'c', category: 'shoes', subcategories: ['Sneakers'], days: 73 },
+      { garmentId: 'd', category: 'bottoms', subcategories: ['Jeans'], days: 1 },
+    ],
+  },
+  {
+    name: 'a garment retired before it was bought',
+    totalItems: 3,
+    archivedItems: 1,
+    categoryCounts: [{ category: 'tops', count: 3 }],
+    lifespans: [
+      { garmentId: 'backwards', category: 'tops', subcategories: [], days: -30 },
+      { garmentId: 'sameday', category: 'tops', subcategories: ['Shirt'], days: 0 },
+    ],
+  },
+];
+
+function dumpAnalyticsView() {
+  return ANALYTICS_CASES.map(testCase => {
+    const view = analyticsView({
+      totalItems: testCase.totalItems,
+      archivedItems: testCase.archivedItems,
+      categoryCounts: testCase.categoryCounts,
+      lifespans: testCase.lifespans,
+    });
+
+    return JSON.stringify({
+      name: testCase.name,
+      input: {
+        totalItems: testCase.totalItems,
+        archivedItems: testCase.archivedItems,
+        categoryCounts: testCase.categoryCounts,
+        lifespans: testCase.lifespans,
+      },
+      view: {
+        totalItems: view.totalItems,
+        archivedItems: view.archivedItems,
+        isEmpty: view.isEmpty,
+        categories: view.categories.map(b => ({
+          key: b.key, category: b.category, value: b.value, fraction: b.fraction,
+        })),
+        lifespans: view.lifespans.map(b => ({
+          key: b.key, value: b.value, fraction: b.fraction,
+          category: b.entry.category, subcategories: b.entry.subcategories,
+        })),
+      },
+    });
+  });
+}
+
+/**
+ * The category and size lists the form offers.
+ *
+ * Dumped rather than left to a careful transcription: a subcategory string is
+ * stored verbatim and looked up by name when a garment's occasions are derived,
+ * so a typo would not fail -- it would quietly give the garment its category's
+ * fallback occasions instead of its type's.
+ */
+function dumpCatalogue() {
+  return Object.entries(CATEGORIES).map(([id, entry]) => JSON.stringify({
+    id,
+    label: entry.label,
+    subcategories: [...entry.subcategories],
+    sizes: id === 'tops' ? COMMON_SIZES : undefined,
+  }));
 }
 
 mkdirSync(OUT_DIR, { recursive: true });
@@ -593,6 +1478,8 @@ const files: Record<string, string[]> = {
   'duplicates.jsonl': dumpDuplicates(),
   'occasions.jsonl': dumpOccasions(),
   'suggestions.jsonl': dumpSuggestions(),
+  'pair-learning.jsonl': dumpPairLearning(),
+  'garment-pairs.jsonl': dumpGarmentPairs(),
 };
 
 // The wardrobe and pair scores live in the fixture rather than being rebuilt on
@@ -618,8 +1505,61 @@ for (const [name, lines] of Object.entries(dataFiles)) {
   console.log(`data/${name}: ${lines.length} cases`);
 }
 
+const PRESENTATION_OUT_DIR = join(
+  __dirname, '..', 'native', 'presentation', 'src', 'test', 'resources', 'parity'
+);
+mkdirSync(PRESENTATION_OUT_DIR, { recursive: true });
+
+const filtering = dumpGarmentFiltering();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'garment-filtering.jsonl'), filtering.lines.join('\n') + '\n');
+writeFileSync(
+  join(PRESENTATION_OUT_DIR, 'filtering-wardrobe.json'),
+  JSON.stringify(filtering.wardrobe, null, 2) + '\n'
+);
+console.log(`presentation/garment-filtering.jsonl: ${filtering.lines.length} cases`);
+
+const formTransitions = dumpFormTransitions();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'form-transitions.jsonl'), formTransitions.join('\n') + '\n');
+console.log(`presentation/form-transitions.jsonl: ${formTransitions.length} cases`);
+
+const normalization = dumpFormNormalization();
+writeFileSync(
+  join(PRESENTATION_OUT_DIR, 'form-normalization.jsonl'),
+  normalization.join('\n') + '\n'
+);
+console.log(`presentation/form-normalization.jsonl: ${normalization.length} cases`);
+
+const brands = dumpBrandSuggestions();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'brand-suggestions.jsonl'), brands.join('\n') + '\n');
+console.log(`presentation/brand-suggestions.jsonl: ${brands.length} cases`);
+
+const archiveValidation = dumpArchiveValidation();
+writeFileSync(
+  join(DATA_OUT_DIR, 'archive-validation.jsonl'),
+  archiveValidation.join('\n') + '\n'
+);
+console.log(`data/archive-validation.jsonl: ${archiveValidation.length} cases`);
+
+const detail = dumpGarmentDetail();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'garment-detail.jsonl'), detail.join('\n') + '\n');
+console.log(`presentation/garment-detail.jsonl: ${detail.length} cases`);
+
+const outfitFilters = dumpOutfitFilters();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'outfit-filters.jsonl'), outfitFilters.join('\n') + '\n');
+console.log(`presentation/outfit-filters.jsonl: ${outfitFilters.length} cases`);
+
+const analytics = dumpAnalyticsView();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'analytics-view.jsonl'), analytics.join('\n') + '\n');
+console.log(`presentation/analytics-view.jsonl: ${analytics.length} cases`);
+
+const catalogue = dumpCatalogue();
+writeFileSync(join(OUT_DIR, 'garment-catalogue.jsonl'), catalogue.join('\n') + '\n');
+console.log(`domain/garment-catalogue.jsonl: ${catalogue.length} cases`);
+
 const schemas = dumpSchemas();
 writeFileSync(join(DATA_OUT_DIR, 'schema-fresh.sql'), schemas.fresh + '\n');
 writeFileSync(join(DATA_OUT_DIR, 'schema-upgraded.sql'), schemas.upgraded + '\n');
+writeFileSync(join(DATA_OUT_DIR, 'schema-old-install.sql'), schemas.oldInstall + '\n');
 console.log(`data/schema-fresh.sql: ${schemas.fresh.split('\n').length} lines`);
 console.log(`data/schema-upgraded.sql: ${schemas.upgraded.split('\n').length} lines`);
+console.log(`data/schema-old-install.sql: ${schemas.oldInstall.split('\n').length} lines`);

@@ -5,12 +5,24 @@ import {
 } from './url-import-service';
 
 describe('normalizeImportUrl', () => {
+  // The service's normalizer is now the safety check in utils/url-safety, which
+  // has its own tests for every range it refuses. What is checked here is that
+  // the service really goes through it.
   it('adds https to bare hostnames', () => {
     expect(normalizeImportUrl('shop.mango.com/product')).toBe('https://shop.mango.com/product');
   });
 
   it('rejects unsupported protocols', () => {
-    expect(() => normalizeImportUrl('ftp://example.com/file')).toThrow('Only http and https URLs are supported.');
+    expect(() => normalizeImportUrl('ftp://example.com/file'))
+      .toThrow('Only http and https addresses can be imported.');
+  });
+
+  it('rejects an address on this device or its local network', () => {
+    // The import URL can arrive in a deep link, so it is not necessarily one the
+    // user chose -- and a phone sits inside the network these name.
+    for (const url of ['http://localhost:8080/x', 'http://192.168.1.1/', 'http://169.254.169.254/']) {
+      expect(() => normalizeImportUrl(url)).toThrow(/local network|device/);
+    }
   });
 });
 

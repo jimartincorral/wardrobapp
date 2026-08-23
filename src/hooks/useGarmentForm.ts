@@ -17,6 +17,20 @@ import type { Garment } from '../types';
 import type { SeasonOption } from '../constants/style-filters';
 import { CATEGORIES } from '../constants/categories';
 import { splitStructuredTags } from '../utils/style-tags';
+import { backgroundActionFor } from '../domain/garment-detail';
+import {
+  brandSuggestions as filterBrandSuggestions,
+  displayedPreviewUri as previewUriFor,
+  galleryItems as galleryItemsFor,
+  toggled,
+  withColorToggled,
+  withDetectedColor,
+  withImage,
+  withImagesReordered,
+  withImportedPreview,
+  withoutImageAt,
+  type GarmentFormState,
+} from '../domain/garment-form';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -153,7 +167,42 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
   }, []);
 
   const toggleArrayValue = useCallback(<T extends string>(values: T[], value: T) =>
-    values.includes(value) ? values.filter((item) => item !== value) : [...values, value], []);
+    toggled(values, value), []);
+
+  /** The photo-related slice of state, as the pure transitions see it. */
+  const imageState = useCallback((): GarmentFormState => ({
+    imageUris,
+    bgRemovedUris,
+    selectedImageIndex,
+    category,
+    subcategories,
+    tags,
+    seasons,
+    brand,
+    colorPalette,
+    size,
+  }), [
+    bgRemovedUris, brand, category, colorPalette, imageUris, seasons,
+    selectedImageIndex, size, subcategories, tags,
+  ]);
+
+  /**
+   * Toggle a colour in the palette, keeping it non-empty.
+   *
+   * The rule is in the domain module rather than beside the picker, so the port
+   * shares it instead of carrying a second copy.
+   */
+  const toggleColor = useCallback((color: string) => {
+    setColorPalette(current =>
+      withColorToggled({ ...imageState(), colorPalette: current }, color).colorPalette
+    );
+  }, [imageState]);
+
+  const applyImageState = useCallback((next: GarmentFormState) => {
+    setImageUris(next.imageUris);
+    setBgRemovedUris(next.bgRemovedUris);
+    setSelectedImageIndex(next.selectedImageIndex);
+  }, []);
 
   const replaceData = useCallback((nextData: Partial<GarmentFormData>) => {
     const normalized = normalizeFormData(nextData);
@@ -170,55 +219,24 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
   }, []);
 
   const applyImportedPreview = useCallback((preview: ImportedGarmentPreview) => {
-    setImageUris(preview.downloadedImageUris);
-    setBgRemovedUris(preview.downloadedImageUris.map(() => ''));
-    setSelectedImageIndex(0);
-    setBrand((current) => (current.trim() ? current : (preview.brand ?? '')));
-  }, []);
+    const next = withImportedPreview(imageState(), preview);
+    applyImageState(next);
+    setBrand(next.brand);
+  }, [applyImageState, imageState]);
 
   const reorderImages = useCallback((fromIndex: number, toIndex: number) => {
-    if (fromIndex === toIndex) return;
-
-    setImageUris((current) => {
-      const next = [...current];
-      const [movedImage] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, movedImage);
-      return next;
-    });
-    setBgRemovedUris((current) => {
-      const next = [...current];
-      const [movedImage] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, movedImage);
-      return next;
-    });
-    setSelectedImageIndex(toIndex);
-  }, []);
+    applyImageState(withImagesReordered(imageState(), fromIndex, toIndex));
+  }, [applyImageState, imageState]);
 
   const removeImageAt = useCallback((index: number) => {
-    setImageUris((current) => {
-      const next = current.filter((_, currentIndex) => currentIndex !== index);
-      setSelectedImageIndex((selected) => {
-        if (next.length === 0) return 0;
-        if (selected > index) return selected - 1;
-        return Math.min(selected, next.length - 1);
-      });
-      return next;
-    });
-    setBgRemovedUris((current) => current.filter((_, currentIndex) => currentIndex !== index));
-  }, []);
+    // One pure call rather than a setter nested inside another setter's updater:
+    // updaters must be pure, and React may run one more than once.
+    applyImageState(withoutImageAt(imageState(), index));
+  }, [applyImageState, imageState]);
 
   const setOrAppendImage = useCallback((uri: string, replaceCurrent = false) => {
-    if (replaceCurrent && imageUris[selectedImageIndex]) {
-      setImageUris((current) => current.map((item, index) => (index === selectedImageIndex ? uri : item)));
-      setBgRemovedUris((current) => current.map((item, index) => (index === selectedImageIndex ? '' : item)));
-      return;
-    }
-
-    const nextIndex = imageUris.length;
-    setImageUris((current) => [...current, uri]);
-    setBgRemovedUris((current) => [...current, '']);
-    setSelectedImageIndex(nextIndex);
-  }, [imageUris, selectedImageIndex]);
+    applyImageState(withImage(imageState(), uri, replaceCurrent));
+  }, [applyImageState, imageState]);
 
   const applyImageSuggestions = useCallback(async (uri: string) => {
     if (!isGarmentAnalysisAvailable()) return;
@@ -232,9 +250,7 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
       // Move the detected colour to the front rather than replacing the
       // selection, so anything the user already picked is preserved.
       setColorPalette(current =>
-        current.length > 0
-          ? [detectedColor, ...current.filter(color => color !== detectedColor)]
-          : [detectedColor]
+        withDetectedColor({ ...imageState(), colorPalette: current }, detectedColor).colorPalette
       );
     } finally {
       setAnalyzingImage(false);
@@ -337,11 +353,10 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
     setBgRemovedUris((current) => current.map((item, index) => (index === selectedImageIndex ? '' : item)));
   }, [selectedImageIndex]);
 
-  const normalizedBrand = brand.trim().toLowerCase();
-  const filteredBrandSuggestions = useMemo(() => brandSuggestions
-    .filter((existing) => (normalizedBrand ? existing.toLowerCase().includes(normalizedBrand) : true))
-    .filter((existing) => existing.toLowerCase() !== normalizedBrand)
-    .slice(0, 8), [brandSuggestions, normalizedBrand]);
+  const filteredBrandSuggestions = useMemo(
+    () => filterBrandSuggestions(brandSuggestions, brand),
+    [brandSuggestions, brand]
+  );
 
   return {
     data: {
@@ -356,17 +371,21 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
       size,
     } satisfies GarmentFormData,
     categoryData: CATEGORIES[category as keyof typeof CATEGORIES],
-    galleryItems: imageUris.map((uri, index) => ({ uri: bgRemovedUris[index] || uri, original: uri })),
+    galleryItems: galleryItemsFor(imageState()),
     selectedImageIndex,
     currentImageUri: imageUris[selectedImageIndex] ?? null,
-    currentBgRemovedUri: bgRemovedUris[selectedImageIndex] ?? null,
-    // A separate with-background original exists only when the slot's image
-    // differs from its cut-out. For cut-out-only garments the two are the same
-    // path, so background removal can't be undone/re-run.
-    currentHasOriginal:
-      Boolean(imageUris[selectedImageIndex]) &&
-      imageUris[selectedImageIndex] !== bgRemovedUris[selectedImageIndex],
-    displayedPreviewUri: bgRemovedUris[selectedImageIndex] || imageUris[selectedImageIndex] || null,
+    // What the background control should offer, from the same function the detail
+    // screen asks. This replaced two conditions checked side by side in the form
+    // -- one more place for them to disagree -- and one of them, "is there an
+    // original", is true for a photo that has no cut-out at all.
+    //
+    // Null means neither: for a cut-out-only garment the photo and its cut-out are
+    // the same path, so there is nothing to undo to and nothing left to remove.
+    backgroundAction: backgroundActionFor(
+      imageUris[selectedImageIndex],
+      bgRemovedUris[selectedImageIndex]
+    ),
+    displayedPreviewUri: previewUriFor(imageState()),
     showBrandSuggestions,
     setShowBrandSuggestions,
     filteredBrandSuggestions,
@@ -383,6 +402,7 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
     setColorPalette,
     setSize,
     toggleArrayValue,
+    toggleColor,
     replaceData,
     applyImportedPreview,
     reorderImages,

@@ -58,6 +58,56 @@ export function resolveImageRef(ref: string, imageDirectory: string): string {
   return `${imageDirectory}${basename(ref)}`;
 }
 
+/**
+ * True when a reference points at a photo the app already owns.
+ *
+ * The distinction that keeps a cleanup from deleting live data. The native
+ * background-removal module writes its result into the app's files root, and that
+ * intermediate is disposable once it has been copied into place -- but the same
+ * reference can also be an already-stored cut-out, arriving from a garment being
+ * edited, and deleting *that* would take the garment's photo with it.
+ *
+ * `imageDirectory` is passed in rather than read, exactly as `resolveImageRef`
+ * takes it: this file knows the layout, not where the filesystem is mounted.
+ */
+export function isStoredGarmentImage(ref: string, imageDirectory: string): boolean {
+  if (!ref || !imageDirectory) return false;
+  if (!ref.startsWith(imageDirectory)) return false;
+
+  // Compared against the directory rather than by finding the folder name
+  // anywhere in the path, so a temp file that merely mentions it does not pass --
+  // and photos are stored flat, so anything nested is not one of ours.
+  return !ref.slice(imageDirectory.length).includes('/');
+}
+
+/**
+ * References a garment used to hold and no longer does.
+ *
+ * Worked out by comparing stored *filenames* rather than the references as given,
+ * because the same photo can be named either way -- an absolute path from an older
+ * build, a resolved `file://` URI from a read, a bare filename from the database --
+ * and a mismatch in either direction is a quiet failure: report a file that is
+ * still in use and it gets deleted out from under the garment; miss one and it
+ * stays on the phone with nothing pointing at it.
+ *
+ * Only names files, so a caller can decide when it is safe to act -- which is
+ * after the row is written, never before.
+ */
+export function orphanedImageRefs(previous: string[], kept: string[]): string[] {
+  const keptNames = new Set(kept.filter(Boolean).map(toStoredImageRef));
+  const seen = new Set<string>();
+
+  return previous.filter(ref => {
+    if (!ref) return false;
+
+    const name = toStoredImageRef(ref);
+    if (keptNames.has(name) || seen.has(name)) return false;
+
+    seen.add(name);
+    return true;
+  });
+}
+
 /** True when a reference still carries a directory, i.e. predates the rewrite. */
 export function isLegacyAbsoluteImageRef(ref: string): boolean {
   return Boolean(ref) && !NON_FILE_REF.test(ref) && ref.includes('/');

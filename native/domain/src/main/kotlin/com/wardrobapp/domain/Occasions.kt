@@ -119,3 +119,34 @@ fun occasionsFor(category: String, subcategories: List<String>?): List<Occasion>
 }
 
 fun Garment.occasions(): List<Occasion> = occasionsFor(category, effectiveSubcategories)
+
+/**
+ * Seasons a garment's type implies.
+ *
+ * Only where the type genuinely says something -- sandals are summer, a parka is
+ * winter -- and nothing otherwise, so a caller can tell "no opinion" from
+ * "all-season". Used to fill the form in for someone who has not picked seasons
+ * themselves; an explicit choice is never overwritten.
+ */
+private val SUBCATEGORY_SEASONS: Map<String, List<Season>> = mapOf(
+    "Shorts" to listOf(Season.SUMMER),
+    "Tank Top" to listOf(Season.SUMMER),
+    "Sandals" to listOf(Season.SUMMER),
+    "Sundress" to listOf(Season.SUMMER),
+    "Coat" to listOf(Season.WINTER),
+    "Parka" to listOf(Season.WINTER),
+    "Thermal" to listOf(Season.WINTER),
+    "Sweater" to listOf(Season.FALL, Season.WINTER),
+    "Hoodie" to listOf(Season.FALL, Season.WINTER),
+    "Boots" to listOf(Season.FALL, Season.WINTER),
+    "Windbreaker" to listOf(Season.SPRING, Season.FALL),
+    "Cardigan" to listOf(Season.SPRING, Season.FALL),
+    "Robe" to listOf(Season.FALL, Season.WINTER),
+)
+
+/** Seasons implied by the chosen types, in the app's own season order. */
+fun seasonsForSubcategories(subcategories: List<String>): List<Season> {
+    val implied = subcategories.flatMap { SUBCATEGORY_SEASONS[it] ?: emptyList() }.toSet()
+
+    return Season.entries.filter { it in implied }
+}

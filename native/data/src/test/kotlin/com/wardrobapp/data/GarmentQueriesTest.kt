@@ -38,14 +38,13 @@ class GarmentQueriesTest {
         createdAt: String = "2026-01-01T00:00:00.000Z",
         imageUri: String = "$id.jpg",
     ) {
-        query(
+        execute(
             """
             INSERT INTO garments (
                 id, image_uri, image_uri_nobg, image_uris, image_uris_nobg, category,
                 subcategory, subcategories, tags, brand, color_primary, color_secondary,
                 color_palette, size, purchase_date, is_available, created_at, updated_at
             ) VALUES (?, ?, NULL, ?, '[]', ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, ?, ?, ?)
-            RETURNING id
             """.trimIndent(),
             listOf(
                 id, imageUri, """["$imageUri"]""", category,
@@ -202,15 +201,14 @@ class GarmentQueriesTest {
         eachSchema { schema, driver, queries ->
             // Not something the current app writes, but rows like this exist and
             // the reader has to cope.
-            driver.query(
+            driver.execute(
                 """
                 INSERT INTO garments (id, image_uri, category, tags, subcategories,
                                       color_palette, color_primary, is_available,
                                       created_at, updated_at)
                 VALUES ('old', 'a.jpg', 'tops', 'winter, leather', 'Boots, Sneakers',
                         '#8B4513, #000000', '#8B4513', 1, '2026-01-01', '2026-01-01')
-                RETURNING id
-                """.trimIndent()
+                    """.trimIndent()
             )
 
             val garment = queries.garment("old")
@@ -226,12 +224,11 @@ class GarmentQueriesTest {
         // Only the upgraded schema permits this, and it is the case Room's schema
         // validation would have rejected outright.
         JdbcSqlDriver.fromSchemaFixture("schema-upgraded.sql").use { driver ->
-            driver.query(
+            driver.execute(
                 """
                 INSERT INTO garments (id, image_uri, category, color_primary, is_available)
                 VALUES ('no-dates', 'a.jpg', 'tops', '#000000', 1)
-                RETURNING id
-                """.trimIndent()
+                    """.trimIndent()
             )
 
             val garment = driver.let { GarmentQueries(it, directory).garment("no-dates") }

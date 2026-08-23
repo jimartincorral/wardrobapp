@@ -5,8 +5,13 @@ import { OutfitPreview } from '@/src/components/OutfitPreview';
 import { RatingStars } from '@/src/components/RatingStars';
 import { generateSuggestions } from '@/src/services/suggestion-engine';
 import { createOutfit, rateOutfit, getAllOutfits, setOutfitPinned } from '@/src/services/outfit-service';
-import { SEASON_OPTIONS, OCCASION_OPTIONS } from '@/src/constants/style-filters';
-import type { SeasonOption, OccasionOption } from '@/src/constants/style-filters';
+import {
+  NO_FILTERS,
+  occasionChips,
+  seasonChips,
+  withOccasionSelected,
+  withSeasonToggled,
+} from '@/src/domain/outfit-filters';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
 import { useTranslation } from '@/src/i18n';
 import type { Garment, Outfit } from '@/src/types';
@@ -14,12 +19,6 @@ import { useTheme } from '@/src/theme';
 import type { ThemeColors } from '@/src/theme';
 
 interface Suggestion { garments: Garment[]; score: number; name: string; }
-
-function toggleArrayValue<T>(values: T[], value: T): T[] {
-  return values.includes(value)
-    ? values.filter(item => item !== value)
-    : [...values, value];
-}
 
 export default function OutfitsScreen() {
   const router = useRouter();
@@ -30,8 +29,11 @@ export default function OutfitsScreen() {
   const [savedOutfits, setSavedOutfits] = useState<Outfit[]>([]);
   const [loading, setLoading] = useState(false);
   const [ratings, setRatings] = useState<Record<number, number>>({});
-  const [seasonFilter, setSeasonFilter] = useState<SeasonOption[]>([]);
-  const [occasionFilter, setOccasionFilter] = useState<OccasionOption | undefined>();
+  // Which chips are on, and what tapping one does, is decided in the domain
+  // layer -- shared with the Kotlin port through a parity fixture. The screen
+  // used to work out "is this chip active" twice per chip, once for its
+  // background and once for its text.
+  const [filters, setFilters] = useState(NO_FILTERS);
   // Each suggestion is saved as at most one outfit, keyed by its position in the
   // current batch. Held in a ref (not state) and keyed by the in-flight promise
   // so two quick taps can't both see "not created yet" and each save a copy.
@@ -76,10 +78,7 @@ export default function OutfitsScreen() {
     try {
       setSuggestions(await generateSuggestions({
         count: 3,
-        preferences: {
-          seasons: seasonFilter,
-          occasion: occasionFilter,
-        },
+        preferences: { seasons: filters.seasons, occasion: filters.occasion },
       }));
     }
     catch (e) { console.error(e); }
@@ -119,20 +118,14 @@ export default function OutfitsScreen() {
 
       <Text style={styles.filterLabel}>{t('outfits.filters.season')}</Text>
       <View style={styles.filterRow}>
-        {[undefined, ...SEASON_OPTIONS].map(value => (
+        {seasonChips(filters).map(chip => (
           <Pressable
-            key={`season-${value ?? 'any'}`}
-            style={[styles.filterChip, ((value == null && seasonFilter.length === 0) || (value != null && seasonFilter.includes(value))) && styles.filterChipActive]}
-            onPress={() => {
-              if (value == null) {
-                setSeasonFilter([]);
-                return;
-              }
-              setSeasonFilter(current => toggleArrayValue(current, value));
-            }}
+            key={`season-${chip.value ?? 'any'}`}
+            style={[styles.filterChip, chip.active && styles.filterChipActive]}
+            onPress={() => setFilters(current => withSeasonToggled(current, chip.value))}
           >
-            <Text style={[styles.filterChipText, ((value == null && seasonFilter.length === 0) || (value != null && seasonFilter.includes(value))) && styles.filterChipTextActive]}>
-              {value ? t(`outfits.filterValues.season.${value}`) : t('outfits.filters.any')}
+            <Text style={[styles.filterChipText, chip.active && styles.filterChipTextActive]}>
+              {chip.value ? t(`outfits.filterValues.season.${chip.value}`) : t('outfits.filters.any')}
             </Text>
           </Pressable>
         ))}
@@ -141,14 +134,14 @@ export default function OutfitsScreen() {
 
       <Text style={styles.filterLabel}>{t('outfits.filters.occasion')}</Text>
       <View style={styles.filterRow}>
-        {[undefined, ...OCCASION_OPTIONS].map(value => (
+        {occasionChips(filters).map(chip => (
           <Pressable
-            key={`occasion-${value ?? 'any'}`}
-            style={[styles.filterChip, occasionFilter === value && styles.filterChipActive]}
-            onPress={() => setOccasionFilter(occasionFilter === value ? undefined : value)}
+            key={`occasion-${chip.value ?? 'any'}`}
+            style={[styles.filterChip, chip.active && styles.filterChipActive]}
+            onPress={() => setFilters(current => withOccasionSelected(current, chip.value))}
           >
-            <Text style={[styles.filterChipText, occasionFilter === value && styles.filterChipTextActive]}>
-              {value ? t(`outfits.filterValues.occasion.${value}`) : t('outfits.filters.any')}
+            <Text style={[styles.filterChipText, chip.active && styles.filterChipTextActive]}>
+              {chip.value ? t(`outfits.filterValues.occasion.${chip.value}`) : t('outfits.filters.any')}
             </Text>
           </Pressable>
         ))}

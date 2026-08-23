@@ -52,8 +52,10 @@ export async function generateSuggestions(
   options: GenerateSuggestionsOptions = {}
 ): Promise<ScoredOutfit[]> {
   const garments = await getAllGarments({ available_only: true });
-  if (garments.length === 0) return [];
 
+  // No early return for an empty wardrobe: buildSuggestions already answers with
+  // nothing, and a guard here would be a branch no test could tell apart from
+  // the algorithm doing its job.
   const getPairScore = await loadPairScores();
 
   return buildSuggestions(

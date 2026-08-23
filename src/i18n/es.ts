@@ -177,6 +177,13 @@ const es = {
       importTitle: 'Importación por URL',
       errorTitle: 'Error',
     },
+    sharedLink: {
+      title: '¿Importar desde un enlace?',
+      body: 'Algo ha pedido a esta app cargar una prenda desde %{host}. Todavía no se ha descargado nada.',
+      confirm: 'Cargarlo',
+      cancel: 'Ahora no',
+      refused: 'Ese enlace apunta a %{host}, que está en este dispositivo o en su red local, así que no se ha abierto.',
+    },
     bgRemoval: {
       errorTitle: 'Eliminación de Fondo',
       failed: 'No se pudo eliminar el fondo',

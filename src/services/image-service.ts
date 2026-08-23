@@ -1,10 +1,21 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Image } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { GARMENT_IMAGE_DIRNAME } from '../utils/image-paths';
+import { GARMENT_IMAGE_DIRNAME, isStoredGarmentImage } from '../utils/image-paths';
+import { safeImportUrl } from '../utils/url-safety';
 
 const MAX_DIMENSION = 800;
 const JPEG_QUALITY = 0.7;
+
+/**
+ * How large a downloaded image may be.
+ *
+ * A URL import fetches whatever the page names, and the page is not the user's.
+ * `downloadAsync` streams straight to disk with no limit of its own, so a link
+ * could otherwise fill the phone's storage. Checked after the fact, which bounds
+ * what is *kept*: expo-file-system offers no way to stop a download partway.
+ */
+const MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
 
 let FileSystem: typeof import('expo-file-system/legacy') | null = null;
 
@@ -80,6 +91,10 @@ export async function compressAndSaveImage(sourceUri: string): Promise<string> {
  * Download a remote image into the app cache so it can flow through native image tooling.
  */
 export async function downloadRemoteImageToTempFile(sourceUrl: string): Promise<string> {
+  // Checked here as well as by the caller: this is exported, and the URL it is
+  // given comes out of a page's HTML rather than from the user.
+  safeImportUrl(sourceUrl);
+
   await ensureImportTempDir();
   const fs = getFileSystem();
 
@@ -95,7 +110,16 @@ export async function downloadRemoteImageToTempFile(sourceUrl: string): Promise<
   });
 
   if (result.status && result.status >= 400) {
+    await deleteImage(result.uri).catch(() => {});
     throw new Error(`Image download failed (${result.status}).`);
+  }
+
+  const size = await getImageSize(result.uri);
+  if (size > MAX_DOWNLOAD_BYTES) {
+    // Deleted rather than kept: it is already on disk, and leaving it there is
+    // the thing the cap exists to prevent.
+    await deleteImage(result.uri).catch(() => {});
+    throw new Error('That image is too large to import.');
   }
 
   return result.uri;
@@ -122,6 +146,15 @@ export async function saveBgRemovedImage(sourceUri: string): Promise<string> {
   const filename = `${Crypto.randomUUID()}_nobg.png`;
   const destUri = `${getImageDir()}${filename}`;
   await fs.copyAsync({ from: manipulated.uri, to: destUri });
+
+  // The native module writes its result into the app's files root and nothing
+  // else ever deletes it, so every removal used to leave a full-size PNG behind
+  // for good. Only when the source is not itself a stored photo: during an edit
+  // this is handed an already-saved cut-out, and deleting that would take the
+  // garment's photo with it.
+  if (!isStoredGarmentImage(sourceUri, getImageDir())) {
+    await deleteImage(sourceUri);
+  }
 
   return destUri;
 }

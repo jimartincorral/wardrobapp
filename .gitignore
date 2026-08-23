@@ -43,6 +43,8 @@ cmdline-toolslatest/
 !.env.example
 google-services.json
 GoogleService-Info.plist
+# Expo's EAS signing credentials, which reference a keystore and its passwords.
+credentials.json
 
 # ──────────────────────────────────────────────────────────────
 # Build artifacts in public/
