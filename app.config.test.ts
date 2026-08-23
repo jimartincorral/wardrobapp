@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
 import appJson from './app.json';
 
@@ -19,8 +19,22 @@ const appConfig = require('./app.config.js') as (input: {
 
 const base = () => ({ config: JSON.parse(JSON.stringify(appJson.expo)) });
 
-afterEach(() => {
+// Cleared before every test, not merely after: GITHUB_RUN_NUMBER is already set
+// when this suite runs on CI, so a test that means "no run number" has to say so
+// rather than inherit one. Restored afterwards so nothing else in the process
+// sees a doctored environment.
+const ambientRunNumber = process.env.GITHUB_RUN_NUMBER;
+
+beforeEach(() => {
   delete process.env.GITHUB_RUN_NUMBER;
+});
+
+afterAll(() => {
+  if (ambientRunNumber === undefined) {
+    delete process.env.GITHUB_RUN_NUMBER;
+  } else {
+    process.env.GITHUB_RUN_NUMBER = ambientRunNumber;
+  }
 });
 
 describe('appConfig', () => {
