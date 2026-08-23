@@ -75,3 +75,8 @@ Thumbs.db
 # (kept for compatibility with expo-cli sync)
 # expo-env.d.ts is already listed above
 # @end expo-cli
+# Gradle
+native/.gradle/
+native/build/
+native/*/build/
+native/local.properties

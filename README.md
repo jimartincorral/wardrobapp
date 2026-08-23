@@ -8,8 +8,8 @@ A local-first wardrobe and outfit planner for **Android**, built with React Nati
 
 - **Garment catalog** — photos, category and type, colour palette, tags, brand, size. Photos are resized to 800px and re-encoded at 70% JPEG on import to keep the database and backups small.
 - **On-device background removal** — strips the background from a garment photo via [`@six33/react-native-bg-removal`](https://www.npmjs.com/package/@six33/react-native-bg-removal). Needs the native module linked, so a development or release build rather than Expo Go.
-- **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged using a weighted score (0.6 × tag Jaccard + 0.3 × colour similarity + 0.1 × size match).
-- **Outfit suggestions** — an epsilon-greedy engine combining category templates, colour harmony, season filters, and pair scores learned from your ratings.
+- **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged by a weighted average of tag overlap (Jaccard, 0.6), colour similarity (0.3) and size match (0.1). Signals with nothing to compare abstain rather than scoring zero, so an untagged garment can still be recognised as a duplicate.
+- **Outfit suggestions** — an epsilon-greedy engine combining category templates, colour harmony judged by hue, season and occasion fit, and pair scores learned from your ratings.
 - **Wardrobe analytics** — breakdowns by category, subcategory, colour and brand, plus garment lifespan for items you've marked unavailable.
 - **Backup and restore** — a single `.zip` containing the SQLite database and every photo, written to a folder you pick. Restore stages and verifies the archive before replacing anything, and rolls back if it can't finish.
 - **English and Spanish** — full UI localization, selectable in Settings.
@@ -84,7 +84,12 @@ src/
                           image paths, garment fields, dates, style tags
   constants/  i18n/  theme/  types/
 assets/                   App icon and splash
-scripts/                  build-apk.ps1
+scripts/                  build-apk.ps1, dump-domain-parity.ts
+native/                   The Kotlin/Android port (see Architecture)
+  domain/                   Ported algorithms, plain Kotlin/JVM — no Android SDK
+                            needed to build or test
+  data/                     Row and photo-reference mapping into domain types
+  parity-testing/           Shared fixture loading for the parity suites
 ```
 
 ## Architecture
@@ -95,7 +100,33 @@ Three layers, with a deliberate boundary between them:
 - **`src/utils/`, `src/constants/`, `src/types/`** — pure helpers the domain layer builds on (colour distance, tag similarity, occasion derivation, photo-reference handling).
 - **`src/services/`, `src/db/`, `src/hooks/`, `app/`** — everything that talks to SQLite, the filesystem, the Storage Access Framework or the UI. The services that wrap a domain algorithm are thin: they load data, call the algorithm, and re-export its public API so callers see one module.
 
-The split is deliberate: the domain layer is the part that would survive a rewrite of everything around it.
+The split is deliberate: the domain layer is the part that would survive a rewrite of everything around it — which is now underway.
+
+### The native port
+
+`native/` holds the Kotlin port, the first phase of moving this app to native Android. Every module there is a plain Kotlin/JVM one, deliberately *not* an Android module, so the whole thing builds and tests with nothing but a JDK:
+
+```bash
+cd native && ./gradlew test
+```
+
+| Module | What |
+|---|---|
+| `:domain` | The algorithms — colour, tags, occasions, duplicates, suggestions |
+| `:data` | Reading the database — row and photo-reference mapping, plus the read-only queries |
+| `:parity-testing` | Shared fixture-loading for the parity suites |
+
+The Android-specific layers (the filesystem, Compose) arrive as separate modules later. Keeping the pure parts pure is what lets everything so far be verified on any machine — and `:data` is the code that decides whether an *existing* wardrobe opens correctly, so it is the code most worth being able to test anywhere.
+
+`:data` reaches SQLite through a one-method `SqlDriver` interface rather than depending on `androidx.sqlite`. On Android that wraps a `SupportSQLiteDatabase`; in the tests it wraps JDBC. Both run the same SQL against the same schema, which is what lets the read paths be exercised without an emulator.
+
+The schema those tests run against is emitted from `src/db/schema.ts` as `schema-fresh.sql` and `schema-upgraded.sql`, so the port is tested against the schema the app really applies rather than a copy that can drift. Every read-path test runs against both, because the two are not the same shape (see Limitations).
+
+The React Native app is untouched and keeps shipping; nothing is removed until the native app reaches parity.
+
+Because it is a port rather than a rewrite, the tests ask whether the Kotlin **agrees with the TypeScript it came from**, not merely whether it passes tests written for it. `npm run parity:dump` records the TypeScript answers for a fixed corpus — 1156 colour pairs, 169 tag-set pairs, 60 duplicate scenarios, 700 category/subcategory pairings, 432 engine runs, 48 photo references and 45 row shapes — and the Kotlin tests replay it. The engine is compared draw for draw: both sides step the same linear congruential generator, so an agreeing outfit list means every intermediate choice matched — the same template, epsilon branch, tie-break and roulette slot.
+
+Drift is caught from both sides. CI regenerates the fixtures and fails if they moved, so changing a TypeScript algorithm without regenerating cannot leave the port pinned to old behaviour; and the Kotlin tests fail if the fixtures move without the Kotlin following. After changing either side, run `npm run parity:dump` and commit the result.
 
 ## Testing
 
@@ -105,14 +136,26 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-17 suites, 134 tests, covering the suggestion engine, duplicate detection, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities. Both `typecheck` and `test` run in CI on every pull request.
+19 suites, 182 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
+
+The Kotlin port adds 33 more:
+
+```bash
+cd native && ./gradlew test
+```
+
+`typecheck`, `test` and the Kotlin domain tests all run in CI on every pull request.
+
+Domain algorithms are checked by mutation: each behaviour the tests claim to protect is removed in turn, and the intended test must fail. A test that passes without the code it covers is not a test.
 
 ## Limitations
 
 - **Android only.** Web and iOS support were removed — the web build had its own storage layer that could silently lose data, and iOS was never finished.
+- **The native port is early.** `native/domain` carries the algorithms and `native/data` the row mapping, but nothing yet opens a database or draws a screen, so the shipped APK is still the React Native app.
+- **The `garments` schema is not uniform.** `created_at` and `updated_at` are `NOT NULL` on a fresh install but nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist, so readers must tolerate both — and it is why the native data layer will use plain SQL rather than Room, whose schema validation would reject one of them.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **Released APKs are debug-signed**, so they can't be upgraded in place from a properly signed build later.
-- **The schema is applied idempotently** at startup from raw SQL in `src/db/client.ts` — `CREATE TABLE IF NOT EXISTS` plus additive `ALTER`s. There's no `PRAGMA user_version` yet. Keyed, run-once data migrations live in `src/db/migrations.ts`.
+- **The schema is applied idempotently** at startup from `src/db/schema.ts` — `CREATE TABLE IF NOT EXISTS`, then additive `ALTER`s, then the indexes over them. There's no `PRAGMA user_version` yet. Keyed, run-once data migrations live in `src/db/migrations.ts`.
 - **No wear log.** The app records outfit ratings, not what you wore on a given day, so there is no cost-per-wear or wear-trend reporting.
 
 ## Contributing

@@ -73,4 +73,29 @@ describe('normalizeGarmentRow image resolution', () => {
   it('prefers a resolved background-removed image for display', async () => {
     expect(getGarmentDisplayImage(normalizeGarmentRow(row, DIR))).toBe(`${DIR}front_nobg.png`);
   });
+
+  it('coerces a non-string scalar column rather than passing it through', () => {
+    // The row is `any`, so a number can reach a field typed `string | null`.
+    // duplicate-detection calls `size?.trim()`, and optional chaining guards
+    // null but not a missing method, so a numeric size used to throw.
+    const garment = normalizeGarmentRow(
+      { id: 7, category: 'tops', image_uri: 'a.jpg', size: 10, brand: 99 },
+      ''
+    );
+
+    expect(garment.id).toBe('7');
+    expect(garment.size).toBe('10');
+    expect(garment.brand).toBe('99');
+    expect(() => garment.size?.trim()).not.toThrow();
+  });
+
+  it('keeps an absent scalar column absent', () => {
+    const garment = normalizeGarmentRow(
+      { id: 'g', category: 'tops', image_uri: 'a.jpg', size: null },
+      ''
+    );
+
+    expect(garment.size).toBeNull();
+    expect(garment.brand).toBeNull();
+  });
 });

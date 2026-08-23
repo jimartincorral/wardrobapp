@@ -36,6 +36,20 @@ function uniqueCaseInsensitive(values: string[]): string[] {
 }
 
 /**
+ * Coerce a scalar text column, preserving absence.
+ *
+ * These columns used to be spread straight from the row, so a column holding a
+ * number reached callers as a number in a field the type declares as
+ * `string | null`. `size` is the one that bites: duplicate detection calls
+ * `size?.trim()`, and `?.` guards null but not a missing method, so a numeric
+ * size threw `TypeError: size?.trim is not a function`. Absence stays absence --
+ * only non-null non-strings are coerced.
+ */
+function asText(value: unknown): string | null {
+  return value === null || value === undefined ? null : String(value);
+}
+
+/**
  * Turn a database row into a `Garment`.
  *
  * Pure: `imageDirectory` is supplied by the caller rather than looked up here,
@@ -76,6 +90,14 @@ export function normalizeGarmentRow(row: any, imageDirectory: string): Garment {
 
   return {
     ...row,
+    // Scalar text columns are normalized rather than inherited from the spread:
+    // the row is `any`, so nothing else stops a number reaching a string field.
+    id: asText(row.id) ?? '',
+    category: asText(row.category) ?? '',
+    brand: asText(row.brand),
+    size: asText(row.size),
+    purchase_date: asText(row.purchase_date),
+    unavailable_date: asText(row.unavailable_date),
     image_uri: resolve(image_uri),
     image_uri_nobg: image_uri_nobg ? resolve(image_uri_nobg) : image_uri_nobg,
     image_uris: resolvedUris,

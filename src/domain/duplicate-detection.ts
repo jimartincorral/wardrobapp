@@ -24,7 +24,35 @@ export interface DuplicateCandidate {
   size?: string | null;
 }
 
-export const DUPLICATE_THRESHOLD = 0.81;
+/**
+ * Score above which a garment is reported as a likely duplicate.
+ *
+ * Lower than the old 0.81 because the score is now a weighted *average* over
+ * the signals that have data, rather than a sum whose maximum depended on how
+ * much the user happened to fill in. At 0.81 an exact duplicate with no tags
+ * peaked at 0.40 and could never be reported at all.
+ */
+export const DUPLICATE_THRESHOLD = 0.65;
+
+/** One contribution to a duplicate score; a null score means "no data". */
+type SignalTerm = { weight: number; score: number | null };
+
+/**
+ * Blend the signals that have something to say, ignoring the ones that do not.
+ *
+ * Weighting absent data as zero is what made the old score unreachable: with no
+ * tags recorded, the tag term contributed nothing but still consumed 0.6 of the
+ * available weight, capping an exact duplicate at 0.40 against a 0.81 threshold.
+ * Renormalising over the active terms means an unanswered question lowers
+ * confidence rather than arguing against a match.
+ */
+function weightedAverage(terms: SignalTerm[]): number | null {
+  const active = terms.filter((t): t is { weight: number; score: number } => t.score !== null);
+  const totalWeight = active.reduce((sum, t) => sum + t.weight, 0);
+  if (totalWeight === 0) return null;
+
+  return active.reduce((sum, t) => sum + t.weight * t.score, 0) / totalWeight;
+}
 
 /**
  * Score a candidate against garments already in the wardrobe.
@@ -40,30 +68,43 @@ export function findDuplicatesAmong(
   const matches: DuplicateMatch[] = [];
 
   for (const garment of existing) {
-    const tagSim = jaccardSimilarity(newGarment.tags, garment.tags);
-    const incomingPalette = newGarment.color_palette?.length ? newGarment.color_palette : [newGarment.color_primary];
-    const existingPalette = getGarmentColorPalette(garment);
-    const colorSim = Math.max(
-      ...incomingPalette.flatMap(source => existingPalette.map(target => colorSimilarity(source, target)))
+    // Compare primary against primary. Taking the best match across the whole
+    // palette cross-product meant any shared entry pinned this to 1.0 -- and
+    // '#000000' is the schema default, so a red garment and a blue one that both
+    // happened to list black scored as identical in colour.
+    const colorSim = colorSimilarity(
+      newGarment.color_primary,
+      getGarmentColorPalette(garment)[0] ?? garment.color_primary
     );
-    const sizeMatch = newGarment.size && garment.size
-      ? (newGarment.size.toLowerCase() === garment.size.toLowerCase() ? 1 : 0)
-      : 0;
 
-    const score = 0.6 * tagSim + 0.3 * colorSim + 0.1 * sizeMatch;
+    // A blank size is not a size. Without the trim, '   ' counted as recorded
+    // and scored a *mismatch* against a real size -- absence arguing against a
+    // match, which is exactly what the abstention below exists to prevent.
+    const bothSizesKnown = Boolean(newGarment.size?.trim() && garment.size?.trim());
+    const sizeMatch = bothSizesKnown
+      ? (newGarment.size!.trim().toLowerCase() === garment.size!.trim().toLowerCase() ? 1 : 0)
+      : null;
 
-    if (score > threshold) {
-      const reasons: string[] = [];
-      if (tagSim > 0.5) reasons.push('duplicateReasons.similarTags');
-      if (colorSim > 0.7) reasons.push('duplicateReasons.similarColor');
-      if (sizeMatch) reasons.push('duplicateReasons.sameSize');
+    const tagSim = jaccardSimilarity(newGarment.tags, garment.tags);
 
-      matches.push({
-        garment,
-        score,
-        reason: reasons.join(', ') || 'duplicateReasons.overallSimilarity',
-      });
-    }
+    const score = weightedAverage([
+      { weight: 0.6, score: tagSim },
+      { weight: 0.3, score: colorSim },
+      { weight: 0.1, score: sizeMatch },
+    ]);
+
+    if (score === null || score <= threshold) continue;
+
+    const reasons: string[] = [];
+    if (tagSim !== null && tagSim > 0.5) reasons.push('duplicateReasons.similarTags');
+    if (colorSim > 0.7) reasons.push('duplicateReasons.similarColor');
+    if (sizeMatch === 1) reasons.push('duplicateReasons.sameSize');
+
+    matches.push({
+      garment,
+      score,
+      reason: reasons.join(', ') || 'duplicateReasons.overallSimilarity',
+    });
   }
 
   return matches.sort((a, b) => b.score - a.score);
