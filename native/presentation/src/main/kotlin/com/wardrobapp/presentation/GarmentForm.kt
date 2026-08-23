@@ -114,6 +114,20 @@ data class GarmentFormState(
     )
 
     /**
+     * Toggle a colour in the palette.
+     *
+     * A garment always has at least one colour, so removing the last one puts the
+     * default back rather than leaving the palette empty. The React Native screen
+     * did this inline next to the picker; having it here means one rule rather
+     * than one per screen.
+     */
+    fun withColorToggled(color: String): GarmentFormState {
+        val palette = colorPalette.toggled(color)
+
+        return copy(colorPalette = palette.ifEmpty { listOf(DEFAULT_COLOR) })
+    }
+
+    /**
      * Put a detected colour first, keeping what the user already picked.
      *
      * Replacing the palette would discard a deliberate choice; a detection is a

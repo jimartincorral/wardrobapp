@@ -3,6 +3,7 @@ package com.wardrobapp.app
 import android.content.Context
 import com.wardrobapp.data.AnalyticsQueries
 import com.wardrobapp.data.ArchiveRestore
+import com.wardrobapp.data.Duplicates
 import com.wardrobapp.data.GARMENT_IMAGE_DIRNAME
 import com.wardrobapp.data.GarmentQueries
 import com.wardrobapp.data.GarmentWrites
@@ -53,6 +54,10 @@ class AppContainer(context: Context) {
     val outfitWrites = OutfitWrites(database)
     val analytics = AnalyticsQueries(database)
     val suggestions = Suggestions(garments, outfits)
+    val duplicates = Duplicates(garments)
+
+    /** Where photos are decoded, scaled and written. */
+    val photos = AndroidPhotoStore(context)
 
     private val restore = ArchiveRestore(
         files = WardrobeFiles(

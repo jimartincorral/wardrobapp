@@ -23,6 +23,7 @@ import {
   galleryItems as galleryItemsFor,
   selectedHasOriginal,
   toggled,
+  withColorToggled,
   withDetectedColor,
   withImage,
   withImagesReordered,
@@ -184,6 +185,18 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
     bgRemovedUris, brand, category, colorPalette, imageUris, seasons,
     selectedImageIndex, size, subcategories, tags,
   ]);
+
+  /**
+   * Toggle a colour in the palette, keeping it non-empty.
+   *
+   * The rule is in the domain module rather than beside the picker, so the port
+   * shares it instead of carrying a second copy.
+   */
+  const toggleColor = useCallback((color: string) => {
+    setColorPalette(current =>
+      withColorToggled({ ...imageState(), colorPalette: current }, color).colorPalette
+    );
+  }, [imageState]);
 
   const applyImageState = useCallback((next: GarmentFormState) => {
     setImageUris(next.imageUris);
@@ -383,6 +396,7 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
     setColorPalette,
     setSize,
     toggleArrayValue,
+    toggleColor,
     replaceData,
     applyImportedPreview,
     reorderImages,

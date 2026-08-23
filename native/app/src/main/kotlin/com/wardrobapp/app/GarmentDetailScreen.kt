@@ -68,6 +68,7 @@ fun GarmentDetailScreen(
     state: GarmentDetailViewModel.State,
     onBack: () -> Unit,
     onPhotoSelected: (Int) -> Unit,
+    onEdit: () -> Unit,
     onRetry: () -> Unit,
 ) {
     Scaffold(
@@ -77,6 +78,13 @@ fun GarmentDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    // Only once there is something to edit: a garment that failed
+                    // to load or is not there has nothing to open.
+                    if (state.view != null) {
+                        TextButton(onClick = onEdit) { Text("Edit") }
                     }
                 },
             )

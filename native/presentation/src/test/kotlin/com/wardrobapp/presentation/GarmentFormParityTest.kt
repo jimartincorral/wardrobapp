@@ -49,6 +49,7 @@ class GarmentFormParityTest {
             "withSubcategories" -> state.withSubcategories(
                 (args[0] as JsonArray).strings(),
             ) { subs -> subs.flatMap { scriptSeasons[it] ?: emptyList() } }
+            "withColorToggled" -> state.withColorToggled(args[0].jsonPrimitive.content)
             "withDetectedColor" -> state.withDetectedColor(args[0].jsonPrimitive.content)
             "withImportedPreview" -> state.withImportedPreview(
                 (args[0] as JsonArray).strings(),
@@ -205,7 +206,7 @@ class GarmentFormParityTest {
 
         for (op in listOf(
             "withImage", "withoutImageAt", "withImagesReordered", "withBackgroundRemoved",
-            "withSubcategories", "withDetectedColor", "withImportedPreview",
+            "withSubcategories", "withColorToggled", "withDetectedColor", "withImportedPreview",
         )) {
             assertTrue(ops.contains(op), "no step exercises $op")
         }

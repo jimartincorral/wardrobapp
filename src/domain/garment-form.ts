@@ -176,6 +176,20 @@ export function withSubcategories(
  * Replacing the palette would discard a deliberate choice; the detection is a
  * suggestion, not a correction.
  */
+/**
+ * Toggle a colour in the palette.
+ *
+ * A garment always has at least one colour, so removing the last one puts the
+ * default back rather than leaving the palette empty. The screen used to do this
+ * inline, which meant the rule lived next to the picker rather than with the rest
+ * of the form -- and the port would have needed its own copy of it.
+ */
+export function withColorToggled(state: GarmentFormState, color: string): GarmentFormState {
+  const palette = toggled(state.colorPalette, color);
+
+  return { ...state, colorPalette: palette.length > 0 ? palette : [DEFAULT_COLOR] };
+}
+
 export function withDetectedColor(state: GarmentFormState, color: string): GarmentFormState {
   return {
     ...state,

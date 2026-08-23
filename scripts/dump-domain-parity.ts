@@ -36,6 +36,7 @@ import {
   normalizeForm,
   selectedHasOriginal,
   withBackgroundRemoved,
+  withColorToggled,
   withDetectedColor,
   withImage,
   withImagesReordered,
@@ -71,7 +72,7 @@ import {
   withSeasonToggled,
   type OutfitFilters,
 } from '../src/domain/outfit-filters';
-import { CATEGORIES } from '../src/constants/categories';
+import { CATEGORIES, COMMON_SIZES } from '../src/constants/categories';
 import type { Garment } from '../src/types';
 
 const OUT_DIR = join(__dirname, '..', 'native', 'domain', 'src', 'test', 'resources', 'parity');
@@ -776,6 +777,26 @@ type FormStep = { op: string; args?: unknown[] };
 
 const FORM_SCRIPTS: { name: string; steps: FormStep[] }[] = [
   {
+    // The palette is never allowed to be empty: a garment always has at least
+    // one colour, so taking the last one off puts the default back.
+    name: 'pick colours, then take them all off again',
+    steps: [
+      { op: 'withColorToggled', args: ['#CC0000'] },
+      { op: 'withColorToggled', args: ['#FFFFFF'] },
+      { op: 'withColorToggled', args: ['#000000'] },
+      { op: 'withColorToggled', args: ['#CC0000'] },
+      { op: 'withColorToggled', args: ['#FFFFFF'] },
+      { op: 'withColorToggled', args: ['#000000'] },
+    ],
+  },
+  {
+    name: 'toggle the default colour off first',
+    steps: [
+      { op: 'withColorToggled', args: ['#000000'] },
+      { op: 'withColorToggled', args: ['#0066CC'] },
+    ],
+  },
+  {
     name: 'build up a gallery',
     steps: [
       { op: 'withImage', args: ['a.jpg'] },
@@ -868,6 +889,9 @@ function dumpFormTransitions() {
             args[0] as string[],
             subs => subs.flatMap(sub => SCRIPT_SEASONS[sub] ?? []) as GarmentFormState['seasons']
           );
+          break;
+        case 'withColorToggled':
+          state = withColorToggled(state, args[0] as string);
           break;
         case 'withDetectedColor':
           state = withDetectedColor(state, args[0] as string);
@@ -1405,6 +1429,23 @@ function dumpAnalyticsView() {
   });
 }
 
+/**
+ * The category and size lists the form offers.
+ *
+ * Dumped rather than left to a careful transcription: a subcategory string is
+ * stored verbatim and looked up by name when a garment's occasions are derived,
+ * so a typo would not fail -- it would quietly give the garment its category's
+ * fallback occasions instead of its type's.
+ */
+function dumpCatalogue() {
+  return Object.entries(CATEGORIES).map(([id, entry]) => JSON.stringify({
+    id,
+    label: entry.label,
+    subcategories: [...entry.subcategories],
+    sizes: id === 'tops' ? COMMON_SIZES : undefined,
+  }));
+}
+
 mkdirSync(OUT_DIR, { recursive: true });
 mkdirSync(DATA_OUT_DIR, { recursive: true });
 
@@ -1487,6 +1528,10 @@ console.log(`presentation/outfit-filters.jsonl: ${outfitFilters.length} cases`);
 const analytics = dumpAnalyticsView();
 writeFileSync(join(PRESENTATION_OUT_DIR, 'analytics-view.jsonl'), analytics.join('\n') + '\n');
 console.log(`presentation/analytics-view.jsonl: ${analytics.length} cases`);
+
+const catalogue = dumpCatalogue();
+writeFileSync(join(OUT_DIR, 'garment-catalogue.jsonl'), catalogue.join('\n') + '\n');
+console.log(`domain/garment-catalogue.jsonl: ${catalogue.length} cases`);
 
 const schemas = dumpSchemas();
 writeFileSync(join(DATA_OUT_DIR, 'schema-fresh.sql'), schemas.fresh + '\n');

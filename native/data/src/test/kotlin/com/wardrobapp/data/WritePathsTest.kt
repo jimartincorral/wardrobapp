@@ -111,6 +111,40 @@ class WritePathsTest {
     }
 
     @Test
+    fun `an edit can take a cut-out reference away again`() {
+        // The path the form takes when a photo with a cut-out is replaced or
+        // removed. GarmentEdit reads null as "leave this column alone", so
+        // clearing has to be said with an empty string -- and the read paths have
+        // to agree that empty means "no cut-out" rather than a file called "".
+        eachSchema { schema, driver, reads, writes ->
+            writes.insert(
+                GarmentWrites.NewGarment(
+                    id = "g1",
+                    imageUri = "front.jpg",
+                    imageUriNoBg = "front-nobg.png",
+                    imageUris = listOf("front.jpg"),
+                    imageUrisNoBg = listOf("front-nobg.png"),
+                    category = "tops",
+                    colorPrimary = "#000000",
+                    colorPalette = listOf("#000000"),
+                    now = now,
+                )
+            )
+            assertEquals("${directory}front-nobg.png", reads.garment("g1")!!.displayImage, schema)
+
+            writes.update(
+                "g1",
+                GarmentWrites.GarmentEdit(imageUriNoBg = "", imageUrisNoBg = listOf("")),
+                now = now,
+            )
+
+            val stored = reads.garment("g1")!!
+            assertEquals(listOf(""), stored.displayNoBgImageUris, schema)
+            assertEquals("${directory}front.jpg", stored.displayImage, schema)
+        }
+    }
+
+    @Test
     fun `an edit changes only what it names`() {
         eachSchema { schema, _, reads, writes ->
             writes.insert(newGarment("g1", tags = listOf("cotton")))

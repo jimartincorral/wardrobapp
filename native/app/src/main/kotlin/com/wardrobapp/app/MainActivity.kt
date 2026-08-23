@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -18,6 +19,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -71,7 +73,11 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(insets),
                     ) {
                         composable(WARDROBE) {
-                            Wardrobe(container, onGarmentOpened = { navigator.openGarment(it) })
+                            Wardrobe(
+                                container = container,
+                                onGarmentOpened = { navigator.openGarment(it) },
+                                onAddRequested = { navigator.navigate(GARMENT_ADD) },
+                            )
                         }
 
                         composable(OUTFITS) {
@@ -80,6 +86,18 @@ class MainActivity : ComponentActivity() {
 
                         composable(ANALYTICS) {
                             Analytics(container)
+                        }
+
+                        composable(GARMENT_ADD) {
+                            GarmentForm(container, garmentId = null, navigator = navigator)
+                        }
+
+                        composable("$GARMENT_EDIT/{$GARMENT_ID}") { backStackEntry ->
+                            GarmentForm(
+                                container = container,
+                                garmentId = backStackEntry.arguments?.getString(GARMENT_ID).orEmpty(),
+                                navigator = navigator,
+                            )
                         }
 
                         composable("$GARMENT/{$GARMENT_ID}") { backStackEntry ->
@@ -100,7 +118,11 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun Wardrobe(container: AppContainer, onGarmentOpened: (String) -> Unit) {
+    private fun Wardrobe(
+        container: AppContainer,
+        onGarmentOpened: (String) -> Unit,
+        onAddRequested: () -> Unit,
+    ) {
         val model: WardrobeViewModel = viewModel(
             factory = viewModelFactory { initializer { WardrobeViewModel(container) } }
         )
@@ -132,6 +154,7 @@ class MainActivity : ComponentActivity() {
             onSortToggled = model::onSortToggled,
             onRetry = model::refresh,
             onGarmentOpened = onGarmentOpened,
+            onAddRequested = onAddRequested,
             onRestoreRequested = model::onRestoreRequested,
             // Providers disagree about what a .zip is: some report
             // application/zip, some application/octet-stream, and some nothing
@@ -162,6 +185,55 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
+    private fun GarmentForm(
+        container: AppContainer,
+        garmentId: String?,
+        navigator: NavHostController,
+    ) {
+        val model: GarmentFormViewModel = viewModel(
+            factory = viewModelFactory {
+                initializer { GarmentFormViewModel(container, garmentId) }
+            }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        val picker = rememberLauncherForActivityResult(
+            ActivityResultContracts.PickVisualMedia()
+        ) { uri -> uri?.let(model::onPhotoPicked) }
+
+        // Leaving is the activity's business, not the model's: the model reports
+        // that it saved, and this is what that means for the back stack.
+        LaunchedEffect(state.saved) {
+            if (state.saved) navigator.popBackStack()
+        }
+
+        GarmentFormScreen(
+            state = state,
+            isEditing = model.isEditing,
+            brandSuggestions = model::suggestionsFor,
+            onBack = { navigator.popBackStack() },
+            onAddPhoto = {
+                picker.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+            },
+            onPhotoSelected = model::onPhotoSelected,
+            onPhotoRemoved = model::onPhotoRemoved,
+            onCategorySelected = model::onCategorySelected,
+            onSubcategoryToggled = model::onSubcategoryToggled,
+            onSeasonToggled = model::onSeasonToggled,
+            onColorToggled = model::onColorToggled,
+            onBrandChanged = model::onBrandChanged,
+            onSizeChanged = model::onSizeChanged,
+            onTagsChanged = model::onTagsChanged,
+            onSave = { model.onSaveRequested() },
+            onSaveAnyway = { model.onSaveRequested(force = true) },
+            onDuplicatesDismissed = model::onDuplicateWarningDismissed,
+            onErrorDismissed = model::onErrorDismissed,
+        )
+    }
+
+    @Composable
     private fun Analytics(container: AppContainer) {
         val model: AnalyticsViewModel = viewModel(
             factory = viewModelFactory { initializer { AnalyticsViewModel(container) } }
@@ -188,6 +260,7 @@ class MainActivity : ComponentActivity() {
             state = state,
             onBack = { navigator.popBackStack() },
             onPhotoSelected = model::onPhotoSelected,
+            onEdit = { navigator.navigate("$GARMENT_EDIT/${Uri.encode(garmentId)}") },
             onRetry = model::refresh,
         )
     }
@@ -224,6 +297,12 @@ class MainActivity : ComponentActivity() {
         const val OUTFITS = "outfits"
         const val ANALYTICS = "analytics"
         const val GARMENT = "garment"
+        // Deliberately not "garment/add" and "garment/edit": the detail route is
+        // "garment/{garmentId}", which would match both of them as an id, and
+        // whether it wins is down to how the matcher ranks a literal segment
+        // against an argument. Distinct prefixes leave nothing to rank.
+        const val GARMENT_ADD = "add-garment"
+        const val GARMENT_EDIT = "edit-garment"
         const val GARMENT_ID = "garmentId"
 
         val TABS = listOf(

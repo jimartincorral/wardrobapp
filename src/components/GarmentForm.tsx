@@ -297,10 +297,7 @@ export function GarmentForm({
       <Text style={styles.label}>{t('addGarment.labels.colors')}</Text>
       <ColorPicker
         selected={form.data.colorPalette}
-        onToggle={(hex) => form.setColorPalette((current) => {
-          const next = form.toggleArrayValue(current, hex);
-          return next.length > 0 ? next : ['#000000'];
-        })}
+        onToggle={(hex) => form.toggleColor(hex)}
       />
 
       <Text style={styles.label}>{t('addGarment.labels.brand')}</Text>
