@@ -5,7 +5,7 @@ import { useAnalytics } from '@/src/hooks/useAnalytics';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
 import { useTranslation } from '@/src/i18n';
 import { localizeGarmentLabel } from '@/src/utils/localization-helpers';
-import type { Garment } from '@/src/types';
+import { analyticsView } from '@/src/domain/analytics-view';
 import { useTheme } from '@/src/theme';
 import type { ThemeColors } from '@/src/theme';
 
@@ -15,7 +15,20 @@ export default function AnalyticsScreen() {
   const { colors } = useTheme();
   const styles = createStyles(colors);
   const analytics = useAnalytics();
-  const showEmptyWardrobeNudge = analytics.totalItems === 0;
+  // The bar arithmetic is in the domain layer, shared with the Kotlin port
+  // through a parity fixture: a bar of the wrong length is wrong in a way nobody
+  // notices, and an empty wardrobe used to divide by zero.
+  const view = analyticsView({
+    totalItems: analytics.totalItems,
+    archivedItems: analytics.archivedItems,
+    categoryCounts: analytics.categoryDistribution,
+    lifespans: analytics.garmentLifespan.map(entry => ({
+      garmentId: entry.garment.id,
+      category: entry.garment.category,
+      subcategories: entry.garment.subcategories,
+      days: entry.days,
+    })),
+  });
 
   useFocusEffect(useCallback(() => {
     analytics.refresh();
@@ -25,16 +38,16 @@ export default function AnalyticsScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.summaryRow}>
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryNumber}>{analytics.totalItems}</Text>
+          <Text style={styles.summaryNumber}>{view.totalItems}</Text>
           <Text style={styles.summaryLabel}>{t('analytics.totalItems')}</Text>
         </View>
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryNumber}>{analytics.archivedItems}</Text>
+          <Text style={styles.summaryNumber}>{view.archivedItems}</Text>
           <Text style={styles.summaryLabel}>{t('analytics.archivedItems')}</Text>
         </View>
       </View>
 
-      {showEmptyWardrobeNudge && (
+      {view.isEmpty && (
         <View style={styles.nudgeCard}>
           <Text style={styles.nudgeTitle}>{t('analytics.getStartedTitle')}</Text>
           <Text style={styles.nudgeText}>{t('analytics.getStartedBody')}</Text>
@@ -56,35 +69,32 @@ export default function AnalyticsScreen() {
 
       <Text style={styles.sectionTitle}>{t('analytics.categoryBreakdown')}</Text>
       <View style={styles.chartContainer}>
-        {analytics.categoryDistribution.map(cat => {
-          const pct = (cat.count / (analytics.totalItems || 1)) * 100;
-          return (
-            <View key={cat.category} style={styles.barRow}>
-              <Text style={styles.barLabel}>{t(`categories.${cat.category}`)}</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: `${pct}%` }]} />
-              </View>
-              <Text style={styles.barValue}>{cat.count}</Text>
+        {view.categories.map(bar => (
+          <View key={bar.key} style={styles.barRow}>
+            <Text style={styles.barLabel}>{t(`categories.${bar.category}`)}</Text>
+            <View style={styles.barTrack}>
+              <View style={[styles.barFill, { width: `${bar.fraction * 100}%` }]} />
             </View>
-          );
-        })}
-        {analytics.categoryDistribution.length === 0 && (
+            <Text style={styles.barValue}>{bar.value}</Text>
+          </View>
+        ))}
+        {view.categories.length === 0 && (
           <Text style={styles.emptyText}>{t('analytics.emptyBreakdown')}</Text>
         )}
       </View>
 
       <Text style={styles.sectionTitle}>{t('analytics.lifespanTitle')}</Text>
       <View style={styles.chartContainer}>
-        {analytics.garmentLifespan.slice(0, 3).map((entry: { garment: Garment; days: number }) => (
-          <View key={entry.garment.id} style={styles.barRow}>
-            <Text style={styles.barLabel}>{localizeGarmentLabel(entry.garment.category, entry.garment.subcategories, t)}</Text>
+        {view.lifespans.map(bar => (
+          <View key={bar.key} style={styles.barRow}>
+            <Text style={styles.barLabel}>{localizeGarmentLabel(bar.entry.category, bar.entry.subcategories, t)}</Text>
             <View style={styles.barTrack}>
-              <View style={[styles.barFill, { width: `${Math.min(100, (entry.days / 365) * 100)}%` }]} />
+              <View style={[styles.barFill, { width: `${bar.fraction * 100}%` }]} />
             </View>
-            <Text style={styles.barValue}>{entry.days}d</Text>
+            <Text style={styles.barValue}>{bar.value}d</Text>
           </View>
         ))}
-        {analytics.garmentLifespan.length === 0 && <Text style={styles.emptyText}>{t('analytics.emptyLifespan')}</Text>}
+        {view.lifespans.length === 0 && <Text style={styles.emptyText}>{t('analytics.emptyLifespan')}</Text>}
       </View>
     </ScrollView>
   );

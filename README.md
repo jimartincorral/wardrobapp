@@ -117,7 +117,7 @@ cd native && ./gradlew test
 | `:domain` | The algorithms — colour, tags, occasions, duplicates, suggestions |
 | `:data` | The database — row and photo-reference mapping, reads, writes, analytics, suggestion loading, backup restore |
 | `:parity-testing` | Shared fixture-loading for the parity suites |
-| `:presentation` | What the screens show — filtering, ordering, form state, a garment's detail, the outfit filters, as pure functions |
+| `:presentation` | What the screens show — filtering, ordering, form state, a garment's detail, the outfit filters, the analytics bars, as pure functions |
 | `:app` | The Compose UI and the platform plumbing — **only included when an Android SDK is present** |
 
 `:app` is the one module that genuinely needs the Android SDK, so `settings.gradle.kts` includes it only when one is found (`ANDROID_HOME`, `ANDROID_SDK_ROOT`, or `sdk.dir` in `local.properties`). `./gradlew test` therefore works on a machine with nothing but a JDK — which is the whole reason the other modules are pure — while CI builds everything. Keeping the pure parts pure is what lets everything so far be verified on any machine — and `:data` is the code that decides whether an *existing* wardrobe opens correctly, so it is the code most worth being able to test anywhere.
@@ -136,7 +136,7 @@ The schema those tests run against is emitted from `src/db/schema.ts` as `schema
 
 The React Native app is untouched and keeps shipping; nothing is removed until the native app reaches parity.
 
-Because it is a port rather than a rewrite, the tests ask whether the Kotlin **agrees with the TypeScript it came from**, not merely whether it passes tests written for it. `npm run parity:dump` records the TypeScript answers for a fixed corpus — 3067 cases across 16 files: 1156 colour pairs, 169 tag-set pairs, 60 duplicate scenarios, 700 category/subcategory pairings, 432 engine runs, 222 rating folds, 194 list, form, detail and filter states, 93 row and photo-reference shapes, and 41 backup archives — and the Kotlin tests replay it. The engine is compared draw for draw: both sides step the same linear congruential generator, so an agreeing outfit list means every intermediate choice matched — the same template, epsilon branch, tie-break and roulette slot.
+Because it is a port rather than a rewrite, the tests ask whether the Kotlin **agrees with the TypeScript it came from**, not merely whether it passes tests written for it. `npm run parity:dump` records the TypeScript answers for a fixed corpus — 3078 cases across 17 files: 1156 colour pairs, 169 tag-set pairs, 60 duplicate scenarios, 700 category/subcategory pairings, 432 engine runs, 222 rating folds, 205 list, form, detail, filter and chart states, 93 row and photo-reference shapes, and 41 backup archives — and the Kotlin tests replay it. The engine is compared draw for draw: both sides step the same linear congruential generator, so an agreeing outfit list means every intermediate choice matched — the same template, epsilon branch, tie-break and roulette slot.
 
 Drift is caught from both sides. CI regenerates the fixtures and fails if they moved, so changing a TypeScript algorithm without regenerating cannot leave the port pinned to old behaviour; and the Kotlin tests fail if the fixtures move without the Kotlin following. After changing either side, run `npm run parity:dump` and commit the result.
 
@@ -148,9 +148,9 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-25 suites, 272 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, what a garment's detail screen shows, how the outfit filters behave, the domain layer's dependency-freedom, and the pure utilities.
+26 suites, 286 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, what a garment's detail screen shows, how the outfit filters behave, the analytics bar arithmetic, the domain layer's dependency-freedom, and the pure utilities.
 
-The Kotlin port adds 151 more:
+The Kotlin port adds 155 more:
 
 ```bash
 cd native && ./gradlew test
@@ -163,7 +163,7 @@ Domain algorithms are checked by mutation: each behaviour the tests claim to pro
 ## Limitations
 
 - **Android only.** Web and iOS support were removed — the web build had its own storage layer that could silently lose data, and iOS was never finished.
-- **The native port is early.** The Kotlin app opens a real database, restores a backup into it, and draws the wardrobe list, a garment's detail, and outfit suggestions you can rate and keep — CI builds it as a debug APK. It installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it, so a wardrobe gets in there by restoring a backup rather than by being found. Analytics, settings and the add/edit form are still missing, garments cannot be added or edited there, and the UI is English-only. The shipped app is still the React Native one.
+- **The native port is early.** The Kotlin app opens a real database, restores a backup into it, and draws the wardrobe list, a garment's detail, outfit suggestions you can rate and keep, and the analytics — CI builds it as a debug APK. It installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it, so a wardrobe gets in there by restoring a backup rather than by being found. What is left is the part that needs the image pipeline: garments cannot be added or edited there. Settings are missing too, and the UI is English-only. The shipped app is still the React Native one.
 - **The `garments` schema is not uniform.** `created_at` and `updated_at` are `NOT NULL` on a fresh install but nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist, so readers must tolerate both — and it is why the native data layer will use plain SQL rather than Room, whose schema validation would reject one of them.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **Released APKs are debug-signed**, so they can't be upgraded in place from a properly signed build later.

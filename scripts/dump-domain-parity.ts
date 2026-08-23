@@ -60,6 +60,7 @@ import {
   checkLegacyPayload,
   parseArchiveManifest,
 } from '../src/domain/backup-archive';
+import { analyticsView } from '../src/domain/analytics-view';
 import { garmentDetail } from '../src/domain/garment-detail';
 import {
   NO_FILTERS,
@@ -1256,6 +1257,154 @@ function dumpOutfitFilters() {
   return lines;
 }
 
+/**
+ * The analytics bars.
+ *
+ * A corpus of shapes rather than of realistic wardrobes: the arithmetic is what
+ * is being compared, so the interesting inputs are the ones at the edges -- an
+ * empty wardrobe, counts that exceed the total, a negative lifespan, a garment
+ * owned for a decade.
+ */
+const ANALYTICS_CASES: {
+  name: string;
+  totalItems: number;
+  archivedItems: number;
+  categoryCounts: { category: string; count: number }[];
+  lifespans: { garmentId: string; category: string; subcategories: string[]; days: number }[];
+}[] = [
+  { name: 'empty wardrobe', totalItems: 0, archivedItems: 0, categoryCounts: [], lifespans: [] },
+  {
+    name: 'nothing but retired garments',
+    totalItems: 0,
+    archivedItems: 4,
+    categoryCounts: [],
+    lifespans: [{ garmentId: 'r1', category: 'tops', subcategories: ['T-Shirt'], days: 500 }],
+  },
+  {
+    name: 'one category',
+    totalItems: 4,
+    archivedItems: 0,
+    categoryCounts: [{ category: 'tops', count: 4 }],
+    lifespans: [],
+  },
+  {
+    name: 'an even split',
+    totalItems: 10,
+    archivedItems: 2,
+    categoryCounts: [
+      { category: 'tops', count: 5 },
+      { category: 'bottoms', count: 5 },
+    ],
+    lifespans: [],
+  },
+  {
+    name: 'thirds, which do not divide evenly',
+    totalItems: 3,
+    archivedItems: 0,
+    categoryCounts: [
+      { category: 'tops', count: 1 },
+      { category: 'bottoms', count: 1 },
+      { category: 'shoes', count: 1 },
+    ],
+    lifespans: [],
+  },
+  {
+    name: 'a long tail',
+    totalItems: 21,
+    archivedItems: 7,
+    categoryCounts: [
+      { category: 'tops', count: 9 },
+      { category: 'bottoms', count: 6 },
+      { category: 'shoes', count: 3 },
+      { category: 'outerwear', count: 2 },
+      { category: 'accessories', count: 1 },
+    ],
+    lifespans: [],
+  },
+  {
+    // Impossible from the queries as they stand -- both count the same rows --
+    // which is exactly why it is here: the guard exists for the day they stop
+    // agreeing, and dividing by zero is a NaN rather than a rounding error.
+    name: 'a category count against a zero total',
+    totalItems: 0,
+    archivedItems: 0,
+    categoryCounts: [{ category: 'tops', count: 3 }],
+    lifespans: [],
+  },
+  {
+    name: 'counts that exceed the total',
+    totalItems: 2,
+    archivedItems: 0,
+    categoryCounts: [{ category: 'tops', count: 5 }],
+    lifespans: [],
+  },
+  {
+    name: 'a zero count',
+    totalItems: 5,
+    archivedItems: 0,
+    categoryCounts: [
+      { category: 'tops', count: 5 },
+      { category: 'shoes', count: 0 },
+    ],
+    lifespans: [],
+  },
+  {
+    name: 'lifespans around the year mark',
+    totalItems: 6,
+    archivedItems: 4,
+    categoryCounts: [{ category: 'tops', count: 6 }],
+    lifespans: [
+      { garmentId: 'a', category: 'outerwear', subcategories: ['Coat'], days: 3650 },
+      { garmentId: 'b', category: 'tops', subcategories: ['T-Shirt'], days: 365 },
+      { garmentId: 'c', category: 'shoes', subcategories: ['Sneakers'], days: 73 },
+      { garmentId: 'd', category: 'bottoms', subcategories: ['Jeans'], days: 1 },
+    ],
+  },
+  {
+    name: 'a garment retired before it was bought',
+    totalItems: 3,
+    archivedItems: 1,
+    categoryCounts: [{ category: 'tops', count: 3 }],
+    lifespans: [
+      { garmentId: 'backwards', category: 'tops', subcategories: [], days: -30 },
+      { garmentId: 'sameday', category: 'tops', subcategories: ['Shirt'], days: 0 },
+    ],
+  },
+];
+
+function dumpAnalyticsView() {
+  return ANALYTICS_CASES.map(testCase => {
+    const view = analyticsView({
+      totalItems: testCase.totalItems,
+      archivedItems: testCase.archivedItems,
+      categoryCounts: testCase.categoryCounts,
+      lifespans: testCase.lifespans,
+    });
+
+    return JSON.stringify({
+      name: testCase.name,
+      input: {
+        totalItems: testCase.totalItems,
+        archivedItems: testCase.archivedItems,
+        categoryCounts: testCase.categoryCounts,
+        lifespans: testCase.lifespans,
+      },
+      view: {
+        totalItems: view.totalItems,
+        archivedItems: view.archivedItems,
+        isEmpty: view.isEmpty,
+        categories: view.categories.map(b => ({
+          key: b.key, category: b.category, value: b.value, fraction: b.fraction,
+        })),
+        lifespans: view.lifespans.map(b => ({
+          key: b.key, value: b.value, fraction: b.fraction,
+          category: b.entry.category, subcategories: b.entry.subcategories,
+        })),
+      },
+    });
+  });
+}
+
 mkdirSync(OUT_DIR, { recursive: true });
 mkdirSync(DATA_OUT_DIR, { recursive: true });
 
@@ -1334,6 +1483,10 @@ console.log(`presentation/garment-detail.jsonl: ${detail.length} cases`);
 const outfitFilters = dumpOutfitFilters();
 writeFileSync(join(PRESENTATION_OUT_DIR, 'outfit-filters.jsonl'), outfitFilters.join('\n') + '\n');
 console.log(`presentation/outfit-filters.jsonl: ${outfitFilters.length} cases`);
+
+const analytics = dumpAnalyticsView();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'analytics-view.jsonl'), analytics.join('\n') + '\n');
+console.log(`presentation/analytics-view.jsonl: ${analytics.length} cases`);
 
 const schemas = dumpSchemas();
 writeFileSync(join(DATA_OUT_DIR, 'schema-fresh.sql'), schemas.fresh + '\n');

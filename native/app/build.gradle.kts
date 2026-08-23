@@ -73,6 +73,9 @@ dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
+    // Used directly by the analytics bars, so depended on directly rather than
+    // reached through whatever material3 happens to expose.
+    implementation("androidx.compose.animation:animation-core")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")

@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
@@ -75,6 +76,10 @@ class MainActivity : ComponentActivity() {
 
                         composable(OUTFITS) {
                             Outfits(container, onGarmentOpened = { navigator.openGarment(it) })
+                        }
+
+                        composable(ANALYTICS) {
+                            Analytics(container)
                         }
 
                         composable("$GARMENT/{$GARMENT_ID}") { backStackEntry ->
@@ -157,6 +162,16 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
+    private fun Analytics(container: AppContainer) {
+        val model: AnalyticsViewModel = viewModel(
+            factory = viewModelFactory { initializer { AnalyticsViewModel(container) } }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        AnalyticsScreen(state = state, onRetry = model::refresh)
+    }
+
+    @Composable
     private fun GarmentDetail(
         container: AppContainer,
         garmentId: String,
@@ -207,12 +222,14 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val WARDROBE = "wardrobe"
         const val OUTFITS = "outfits"
+        const val ANALYTICS = "analytics"
         const val GARMENT = "garment"
         const val GARMENT_ID = "garmentId"
 
         val TABS = listOf(
             Tab(WARDROBE, "Wardrobe", Icons.Filled.List),
             Tab(OUTFITS, "Outfits", Icons.Filled.Star),
+            Tab(ANALYTICS, "Analytics", Icons.Filled.Info),
         )
     }
 }
