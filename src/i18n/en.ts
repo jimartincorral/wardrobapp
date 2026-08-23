@@ -177,6 +177,13 @@ const en = {
       importTitle: 'URL Import',
       errorTitle: 'Error',
     },
+    sharedLink: {
+      title: 'Import from a link?',
+      body: 'Something asked this app to load a garment from %{host}. Nothing has been fetched yet.',
+      confirm: 'Load it',
+      cancel: 'Not now',
+      refused: 'That link points at %{host}, which is on this device or its local network, so it was not opened.',
+    },
     bgRemoval: {
       errorTitle: 'Background Removal',
       failed: 'Failed to remove background',

@@ -1,3 +1,5 @@
+import { checkFetchedUrl, safeImportUrl } from '../utils/url-safety';
+
 export interface ImportedGarmentPreview {
   sourceUrl: string;
   title: string | null;
@@ -33,46 +35,128 @@ const SUPPORTED_IMAGE_EXTENSIONS = new Set([
   '.avif',
 ]);
 
-export function normalizeImportUrl(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) {
-    throw new Error('A URL is required.');
+/**
+ * How long the app will wait for a page.
+ *
+ * Without a limit a slow or deliberately stalling server holds the import open
+ * indefinitely -- and the URL is not necessarily one the user chose, so the
+ * server is not necessarily one that wishes them well.
+ */
+const FETCH_TIMEOUT_MS = 15_000;
+
+/**
+ * How much of a page the app will parse.
+ *
+ * A product page is tens of kilobytes; anything approaching this is not one.
+ * Measured in characters rather than bytes, which for HTML is close enough for a
+ * bound of this size.
+ */
+const MAX_PAGE_CHARS = 4 * 1024 * 1024;
+
+/**
+ * How many images the app will fetch from one page.
+ *
+ * The list comes out of the page's own HTML, so its length is the page's choice:
+ * without a cap, one link means as many requests as it cares to name. A garment
+ * needs a handful of photos and the form shows a gallery, not a catalogue.
+ */
+const MAX_IMPORTED_IMAGES = 8;
+
+/** Content types that can contain a product page. */
+const HTML_CONTENT_TYPES = ['text/html', 'application/xhtml+xml', 'text/plain', 'application/xml'];
+
+export { safeImportUrl as normalizeImportUrl } from '../utils/url-safety';
+
+/**
+ * Fetch with a deadline, so a server that never answers does not hold the app.
+ */
+async function fetchWithTimeout(url: string, headers: Record<string, string>): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { headers, signal: controller.signal, redirect: 'follow' });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error('That page took too long to answer.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Read a response body, refusing one too large to parse.
+ *
+ * `Content-Length` is checked first and is the only check that saves the memory:
+ * a response that declares its size is refused before it is read. A chunked
+ * response without one is read in full before the second check fires, so what
+ * that catches is the parsing and everything downstream of it, not the read
+ * itself -- React Native's fetch offers no streaming body to stop partway.
+ */
+async function readBoundedText(response: Response): Promise<string> {
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > MAX_PAGE_CHARS) {
+    throw new Error('That page is too large to read.');
   }
 
-  const withProtocol = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  const normalized = new URL(withProtocol);
-
-  if (!['http:', 'https:'].includes(normalized.protocol)) {
-    throw new Error('Only http and https URLs are supported.');
+  const text = await response.text();
+  if (text.length > MAX_PAGE_CHARS) {
+    throw new Error('That page is too large to read.');
   }
 
-  normalized.hash = '';
-  return normalized.toString();
+  return text;
 }
 
 export async function importGarmentFromUrl(inputUrl: string): Promise<ImportedGarmentPreview> {
   const { downloadRemoteImageToTempFile } = await import('./image-service');
-  const sourceUrl = normalizeImportUrl(inputUrl);
-  const response = await fetch(sourceUrl, {
-    headers: {
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.8',
-    },
+  const sourceUrl = safeImportUrl(inputUrl);
+  const response = await fetchWithTimeout(sourceUrl, {
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.8',
   });
+
+  // Where it actually ended up: a permitted URL can redirect to a private one,
+  // and refusing to read the response is what stops anything coming back out.
+  checkFetchedUrl(response.url, sourceUrl);
 
   if (!response.ok) {
     throw new Error(`Could not load page (${response.status}).`);
   }
 
-  const html = await response.text();
+  const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
+  if (contentType && !HTML_CONTENT_TYPES.some(type => contentType.includes(type))) {
+    throw new Error('That address is not a web page.');
+  }
+
+  const html = await readBoundedText(response);
   const extracted = extractGarmentImportDataFromHtml(html, sourceUrl);
 
   if (extracted.imageUrls.length === 0) {
     throw new Error('No garment images were found on that page.');
   }
 
+  // The image URLs come out of the page's own HTML, so they are as untrusted as
+  // the page is: without this, a page could point them at the local network and
+  // have the app fetch each one.
+  const safeImageUrls = extracted.imageUrls.filter(imageUrl => {
+    try {
+      safeImportUrl(imageUrl);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  const blockedImages = extracted.imageUrls.length - safeImageUrls.length;
+  if (safeImageUrls.length === 0) {
+    throw new Error('The images on that page are not ones this app will download.');
+  }
+
+  const wanted = safeImageUrls.slice(0, MAX_IMPORTED_IMAGES);
   const downloadedResults = await Promise.allSettled(
-    extracted.imageUrls.map(imageUrl => downloadRemoteImageToTempFile(imageUrl))
+    wanted.map(imageUrl => downloadRemoteImageToTempFile(imageUrl))
   );
 
   const downloadedImageUris = downloadedResults.flatMap(result =>
@@ -81,6 +165,12 @@ export async function importGarmentFromUrl(inputUrl: string): Promise<ImportedGa
   const failedDownloads = downloadedResults.length - downloadedImageUris.length;
 
   const warnings = [...extracted.warnings];
+  if (safeImageUrls.length > wanted.length) {
+    warnings.push(`That page listed ${safeImageUrls.length} images; the first ${wanted.length} were used.`);
+  }
+  if (blockedImages > 0) {
+    warnings.push(`${blockedImages} image${blockedImages === 1 ? '' : 's'} pointed somewhere this app will not fetch.`);
+  }
   if (failedDownloads > 0) {
     warnings.push(`${failedDownloads} image${failedDownloads === 1 ? '' : 's'} could not be downloaded.`);
   }
@@ -91,6 +181,7 @@ export async function importGarmentFromUrl(inputUrl: string): Promise<ImportedGa
 
   return {
     ...extracted,
+    imageUrls: wanted,
     downloadedImageUris,
     warnings,
   };
@@ -136,7 +227,7 @@ export function extractGarmentImportDataFromHtml(html: string, pageUrl: string):
   );
 
   return {
-    sourceUrl: normalizeImportUrl(pageUrl),
+    sourceUrl: safeImportUrl(pageUrl),
     title: title ? decodeHtmlEntities(title) : null,
     brand: brand ? prettifyBrand(brand) : null,
     imageUrls: [...imageSet],

@@ -13,8 +13,18 @@ import {
   type ImportedGarmentPreview,
 } from '@/src/services/url-import-service';
 import { mergeStructuredTags } from '@/src/utils/style-tags';
+import { isPubliclyRoutableHost } from '@/src/utils/url-safety';
 import { useTranslation } from '@/src/i18n';
 import { useTheme } from '@/src/theme';
+
+/** The host of a URL, or null when it is too malformed to have one. */
+function hostOf(url: string): string | null {
+  try {
+    return new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`).hostname;
+  } catch {
+    return null;
+  }
+}
 
 export default function AddGarmentScreen() {
   const params = useLocalSearchParams<{ importUrl?: string | string[] }>();
@@ -60,12 +70,49 @@ export default function AddGarmentScreen() {
     }
   };
 
+  /**
+   * A link asked us to import something.
+   *
+   * Prefilled and confirmed rather than fetched: an `importUrl` gets here from a
+   * deep link, which any web page, message or QR code can open, so the URL is not
+   * necessarily one the user chose. Fetching it unasked would let a page use this
+   * app's network position -- inside the user's home network -- to reach whatever
+   * it names. So the host is shown and the fetch waits for a tap.
+   */
   useEffect(() => {
     const sharedUrl = Array.isArray(params.importUrl) ? params.importUrl[0] : params.importUrl;
     if (!sharedUrl || lastImportedUrlRef.current === sharedUrl) return;
-    setProductUrl(sharedUrl);
-    void importGarmentUrl(sharedUrl);
-  }, [applyImportedPreview, params.importUrl]);
+    lastImportedUrlRef.current = sharedUrl;
+
+    let checked: string;
+    try {
+      checked = normalizeImportUrl(sharedUrl);
+    } catch (error) {
+      // Refused before anything is offered: an address on the local network is
+      // not something to ask about, it is something to decline. The local-network
+      // case is the one worth saying properly, so it is localized; the rest fall
+      // back to the checker's own wording, which is English.
+      const host = hostOf(sharedUrl);
+      const message = host && !isPubliclyRoutableHost(host)
+        ? t('addGarment.sharedLink.refused', { host })
+        : error instanceof Error ? error.message : t('addGarment.errors.invalidUrl');
+
+      Alert.alert(t('addGarment.errors.importTitle'), message);
+      return;
+    }
+
+    setProductUrl(checked);
+    setShowUrlImporter(true);
+
+    Alert.alert(
+      t('addGarment.sharedLink.title'),
+      t('addGarment.sharedLink.body', { host: new URL(checked).host }),
+      [
+        { text: t('addGarment.sharedLink.cancel'), style: 'cancel' },
+        { text: t('addGarment.sharedLink.confirm'), onPress: () => { void importGarmentUrl(checked); } },
+      ]
+    );
+  }, [params.importUrl, t]);
 
   const saveGarment = async () => {
     if (data.imageUris.length === 0) return;

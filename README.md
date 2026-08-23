@@ -82,7 +82,8 @@ src/
                           OutfitPreview, RatingStars, DuplicateWarning, ...
   hooks/                  useGarments, useGarmentForm, useAnalytics, ...
   utils/                  colour distance (CIE76 ΔE), tag similarity (Jaccard),
-                          image paths, garment fields, dates, style tags
+                          image paths, garment fields, dates, style tags,
+                          which URLs are safe to fetch
   constants/  i18n/  theme/  types/
 assets/                   App icon and splash
 scripts/                  build-apk.ps1, dump-domain-parity.ts
@@ -148,7 +149,7 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-26 suites, 286 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, what a garment's detail screen shows, how the outfit filters behave, the analytics bar arithmetic, the domain layer's dependency-freedom, and the pure utilities.
+27 suites, 312 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import and which addresses it will fetch, garment and outfit services, what a garment's detail screen shows, how the outfit filters behave, the analytics bar arithmetic, the domain layer's dependency-freedom, and the pure utilities.
 
 The Kotlin port adds 196 more:
 
@@ -169,6 +170,7 @@ Domain algorithms are checked by mutation: each behaviour the tests claim to pro
 - **Released APKs are debug-signed**, so they can't be upgraded in place from a properly signed build later.
 - **The schema is applied idempotently** at startup from `src/db/schema.ts` — `CREATE TABLE IF NOT EXISTS`, then additive `ALTER`s, then the indexes over them. There's no `PRAGMA user_version` yet. Keyed, run-once data migrations live in `src/db/migrations.ts`.
 - **No wear log.** The app records outfit ratings, not what you wore on a given day, so there is no cost-per-wear or wear-trend reporting.
+- **URL import only fetches public addresses.** A `wardrobapp://…?importUrl=…` deep link can be opened by any web page, message or QR code, so the address it carries is not necessarily one you chose. Import therefore asks before fetching anything, and refuses addresses on the device or its local network — a phone sits *inside* a home network, and without that the app would be a way to reach a router or a printer that the page could not reach itself. The check is re-applied after redirects and to the image URLs the page supplies, and page reads are capped and given a deadline. One residual: a redirect to a private address is refused *after* the request has been made, since React Native's fetch cannot be told to stop at a redirect — nothing is read back from it.
 
 ## Contributing
 
