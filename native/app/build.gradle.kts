@@ -43,11 +43,17 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        // Deliberately NOT com.anonymous.wardrobapp. Sharing that id would let
-        // this read an existing wardrobe -- same data directory -- but it would
-        // also replace the installed app, handing a real wardrobe to an
-        // unfinished one. Until parity, this installs alongside and is loaded by
-        // restoring a backup. One line changes at cutover.
+        // Deliberately NOT com.anonymous.wardrobapp. Sharing that id would
+        // replace the installed app, handing a real wardrobe to an unfinished
+        // one. Until parity, this installs alongside and is loaded by restoring
+        // a backup. One line changes at cutover.
+        //
+        // A comment here used to add that sharing the id would also let this read
+        // an existing wardrobe, "same data directory". Same directory, yes --
+        // but that was not enough, because this app looked for its database in
+        // `databases/` and the React Native app keeps one in `files/SQLite/`.
+        // Both now agree, via `wardrobeFilesIn` in :data, so the claim is true;
+        // it was not when it was written.
         applicationId = "com.anonymous.wardrobapp.dev"
         minSdk = 24
         targetSdk = 36
@@ -101,6 +107,14 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    testOptions {
+        unitTests {
+            // Robolectric needs the merged resources and the manifest, which is
+            // also how it learns which SDK to emulate (targetSdk, above).
+            isIncludeAndroidResources = true
+        }
     }
 
     compileOptions {
@@ -159,5 +173,13 @@ dependencies {
     // configures them.
     implementation("androidx.sqlite:sqlite-framework:2.4.0")
     implementation("androidx.sqlite:sqlite-ktx:2.4.0")
+
+    // The only tests in this module, and the only ones in the project that need
+    // Android. Everything decidable without a device lives in :domain, :data and
+    // :presentation and is tested there; what is left here is the platform
+    // plumbing -- and one piece of it, where the database file actually lands,
+    // was wrong for weeks precisely because no test could see it.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.16.1")
 }
 

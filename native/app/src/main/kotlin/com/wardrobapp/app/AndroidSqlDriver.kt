@@ -5,6 +5,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.wardrobapp.data.CloseableSqlDriver
+import java.io.File
 
 /**
  * [CloseableSqlDriver] over the platform's SQLite.
@@ -91,15 +92,30 @@ class AndroidSqlDriver private constructor(
 
     companion object {
         /**
-         * The filename expo-sqlite uses, so this opens the same file the React
-         * Native app wrote -- given the same applicationId.
+         * Open the database at [path], which must be absolute.
+         *
+         * Absolute, with no default, because the convenient alternative is a
+         * trap. A bare name here is resolved by `Context.getDatabasePath`, which
+         * means `databases/` -- while the React Native app's database is under
+         * `files/SQLite/`, where expo-sqlite puts one opened by bare name. The
+         * two are sibling directories in the same private data directory, so
+         * sharing an application id is not enough to share a file: the bare-name
+         * version would quietly create a second, empty database beside the real
+         * one.
+         *
+         * A comment here used to claim the opposite. `wardrobeFilesIn` in :data is
+         * now the single place that decides where the wardrobe lives, and every
+         * caller has to say which file it means.
+         *
+         * The containing directory is created if absent, which is the ordinary
+         * case on a fresh install: SQLite will not create a missing parent.
          */
-        const val DATABASE_NAME = "wardrobapp.db"
+        fun open(context: Context, path: String): AndroidSqlDriver {
+            File(path).parentFile?.mkdirs()
 
-        fun open(context: Context, name: String = DATABASE_NAME): AndroidSqlDriver {
             val helper = FrameworkSQLiteOpenHelperFactory().create(
                 SupportSQLiteOpenHelper.Configuration.builder(context)
-                    .name(name)
+                    .name(path)
                     .callback(object : SupportSQLiteOpenHelper.Callback(1) {
                         // The schema is applied by WardrobeSchema on every open,
                         // idempotently, exactly as the TypeScript client does --

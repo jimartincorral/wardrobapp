@@ -120,6 +120,12 @@ jobs:
       - name: Cache Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # The only tests that need Android, which is why they run here rather than
+      # in the Kotlin tests job -- that one blanks the SDK on purpose.
+      - name: Test
+        run: ./gradlew :app:test --console=plain
+        working-directory: native
+
       - name: Assemble
         run: ./gradlew :app:assembleDebug --console=plain
         working-directory: native

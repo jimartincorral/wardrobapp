@@ -125,6 +125,79 @@ fun backgroundActionFor(original: String?, cutout: String?): BackgroundAction? =
     else -> null
 }
 
+/**
+ * The photo slots after a background action, and the file left unreferenced.
+ *
+ * Returned together because they have to be applied together: writing the rows
+ * without deleting the file leaks it, and deleting the file without writing the
+ * rows leaves a garment pointing at nothing.
+ */
+data class BackgroundEdit(
+    val images: List<String>,
+    val cutouts: List<String>,
+    /** The file nothing references any more, if any. Never one still in use. */
+    val discardable: String?,
+)
+
+/**
+ * Replace a photo with its cut-out.
+ *
+ * The cut-out becomes the *only* image for that slot, in both columns -- which is
+ * what makes the original discardable, and why no undo is offered afterwards:
+ * there is nothing left to go back to. That is deliberate rather than a
+ * limitation, and it is what both the React Native screen and this app's own form
+ * already do, so a garment ends up in the same shape however it got there.
+ *
+ * The cut-out column is padded to match, because a garment whose photos predate
+ * the column has one blank entry standing for all of them, and writing into slot
+ * two of a one-element list would otherwise put the cut-out on the wrong photo.
+ */
+fun withBackgroundRemovedAt(
+    images: List<String>,
+    cutouts: List<String>,
+    index: Int,
+    cutout: String,
+): BackgroundEdit? {
+    val original = images.getOrNull(index) ?: return null
+    if (cutout.isEmpty()) return null
+
+    val padded = MutableList(images.size) { cutouts.getOrNull(it) ?: "" }
+    val updated = images.toMutableList()
+    updated[index] = cutout
+    padded[index] = cutout
+
+    return BackgroundEdit(
+        images = updated,
+        cutouts = padded,
+        // Only when it is genuinely a different file: removing a background twice
+        // would otherwise delete the photo it just produced.
+        discardable = original.takeIf { it.isNotEmpty() && it != cutout },
+    )
+}
+
+/**
+ * Put the original photo back, dropping the cut-out.
+ *
+ * Only the cut-out column changes: the original is still what the image column
+ * holds, which is precisely the case where an undo has somewhere to go. A slot
+ * whose cut-out already replaced its original is refused rather than silently
+ * clearing a reference the photo itself depends on.
+ */
+fun withBackgroundRestoredAt(
+    images: List<String>,
+    cutouts: List<String>,
+    index: Int,
+): BackgroundEdit? {
+    val cutout = cutouts.getOrNull(index)?.takeIf { it.isNotEmpty() } ?: return null
+    val original = images.getOrNull(index) ?: return null
+    if (original.isEmpty() || original == cutout) return null
+
+    val padded = MutableList(images.size) { cutouts.getOrNull(it) ?: "" }
+    padded[index] = ""
+
+    return BackgroundEdit(images = images, cutouts = padded, discardable = cutout)
+}
+
 fun garmentDetail(garment: GarmentRecord, selectedIndex: Int = 0): GarmentDetailView {
     val images = garment.displayImageUris
     val cutouts = garment.displayNoBgImageUris

@@ -4,18 +4,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.GarmentQueries
 import com.wardrobapp.data.GarmentRecord
-import com.wardrobapp.presentation.GarmentFilter
-import com.wardrobapp.presentation.GarmentSort
+import com.wardrobapp.domain.Occasion
+import com.wardrobapp.domain.Season
+import com.wardrobapp.presentation.WardrobeQuery
 import com.wardrobapp.presentation.filterBy
 import com.wardrobapp.presentation.orderedBy
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.InputStream
 
 /**
  * The wardrobe list.
@@ -29,63 +31,74 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
     data class State(
         val loading: Boolean = true,
         val garments: List<GarmentRecord> = emptyList(),
-        val search: String = "",
-        val sort: GarmentSort = GarmentSort.NEWEST,
-        val filter: GarmentFilter = GarmentFilter(),
+        /** Everything the screen is narrowing by. */
+        val query: WardrobeQuery = WardrobeQuery(),
+        /** Whether the filter panel is open. Kept here so it survives a tab switch. */
+        val filtersExpanded: Boolean = false,
         /**
          * Set when loading failed. Shown rather than swallowed: the React Native
          * app logged the error and left the list at its previous value, so a
          * failure looked exactly like an empty wardrobe.
          */
         val error: String? = null,
-        /** Non-null while a restore is being asked about, run, or reported. */
-        val restore: Restore? = null,
     ) {
         /** True only when the wardrobe really is empty, not when a read failed. */
         val isEmpty: Boolean get() = !loading && error == null && garments.isEmpty()
-    }
 
-    /**
-     * Where a restore has got to.
-     *
-     * [Confirming] exists because a restore replaces the whole wardrobe, and
-     * picking a file is not the same as agreeing to that.
-     */
-    sealed interface Restore {
-        data object Confirming : Restore
-        data object Running : Restore
-        /** Restored; the count is absent only if the reload afterwards failed. */
-        data class Done(val garments: Int?) : Restore
-        data class Failed(val message: String) : Restore
+        /**
+         * True when nothing matched but something would have.
+         *
+         * Worth distinguishing: "no garments yet" and "nothing matches these
+         * filters" call for different things to do next, and the second is
+         * reached by narrowing rather than by having an empty wardrobe.
+         */
+        val isFilteredEmpty: Boolean get() = isEmpty && query.isNarrowed
     }
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
+
+    /**
+     * The pending reload for a typed filter.
+     *
+     * Cancelled and replaced on every keystroke, so a query runs once the typing
+     * stops rather than once per character. The React Native app debounces its
+     * three text boxes; this one re-read the whole wardrobe on every letter.
+     */
+    private var pendingReload: Job? = null
 
     init {
         refresh()
     }
 
     fun refresh() {
+        pendingReload?.cancel()
         viewModelScope.launch { reload() }
     }
 
     /** Reload the list, reporting a failure rather than leaving the old one. */
-    private suspend fun reload(): Int? {
-        val current = _state.value
+    private suspend fun reload() {
+        val query = _state.value.query
         _state.update { it.copy(loading = true, error = null) }
 
-        return try {
+        try {
             val garments = withContext(Dispatchers.IO) {
                 // The database applies what it can express; :presentation
                 // applies the rest and the ordering.
                 container.garments
-                    .allGarments(GarmentQueries.Filters(search = current.search.ifBlank { null }))
-                    .filterBy(current.filter)
-                    .orderedBy(current.sort)
+                    .allGarments(
+                        GarmentQueries.Filters(
+                            category = query.category,
+                            // Null would mean available-only. Only asked for when
+                            // the list is showing retired garments too.
+                            availableOnly = if (query.includeRetired) false else null,
+                            search = query.searchTerm,
+                        )
+                    )
+                    .filterBy(query.garmentFilter())
+                    .orderedBy(query.sort)
             }
             _state.update { it.copy(loading = false, garments = garments, error = null) }
-            garments.size
         } catch (e: Exception) {
             _state.update {
                 it.copy(
@@ -93,60 +106,72 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
                     error = e.message ?: e.javaClass.simpleName,
                 )
             }
-            null
         }
     }
 
-    fun onRestoreRequested() {
-        _state.update { it.copy(restore = Restore.Confirming) }
+    // ---- narrowing -----------------------------------------------------------
+
+    fun onFiltersToggled() {
+        _state.update { it.copy(filtersExpanded = !it.filtersExpanded) }
     }
 
-    fun onRestoreDismissed() {
-        _state.update { it.copy(restore = null) }
+    fun onSearchChanged(search: String) = typed { it.copy(search = search) }
+
+    fun onBrandChanged(brand: String) = typed { it.copy(brand = brand) }
+
+    fun onSizeChanged(size: String) = typed { it.copy(size = size) }
+
+    fun onCategoryTapped(id: String) = narrow { it.withCategory(id) }
+
+    fun onSubcategoryTapped(id: String) = narrow { it.withSubcategory(id) }
+
+    fun onSeasonTapped(season: Season) = narrow { it.withSeason(season) }
+
+    fun onOccasionTapped(occasion: Occasion) = narrow { it.withOccasion(occasion) }
+
+    fun onColorTapped(color: String) = narrow { it.withColor(color) }
+
+    fun onRetiredToggled() = narrow { it.copy(includeRetired = !it.includeRetired) }
+
+    fun onSortToggled() = narrow { it.withSortToggled() }
+
+    fun onFiltersCleared() = narrow { it.cleared() }
+
+    /**
+     * A tap: change the query and re-read at once.
+     *
+     * Nothing to wait for -- a chip cannot be half-tapped the way a word can be
+     * half-typed.
+     */
+    private fun narrow(change: (WardrobeQuery) -> WardrobeQuery) {
+        _state.update { it.copy(query = change(it.query)) }
+        refresh()
     }
 
     /**
-     * Restore from an archive, then show what happened.
+     * A keystroke: show it immediately, read shortly.
      *
-     * Takes a way to open the archive rather than the archive itself, so nothing
-     * here knows about content URIs -- and so the stream is opened on the IO
-     * thread that reads it.
+     * The text has to land in the state now or the box would not show what was
+     * typed, but the query waits for a pause. Cancelling the previous pending
+     * reload is what makes it a pause rather than a stream.
      */
-    fun onArchivePicked(openArchive: () -> InputStream) {
-        _state.update { it.copy(restore = Restore.Running) }
+    private fun typed(change: (WardrobeQuery) -> WardrobeQuery) {
+        _state.update { it.copy(query = change(it.query)) }
 
-        viewModelScope.launch {
-            val outcome = withContext(Dispatchers.IO) {
-                runCatching { openArchive().use { container.restoreFrom(it) } }
-            }
-
-            // Reload either way: a refused archive changes nothing, but the list
-            // on screen was loaded before the attempt and saying so costs
-            // nothing.
-            val garments = reload()
-
-            _state.update {
-                it.copy(
-                    restore = outcome.fold(
-                        onSuccess = { Restore.Done(garments) },
-                        onFailure = { error ->
-                            Restore.Failed(error.message ?: error.javaClass.simpleName)
-                        },
-                    )
-                )
-            }
+        pendingReload?.cancel()
+        pendingReload = viewModelScope.launch {
+            delay(TYPING_PAUSE_MS)
+            reload()
         }
     }
 
-    fun onSearchChanged(search: String) {
-        _state.update { it.copy(search = search) }
-        refresh()
-    }
-
-    fun onSortToggled() {
-        _state.update {
-            it.copy(sort = if (it.sort == GarmentSort.NEWEST) GarmentSort.OLDEST else GarmentSort.NEWEST)
-        }
-        refresh()
+    private companion object {
+        /**
+         * How long a pause in typing has to be before the wardrobe is re-read.
+         *
+         * Long enough that ordinary typing does not trigger a read per letter,
+         * short enough not to feel like lag on the last character.
+         */
+        const val TYPING_PAUSE_MS = 250L
     }
 }

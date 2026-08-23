@@ -21,8 +21,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.core.content.pm.PackageInfoCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -32,6 +35,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.wardrobapp.data.backupFilename
 import java.io.FileNotFoundException
 
 class MainActivity : ComponentActivity() {
@@ -77,7 +81,12 @@ class MainActivity : ComponentActivity() {
                                 container = container,
                                 onGarmentOpened = { navigator.openGarment(it) },
                                 onAddRequested = { navigator.navigate(GARMENT_ADD) },
+                                onSettingsRequested = { navigator.navigate(SETTINGS) },
                             )
+                        }
+
+                        composable(SETTINGS) {
+                            Settings(container, navigator = navigator)
                         }
 
                         composable(OUTFITS) {
@@ -122,9 +131,40 @@ class MainActivity : ComponentActivity() {
         container: AppContainer,
         onGarmentOpened: (String) -> Unit,
         onAddRequested: () -> Unit,
+        onSettingsRequested: () -> Unit,
     ) {
         val model: WardrobeViewModel = viewModel(
             factory = viewModelFactory { initializer { WardrobeViewModel(container) } }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        RefreshOnReturn(model::refresh)
+
+        WardrobeScreen(
+            state = state,
+            onSearchChanged = model::onSearchChanged,
+            onSortToggled = model::onSortToggled,
+            onRetry = model::refresh,
+            onGarmentOpened = onGarmentOpened,
+            onAddRequested = onAddRequested,
+            onSettingsRequested = onSettingsRequested,
+            onFiltersToggled = model::onFiltersToggled,
+            onFiltersCleared = model::onFiltersCleared,
+            onBrandChanged = model::onBrandChanged,
+            onSizeChanged = model::onSizeChanged,
+            onCategoryTapped = model::onCategoryTapped,
+            onSubcategoryTapped = model::onSubcategoryTapped,
+            onSeasonTapped = model::onSeasonTapped,
+            onOccasionTapped = model::onOccasionTapped,
+            onColorTapped = model::onColorTapped,
+            onRetiredToggled = model::onRetiredToggled,
+        )
+    }
+
+    @Composable
+    private fun Settings(container: AppContainer, navigator: NavHostController) {
+        val model: SettingsViewModel = viewModel(
+            factory = viewModelFactory { initializer { SettingsViewModel(container) } }
         )
         val state by model.state.collectAsStateWithLifecycle()
 
@@ -132,7 +172,7 @@ class MainActivity : ComponentActivity() {
         // user can reach -- Downloads, a cloud provider, a file a friend sent --
         // without the app holding storage permissions. Nothing is granted or
         // asked for: the picker hands back a URI for the one document chosen.
-        val picker = rememberLauncherForActivityResult(
+        val opener = rememberLauncherForActivityResult(
             ActivityResultContracts.OpenDocument()
         ) { uri ->
             if (uri == null) {
@@ -148,20 +188,42 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        WardrobeScreen(
+        // The other direction: the picker creates the file and hands back a URI
+        // to write into, so the app never needs to know or name a directory --
+        // and the user's own choice of folder is the one it lands in.
+        val creator = rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/zip")
+        ) { uri ->
+            if (uri == null) {
+                model.onBackupDismissed()
+            } else {
+                model.onBackupDestinationPicked {
+                    contentResolver.openOutputStream(uri)
+                        ?: throw FileNotFoundException("That file could not be written to.")
+                }
+            }
+        }
+
+        SettingsScreen(
             state = state,
-            onSearchChanged = model::onSearchChanged,
-            onSortToggled = model::onSortToggled,
-            onRetry = model::refresh,
-            onGarmentOpened = onGarmentOpened,
-            onAddRequested = onAddRequested,
+            // Remembered: it is a PackageManager query, and asking again on every
+            // recomposition is an IPC round trip for a string that cannot change
+            // while the app is running.
+            version = remember { appVersion() },
+            onBack = { navigator.popBackStack() },
+            // Named the way the app that ships names its own backups: its
+            // Settings screen lists them by that prefix, so one written here
+            // into the same folder shows up there.
+            onBackupRequested = { creator.launch(backupFilename(System.currentTimeMillis())) },
+            onBackupDismissed = model::onBackupDismissed,
             onRestoreRequested = model::onRestoreRequested,
             // Providers disagree about what a .zip is: some report
             // application/zip, some application/octet-stream, and some nothing
             // at all. Filtering on the type would hide the user's own backup
             // from them, so every type is offered and the archive decides.
-            onRestoreConfirmed = { picker.launch(arrayOf("*/*")) },
+            onRestoreConfirmed = { opener.launch(arrayOf("*/*")) },
             onRestoreDismissed = model::onRestoreDismissed,
+            onRetry = model::refresh,
         )
     }
 
@@ -172,6 +234,8 @@ class MainActivity : ComponentActivity() {
         )
         val state by model.state.collectAsStateWithLifecycle()
 
+        RefreshOnReturn(model::refresh)
+
         OutfitsScreen(
             state = state,
             onSeasonTapped = model::onSeasonTapped,
@@ -180,6 +244,9 @@ class MainActivity : ComponentActivity() {
             onSave = model::onSaveRequested,
             onRate = model::onRated,
             onPinToggled = model::onPinToggled,
+            onDeleteRequested = model::onDeleteRequested,
+            onDeleteConfirmed = model::onDeleteConfirmed,
+            onDeleteDismissed = model::onDeleteDismissed,
             onGarmentOpened = onGarmentOpened,
         )
     }
@@ -242,6 +309,8 @@ class MainActivity : ComponentActivity() {
         )
         val state by model.state.collectAsStateWithLifecycle()
 
+        RefreshOnReturn(model::refresh)
+
         AnalyticsScreen(state = state, onRetry = model::refresh)
     }
 
@@ -258,12 +327,59 @@ class MainActivity : ComponentActivity() {
         )
         val state by model.state.collectAsStateWithLifecycle()
 
+        // Leaving is the activity's business, not the model's: the model reports
+        // that the garment is gone, and this is what that means for the back
+        // stack. Same shape as the form reporting that it saved.
+        LaunchedEffect(state.deleted) {
+            if (state.deleted) navigator.popBackStack()
+        }
+
         GarmentDetailScreen(
             state = state,
             onBack = { navigator.popBackStack() },
             onPhotoSelected = model::onPhotoSelected,
             onEdit = { navigator.navigate("$GARMENT_EDIT/${Uri.encode(garmentId)}") },
             onRetry = model::refresh,
+            onRemoveBackground = model::onRemoveBackground,
+            onUndoBackground = model::onUndoBackground,
+            onRetire = model::onRetireRequested,
+            onReturnToWardrobe = model::onReturnedToWardrobe,
+            onDelete = model::onDeleteRequested,
+            onConfirmed = model::onConfirmed,
+            onConfirmationDismissed = model::onConfirmationDismissed,
+            onActionErrorDismissed = model::onActionErrorDismissed,
+        )
+    }
+
+    /**
+     * Re-read the database whenever a screen comes back to the front.
+     *
+     * The tab screens' models outlive a trip away from them -- that is what
+     * `saveState` is for -- so without this, a garment added, edited or restored
+     * elsewhere would not appear until the app was restarted. It showed up first
+     * as a garment saved from the form and still missing from the list behind it.
+     *
+     * The first resume reloads what the model's own construction already loaded.
+     * That is a wasted query against a local database, taken deliberately: the
+     * alternative is for a screen to depend on the effect firing to show
+     * anything at all.
+     */
+    @Composable
+    private fun RefreshOnReturn(refresh: () -> Unit) {
+        LifecycleResumeEffect(Unit) {
+            refresh()
+            onPauseOrDispose { }
+        }
+    }
+
+    /** What the installed package says this build is. */
+    private fun appVersion(): AppVersion {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        return AppVersion(
+            name = info.versionName ?: "unknown",
+            // Through the compat helper because the long form arrived in API 28
+            // and this app supports 24.
+            code = PackageInfoCompat.getLongVersionCode(info),
         )
     }
 
@@ -298,6 +414,7 @@ class MainActivity : ComponentActivity() {
         const val WARDROBE = "wardrobe"
         const val OUTFITS = "outfits"
         const val ANALYTICS = "analytics"
+        const val SETTINGS = "settings"
         const val GARMENT = "garment"
         // Deliberately not "garment/add" and "garment/edit": the detail route is
         // "garment/{garmentId}", which would match both of them as an id, and
