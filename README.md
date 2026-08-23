@@ -71,8 +71,9 @@ app/                      expo-router screens
   settings.tsx
   statistics.tsx
 src/
-  domain/                 Pure algorithms: outfit suggestion, duplicate
-                          detection (no platform dependencies — see Architecture)
+  domain/                 Pure logic: outfit suggestion, duplicate detection,
+                          pair learning, list filtering, form state, backup
+                          validation (no platform dependencies — see Architecture)
   db/                     SQLite client, schema, keyed data migrations
   services/               garment, outfit, analytics, image, backup,
                           background-removal, garment-analysis, url-import,
@@ -97,7 +98,7 @@ native/                   The Kotlin/Android port (see Architecture)
 
 Three layers, with a deliberate boundary between them:
 
-- **`src/domain/`** — the algorithms: outfit suggestion, duplicate detection, and how a rating folds into a garment pair's learned score. No database, no filesystem, no clock, no React Native. Everything arrives as an argument, so a run is reproducible. `src/domain/purity.test.ts` walks the real import graph and fails if anything platform-bound creeps in, directly or transitively.
+- **`src/domain/`** — the logic that does not need a platform: outfit suggestion, duplicate detection, how a rating folds into a garment pair's learned score, how the wardrobe list is filtered and ordered, how the garment form moves between states, and whether a backup archive can be restored. No database, no filesystem, no clock, no React Native. Everything arrives as an argument, so a run is reproducible. `src/domain/purity.test.ts` walks the real import graph and fails if anything platform-bound creeps in, directly or transitively.
 - **`src/utils/`, `src/constants/`, `src/types/`** — pure helpers the domain layer builds on (colour distance, tag similarity, occasion derivation, photo-reference handling).
 - **`src/services/`, `src/db/`, `src/hooks/`, `app/`** — everything that talks to SQLite, the filesystem, the Storage Access Framework or the UI. The services that wrap a domain algorithm are thin: they load data, call the algorithm, and re-export its public API so callers see one module.
 
@@ -114,7 +115,7 @@ cd native && ./gradlew test
 | Module | What |
 |---|---|
 | `:domain` | The algorithms — colour, tags, occasions, duplicates, suggestions |
-| `:data` | The database — row and photo-reference mapping, reads, writes, analytics |
+| `:data` | The database — row and photo-reference mapping, reads, writes, analytics, backup validation |
 | `:parity-testing` | Shared fixture-loading for the parity suites |
 | `:presentation` | What the screens show — filtering, ordering, form state, as pure functions |
 | `:app` | The Compose UI — **only included when an Android SDK is present** |
@@ -125,11 +126,13 @@ cd native && ./gradlew test
 
 Multi-statement writes there are transactional, which the TypeScript's are not: deleting a garment issues four statements in sequence, so a failure partway through can leave a garment gone but its learned pair scores behind.
 
+Archive validation is ported as well — the checks that decide whether a `.zip` is allowed to replace a wardrobe. Its tests compare the refusal *message*, not just accept-or-reject, because the message is the only thing telling someone whether to update the app, re-export the backup, or give up on the file.
+
 The schema those tests run against is emitted from `src/db/schema.ts` as `schema-fresh.sql` and `schema-upgraded.sql`, so the port is tested against the schema the app really applies rather than a copy that can drift. Every read-path test runs against both, because the two are not the same shape (see Limitations).
 
 The React Native app is untouched and keeps shipping; nothing is removed until the native app reaches parity.
 
-Because it is a port rather than a rewrite, the tests ask whether the Kotlin **agrees with the TypeScript it came from**, not merely whether it passes tests written for it. `npm run parity:dump` records the TypeScript answers for a fixed corpus — 1156 colour pairs, 169 tag-set pairs, 60 duplicate scenarios, 700 category/subcategory pairings, 432 engine runs, 48 photo references and 45 row shapes — and the Kotlin tests replay it. The engine is compared draw for draw: both sides step the same linear congruential generator, so an agreeing outfit list means every intermediate choice matched — the same template, epsilon branch, tie-break and roulette slot.
+Because it is a port rather than a rewrite, the tests ask whether the Kotlin **agrees with the TypeScript it came from**, not merely whether it passes tests written for it. `npm run parity:dump` records the TypeScript answers for a fixed corpus — 2989 cases across 14 files: 1156 colour pairs, 169 tag-set pairs, 60 duplicate scenarios, 700 category/subcategory pairings, 432 engine runs, 222 rating folds, 116 list and form states, 93 row and photo-reference shapes, and 41 backup archives — and the Kotlin tests replay it. The engine is compared draw for draw: both sides step the same linear congruential generator, so an agreeing outfit list means every intermediate choice matched — the same template, epsilon branch, tie-break and roulette slot.
 
 Drift is caught from both sides. CI regenerates the fixtures and fails if they moved, so changing a TypeScript algorithm without regenerating cannot leave the port pinned to old behaviour; and the Kotlin tests fail if the fixtures move without the Kotlin following. After changing either side, run `npm run parity:dump` and commit the result.
 
@@ -143,7 +146,7 @@ npm run test:watch
 
 22 suites, 228 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
 
-The Kotlin port adds 68 more:
+The Kotlin port adds 76 more:
 
 ```bash
 cd native && ./gradlew test
@@ -156,7 +159,7 @@ Domain algorithms are checked by mutation: each behaviour the tests claim to pro
 ## Limitations
 
 - **Android only.** Web and iOS support were removed — the web build had its own storage layer that could silently lose data, and iOS was never finished.
-- **The native port is early.** `native/domain` carries the algorithms and `native/data` the row mapping, but nothing yet opens a database or draws a screen, so the shipped APK is still the React Native app.
+- **The native port is early.** The Kotlin app opens a real database and draws the wardrobe list, and CI builds it as a debug APK, but it installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it — there is no way yet to get an existing wardrobe into it, and most screens are still missing. The shipped app is still the React Native one.
 - **The `garments` schema is not uniform.** `created_at` and `updated_at` are `NOT NULL` on a fresh install but nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist, so readers must tolerate both — and it is why the native data layer will use plain SQL rather than Room, whose schema validation would reject one of them.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **Released APKs are debug-signed**, so they can't be upgraded in place from a properly signed build later.

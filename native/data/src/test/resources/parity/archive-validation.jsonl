@@ -1,0 +1,41 @@
+{"kind":"manifest","input":"{\"version\":3}","result":{"ok":true}}
+{"kind":"manifest","input":"{\"version\":3,\"created_at\":\"2026-01-01T00:00:00.000Z\",\"image_count\":12}","result":{"ok":true}}
+{"kind":"manifest","input":"{\"version\":3.0}","result":{"ok":true}}
+{"kind":"manifest","input":"{\"version\":3,\"unexpected\":\"ignored\"}","result":{"ok":true}}
+{"kind":"manifest","input":"{\"version\":3,\"created_at\":42,\"image_count\":\"twelve\"}","result":{"ok":true}}
+{"kind":"manifest","input":"","result":{"ok":false,"message":"Invalid backup: manifest.json is not readable JSON."}}
+{"kind":"manifest","input":"not json","result":{"ok":false,"message":"Invalid backup: manifest.json is not readable JSON."}}
+{"kind":"manifest","input":"{\"version\":3","result":{"ok":false,"message":"Invalid backup: manifest.json is not readable JSON."}}
+{"kind":"manifest","input":"[]","result":{"ok":false,"message":"Invalid backup: manifest.json does not describe a backup."}}
+{"kind":"manifest","input":"\"3\"","result":{"ok":false,"message":"Invalid backup: manifest.json does not describe a backup."}}
+{"kind":"manifest","input":"null","result":{"ok":false,"message":"Invalid backup: manifest.json does not describe a backup."}}
+{"kind":"manifest","input":"42","result":{"ok":false,"message":"Invalid backup: manifest.json does not describe a backup."}}
+{"kind":"manifest","input":"{}","result":{"ok":false,"message":"Invalid backup: manifest.json has no version number."}}
+{"kind":"manifest","input":"{\"version\":\"3\"}","result":{"ok":false,"message":"Invalid backup: manifest.json has no version number."}}
+{"kind":"manifest","input":"{\"version\":null}","result":{"ok":false,"message":"Invalid backup: manifest.json has no version number."}}
+{"kind":"manifest","input":"{\"version\":true}","result":{"ok":false,"message":"Invalid backup: manifest.json has no version number."}}
+{"kind":"manifest","input":"{\"version\":3.5}","result":{"ok":false,"message":"Invalid backup: manifest.json has no version number."}}
+{"kind":"manifest","input":"{\"version\":4}","result":{"ok":false,"message":"This backup was made by a newer version of Wardrobapp (backup format 4; this app reads 3). Update the app and try again."}}
+{"kind":"manifest","input":"{\"version\":99}","result":{"ok":false,"message":"This backup was made by a newer version of Wardrobapp (backup format 99; this app reads 3). Update the app and try again."}}
+{"kind":"manifest","input":"{\"version\":2}","result":{"ok":false,"message":"Unsupported backup format 2; this app reads 3."}}
+{"kind":"manifest","input":"{\"version\":1}","result":{"ok":false,"message":"Unsupported backup format 1; this app reads 3."}}
+{"kind":"manifest","input":"{\"version\":0}","result":{"ok":false,"message":"Unsupported backup format 0; this app reads 3."}}
+{"kind":"manifest","input":"{\"version\":-1}","result":{"ok":false,"message":"Unsupported backup format -1; this app reads 3."}}
+{"kind":"completeness","input":{"hasDatabase":true,"present":0},"result":{"ok":true}}
+{"kind":"completeness","input":{"hasDatabase":false,"present":0},"result":{"ok":false,"message":"Invalid backup: wardrobapp.db is missing from the archive. Nothing was changed."}}
+{"kind":"completeness","input":{"hasDatabase":false,"present":5},"result":{"ok":false,"message":"Invalid backup: wardrobapp.db is missing from the archive. Nothing was changed."}}
+{"kind":"completeness","input":{"imageCount":0,"hasDatabase":true,"present":0},"result":{"ok":true}}
+{"kind":"completeness","input":{"imageCount":5,"hasDatabase":true,"present":5},"result":{"ok":true}}
+{"kind":"completeness","input":{"imageCount":5,"hasDatabase":true,"present":4},"result":{"ok":false,"message":"Incomplete backup: the manifest lists 5 photo(s) but only 4 are present, so the archive is truncated. Nothing was changed."}}
+{"kind":"completeness","input":{"imageCount":5,"hasDatabase":true,"present":6},"result":{"ok":true}}
+{"kind":"completeness","input":{"imageCount":5,"hasDatabase":false,"present":5},"result":{"ok":false,"message":"Invalid backup: wardrobapp.db is missing from the archive. Nothing was changed."}}
+{"kind":"legacy","input":{"version":1,"hasDatabase":true},"result":{"ok":true}}
+{"kind":"legacy","input":{"version":1,"hasDatabase":false},"result":{"ok":false,"message":"Invalid backup: it contains no database. Nothing was changed."}}
+{"kind":"legacy","input":{"version":2,"hasDatabase":true},"result":{"ok":true}}
+{"kind":"legacy","input":{"version":2,"hasDatabase":false},"result":{"ok":false,"message":"Invalid backup: it contains no database. Nothing was changed."}}
+{"kind":"legacy","input":{"version":3,"hasDatabase":true},"result":{"ok":false,"message":"Unsupported backup format 3; this app reads 1, 2 and 3."}}
+{"kind":"legacy","input":{"version":3,"hasDatabase":false},"result":{"ok":false,"message":"Unsupported backup format 3; this app reads 1, 2 and 3."}}
+{"kind":"legacy","input":{"version":0,"hasDatabase":true},"result":{"ok":false,"message":"Unsupported backup format 0; this app reads 1, 2 and 3."}}
+{"kind":"legacy","input":{"version":0,"hasDatabase":false},"result":{"ok":false,"message":"Unsupported backup format 0; this app reads 1, 2 and 3."}}
+{"kind":"legacy","input":{"version":4,"hasDatabase":true},"result":{"ok":false,"message":"Unsupported backup format 4; this app reads 1, 2 and 3."}}
+{"kind":"legacy","input":{"version":4,"hasDatabase":false},"result":{"ok":false,"message":"Unsupported backup format 4; this app reads 1, 2 and 3."}}

@@ -54,6 +54,11 @@ import {
 } from '../src/utils/image-paths';
 import { normalizeGarmentRow } from '../src/utils/garment-fields';
 import { ALTER_STATEMENTS, CREATE_TABLES_SQL, INDEX_STATEMENTS } from '../src/db/schema';
+import {
+  checkArchiveCompleteness,
+  checkLegacyPayload,
+  parseArchiveManifest,
+} from '../src/domain/backup-archive';
 import { CATEGORIES } from '../src/constants/categories';
 import type { Garment } from '../src/types';
 
@@ -926,6 +931,104 @@ function dumpBrandSuggestions() {
   return lines;
 }
 
+
+/**
+ * Archive validation, which decides whether a wardrobe gets overwritten.
+ *
+ * Recorded as accept-or-reject *plus the message*, because the message is the
+ * only thing telling someone whether to update the app or give up on the file.
+ * A port that rejected the right archives with the wrong explanation would be a
+ * worse app, and a comparison of booleans would not notice.
+ */
+function attempt(operation: () => void): { ok: true } | { ok: false; message: string } {
+  try {
+    operation();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function dumpArchiveValidation() {
+  const manifests = [
+    // Valid.
+    '{"version":3}',
+    '{"version":3,"created_at":"2026-01-01T00:00:00.000Z","image_count":12}',
+    '{"version":3.0}',
+    '{"version":3,"unexpected":"ignored"}',
+    '{"version":3,"created_at":42,"image_count":"twelve"}',
+    // Not JSON at all.
+    '',
+    'not json',
+    '{"version":3',
+    // JSON, but not an object describing a backup.
+    '[]',
+    '"3"',
+    'null',
+    '42',
+    // No usable version.
+    '{}',
+    '{"version":"3"}',
+    '{"version":null}',
+    '{"version":true}',
+    '{"version":3.5}',
+    // Wrong version, in both directions.
+    '{"version":4}',
+    '{"version":99}',
+    '{"version":2}',
+    '{"version":1}',
+    '{"version":0}',
+    '{"version":-1}',
+  ];
+
+  const lines: string[] = [];
+
+  for (const text of manifests) {
+    lines.push(JSON.stringify({
+      kind: 'manifest',
+      input: text,
+      result: attempt(() => parseArchiveManifest(text)),
+    }));
+  }
+
+  // Completeness, against a valid manifest.
+  const completeness: { imageCount?: number; hasDatabase: boolean; present: number }[] = [
+    { hasDatabase: true, present: 0 },
+    { hasDatabase: false, present: 0 },
+    { hasDatabase: false, present: 5 },
+    { imageCount: 0, hasDatabase: true, present: 0 },
+    { imageCount: 5, hasDatabase: true, present: 5 },
+    { imageCount: 5, hasDatabase: true, present: 4 },
+    { imageCount: 5, hasDatabase: true, present: 6 },
+    { imageCount: 5, hasDatabase: false, present: 5 },
+  ];
+
+  for (const c of completeness) {
+    lines.push(JSON.stringify({
+      kind: 'completeness',
+      input: c,
+      result: attempt(() => checkArchiveCompleteness({
+        manifest: { version: 3, image_count: c.imageCount },
+        hasDatabase: c.hasDatabase,
+        imageCount: c.present,
+      })),
+    }));
+  }
+
+  // Legacy payloads.
+  for (const version of [1, 2, 3, 0, 4]) {
+    for (const database of ['data', '']) {
+      lines.push(JSON.stringify({
+        kind: 'legacy',
+        input: { version, hasDatabase: Boolean(database) },
+        result: attempt(() => checkLegacyPayload({ version, database })),
+      }));
+    }
+  }
+
+  return lines;
+}
+
 mkdirSync(OUT_DIR, { recursive: true });
 mkdirSync(DATA_OUT_DIR, { recursive: true });
 
@@ -989,6 +1092,13 @@ console.log(`presentation/form-normalization.jsonl: ${normalization.length} case
 const brands = dumpBrandSuggestions();
 writeFileSync(join(PRESENTATION_OUT_DIR, 'brand-suggestions.jsonl'), brands.join('\n') + '\n');
 console.log(`presentation/brand-suggestions.jsonl: ${brands.length} cases`);
+
+const archiveValidation = dumpArchiveValidation();
+writeFileSync(
+  join(DATA_OUT_DIR, 'archive-validation.jsonl'),
+  archiveValidation.join('\n') + '\n'
+);
+console.log(`data/archive-validation.jsonl: ${archiveValidation.length} cases`);
 
 const schemas = dumpSchemas();
 writeFileSync(join(DATA_OUT_DIR, 'schema-fresh.sql'), schemas.fresh + '\n');
