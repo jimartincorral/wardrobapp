@@ -1,10 +1,4 @@
--- An upgraded install: an old table, then every additive ALTER.
-
--- Statements failing because the column exists are expected. The runner
-
--- ignores those, exactly as the app does. Columns are added before the
-
--- indexes over them, which is the order the app applies.
+-- An install old enough to predate every additive ALTER.
 
 CREATE TABLE garments (
       id TEXT PRIMARY KEY,
@@ -12,7 +6,23 @@ CREATE TABLE garments (
       category TEXT NOT NULL
     );
 
-CREATE TABLE outfits (id TEXT PRIMARY KEY, name TEXT NOT NULL, garment_ids TEXT NOT NULL DEFAULT '[]', occasion TEXT, season TEXT, created_at TEXT NOT NULL, is_suggested INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE outfits (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      garment_ids TEXT NOT NULL DEFAULT '[]',
+      occasion TEXT,
+      season TEXT,
+      created_at TEXT NOT NULL,
+      is_suggested INTEGER NOT NULL DEFAULT 0
+    );
+
+-- Then the schema as applied on every start. Statements failing because
+
+-- the column exists are expected and ignored, exactly as the app does.
+
+-- Columns are added before the indexes over them, which is the order the
+
+-- app applies -- the other way round throws on an install this old.
 
 CREATE TABLE IF NOT EXISTS garments (
       id TEXT PRIMARY KEY,

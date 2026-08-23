@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose supplies the real theme; this only needs to be a Material 3
+         parent so the window background and status bar are sane before the first
+         composition. -->
+    <style name="Theme.Wardrobapp" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

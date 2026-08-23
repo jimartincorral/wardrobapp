@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Suffixed while this installs alongside the React Native app, so the two
+         are distinguishable in the launcher. -->
+    <string name="app_name">Wardrobapp (port)</string>
+</resources>

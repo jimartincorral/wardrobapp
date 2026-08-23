@@ -584,23 +584,39 @@ function dumpSchemas() {
     ...INDEX_STATEMENTS.map(s => `${s};`),
   ].join('\n\n');
 
-  const upgraded = [
-    '-- An upgraded install: an old table, then every additive ALTER.',
-    '-- Statements failing because the column exists are expected. The runner',
-    '-- ignores those, exactly as the app does. Columns are added before the',
-    '-- indexes over them, which is the order the app applies.',
+  // An install old enough to predate every ALTER. Emitted on its own as well as
+  // inside the upgraded script, so the Kotlin schema test can start from
+  // literally the same state rather than a second copy of it that can drift.
+  const oldInstall = [
+    '-- An install old enough to predate every additive ALTER.',
     `CREATE TABLE garments (
       id TEXT PRIMARY KEY,
       image_uri TEXT NOT NULL,
       category TEXT NOT NULL
     );`,
-    'CREATE TABLE outfits (id TEXT PRIMARY KEY, name TEXT NOT NULL, garment_ids TEXT NOT NULL DEFAULT \'[]\', occasion TEXT, season TEXT, created_at TEXT NOT NULL, is_suggested INTEGER NOT NULL DEFAULT 0);',
+    `CREATE TABLE outfits (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      garment_ids TEXT NOT NULL DEFAULT '[]',
+      occasion TEXT,
+      season TEXT,
+      created_at TEXT NOT NULL,
+      is_suggested INTEGER NOT NULL DEFAULT 0
+    );`,
+  ].join('\n\n');
+
+  const upgraded = [
+    oldInstall,
+    '-- Then the schema as applied on every start. Statements failing because',
+    '-- the column exists are expected and ignored, exactly as the app does.',
+    '-- Columns are added before the indexes over them, which is the order the',
+    '-- app applies -- the other way round throws on an install this old.',
     CREATE_TABLES_SQL.trim(),
     ...ALTER_STATEMENTS.map(s => `${s};`),
     ...INDEX_STATEMENTS.map(s => `${s};`),
   ].join('\n\n');
 
-  return { fresh, upgraded };
+  return { fresh, upgraded, oldInstall };
 }
 
 
@@ -977,5 +993,7 @@ console.log(`presentation/brand-suggestions.jsonl: ${brands.length} cases`);
 const schemas = dumpSchemas();
 writeFileSync(join(DATA_OUT_DIR, 'schema-fresh.sql'), schemas.fresh + '\n');
 writeFileSync(join(DATA_OUT_DIR, 'schema-upgraded.sql'), schemas.upgraded + '\n');
+writeFileSync(join(DATA_OUT_DIR, 'schema-old-install.sql'), schemas.oldInstall + '\n');
 console.log(`data/schema-fresh.sql: ${schemas.fresh.split('\n').length} lines`);
 console.log(`data/schema-upgraded.sql: ${schemas.upgraded.split('\n').length} lines`);
+console.log(`data/schema-old-install.sql: ${schemas.oldInstall.split('\n').length} lines`);
