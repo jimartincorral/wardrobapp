@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.InputStream
 
 /**
  * The wardrobe list.
@@ -38,25 +37,9 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
          * failure looked exactly like an empty wardrobe.
          */
         val error: String? = null,
-        /** Non-null while a restore is being asked about, run, or reported. */
-        val restore: Restore? = null,
     ) {
         /** True only when the wardrobe really is empty, not when a read failed. */
         val isEmpty: Boolean get() = !loading && error == null && garments.isEmpty()
-    }
-
-    /**
-     * Where a restore has got to.
-     *
-     * [Confirming] exists because a restore replaces the whole wardrobe, and
-     * picking a file is not the same as agreeing to that.
-     */
-    sealed interface Restore {
-        data object Confirming : Restore
-        data object Running : Restore
-        /** Restored; the count is absent only if the reload afterwards failed. */
-        data class Done(val garments: Int?) : Restore
-        data class Failed(val message: String) : Restore
     }
 
     private val _state = MutableStateFlow(State())
@@ -71,11 +54,11 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     /** Reload the list, reporting a failure rather than leaving the old one. */
-    private suspend fun reload(): Int? {
+    private suspend fun reload() {
         val current = _state.value
         _state.update { it.copy(loading = true, error = null) }
 
-        return try {
+        try {
             val garments = withContext(Dispatchers.IO) {
                 // The database applies what it can express; :presentation
                 // applies the rest and the ordering.
@@ -85,54 +68,11 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
                     .orderedBy(current.sort)
             }
             _state.update { it.copy(loading = false, garments = garments, error = null) }
-            garments.size
         } catch (e: Exception) {
             _state.update {
                 it.copy(
                     loading = false,
                     error = e.message ?: e.javaClass.simpleName,
-                )
-            }
-            null
-        }
-    }
-
-    fun onRestoreRequested() {
-        _state.update { it.copy(restore = Restore.Confirming) }
-    }
-
-    fun onRestoreDismissed() {
-        _state.update { it.copy(restore = null) }
-    }
-
-    /**
-     * Restore from an archive, then show what happened.
-     *
-     * Takes a way to open the archive rather than the archive itself, so nothing
-     * here knows about content URIs -- and so the stream is opened on the IO
-     * thread that reads it.
-     */
-    fun onArchivePicked(openArchive: () -> InputStream) {
-        _state.update { it.copy(restore = Restore.Running) }
-
-        viewModelScope.launch {
-            val outcome = withContext(Dispatchers.IO) {
-                runCatching { openArchive().use { container.restoreFrom(it) } }
-            }
-
-            // Reload either way: a refused archive changes nothing, but the list
-            // on screen was loaded before the attempt and saying so costs
-            // nothing.
-            val garments = reload()
-
-            _state.update {
-                it.copy(
-                    restore = outcome.fold(
-                        onSuccess = { Restore.Done(garments) },
-                        onFailure = { error ->
-                            Restore.Failed(error.message ?: error.javaClass.simpleName)
-                        },
-                    )
                 )
             }
         }

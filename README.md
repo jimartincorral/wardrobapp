@@ -123,7 +123,8 @@ scripts/                  build-apk.ps1, dump-domain-parity.ts
 native/                   The Kotlin/Android port (see Architecture)
   domain/                   Ported algorithms, plain Kotlin/JVM — no Android SDK
                             needed to build or test
-  data/                     Row and photo-reference mapping into domain types
+  data/                     Row and photo-reference mapping into domain types,
+                            reading and writing backup archives
   presentation/             List filtering and ordering, form state — pure
   parity-testing/           Shared fixture loading for the parity suites
 ```
@@ -197,7 +198,7 @@ Domain algorithms are checked by mutation: each behaviour the tests claim to pro
 ## Limitations
 
 - **Android only.** Web and iOS support were removed — the web build had its own storage layer that could silently lose data, and iOS was never finished.
-- **The native port is early.** The Kotlin app now covers the wardrobe: adding and editing garments with photos, on-device background removal, the list, a garment's detail, outfit suggestions you can rate and keep, the analytics, and restoring a backup. CI builds it as a debug APK. It installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it, so a wardrobe gets in there by restoring a backup rather than by being found. Still missing: URL import, settings, removing a background from a garment already saved (the form does it, the detail screen does not yet), and any language but English. The shipped app is still the React Native one.
+- **The native port is early.** The Kotlin app now covers the wardrobe: adding and editing garments with photos, on-device background removal, the list, a garment's detail, outfit suggestions you can rate and keep, the analytics, and a settings screen that both writes and restores backups. CI builds it as a debug APK. It installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it, so a wardrobe gets in there by restoring a backup — and back out the same way, since both apps read and write the same archive format. Still missing: URL import, switching language or theme, and removing a background from a garment already saved (the form does it, the detail screen does not yet). Every string in it is still hardcoded English. The shipped app is still the React Native one.
 - **The `garments` schema is not uniform.** `created_at` and `updated_at` are `NOT NULL` on a fresh install but nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist, so readers must tolerate both — and it is why the native data layer will use plain SQL rather than Room, whose schema validation would reject one of them.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **Released APKs are debug-signed.** Signing is wired up but has no key yet, so the first signed build will need a one-time back-up, uninstall and restore — see [Signing releases](#signing-releases).
