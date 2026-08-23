@@ -102,8 +102,8 @@ jobs:
 
   # The Compose app. Separate from the Kotlin tests above so a broken Android
   # build is reported as one, and so the fast gate does not wait on the Android
-  # toolchain. Assembles debug only: a release build needs signing, which is not
-  # set up yet.
+  # toolchain. Assembles debug only: nothing publishes the port's APK yet, so a
+  # release build here would buy nothing until cutover.
   android:
     name: Build the port's APK
     runs-on: ubuntu-latest
@@ -172,15 +172,70 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # android/ is gitignored, so the native project is generated from app.json on every run.
+      # android/ is gitignored, so the native project is generated from app.config.js on every run.
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install
+
+      # Signing is opt-in on the secret. With no keystore configured the release
+      # build falls back to the debug key exactly as it always has, so a fork or
+      # a contributor without the secret still gets a working APK -- and the
+      # release notes below say which key was used rather than guessing.
+      - name: Decode the release keystore
+        id: signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo 'signed=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::No ANDROID_KEYSTORE_BASE64 secret is set, so this release APK will be signed with the public Android debug key.'
+            exit 0
+          fi
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          # Gradle turns ORG_GRADLE_PROJECT_<name> into project property <name>.
+          #
+          # Set only when a keystore is actually present: an empty value still
+          # makes project.hasProperty('WARDROBAPP_STORE_FILE') true, which would
+          # select the release signing config and then fail on a keystore path
+          # of "" -- or, worse in a future edit, produce something unsigned.
+          {
+            echo "ORG_GRADLE_PROJECT_WARDROBAPP_STORE_FILE=release.keystore"
+            echo "ORG_GRADLE_PROJECT_WARDROBAPP_STORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD"
+            echo "ORG_GRADLE_PROJECT_WARDROBAPP_KEY_ALIAS=$ANDROID_KEY_ALIAS"
+            echo "ORG_GRADLE_PROJECT_WARDROBAPP_KEY_PASSWORD=$ANDROID_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+          echo 'signed=true' >> "$GITHUB_OUTPUT"
 
       - name: Build release APK
         env:
           NODE_ENV: production
         run: ./gradlew assembleRelease --console=plain --no-daemon
         working-directory: android
+
+      # The guard on the whole point of this: a misconfigured signing config
+      # produces a "release" APK quietly signed with the debug key, which looks
+      # entirely fine until a phone refuses to upgrade it. Cheap to check, and
+      # skipped entirely while there is no keystore -- the debug key is expected
+      # then, and saying so in the release notes is the honest answer.
+      - name: Check the APK is not debug-signed
+        if: steps.signing.outputs.signed == 'true'
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then
+            echo '::warning::apksigner was not found on the runner, so the signing certificate could not be checked.'
+            exit 0
+          fi
+          "$APKSIGNER" verify --print-certs \
+            android/app/build/outputs/apk/release/app-release.apk > certs.txt
+          cat certs.txt
+          # The debug keystore's certificate, which every Android SDK ships and
+          # anyone can therefore sign with.
+          if grep -q 'CN=Android Debug' certs.txt; then
+            echo '::error::A keystore was configured but the APK is signed with the Android debug key.'
+            exit 1
+          fi
 
       # Kept alongside the release below: artifacts give a per-run history,
       # the release gives one permanent link to the newest build.
@@ -199,14 +254,19 @@ jobs:
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
+          SIGNED: ${{ steps.signing.outputs.signed }}
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk wardrobapp.apk
 
           {
             echo "Automatic build of main — run #${GITHUB_RUN_NUMBER}, commit ${GITHUB_SHA}."
             echo
-            echo "**Signed with the public Android debug key**, so this is a build for"
-            echo "testing, not one to distribute."
+            if [ "$SIGNED" = 'true' ]; then
+              echo "Signed with the project's release key."
+            else
+              echo "**Signed with the public Android debug key**, so this is a build for"
+              echo "testing, not one to distribute."
+            fi
           } > release-notes.md
 
           gh release delete nightly --yes --cleanup-tag || true

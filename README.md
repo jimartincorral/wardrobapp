@@ -61,6 +61,39 @@ cd android && ./gradlew assembleRelease
 
 The output lands at `android/app/build/outputs/apk/release/app-release.apk`. There is also `npm run apk`, a PowerShell script that wraps the same steps and auto-detects a JDK 17 — Windows only.
 
+`versionCode` comes from `app.config.js`: a fixed offset plus the CI run number, so each published build is a later version than the last. Locally it is the offset alone, which is fine — a local build is not upgrading anything.
+
+### Signing releases
+
+Not set up yet: with no keystore configured, both apps fall back to the public Android debug key, and everything below is what remains to finish. All the plumbing is in place, so this is four secrets and a key.
+
+**1. Create a keystore.** This needs a desktop machine; it cannot be done from the phone. In Android Studio: **Build → Generate Signed App Bundle / APK → APK → Create new…**, and keep the file and both passwords somewhere you will still have them in five years — losing them means never being able to upgrade an installed app again. The `keytool` equivalent, if you would rather not open Android Studio:
+
+```bash
+keytool -genkeypair -v -keystore wardrobapp-release.keystore \
+  -alias wardrobapp -keyalg RSA -keysize 2048 -validity 10000
+```
+
+**2. Add four repository secrets** (Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | the keystore, base64-encoded (see below) |
+| `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
+| `ANDROID_KEY_ALIAS` | the key alias (`wardrobapp` above) |
+| `ANDROID_KEY_PASSWORD` | the key password |
+
+Encode the keystore with `base64 -w0 wardrobapp-release.keystore` on Linux, `base64 -i wardrobapp-release.keystore` on macOS, or in PowerShell:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes('wardrobapp-release.keystore'))
+```
+
+CI decodes the keystore, passes the rest to Gradle as `ORG_GRADLE_PROJECT_WARDROBAPP_*` properties, and then fails the build if the APK still carries the debug certificate — a misconfigured signing config otherwise produces a "release" APK that looks fine right up until a phone refuses to upgrade it. While `ANDROID_KEYSTORE_BASE64` is unset the build behaves exactly as it does now and says so in the release notes, so a fork or a contributor without the secret still gets a working APK. `plugins/withReleaseSigning.js` makes the same conditional edit to the generated `android/app/build.gradle`; `native/app/build.gradle.kts` reads the same four properties, so both apps end up signed by the same key.
+
+**3. Reinstall once, on each device.** A debug-signed app cannot be upgraded by a release-signed one — Android refuses an APK whose signature differs from the installed app's. So the first signed build is a clean break: **back up from Settings, uninstall, install the signed APK, restore the backup.** Once past that, every later build upgrades in place.
+
+
 ## Project structure
 
 ```
@@ -167,7 +200,7 @@ Domain algorithms are checked by mutation: each behaviour the tests claim to pro
 - **The native port is early.** The Kotlin app now covers the wardrobe: adding and editing garments with photos, on-device background removal, the list, a garment's detail, outfit suggestions you can rate and keep, the analytics, and restoring a backup. CI builds it as a debug APK. It installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it, so a wardrobe gets in there by restoring a backup rather than by being found. Still missing: URL import, settings, removing a background from a garment already saved (the form does it, the detail screen does not yet), and any language but English. The shipped app is still the React Native one.
 - **The `garments` schema is not uniform.** `created_at` and `updated_at` are `NOT NULL` on a fresh install but nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist, so readers must tolerate both — and it is why the native data layer will use plain SQL rather than Room, whose schema validation would reject one of them.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
-- **Released APKs are debug-signed**, so they can't be upgraded in place from a properly signed build later.
+- **Released APKs are debug-signed.** Signing is wired up but has no key yet, so the first signed build will need a one-time back-up, uninstall and restore — see [Signing releases](#signing-releases).
 - **The schema is applied idempotently** at startup from `src/db/schema.ts` — `CREATE TABLE IF NOT EXISTS`, then additive `ALTER`s, then the indexes over them. There's no `PRAGMA user_version` yet. Keyed, run-once data migrations live in `src/db/migrations.ts`.
 - **No wear log.** The app records outfit ratings, not what you wore on a given day, so there is no cost-per-wear or wear-trend reporting.
 - **URL import only fetches public addresses.** A `wardrobapp://…?importUrl=…` deep link can be opened by any web page, message or QR code, so the address it carries is not necessarily one you chose. Import therefore asks before fetching anything, and refuses addresses on the device or its local network — a phone sits *inside* a home network, and without that the app would be a way to reach a router or a printer that the page could not reach itself. The check is re-applied after redirects and to the image URLs the page supplies, and page reads are capped and given a deadline. One residual: a redirect to a private address is refused *after* the request has been made, since React Native's fetch cannot be told to stop at a redirect — nothing is read back from it.
