@@ -96,7 +96,7 @@ native/                   The Kotlin/Android port (see Architecture)
 
 Three layers, with a deliberate boundary between them:
 
-- **`src/domain/`** — the algorithms: outfit suggestion and duplicate detection. No database, no filesystem, no clock, no React Native. Everything arrives as an argument, so a run is reproducible. `src/domain/purity.test.ts` walks the real import graph and fails if anything platform-bound creeps in, directly or transitively.
+- **`src/domain/`** — the algorithms: outfit suggestion, duplicate detection, and how a rating folds into a garment pair's learned score. No database, no filesystem, no clock, no React Native. Everything arrives as an argument, so a run is reproducible. `src/domain/purity.test.ts` walks the real import graph and fails if anything platform-bound creeps in, directly or transitively.
 - **`src/utils/`, `src/constants/`, `src/types/`** — pure helpers the domain layer builds on (colour distance, tag similarity, occasion derivation, photo-reference handling).
 - **`src/services/`, `src/db/`, `src/hooks/`, `app/`** — everything that talks to SQLite, the filesystem, the Storage Access Framework or the UI. The services that wrap a domain algorithm are thin: they load data, call the algorithm, and re-export its public API so callers see one module.
 
@@ -113,12 +113,14 @@ cd native && ./gradlew test
 | Module | What |
 |---|---|
 | `:domain` | The algorithms — colour, tags, occasions, duplicates, suggestions |
-| `:data` | Reading the database — row and photo-reference mapping, plus the read-only queries |
+| `:data` | The database — row and photo-reference mapping, reads and writes |
 | `:parity-testing` | Shared fixture-loading for the parity suites |
 
 The Android-specific layers (the filesystem, Compose) arrive as separate modules later. Keeping the pure parts pure is what lets everything so far be verified on any machine — and `:data` is the code that decides whether an *existing* wardrobe opens correctly, so it is the code most worth being able to test anywhere.
 
-`:data` reaches SQLite through a one-method `SqlDriver` interface rather than depending on `androidx.sqlite`. On Android that wraps a `SupportSQLiteDatabase`; in the tests it wraps JDBC. Both run the same SQL against the same schema, which is what lets the read paths be exercised without an emulator.
+`:data` reaches SQLite through a small `SqlDriver` interface rather than depending on `androidx.sqlite`. On Android that wraps a `SupportSQLiteDatabase`; in the tests it wraps JDBC. Both run the same SQL against the same schema, which is what lets the queries be exercised without an emulator.
+
+Multi-statement writes there are transactional, which the TypeScript's are not: deleting a garment issues four statements in sequence, so a failure partway through can leave a garment gone but its learned pair scores behind.
 
 The schema those tests run against is emitted from `src/db/schema.ts` as `schema-fresh.sql` and `schema-upgraded.sql`, so the port is tested against the schema the app really applies rather than a copy that can drift. Every read-path test runs against both, because the two are not the same shape (see Limitations).
 
@@ -138,7 +140,7 @@ npm run test:watch
 
 19 suites, 182 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
 
-The Kotlin port adds 33 more:
+The Kotlin port adds 51 more:
 
 ```bash
 cd native && ./gradlew test
