@@ -80,9 +80,25 @@ function textOrNull(value: string | null | undefined): string | null {
   return trimmed ? trimmed : null;
 }
 
-function colorKeyFor(hex: string): string | null {
+/**
+ * The palette entry a stored colour came from, or null if it was not picked from
+ * the palette.
+ *
+ * Exported because two screens ask: a garment's detail, for its swatches, and the
+ * statistics screen, to put a swatch beside a colour's bar. Matched
+ * case-insensitively, which is the whole reason it is a function rather than a
+ * lookup: the same hex is stored in both cases across the wardrobe.
+ *
+ * Returns the *entry*, not just the key, so a caller that draws the colour uses
+ * the palette's own spelling rather than whatever case happened to be stored.
+ */
+export function paletteColorFor(hex: string): { key: string; hex: string } | null {
   const normalized = hex.trim().toUpperCase();
-  return GARMENT_COLORS.find(c => c.hex.toUpperCase() === normalized)?.key ?? null;
+  return GARMENT_COLORS.find(c => c.hex.toUpperCase() === normalized) ?? null;
+}
+
+function colorKeyFor(hex: string): string | null {
+  return paletteColorFor(hex)?.key ?? null;
 }
 
 /**

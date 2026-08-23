@@ -9,6 +9,7 @@ import {
 } from '@/src/services/analytics-service';
 import { getGarmentCount } from '@/src/services/garment-service';
 import { GARMENT_COLORS } from '@/src/constants/colors';
+import { NO_SUBCATEGORY, statisticsView } from '@/src/domain/statistics-view';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
 import { useTranslation } from '@/src/i18n';
 import { localizeSubcategory } from '@/src/utils/localization-helpers';
@@ -16,6 +17,12 @@ import { useTheme } from '@/src/theme';
 import type { ThemeColors } from '@/src/theme';
 
 type Stat = { category: string; count: number };
+
+/**
+ * The distributions call their key `category` whatever it holds -- a colour, a
+ * brand, a subcategory. The domain module calls a key a key.
+ */
+const toDistribution = (stat: Stat) => ({ key: stat.category, count: stat.count });
 
 const HEX_TO_COLOR = new Map<string, { key: string; hex: string }>(
   GARMENT_COLORS.map(c => [c.hex, { key: c.key, hex: c.hex }])
@@ -71,44 +78,61 @@ export default function StatisticsScreen() {
     });
   }, []);
 
-  const categoryRows: StatRowData[] = categories.map(c => ({
-    key: c.category,
-    label: t(`categories.${c.category}`),
-    count: c.count,
+  // The counts, the fractions and the swatches come from the domain module; the
+  // words are this screen's business, because they need the translator.
+  const view = statisticsView({
+    total: totalItems,
+    categories: categories.map(toDistribution),
+    colors: colorStats.map(toDistribution),
+    brands: brands.map(toDistribution),
+    subcategories: Object.fromEntries(
+      Object.entries(subcategories).map(([category, subs]) => [
+        category,
+        subs.map(toDistribution),
+      ])
+    ),
+    brandSort,
+  });
+
+  const categoryRows: StatRowData[] = view.categories.map(bar => ({
+    key: bar.key,
+    label: t(`categories.${bar.key}`),
+    count: bar.count,
   }));
 
   const subRowsByCategory: Record<string, StatRowData[]> = {};
-  for (const [category, subs] of Object.entries(subcategories)) {
-    subRowsByCategory[category] = subs.map(s => ({
-      key: `${category}:${s.category}`,
-      label: s.category === '__none__'
-        ? t('statistics.noSubcategory')
-        : (localizeSubcategory(s.category, t) ?? s.category),
-      count: s.count,
-    }));
+  for (const [category, bars] of Object.entries(view.subcategories)) {
+    subRowsByCategory[category] = bars.map(bar => {
+      // The module prefixes the key with its category so the same subcategory
+      // name under two categories stays distinct; the label wants the bare name.
+      const name = bar.key.slice(category.length + 1);
+      return {
+        key: bar.key,
+        label: name === NO_SUBCATEGORY
+          ? t('statistics.noSubcategory')
+          : (localizeSubcategory(name, t) ?? name),
+        count: bar.count,
+      };
+    });
   }
 
-  const colorRows: StatRowData[] = colorStats.map(c => {
-    const match = HEX_TO_COLOR.get(c.category);
+  const colorRows: StatRowData[] = view.colors.map(bar => {
+    const match = HEX_TO_COLOR.get(bar.swatch);
     return {
-      key: c.category,
-      label: match ? t(`colors.${match.key}`) : c.category,
-      count: c.count,
-      swatch: match?.key === 'multi' ? 'multi' : (match?.hex ?? c.category),
+      key: bar.key,
+      label: match ? t(`colors.${match.key}`) : bar.key,
+      count: bar.count,
+      swatch: bar.swatch,
     };
   });
 
-  const brandRows: StatRowData[] = brands.map(b => ({
-    key: b.category,
-    label: b.category,
-    count: b.count,
+  const sortedBrandRows: StatRowData[] = view.brands.map(bar => ({
+    key: bar.key,
+    label: bar.key,
+    count: bar.count,
   }));
 
-  const sortedBrandRows: StatRowData[] = brandSort === 'alpha'
-    ? [...brandRows].sort((a, b) => a.label.localeCompare(b.label))
-    : brandRows;
-
-  const isEmpty = totalItems === 0;
+  const isEmpty = view.isEmpty;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -138,7 +162,7 @@ export default function StatisticsScreen() {
             subRows={subRowsByCategory}
           />
           <StatSection title={t('statistics.byColor')} rows={colorRows} styles={styles} colors={colors} />
-          {brandRows.length > 0 && (
+          {sortedBrandRows.length > 0 && (
             <StatSection
               title={t('statistics.byBrand')}
               rows={sortedBrandRows}

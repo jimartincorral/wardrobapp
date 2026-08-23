@@ -108,6 +108,21 @@ val GARMENT_COLORS: List<Pair<String, String>> = listOf(
 private val COLOR_KEYS_BY_HEX: Map<String, String> =
     GARMENT_COLORS.associate { (key, hex) -> hex.uppercase() to key }
 
+/**
+ * The palette entry a stored colour came from, or null if it was not picked from
+ * the palette.
+ *
+ * Two screens ask: a garment's detail, for its swatches, and statistics, to put a
+ * swatch beside a colour's bar. Matched case-insensitively -- the same hex is
+ * stored in both cases across the wardrobe -- and returning the *entry* rather
+ * than the key so a caller that draws the colour uses the palette's own spelling
+ * rather than whatever case happened to be stored.
+ */
+fun paletteColorFor(hex: String): Pair<String, String>? {
+    val key = COLOR_KEYS_BY_HEX[hex.trim().uppercase()] ?: return null
+    return GARMENT_COLORS.firstOrNull { it.first == key }
+}
+
 /** Blank is not a value: a field of spaces is not worth drawing a row for. */
 private fun String?.orNullIfBlank(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
 
