@@ -53,6 +53,7 @@ import coil.compose.AsyncImage
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.GalleryEntry
+import com.wardrobapp.presentation.BackgroundAction
 import com.wardrobapp.presentation.GarmentDetailView
 import com.wardrobapp.presentation.PaletteEntry
 import com.wardrobapp.presentation.formatStoredDate
@@ -74,6 +75,8 @@ fun GarmentDetailScreen(
     onPhotoSelected: (Int) -> Unit,
     onEdit: () -> Unit,
     onRetry: () -> Unit,
+    onRemoveBackground: () -> Unit,
+    onUndoBackground: () -> Unit,
     onRetire: () -> Unit,
     onReturnToWardrobe: () -> Unit,
     onDelete: () -> Unit,
@@ -146,6 +149,8 @@ fun GarmentDetailScreen(
                 insets = insets,
                 working = state.working,
                 onPhotoSelected = onPhotoSelected,
+                onRemoveBackground = onRemoveBackground,
+                onUndoBackground = onUndoBackground,
                 onRetire = onRetire,
                 onReturnToWardrobe = onReturnToWardrobe,
                 onDelete = onDelete,
@@ -161,6 +166,8 @@ private fun GarmentBody(
     insets: PaddingValues,
     working: Boolean,
     onPhotoSelected: (Int) -> Unit,
+    onRemoveBackground: () -> Unit,
+    onUndoBackground: () -> Unit,
     onRetire: () -> Unit,
     onReturnToWardrobe: () -> Unit,
     onDelete: () -> Unit,
@@ -183,6 +190,13 @@ private fun GarmentBody(
                 }
             }
         }
+
+        BackgroundControl(
+            action = view.backgroundAction,
+            working = working,
+            onRemove = onRemoveBackground,
+            onUndo = onUndoBackground,
+        )
 
         if (!view.isAvailable) {
             UnavailableBanner(view.unavailableDate)
@@ -235,6 +249,47 @@ private fun GarmentBody(
                 onReturnToWardrobe = onReturnToWardrobe,
                 onDelete = onDelete,
             )
+        }
+    }
+}
+
+/**
+ * Remove or restore the selected photo's background.
+ *
+ * Driven entirely by `view.backgroundAction`, which until now was computed on
+ * every load of this screen and thrown away. Nothing is shown when it is null --
+ * a photo whose cut-out already replaced it has neither move available, and an
+ * always-visible disabled button would ask the reader to work out why.
+ */
+@Composable
+private fun BackgroundControl(
+    action: BackgroundAction?,
+    working: Boolean,
+    onRemove: () -> Unit,
+    onUndo: () -> Unit,
+) {
+    if (action == null) return
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (working) {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+            Text(
+                "Working on the photo…",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        } else {
+            TextButton(onClick = if (action == BackgroundAction.REMOVE) onRemove else onUndo) {
+                Text(
+                    when (action) {
+                        BackgroundAction.REMOVE -> "Remove background"
+                        BackgroundAction.UNDO -> "Undo background removal"
+                    }
+                )
+            }
         }
     }
 }

@@ -1,11 +1,17 @@
 package com.wardrobapp.app
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.GarmentRecord
+import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.isoTimestamp
+import com.wardrobapp.data.resolveImageRef
+import com.wardrobapp.presentation.BackgroundEdit
 import com.wardrobapp.presentation.GarmentDetailView
 import com.wardrobapp.presentation.garmentDetail
+import com.wardrobapp.presentation.withBackgroundRemovedAt
+import com.wardrobapp.presentation.withBackgroundRestoredAt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 /**
  * One garment's detail.
@@ -195,6 +202,122 @@ class GarmentDetailViewModel(
                 }
             }
         }
+    }
+
+    // ---- the selected photo's background -----------------------------------
+
+    /**
+     * Cut the garment out of its background, and keep the result.
+     *
+     * Unlike the form, there is no save button here, so this writes as it goes.
+     * What the slots become is decided by [withBackgroundRemovedAt] rather than
+     * here -- the alignment and what becomes discardable are the parts that are
+     * quietly wrong when they are wrong, and they are tested where they live.
+     */
+    fun onRemoveBackground() {
+        val loaded = record ?: return
+        if (_state.value.working) return
+
+        val original = loaded.displayImageUris.getOrNull(selectedIndex) ?: return
+        if (original.isEmpty()) return
+
+        _state.update { it.copy(working = true, actionError = null) }
+
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val cutout = resolveImageRef(
+                        container.backgrounds.removeBackground(
+                            Uri.parse(original),
+                            UUID.randomUUID().toString(),
+                        ),
+                        container.imageDirectory,
+                    )
+
+                    val edit = withBackgroundRemovedAt(
+                        images = loaded.displayImageUris,
+                        cutouts = loaded.displayNoBgImageUris,
+                        index = selectedIndex,
+                        cutout = cutout,
+                    ) ?: return@withContext
+
+                    applyPhotos(edit, alsoImages = true)
+                }
+                _state.update { it.copy(working = false) }
+                refresh()
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        working = false,
+                        actionError = e.message ?: "The background could not be removed.",
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Put the original photo back.
+     *
+     * Only offered where there is an original to go back to, which is the same
+     * condition [withBackgroundRestoredAt] enforces -- so a stale tap on a slot
+     * that has since collapsed does nothing rather than something wrong.
+     */
+    fun onUndoBackground() {
+        val loaded = record ?: return
+        if (_state.value.working) return
+
+        _state.update { it.copy(working = true, actionError = null) }
+
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val edit = withBackgroundRestoredAt(
+                        images = loaded.displayImageUris,
+                        cutouts = loaded.displayNoBgImageUris,
+                        index = selectedIndex,
+                    ) ?: return@withContext
+
+                    applyPhotos(edit, alsoImages = false)
+                }
+                _state.update { it.copy(working = false) }
+                refresh()
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        working = false,
+                        actionError = e.message ?: "That could not be undone.",
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Write the new slots, then drop the file nothing points at.
+     *
+     * That order matters: the row is the record of what exists, so a failure
+     * before it is written leaves both the old slots and their files intact. The
+     * file is deleted only after the row has stopped referring to it.
+     *
+     * [alsoImages] is false for an undo, which changes only the cut-out column --
+     * the image column already holds the original it is going back to.
+     */
+    private fun applyPhotos(edit: BackgroundEdit, alsoImages: Boolean) {
+        container.garmentWrites.update(
+            garmentId,
+            GarmentWrites.GarmentEdit(
+                imageUri = if (alsoImages) edit.images.firstOrNull() ?: "" else null,
+                imageUris = if (alsoImages) edit.images else null,
+                // Written as an empty string rather than NULL when a slot is
+                // cleared; every reader treats the two the same.
+                imageUriNoBg = edit.cutouts.firstOrNull() ?: "",
+                imageUrisNoBg = edit.cutouts,
+            ),
+            isoTimestamp(System.currentTimeMillis()),
+        )
+
+        edit.discardable?.let { runCatching { container.photos.delete(it) } }
     }
 
     /** Run a write, then re-read: what the screen shows comes from the row. */

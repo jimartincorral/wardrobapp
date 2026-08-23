@@ -330,6 +330,8 @@ class MainActivity : ComponentActivity() {
             onPhotoSelected = model::onPhotoSelected,
             onEdit = { navigator.navigate("$GARMENT_EDIT/${Uri.encode(garmentId)}") },
             onRetry = model::refresh,
+            onRemoveBackground = model::onRemoveBackground,
+            onUndoBackground = model::onUndoBackground,
             onRetire = model::onRetireRequested,
             onReturnToWardrobe = model::onReturnedToWardrobe,
             onDelete = model::onDeleteRequested,
