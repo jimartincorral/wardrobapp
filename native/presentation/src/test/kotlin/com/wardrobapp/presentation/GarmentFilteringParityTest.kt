@@ -89,7 +89,7 @@ class GarmentFilteringParityTest {
             }
 
             val expected = case.strings("ids")
-            val actual = wardrobe.filterBy(filter).sortedBy(sort).map { it.id }
+            val actual = wardrobe.filterBy(filter).orderedBy(sort).map { it.id }
 
             if (expected != actual) {
                 failures += "filter=$filter sort=$sort: expected $expected, got $actual"

@@ -54,6 +54,11 @@ fun List<GarmentRecord>.filterBy(filter: GarmentFilter): List<GarmentRecord> = f
 /**
  * Order by when a garment was added.
  *
+ * Named `orderedBy` rather than `sortedBy`: the latter would shadow the stdlib's
+ * `List.sortedBy(selector)` on the same receiver type. It happens to resolve,
+ * since a GarmentSort is not a selector function, but a reader cannot tell which
+ * one is meant at a glance and a future overload could make it ambiguous.
+ *
  * `createdAt` is nullable because an install upgraded through the ALTER path
  * really can have no timestamp -- SQLite cannot add a NOT NULL column without a
  * default. The TypeScript declared it non-null and dereferenced it, which threw
@@ -63,7 +68,7 @@ fun List<GarmentRecord>.filterBy(filter: GarmentFilter): List<GarmentRecord> = f
  * garment appears last under NEWEST and first under OLDEST rather than
  * disappearing.
  */
-fun List<GarmentRecord>.sortedBy(sort: GarmentSort = GarmentSort.NEWEST): List<GarmentRecord> {
+fun List<GarmentRecord>.orderedBy(sort: GarmentSort = GarmentSort.NEWEST): List<GarmentRecord> {
     val byCreatedAt = compareBy<GarmentRecord> { it.createdAt ?: "" }
     return when (sort) {
         GarmentSort.OLDEST -> sortedWith(byCreatedAt)
