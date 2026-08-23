@@ -59,6 +59,9 @@ class AppContainer(context: Context) {
     /** Where photos are decoded, scaled and written. */
     val photos = AndroidPhotoStore(context)
 
+    /** Cutting a garment out of its background, on device. */
+    val backgrounds = AndroidBackgroundRemover(context, photos)
+
     private val restore = ArchiveRestore(
         files = WardrobeFiles(
             databaseFile = context.getDatabasePath(AndroidSqlDriver.DATABASE_NAME),

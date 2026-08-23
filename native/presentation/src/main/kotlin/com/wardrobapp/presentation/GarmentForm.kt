@@ -35,6 +35,14 @@ data class GarmentFormState(
     /** One entry per photo: what to show, and the original behind it. */
     data class GalleryItem(val uri: String, val original: String)
 
+    /** What a garment's photo columns should hold, and what is left over. */
+    data class ImagesToStore(
+        val imageUris: List<String>,
+        val bgRemovedUris: List<String>,
+        /** Originals nothing points at any more, safe to delete. */
+        val discardable: List<String>,
+    )
+
     /** Bring the state into shape: the lists aligned, the palette non-empty. */
     fun normalized(): GarmentFormState = copy(
         bgRemovedUris = imageUris.indices.map { bgRemovedUris.getOrNull(it) ?: "" },
@@ -112,6 +120,50 @@ data class GarmentFormState(
         subcategories = next,
         seasons = seasons.ifEmpty { seasonsFor(next) },
     )
+
+    /**
+     * Collapse the photos into what gets stored.
+     *
+     * A slot whose background was removed stores the cut-out in *both* columns
+     * and lets the original go: saving space is the whole point of removing it,
+     * and keeping both would mean every removal costing more storage rather than
+     * less.
+     *
+     * Both mistakes here are quiet ones. Discard a file something still points at
+     * and the garment shows a gap where a photo was; miss one and it sits on the
+     * phone forever with nothing referring to it. So this decides and hands back
+     * the list to act on, rather than doing it.
+     *
+     * Idempotent on purpose: editing a garment whose photo was already collapsed
+     * runs it again, and the second run must find nothing to discard.
+     */
+    fun imagesToStore(): ImagesToStore {
+        val stored = mutableListOf<String>()
+        val cutouts = mutableListOf<String>()
+        val discardable = mutableListOf<String>()
+
+        // Read positionally off the photos rather than re-aligning first: callers
+        // hand over a normalized state, so the columns already line up, and a
+        // second alignment here would be a step no test could tell apart from
+        // the first.
+        imageUris.forEachIndexed { index, original ->
+            val cutout = bgRemovedUris.getOrNull(index) ?: ""
+
+            if (cutout.isNotEmpty()) {
+                stored.add(cutout)
+                cutouts.add(cutout)
+                // Only when it is genuinely a different file: after a previous
+                // collapse the two are the same path, and discarding it would
+                // delete the photo.
+                if (original.isNotEmpty() && original != cutout) discardable.add(original)
+            } else {
+                stored.add(original)
+                cutouts.add("")
+            }
+        }
+
+        return ImagesToStore(stored, cutouts, discardable)
+    }
 
     /**
      * Toggle a colour in the palette.

@@ -1,7 +1,7 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Image } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { GARMENT_IMAGE_DIRNAME } from '../utils/image-paths';
+import { GARMENT_IMAGE_DIRNAME, isStoredGarmentImage } from '../utils/image-paths';
 import { safeImportUrl } from '../utils/url-safety';
 
 const MAX_DIMENSION = 800;
@@ -146,6 +146,15 @@ export async function saveBgRemovedImage(sourceUri: string): Promise<string> {
   const filename = `${Crypto.randomUUID()}_nobg.png`;
   const destUri = `${getImageDir()}${filename}`;
   await fs.copyAsync({ from: manipulated.uri, to: destUri });
+
+  // The native module writes its result into the app's files root and nothing
+  // else ever deletes it, so every removal used to leave a full-size PNG behind
+  // for good. Only when the source is not itself a stored photo: during an edit
+  // this is handed an already-saved cut-out, and deleting that would take the
+  // garment's photo with it.
+  if (!isStoredGarmentImage(sourceUri, getImageDir())) {
+    await deleteImage(sourceUri);
+  }
 
   return destUri;
 }

@@ -13,6 +13,7 @@ import {
   type ImportedGarmentPreview,
 } from '@/src/services/url-import-service';
 import { mergeStructuredTags } from '@/src/utils/style-tags';
+import { slotSources } from '@/src/domain/garment-form';
 import { isPubliclyRoutableHost } from '@/src/utils/url-safety';
 import { useTranslation } from '@/src/i18n';
 import { useTheme } from '@/src/theme';
@@ -119,21 +120,22 @@ export default function AddGarmentScreen() {
 
     setSaving(true);
     try {
-      // When a background was removed we store ONLY the cut-out (used as both the
-      // main and no-bg image) and never persist the original — the point is to
-      // save space. If persisting the cut-out fails, fall back to the original.
+      // Which file each slot contributes is decided in the domain layer, shared
+      // with the Kotlin port; persisting it is this screen's job. A cut-out goes
+      // in both columns and the original is never persisted — saving space is the
+      // point of removing a background. If persisting a cut-out fails, fall back
+      // to the original.
       const saved = await Promise.all(
-        data.imageUris.map(async (uri, index) => {
-          const bgSource = data.bgRemovedUris[index];
-          if (bgSource) {
+        slotSources(data).map(async ({ source, isCutout }, index) => {
+          if (isCutout) {
             try {
-              const cutout = await saveBgRemovedImage(bgSource);
+              const cutout = await saveBgRemovedImage(source);
               return { image: cutout, nobg: cutout };
             } catch (error) {
               console.warn('Failed to persist background-removed image, saving original only:', error);
             }
           }
-          return { image: await compressAndSaveImage(uri), nobg: '' };
+          return { image: await compressAndSaveImage(data.imageUris[index]), nobg: '' };
         })
       );
       const savedImageUris = saved.map((s) => s.image);

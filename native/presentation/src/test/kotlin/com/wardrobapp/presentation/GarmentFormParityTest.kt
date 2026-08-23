@@ -13,6 +13,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -98,6 +99,11 @@ class GarmentFormParityTest {
             check("preview", derived.stringOrNull("preview"), state.displayedPreviewUri())
             check("hasOriginal", derived["hasOriginal"]!!.jsonPrimitive.content == "true", state.selectedHasOriginal())
 
+            val stored = derived["stored"]!!.jsonObject
+            check("stored.imageUris", stored.strings("imageUris"), state.imagesToStore().imageUris)
+            check("stored.bgRemovedUris", stored.strings("bgRemovedUris"), state.imagesToStore().bgRemovedUris)
+            check("stored.discardable", stored.strings("discardable"), state.imagesToStore().discardable)
+
             val expectedGallery = derived["gallery"]!!.jsonArray.map {
                 val item = it.jsonObject
                 GarmentFormState.GalleryItem(item.string("uri"), item.string("original"))
@@ -110,6 +116,25 @@ class GarmentFormParityTest {
             "${failures.size} divergences across ${cases.size} steps:\n" +
                 failures.take(20).joinToString("\n")
         )
+    }
+
+    @Test
+    fun `collapsing an already-collapsed garment finds nothing to discard`() {
+        // Stated directly because the transition scripts cannot reach it: it needs
+        // the collapse fed back in, which is what editing a saved garment does.
+        // Getting it wrong deletes the photo the garment is showing.
+        val once = GarmentFormState(imageUris = listOf("a.jpg"), bgRemovedUris = listOf("a-cut.png"))
+            .normalized()
+            .imagesToStore()
+
+        val twice = GarmentFormState(
+            imageUris = once.imageUris,
+            bgRemovedUris = once.bgRemovedUris,
+        ).normalized().imagesToStore()
+
+        assertEquals(listOf("a-cut.png"), twice.imageUris)
+        assertEquals(listOf("a-cut.png"), twice.bgRemovedUris)
+        assertEquals(emptyList(), twice.discardable)
     }
 
     @Test

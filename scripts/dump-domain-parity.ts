@@ -33,6 +33,7 @@ import {
   brandSuggestions,
   displayedPreviewUri,
   galleryItems,
+  imagesToStore,
   normalizeForm,
   selectedHasOriginal,
   withBackgroundRemoved,
@@ -777,6 +778,25 @@ type FormStep = { op: string; args?: unknown[] };
 
 const FORM_SCRIPTS: { name: string; steps: FormStep[] }[] = [
   {
+    // Removal, undo, and removal on a photo that is not the first one -- the
+    // arrangements the collapse has to get right.
+    name: 'remove a background, undo it, remove another',
+    steps: [
+      { op: 'withImage', args: ['a.jpg'] },
+      { op: 'withImage', args: ['b.jpg'] },
+      { op: 'withBackgroundRemoved', args: ['b-cut.png'] },
+      { op: 'withBackgroundRemoved', args: [''] },
+      { op: 'withBackgroundRemoved', args: ['b-again.png'] },
+    ],
+  },
+  {
+    name: 'a cut-out that is also the photo',
+    steps: [
+      { op: 'withImage', args: ['only-cut.png'] },
+      { op: 'withBackgroundRemoved', args: ['only-cut.png'] },
+    ],
+  },
+  {
     // The palette is never allowed to be empty: a garment always has at least
     // one colour, so taking the last one off puts the default back.
     name: 'pick colours, then take them all off again',
@@ -916,6 +936,9 @@ function dumpFormTransitions() {
           gallery: galleryItems(state),
           preview: displayedPreviewUri(state),
           hasOriginal: selectedHasOriginal(state),
+          // Recorded at every step rather than as its own script, so the collapse
+          // is compared over every photo arrangement the corpus reaches.
+          stored: imagesToStore(state),
         },
       }));
     }

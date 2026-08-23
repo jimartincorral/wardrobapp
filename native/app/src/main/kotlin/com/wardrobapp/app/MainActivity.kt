@@ -219,6 +219,8 @@ class MainActivity : ComponentActivity() {
             },
             onPhotoSelected = model::onPhotoSelected,
             onPhotoRemoved = model::onPhotoRemoved,
+            onRemoveBackground = model::onRemoveBackground,
+            onUndoBackground = model::onUndoBackground,
             onCategorySelected = model::onCategorySelected,
             onSubcategoryToggled = model::onSubcategoryToggled,
             onSeasonToggled = model::onSeasonToggled,

@@ -4,6 +4,7 @@ import {
   brandSuggestions,
   displayedPreviewUri,
   galleryItems,
+  imagesToStore,
   normalizeForm,
   selectedHasOriginal,
   toggled,
@@ -260,5 +261,79 @@ describe('toggled', () => {
   it('adds what is absent and removes what is present', () => {
     expect(toggled(['a'], 'b')).toEqual(['a', 'b']);
     expect(toggled(['a', 'b'], 'a')).toEqual(['b']);
+  });
+});
+
+describe('collapsing photos into what gets stored', () => {
+  const form = (imageUris: string[], bgRemovedUris: string[] = []) =>
+    imagesToStore(normalizeForm({ imageUris, bgRemovedUris }));
+
+  it('stores a photo with no cut-out as itself', () => {
+    const result = form(['a.jpg', 'b.jpg']);
+
+    expect(result.imageUris).toEqual(['a.jpg', 'b.jpg']);
+    expect(result.bgRemovedUris).toEqual(['', '']);
+    expect(result.discardable).toEqual([]);
+  });
+
+  it('puts a cut-out in both columns and lets the original go', () => {
+    // Saving space is the point of removing a background; keeping both would
+    // make every removal cost more storage rather than less.
+    const result = form(['a.jpg', 'b.jpg'], ['a-cut.png', '']);
+
+    expect(result.imageUris).toEqual(['a-cut.png', 'b.jpg']);
+    expect(result.bgRemovedUris).toEqual(['a-cut.png', '']);
+    expect(result.discardable).toEqual(['a.jpg']);
+  });
+
+  it('handles every slot having a cut-out', () => {
+    const result = form(['a.jpg', 'b.jpg'], ['a-cut.png', 'b-cut.png']);
+
+    expect(result.imageUris).toEqual(['a-cut.png', 'b-cut.png']);
+    expect(result.bgRemovedUris).toEqual(['a-cut.png', 'b-cut.png']);
+    expect(result.discardable).toEqual(['a.jpg', 'b.jpg']);
+  });
+
+  it('finds nothing to discard the second time', () => {
+    // Editing a garment whose photos were already collapsed runs this again.
+    // The two columns are the same path by then, and discarding it would delete
+    // the photo the garment is showing.
+    const once = form(['a.jpg'], ['a-cut.png']);
+    const twice = imagesToStore(normalizeForm({
+      imageUris: once.imageUris,
+      bgRemovedUris: once.bgRemovedUris,
+    }));
+
+    expect(twice.imageUris).toEqual(once.imageUris);
+    expect(twice.bgRemovedUris).toEqual(once.bgRemovedUris);
+    expect(twice.discardable).toEqual([]);
+  });
+
+  it('does not discard a cut-out that is also the photo', () => {
+    // The state a collapsed garment loads in: both columns, one file.
+    const result = form(['a-cut.png'], ['a-cut.png']);
+
+    expect(result.discardable).toEqual([]);
+  });
+
+it('gives back a column per photo, whatever it was handed', () => {
+    // Through normalizeForm, as every caller does -- so what this pins is the
+    // pair: a short or overlong cut-out column comes back one entry per photo,
+    // since the two are read positionally and a mismatch would reassign cut-outs
+    // to the wrong photos.
+    const short = form(['a.jpg', 'b.jpg', 'c.jpg'], ['a-cut.png']);
+    expect(short.imageUris).toEqual(['a-cut.png', 'b.jpg', 'c.jpg']);
+    expect(short.bgRemovedUris).toEqual(['a-cut.png', '', '']);
+
+    const overlong = form(['a.jpg'], ['a-cut.png', 'ghost-cut.png']);
+    expect(overlong.imageUris).toEqual(['a-cut.png']);
+    expect(overlong.bgRemovedUris).toEqual(['a-cut.png']);
+    expect(overlong.discardable).toEqual(['a.jpg']);
+  });
+
+  it('has nothing to say about a garment with no photos', () => {
+    const result = form([]);
+
+    expect(result).toEqual({ imageUris: [], bgRemovedUris: [], discardable: [] });
   });
 });

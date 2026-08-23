@@ -184,6 +184,87 @@ export function withSubcategories(
  * inline, which meant the rule lived next to the picker rather than with the rest
  * of the form -- and the port would have needed its own copy of it.
  */
+/** Which file a photo slot contributes, and what it is. */
+export interface SlotSource {
+  source: string;
+  /**
+   * True when the source is a cut-out, which is what makes it belong in *both*
+   * columns rather than only the background-removed one.
+   */
+  isCutout: boolean;
+}
+
+/**
+ * What each photo slot contributes to the stored garment.
+ *
+ * The one rule the apps share: a slot whose background was removed contributes
+ * its cut-out and nothing else. Saving space is the whole point of removing a
+ * background, so keeping the original alongside would make every removal cost
+ * more storage rather than less.
+ *
+ * Only the decision is here. What the two apps then do with it differs -- React
+ * Native persists the file at save time, the port persisted it when it was picked
+ * -- which is exactly why the decision is worth having in one place and the
+ * mechanics are not.
+ */
+/** The photo lists, which is all either of these functions reads. */
+type PhotoSlots = Pick<GarmentFormState, 'imageUris' | 'bgRemovedUris'>;
+
+export function slotSources(state: PhotoSlots): SlotSource[] {
+  return state.imageUris.map((original, index) => {
+    const cutout = state.bgRemovedUris[index] ?? '';
+
+    return cutout ? { source: cutout, isCutout: true } : { source: original, isCutout: false };
+  });
+}
+
+/** What a garment's photo columns should hold, and what is left over. */
+export interface ImagesToStore {
+  imageUris: string[];
+  bgRemovedUris: string[];
+  /**
+   * Originals that nothing points at any more, safe to delete.
+   *
+   * Returned rather than deleted here, because deciding and doing are different
+   * jobs and only the deciding is testable without a filesystem.
+   */
+  discardable: string[];
+}
+
+/**
+ * Collapse the form's photos into what gets stored.
+ *
+ * A slot whose background was removed stores the cut-out in *both* columns and
+ * lets the original go: saving space is the whole point of removing it, and
+ * keeping both would mean every removal costing more storage rather than less.
+ *
+ * Both mistakes here are quiet ones. Discard a file something still points at
+ * and the garment shows a gap where a photo was; miss one and it sits on the
+ * phone forever with nothing referring to it. So this decides, and returns the
+ * list to act on, rather than doing it.
+ *
+ * Idempotent on purpose: editing a garment whose photo was already collapsed
+ * runs it again, and the second run must find nothing to discard.
+ */
+export function imagesToStore(state: PhotoSlots): ImagesToStore {
+  const imageUris: string[] = [];
+  const bgRemovedUris: string[] = [];
+  const discardable: string[] = [];
+
+  slotSources(state).forEach(({ source, isCutout }, index) => {
+    imageUris.push(source);
+    bgRemovedUris.push(isCutout ? source : '');
+
+    // Only when the original is genuinely a different file: after a previous
+    // collapse the two are the same path, and discarding it would delete the
+    // photo the garment is showing.
+    const original = state.imageUris[index];
+    if (isCutout && original && original !== source) discardable.push(original);
+  });
+
+  return { imageUris, bgRemovedUris, discardable };
+}
+
 export function withColorToggled(state: GarmentFormState, color: string): GarmentFormState {
   const palette = toggled(state.colorPalette, color);
 

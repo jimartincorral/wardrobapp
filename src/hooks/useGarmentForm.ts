@@ -17,11 +17,11 @@ import type { Garment } from '../types';
 import type { SeasonOption } from '../constants/style-filters';
 import { CATEGORIES } from '../constants/categories';
 import { splitStructuredTags } from '../utils/style-tags';
+import { backgroundActionFor } from '../domain/garment-detail';
 import {
   brandSuggestions as filterBrandSuggestions,
   displayedPreviewUri as previewUriFor,
   galleryItems as galleryItemsFor,
-  selectedHasOriginal,
   toggled,
   withColorToggled,
   withDetectedColor,
@@ -374,11 +374,17 @@ export function useGarmentForm(t: Translate, initialData?: Partial<GarmentFormDa
     galleryItems: galleryItemsFor(imageState()),
     selectedImageIndex,
     currentImageUri: imageUris[selectedImageIndex] ?? null,
-    currentBgRemovedUri: bgRemovedUris[selectedImageIndex] ?? null,
-    // A separate with-background original exists only when the slot's image
-    // differs from its cut-out. For cut-out-only garments the two are the same
-    // path, so background removal can't be undone/re-run.
-    currentHasOriginal: selectedHasOriginal(imageState()),
+    // What the background control should offer, from the same function the detail
+    // screen asks. This replaced two conditions checked side by side in the form
+    // -- one more place for them to disagree -- and one of them, "is there an
+    // original", is true for a photo that has no cut-out at all.
+    //
+    // Null means neither: for a cut-out-only garment the photo and its cut-out are
+    // the same path, so there is nothing to undo to and nothing left to remove.
+    backgroundAction: backgroundActionFor(
+      imageUris[selectedImageIndex],
+      bgRemovedUris[selectedImageIndex]
+    ),
     displayedPreviewUri: previewUriFor(imageState()),
     showBrandSuggestions,
     setShowBrandSuggestions,

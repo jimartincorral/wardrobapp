@@ -86,6 +86,12 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.ui:ui-tooling-preview")
 
+    // On-device background removal. The same model and the same version the React
+    // Native app already ships (its native module is Kotlin calling this), so the
+    // two produce the same cut-outs. Still a beta upstream; matching what ships is
+    // the defensible choice.
+    implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
+
     // Photos are files on disk; Coil loads them without hand-rolled decoding.
     implementation("io.coil-kt:coil-compose:2.7.0")
 

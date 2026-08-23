@@ -169,7 +169,7 @@ export function GarmentForm({
               </Pressable>
             </View>
             {renderUrlImport()}
-            {!form.currentBgRemovedUri && (
+            {form.backgroundAction === 'remove' && (
               <Pressable
                 style={[styles.bgRemoveButton, (form.removingBg || !isBackgroundRemovalAvailable()) && styles.dimmed]}
                 onPress={() => void form.removeCurrentBackground()}
@@ -202,7 +202,7 @@ export function GarmentForm({
                 <Text style={styles.analysisButtonText}>{t('addGarment.analyzePhoto')}</Text>
               </Pressable>
             )}
-            {form.currentBgRemovedUri && form.currentHasOriginal && (
+            {form.backgroundAction === 'undo' && (
               <Pressable onPress={form.undoCurrentBackground}>
                 <Text style={[styles.changePhotoText, { color: colors.error }]}>{t('addGarment.undoBackground')}</Text>
               </Pressable>

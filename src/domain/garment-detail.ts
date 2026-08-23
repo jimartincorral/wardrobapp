@@ -85,7 +85,17 @@ function colorKeyFor(hex: string): string | null {
   return GARMENT_COLORS.find(c => c.hex.toUpperCase() === normalized)?.key ?? null;
 }
 
-function backgroundActionFor(original: string | undefined, cutout: string | undefined): BackgroundAction {
+/**
+ * What the background-removal control should offer for one photo.
+ *
+ * Exported because two screens ask it: a garment's detail, and the add/edit form.
+ * The form worked it out from two conditions side by side, which is one more place
+ * for them to disagree.
+ */
+export function backgroundActionFor(
+  original: string | undefined,
+  cutout: string | undefined
+): BackgroundAction {
   if (!cutout) return 'remove';
   if (original && original !== cutout) return 'undo';
   return null;

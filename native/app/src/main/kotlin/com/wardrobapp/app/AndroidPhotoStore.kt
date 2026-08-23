@@ -48,15 +48,19 @@ class AndroidPhotoStore(private val context: Context) {
     }
 
     /**
-     * Store a background-removed photo, as PNG.
+     * Store a background-removed photo, as PNG, from a bitmap already in hand.
      *
-     * Kept lossless because a cut-out has transparency, and JPEG has no alpha
-     * channel: saving one as JPEG fills the removed background with black, which
-     * is the opposite of what removing it was for.
+     * A bitmap rather than a URI because that is what segmentation produces: there
+     * is no file to read, and writing one only to read it back would be two
+     * copies of a large image for nothing.
+     *
+     * PNG because a cut-out is transparent where the background was, and JPEG has
+     * no alpha channel -- saving one as JPEG fills the removed background with
+     * black, which is the opposite of removing it.
      */
-    fun storeCutout(source: Uri, id: String): String {
+    fun writeCutout(cutout: Bitmap, id: String): String {
         val name = cutoutFilename(id)
-        write(source, File(directory.also { it.mkdirs() }, name), Bitmap.CompressFormat.PNG)
+        writeBitmap(cutout, File(directory.also { it.mkdirs() }, name), Bitmap.CompressFormat.PNG)
         return name
     }
 
@@ -82,24 +86,32 @@ class AndroidPhotoStore(private val context: Context) {
         try {
             bitmap = turnUpright(bitmap, orientation)
             bitmap = scaledTo(bitmap, target)
-
-            // Written through a temporary file and moved into place, so a failure
-            // partway leaves nothing behind for the database to point at.
-            val staging = File(destination.parentFile, "${destination.name}.incoming")
-            try {
-                staging.outputStream().use { out ->
-                    if (!bitmap.compress(format, PHOTO_JPEG_QUALITY, out)) {
-                        throw IOException("That image could not be saved.")
-                    }
-                }
-                if (!staging.renameTo(destination)) {
-                    throw IOException("That image could not be saved.")
-                }
-            } finally {
-                staging.delete()
-            }
+            writeBitmap(bitmap, destination, format)
         } finally {
             bitmap.recycle()
+        }
+    }
+
+    /**
+     * Write a bitmap to its final place.
+     *
+     * Through a temporary file and moved in, so a failure partway leaves nothing
+     * behind for the database to point at.
+     */
+    private fun writeBitmap(bitmap: Bitmap, destination: File, format: Bitmap.CompressFormat) {
+        val staging = File(destination.parentFile, "${destination.name}.incoming")
+
+        try {
+            staging.outputStream().use { out ->
+                if (!bitmap.compress(format, PHOTO_JPEG_QUALITY, out)) {
+                    throw IOException("That image could not be saved.")
+                }
+            }
+            if (!staging.renameTo(destination)) {
+                throw IOException("That image could not be saved.")
+            }
+        } finally {
+            staging.delete()
         }
     }
 

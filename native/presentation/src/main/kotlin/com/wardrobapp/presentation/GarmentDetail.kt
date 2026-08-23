@@ -111,7 +111,15 @@ private val COLOR_KEYS_BY_HEX: Map<String, String> =
 /** Blank is not a value: a field of spaces is not worth drawing a row for. */
 private fun String?.orNullIfBlank(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
 
-private fun backgroundActionFor(original: String?, cutout: String?): BackgroundAction? = when {
+/**
+ * What the background-removal control should offer for one photo.
+ *
+ * Public because two screens ask it: a garment's detail, and the add/edit form.
+ * The form used to work it out from "is there an original", which is true for a
+ * photo that has no cut-out at all -- so it offered undo where there was nothing
+ * to undo.
+ */
+fun backgroundActionFor(original: String?, cutout: String?): BackgroundAction? = when {
     cutout.isNullOrEmpty() -> BackgroundAction.REMOVE
     !original.isNullOrEmpty() && original != cutout -> BackgroundAction.UNDO
     else -> null

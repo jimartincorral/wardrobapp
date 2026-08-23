@@ -7,7 +7,7 @@ A local-first wardrobe and outfit planner for **Android**, built with React Nati
 ## Features
 
 - **Garment catalog** — photos, category and type, colour palette, tags, brand, size. Photos are resized to 800px and re-encoded at 70% JPEG on import to keep the database and backups small.
-- **On-device background removal** — strips the background from a garment photo via [`@six33/react-native-bg-removal`](https://www.npmjs.com/package/@six33/react-native-bg-removal). Needs the native module linked, so a development or release build rather than Expo Go.
+- **On-device background removal** — strips the background from a garment photo via ML Kit subject segmentation: [`@six33/react-native-bg-removal`](https://www.npmjs.com/package/@six33/react-native-bg-removal) in the React Native app, the same model called directly in the Kotlin port. Needs the native module linked, so a development or release build rather than Expo Go.
 - **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged by a weighted average of tag overlap (Jaccard, 0.6), colour similarity (0.3) and size match (0.1). Signals with nothing to compare abstain rather than scoring zero, so an untagged garment can still be recognised as a duplicate.
 - **Outfit suggestions** — an epsilon-greedy engine combining category templates, colour harmony judged by hue, season and occasion fit, and pair scores learned from your ratings.
 - **Wardrobe analytics** — breakdowns by category, subcategory, colour and brand, plus garment lifespan for items you've marked unavailable.
@@ -149,9 +149,9 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-27 suites, 312 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import and which addresses it will fetch, garment and outfit services, what a garment's detail screen shows, how the outfit filters behave, the analytics bar arithmetic, the domain layer's dependency-freedom, and the pure utilities.
+27 suites, 335 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import and which addresses it will fetch, garment and outfit services, what a garment's detail screen shows, how the outfit filters behave, the analytics bar arithmetic, the domain layer's dependency-freedom, and the pure utilities.
 
-The Kotlin port adds 196 more:
+The Kotlin port adds 205 more:
 
 ```bash
 cd native && ./gradlew test
@@ -164,7 +164,7 @@ Domain algorithms are checked by mutation: each behaviour the tests claim to pro
 ## Limitations
 
 - **Android only.** Web and iOS support were removed — the web build had its own storage layer that could silently lose data, and iOS was never finished.
-- **The native port is early.** The Kotlin app now covers the wardrobe: adding and editing garments with photos, the list, a garment's detail, outfit suggestions you can rate and keep, the analytics, and restoring a backup. CI builds it as a debug APK. It installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it, so a wardrobe gets in there by restoring a backup rather than by being found. Still missing: background removal (which needs a segmentation model the port does not have), URL import, settings, and any language but English. The shipped app is still the React Native one.
+- **The native port is early.** The Kotlin app now covers the wardrobe: adding and editing garments with photos, on-device background removal, the list, a garment's detail, outfit suggestions you can rate and keep, the analytics, and restoring a backup. CI builds it as a debug APK. It installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it, so a wardrobe gets in there by restoring a backup rather than by being found. Still missing: URL import, settings, removing a background from a garment already saved (the form does it, the detail screen does not yet), and any language but English. The shipped app is still the React Native one.
 - **The `garments` schema is not uniform.** `created_at` and `updated_at` are `NOT NULL` on a fresh install but nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist, so readers must tolerate both — and it is why the native data layer will use plain SQL rather than Room, whose schema validation would reject one of them.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **Released APKs are debug-signed**, so they can't be upgraded in place from a properly signed build later.

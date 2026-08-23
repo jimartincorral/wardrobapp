@@ -60,7 +60,9 @@ import com.wardrobapp.domain.SIZE_CHIPS
 import com.wardrobapp.domain.COMMON_SIZES
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.garmentCategory
+import com.wardrobapp.presentation.BackgroundAction
 import com.wardrobapp.presentation.GARMENT_COLORS
+import com.wardrobapp.presentation.backgroundActionFor
 
 /**
  * Adding or editing a garment.
@@ -79,6 +81,8 @@ fun GarmentFormScreen(
     onAddPhoto: () -> Unit,
     onPhotoSelected: (Int) -> Unit,
     onPhotoRemoved: (Int) -> Unit,
+    onRemoveBackground: () -> Unit,
+    onUndoBackground: () -> Unit,
     onCategorySelected: (String) -> Unit,
     onSubcategoryToggled: (String) -> Unit,
     onSeasonToggled: (Season) -> Unit,
@@ -133,14 +137,30 @@ fun GarmentFormScreen(
         ) {
             item {
                 Section("Photos") {
-                    Photos(
-                        uris = form.galleryItems().map { it.uri },
-                        selected = form.selectedImageIndex,
-                        busy = state.saving,
-                        onAdd = onAddPhoto,
-                        onSelect = onPhotoSelected,
-                        onRemove = onPhotoRemoved,
-                    )
+                    Column {
+                        Photos(
+                            uris = form.galleryItems().map { it.uri },
+                            selected = form.selectedImageIndex,
+                            busy = state.saving,
+                            onAdd = onAddPhoto,
+                            onSelect = onPhotoSelected,
+                            onRemove = onPhotoRemoved,
+                        )
+
+                        // What to offer is :presentation's call, from the same
+                        // function the detail screen asks -- "is there an original"
+                        // is true for a photo with no cut-out at all, so asking it
+                        // directly offered undo where there was nothing to undo.
+                        BackgroundControl(
+                            action = backgroundActionFor(
+                                form.imageUris.getOrNull(form.selectedImageIndex),
+                                form.bgRemovedUris.getOrNull(form.selectedImageIndex),
+                            ),
+                            running = state.removingBackground,
+                            onRemove = onRemoveBackground,
+                            onUndo = onUndoBackground,
+                        )
+                    }
                 }
             }
 
@@ -223,6 +243,48 @@ fun GarmentFormScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Remove or restore the selected photo's background.
+ *
+ * Runs a model on the device, which takes seconds rather than milliseconds, so it
+ * says what it is doing rather than just disabling itself. Undo appears only while
+ * there is a separate original to go back to: after a garment is saved the cut-out
+ * *is* the photo, and offering undo then would be a button that destroys the only
+ * copy.
+ */
+@Composable
+private fun BackgroundControl(
+    action: BackgroundAction?,
+    running: Boolean,
+    onRemove: () -> Unit,
+    onUndo: () -> Unit,
+) {
+    // Nothing to offer once a cut-out has replaced the photo it came from: there
+    // is no original left, and a button there would destroy the only copy.
+    if (action == null && !running) return
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = 8.dp),
+    ) {
+        when {
+            running -> {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                Text(
+                    "Cutting out the garment…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+            action == BackgroundAction.REMOVE ->
+                TextButton(onClick = onRemove) { Text("Remove background") }
+            action == BackgroundAction.UNDO ->
+                TextButton(onClick = onUndo) { Text("Undo background removal") }
         }
     }
 }

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.DuplicateGarment
 import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.isoTimestamp
+import com.wardrobapp.data.orphanedImageRefs
 import com.wardrobapp.data.resolveImageRef
 import com.wardrobapp.domain.DuplicateCandidate
 import com.wardrobapp.domain.Season
@@ -56,10 +57,31 @@ class GarmentFormViewModel(
         val error: String? = null,
         /** Set when the garment being edited is not there any more. */
         val missing: Boolean = false,
+        /**
+         * True while the model is cutting a photo out. Separate from [saving]
+         * because it takes seconds rather than milliseconds, and the screen says
+         * something different about it.
+         */
+        val removingBackground: Boolean = false,
     )
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
+
+    /**
+     * Files this form created, which nothing else can be referencing yet.
+     *
+     * The distinction that decides when a photo may be deleted. A file this form
+     * made -- an imported photo, a cut-out -- is disposable the moment the form
+     * stops pointing at it. A file belonging to the garment already in the database
+     * is not: its row still references it until the next save goes through, so
+     * deleting it early means backing out of an edit leaves the garment showing a
+     * gap where a photo was.
+     */
+    private val created = mutableSetOf<String>()
+
+    /** What the garment referenced when it was loaded, for cleanup after a save. */
+    private var storedRefs: List<String> = emptyList()
 
     val isEditing: Boolean = garmentId != null
 
@@ -105,13 +127,24 @@ class GarmentFormViewModel(
 
         edit { it.withoutImageAt(index) }
 
-        // Only once it is out of the form: a photo deleted before the state was
-        // updated would leave a reference to a file that is gone.
+        // Only once it is out of the form, and only if this form made it. Anything
+        // the stored garment owns is left alone here and cleaned up after the save,
+        // once the row has stopped referring to it.
+        discardIfOurs(removed)
+        discardIfOurs(removedCutout)
+    }
+
+    /**
+     * Delete a file, but only one this form created.
+     *
+     * Nothing is deleted merely because the form stopped showing it: the form is a
+     * draft until it is saved, and the garment on disk is not.
+     */
+    private fun discardIfOurs(uri: String?) {
+        if (uri.isNullOrEmpty() || !created.remove(uri)) return
+
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                removed?.let { container.photos.delete(it) }
-                removedCutout?.takeIf { it.isNotEmpty() }?.let { container.photos.delete(it) }
-            }
+            withContext(Dispatchers.IO) { container.photos.delete(uri) }
         }
     }
 
@@ -141,6 +174,7 @@ class GarmentFormViewModel(
                     container.photos.store(source, UUID.randomUUID().toString())
                 }
                 val uri = resolveImageRef(stored, container.imageDirectory)
+                created.add(uri)
                 _state.update {
                     it.copy(saving = false, form = it.form.withImage(uri), duplicates = emptyList())
                 }
@@ -150,6 +184,74 @@ class GarmentFormViewModel(
                 }
             }
         }
+    }
+
+    // ---- background removal --------------------------------------------------
+
+    /**
+     * Cut the selected photo out of its background.
+     *
+     * The original stays in the form, so undo works right up until the garment is
+     * saved -- at which point the collapse in [imagesToStore] keeps only the
+     * cut-out. That is the React Native app's behaviour too, arrived at from both
+     * its screens.
+     */
+    fun onRemoveBackground() {
+        val form = _state.value.form
+        val photo = form.imageUris.getOrNull(form.selectedImageIndex)
+        if (photo.isNullOrEmpty() || _state.value.removingBackground) return
+
+        _state.update { it.copy(removingBackground = true, error = null) }
+
+        viewModelScope.launch {
+            try {
+                val cutout = withContext(Dispatchers.IO) {
+                    container.backgrounds.removeBackground(
+                        Uri.parse(photo),
+                        UUID.randomUUID().toString(),
+                    )
+                }
+                val uri = resolveImageRef(cutout, container.imageDirectory)
+                created.add(uri)
+
+                _state.update {
+                    it.copy(
+                        removingBackground = false,
+                        // Against the *current* form rather than the one captured
+                        // above: the photo could have been changed while the model
+                        // was working, and writing into a stale state would put the
+                        // cut-out on the wrong photo.
+                        form = it.form.withBackgroundRemoved(uri),
+                        duplicates = emptyList(),
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        removingBackground = false,
+                        error = e.message ?: "The background could not be removed.",
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Put the original photo back.
+     *
+     * The cut-out file goes with it: nothing points at it any more, and it was
+     * only ever written for this form.
+     */
+    fun onUndoBackground() {
+        val form = _state.value.form
+        val cutout = form.bgRemovedUris.getOrNull(form.selectedImageIndex)
+
+        edit { it.withBackgroundRemoved("") }
+
+        // Only a cut-out this form made. One that came with a saved garment is
+        // still referenced by its row, and would be missing if the edit were
+        // abandoned rather than saved.
+        discardIfOurs(cutout)
     }
 
     // ---- saving --------------------------------------------------------------
@@ -214,14 +316,21 @@ class GarmentFormViewModel(
         val now = isoTimestamp(System.currentTimeMillis())
         val tags = mergeStructuredTags(form.tags, form.seasons)
 
+        // A slot whose background was removed stores the cut-out in both columns
+        // and lets the original go. Decided in :presentation, and shared with the
+        // React Native app, because both mistakes are silent ones: discard a file
+        // still referenced and the garment shows a gap; miss one and it sits on
+        // the phone with nothing pointing at it.
+        val images = form.imagesToStore()
+
         if (garmentId == null) {
             container.garmentWrites.insert(
                 GarmentWrites.NewGarment(
                     id = UUID.randomUUID().toString(),
-                    imageUri = form.imageUris.first(),
-                    imageUriNoBg = form.bgRemovedUris.firstOrNull()?.ifEmpty { null },
-                    imageUris = form.imageUris,
-                    imageUrisNoBg = form.bgRemovedUris,
+                    imageUri = images.imageUris.first(),
+                    imageUriNoBg = images.bgRemovedUris.firstOrNull()?.ifEmpty { null },
+                    imageUris = images.imageUris,
+                    imageUrisNoBg = images.bgRemovedUris,
                     category = form.category,
                     subcategories = form.subcategories,
                     tags = tags,
@@ -237,10 +346,10 @@ class GarmentFormViewModel(
             container.garmentWrites.update(
                 garmentId,
                 GarmentWrites.GarmentEdit(
-                    imageUri = form.imageUris.first(),
-                    imageUriNoBg = form.bgRemovedUris.firstOrNull() ?: "",
-                    imageUris = form.imageUris,
-                    imageUrisNoBg = form.bgRemovedUris,
+                    imageUri = images.imageUris.first(),
+                    imageUriNoBg = images.bgRemovedUris.firstOrNull() ?: "",
+                    imageUris = images.imageUris,
+                    imageUrisNoBg = images.bgRemovedUris,
                     category = form.category,
                     subcategories = form.subcategories,
                     tags = tags,
@@ -252,6 +361,16 @@ class GarmentFormViewModel(
                 ),
                 now = now,
             )
+        }
+
+        // Only after the row is written, and all of it at once: the originals this
+        // save collapsed away, plus anything the garment referenced before and no
+        // longer does -- a photo removed from the form, or a cut-out undone.
+        // Deleting any of it sooner would break a garment whose edit was abandoned.
+        val kept = images.imageUris + images.bgRemovedUris
+
+        for (orphan in orphanedImageRefs(storedRefs + images.discardable, kept)) {
+            container.photos.delete(orphan)
         }
     }
 
@@ -268,6 +387,7 @@ class GarmentFormViewModel(
                     return@launch
                 }
 
+                storedRefs = record.displayImageUris + record.displayNoBgImageUris
                 val (customTags, seasons) = splitStructuredTags(record.tags)
                 _state.update {
                     it.copy(
