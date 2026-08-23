@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,9 +49,23 @@ fun WardrobeScreen(
     onSearchChanged: (String) -> Unit,
     onSortToggled: () -> Unit,
     onRetry: () -> Unit,
+    onRestoreRequested: () -> Unit,
+    onRestoreConfirmed: () -> Unit,
+    onRestoreDismissed: () -> Unit,
 ) {
+    state.restore?.let { restore ->
+        RestoreDialog(restore, onRestoreConfirmed, onRestoreDismissed)
+    }
+
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Wardrobe") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Wardrobe") },
+                actions = {
+                    TextButton(onClick = onRestoreRequested) { Text("Restore") }
+                },
+            )
+        },
     ) { insets ->
         Column(modifier = Modifier.fillMaxSize().padding(insets)) {
             Row(
@@ -114,6 +129,72 @@ fun WardrobeScreen(
             }
         }
     }
+}
+
+/**
+ * What a restore has to say, at each of its four points.
+ *
+ * The confirmation is not a formality: it is the last moment before the
+ * wardrobe on this device stops existing, so it says that plainly. The running
+ * dialog cannot be dismissed, because there is nothing useful to do with a
+ * half-finished restore except wait for it -- and the work continues whether
+ * the dialog is there or not.
+ */
+@Composable
+private fun RestoreDialog(
+    restore: WardrobeViewModel.Restore,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) = when (restore) {
+    is WardrobeViewModel.Restore.Confirming -> AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Restore from a backup?") },
+        text = {
+            Text(
+                "Everything in this app's wardrobe will be replaced by the contents " +
+                    "of the backup you pick. If the backup turns out not to be usable, " +
+                    "nothing is changed."
+            )
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Pick a backup") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+
+    is WardrobeViewModel.Restore.Running -> AlertDialog(
+        onDismissRequest = {},
+        title = { Text("Restoring") },
+        text = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                Text("Unpacking and checking the backup.", modifier = Modifier.padding(start = 16.dp))
+            }
+        },
+        confirmButton = {},
+    )
+
+    is WardrobeViewModel.Restore.Done -> AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Wardrobe restored") },
+        text = {
+            Text(
+                when (restore.garments) {
+                    null -> "The backup was restored."
+                    1 -> "The backup was restored: 1 garment."
+                    else -> "The backup was restored: ${restore.garments} garments."
+                }
+            )
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+    )
+
+    is WardrobeViewModel.Restore.Failed -> AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Couldn't restore that backup") },
+        // The message is the whole point: it says whether to update the app,
+        // find a different file, or that nothing was lost.
+        text = { Text(restore.message) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
 }
 
 @Composable

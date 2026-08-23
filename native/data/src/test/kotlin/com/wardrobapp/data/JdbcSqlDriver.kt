@@ -11,7 +11,7 @@ import kotlin.test.fail
  * Both run the same SQL against the same schema, which is what makes the read
  * paths testable without an emulator.
  */
-class JdbcSqlDriver(private val connection: Connection) : SqlDriver, AutoCloseable {
+class JdbcSqlDriver(private val connection: Connection) : CloseableSqlDriver {
 
     override fun query(sql: String, args: List<Any?>): List<Map<String, Any?>> {
         connection.prepareStatement(sql).use { statement ->

@@ -4,10 +4,10 @@ import android.content.Context
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import com.wardrobapp.data.SqlDriver
+import com.wardrobapp.data.CloseableSqlDriver
 
 /**
- * [SqlDriver] over the platform's SQLite.
+ * [CloseableSqlDriver] over the platform's SQLite.
  *
  * Deliberately not Room. Two schemas exist in the wild -- `created_at` and
  * `updated_at` are NOT NULL on a fresh install and nullable on one upgraded
@@ -23,7 +23,7 @@ import com.wardrobapp.data.SqlDriver
  */
 class AndroidSqlDriver private constructor(
     private val database: SupportSQLiteDatabase,
-) : SqlDriver, AutoCloseable {
+) : CloseableSqlDriver {
 
     override fun query(sql: String, args: List<Any?>): List<Map<String, Any?>> {
         database.query(sql, args.toTypedArray()).use { cursor ->

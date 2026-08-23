@@ -115,10 +115,10 @@ cd native && ./gradlew test
 | Module | What |
 |---|---|
 | `:domain` | The algorithms — colour, tags, occasions, duplicates, suggestions |
-| `:data` | The database — row and photo-reference mapping, reads, writes, analytics, backup validation |
+| `:data` | The database — row and photo-reference mapping, reads, writes, analytics, backup restore |
 | `:parity-testing` | Shared fixture-loading for the parity suites |
 | `:presentation` | What the screens show — filtering, ordering, form state, as pure functions |
-| `:app` | The Compose UI — **only included when an Android SDK is present** |
+| `:app` | The Compose UI and the platform plumbing — **only included when an Android SDK is present** |
 
 `:app` is the one module that genuinely needs the Android SDK, so `settings.gradle.kts` includes it only when one is found (`ANDROID_HOME`, `ANDROID_SDK_ROOT`, or `sdk.dir` in `local.properties`). `./gradlew test` therefore works on a machine with nothing but a JDK — which is the whole reason the other modules are pure — while CI builds everything. Keeping the pure parts pure is what lets everything so far be verified on any machine — and `:data` is the code that decides whether an *existing* wardrobe opens correctly, so it is the code most worth being able to test anywhere.
 
@@ -126,7 +126,9 @@ cd native && ./gradlew test
 
 Multi-statement writes there are transactional, which the TypeScript's are not: deleting a garment issues four statements in sequence, so a failure partway through can leave a garment gone but its learned pair scores behind.
 
-Archive validation is ported as well — the checks that decide whether a `.zip` is allowed to replace a wardrobe. Its tests compare the refusal *message*, not just accept-or-reject, because the message is the only thing telling someone whether to update the app, re-export the backup, or give up on the file.
+Restoring a backup lives there too — the code that decides whether a `.zip` is allowed to replace a wardrobe, and then replaces it. Deliberately written against `java.io.File` and `java.util.zip` rather than anything from the Android SDK, because those are the same APIs Android offers: it means the one part of this app that can destroy a wardrobe runs in an ordinary JVM test, against real directories and real SQLite files. The rollback in particular is only worth trusting if it has been made to run, and on a device the way to make it run is to break a restore for real.
+
+So the tests break it on purpose. The swap is four moves — both originals aside, then both replacements in — and each one is failed in turn, with the wardrobe checked afterwards for being byte-for-byte where it started. Refusals are compared on the *message*, not just accept-or-reject, because the message is the only thing telling someone whether to update the app, re-export the backup, or give up on the file. Only the document picker and the SQLite connection are Android's side of it.
 
 The schema those tests run against is emitted from `src/db/schema.ts` as `schema-fresh.sql` and `schema-upgraded.sql`, so the port is tested against the schema the app really applies rather than a copy that can drift. Every read-path test runs against both, because the two are not the same shape (see Limitations).
 
@@ -146,7 +148,7 @@ npm run test:watch
 
 22 suites, 228 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
 
-The Kotlin port adds 76 more:
+The Kotlin port adds 112 more:
 
 ```bash
 cd native && ./gradlew test
@@ -159,7 +161,7 @@ Domain algorithms are checked by mutation: each behaviour the tests claim to pro
 ## Limitations
 
 - **Android only.** Web and iOS support were removed — the web build had its own storage layer that could silently lose data, and iOS was never finished.
-- **The native port is early.** The Kotlin app opens a real database and draws the wardrobe list, and CI builds it as a debug APK, but it installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it — there is no way yet to get an existing wardrobe into it, and most screens are still missing. The shipped app is still the React Native one.
+- **The native port is early.** The Kotlin app opens a real database, restores a backup into it and draws the wardrobe list, and CI builds it as a debug APK — but it installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it, so a wardrobe gets in there by restoring a backup rather than by being found. Most screens are still missing, and nothing there writes. The shipped app is still the React Native one.
 - **The `garments` schema is not uniform.** `created_at` and `updated_at` are `NOT NULL` on a fresh install but nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist, so readers must tolerate both — and it is why the native data layer will use plain SQL rather than Room, whose schema validation would reject one of them.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **Released APKs are debug-signed**, so they can't be upgraded in place from a properly signed build later.
