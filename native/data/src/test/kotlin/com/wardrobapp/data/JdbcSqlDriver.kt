@@ -28,6 +28,31 @@ class JdbcSqlDriver(private val connection: Connection) : SqlDriver, AutoCloseab
         }
     }
 
+    override fun execute(sql: String, args: List<Any?>): Int {
+        connection.prepareStatement(sql).use { statement ->
+            args.forEachIndexed { i, arg -> statement.setObject(i + 1, arg) }
+            return statement.executeUpdate()
+        }
+    }
+
+    override fun <T> transaction(block: () -> T): T {
+        // Nested calls join the outer transaction rather than starting a second
+        // one, which SQLite would reject.
+        if (!connection.autoCommit) return block()
+
+        connection.autoCommit = false
+        try {
+            val result = block()
+            connection.commit()
+            return result
+        } catch (e: Throwable) {
+            connection.rollback()
+            throw e
+        } finally {
+            connection.autoCommit = true
+        }
+    }
+
     override fun close() = connection.close()
 
     companion object {

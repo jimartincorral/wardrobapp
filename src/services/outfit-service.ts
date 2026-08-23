@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { getDatabase } from '../db/client';
 import type { Outfit, OutfitRating } from '../types';
+import { foldRatingIntoPair, garmentPairs } from '../domain/pair-learning';
 
 function rowToOutfit(row: any): Outfit {
   return {
@@ -98,13 +99,6 @@ export async function removeGarmentFromOutfits(garmentId: string): Promise<void>
   }
 }
 
-const PAIR_LEARNING_RATE = 0.3;
-
-/** Maps a 1-5 star rating to -1.0 .. +1.0. */
-function normalizeRating(rating: number): number {
-  return (rating - 3) / 2;
-}
-
 /**
  * Rate an outfit. An outfit carries exactly one rating: re-rating is the user
  * correcting themselves, not a second opinion, so the previous rating is
@@ -137,13 +131,10 @@ export async function rateOutfit(outfitId: string, rating: number, feedback?: st
 }
 
 /**
- * Fold a rating into the learned pair scores.
+ * Persist the learned scores for every pair in a rated outfit.
  *
- * `previousRating` is the rating this one replaces, if any. In that case the
- * earlier rating's contribution is undone before the new one is applied — the
- * EMA step `new = old * (1 - lr) + r * lr` inverts exactly — so correcting a
- * rating moves the score to where it would have been, instead of training on
- * both values. wear_count is only incremented for a genuinely new rating.
+ * The arithmetic lives in `src/domain/pair-learning` — this is the storage
+ * around it.
  */
 async function updatePairScores(
   garmentIds: string[],
@@ -151,34 +142,25 @@ async function updatePairScores(
   previousRating: number | null
 ): Promise<void> {
   const db = await getDatabase();
-  const normalizedRating = normalizeRating(rating);
 
-  for (let i = 0; i < garmentIds.length; i++) {
-    for (let j = i + 1; j < garmentIds.length; j++) {
-      const [a, b] = [garmentIds[i], garmentIds[j]].sort();
+  for (const [a, b] of garmentPairs(garmentIds)) {
+    const existing = await db.getFirstAsync<{ score: number; wear_count: number }>(
+      'SELECT score, wear_count FROM garment_pair_scores WHERE garment_id_a = ? AND garment_id_b = ?',
+      a, b
+    );
 
-      const existing = await db.getFirstAsync<{ score: number; wear_count: number }>(
-        'SELECT score, wear_count FROM garment_pair_scores WHERE garment_id_a = ? AND garment_id_b = ?',
-        a, b
+    const next = foldRatingIntoPair(existing, rating, previousRating);
+
+    if (existing) {
+      await db.runAsync(
+        'UPDATE garment_pair_scores SET score = ?, wear_count = ? WHERE garment_id_a = ? AND garment_id_b = ?',
+        next.score, next.wear_count, a, b
       );
-
-      if (existing) {
-        const base = previousRating === null
-          ? existing.score
-          : (existing.score - normalizeRating(previousRating) * PAIR_LEARNING_RATE) / (1 - PAIR_LEARNING_RATE);
-        const newScore = base * (1 - PAIR_LEARNING_RATE) + normalizedRating * PAIR_LEARNING_RATE;
-        const wearCount = previousRating === null ? existing.wear_count + 1 : existing.wear_count;
-
-        await db.runAsync(
-          'UPDATE garment_pair_scores SET score = ?, wear_count = ? WHERE garment_id_a = ? AND garment_id_b = ?',
-          newScore, wearCount, a, b
-        );
-      } else {
-        await db.runAsync(
-          'INSERT INTO garment_pair_scores (garment_id_a, garment_id_b, score, wear_count) VALUES (?, ?, ?, 1)',
-          a, b, normalizedRating * PAIR_LEARNING_RATE
-        );
-      }
+    } else {
+      await db.runAsync(
+        'INSERT INTO garment_pair_scores (garment_id_a, garment_id_b, score, wear_count) VALUES (?, ?, ?, ?)',
+        a, b, next.score, next.wear_count
+      );
     }
   }
 }

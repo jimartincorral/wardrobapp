@@ -26,6 +26,7 @@ import {
 import { jaccardSimilarity } from '../src/utils/tag-similarity';
 import { findDuplicatesAmong } from '../src/domain/duplicate-detection';
 import { buildSuggestions, pairKey } from '../src/domain/outfit-suggestions';
+import { foldRatingIntoPair, garmentPairs } from '../src/domain/pair-learning';
 import type { SeasonOption, OccasionOption } from '../src/constants/style-filters';
 import { getOccasionsFor } from '../src/utils/garment-occasions';
 import {
@@ -584,6 +585,76 @@ function dumpSchemas() {
   return { fresh, upgraded };
 }
 
+
+/**
+ * The pair-learning arithmetic, across every rating transition.
+ *
+ * The undo step is the part worth pinning: a correction has to move the score to
+ * where it would have been had the user rated correctly the first time, and must
+ * not count a second wear. Every (existing state, rating, previous rating)
+ * combination is recorded, including chains, so the inverse is checked at the
+ * scores it actually reaches rather than only from zero.
+ */
+function dumpPairLearning() {
+  const lines: string[] = [];
+  const ratings = [1, 2, 3, 4, 5];
+
+  const startingStates: (null | { score: number; wear_count: number })[] = [
+    null,
+    { score: 0, wear_count: 0 },
+    { score: 0.3, wear_count: 1 },
+    { score: -0.3, wear_count: 1 },
+    { score: 0.9, wear_count: 7 },
+    { score: -0.9, wear_count: 7 },
+    { score: 0.123456789, wear_count: 3 },
+  ];
+
+  for (const existing of startingStates) {
+    for (const rating of ratings) {
+      // A fresh rating.
+      lines.push(JSON.stringify({
+        existing, rating, previous: null,
+        next: foldRatingIntoPair(existing, rating, null),
+      }));
+
+      // A correction replacing each possible earlier rating.
+      for (const previous of ratings) {
+        lines.push(JSON.stringify({
+          existing, rating, previous,
+          next: foldRatingIntoPair(existing, rating, previous),
+        }));
+      }
+    }
+  }
+
+  // Chains: rate, then correct, then correct again. The undo has to hold at
+  // scores the process actually produces, not just at the round numbers above.
+  let state = foldRatingIntoPair(null, 5, null);
+  for (const [rating, previous] of [[1, 5], [4, 1], [2, 4], [5, 2]] as [number, number][]) {
+    const next = foldRatingIntoPair(state, rating, previous);
+    lines.push(JSON.stringify({ existing: state, rating, previous, next }));
+    state = next;
+  }
+
+  return lines;
+}
+
+/** Pair enumeration, including the id-ordering that makes storage stable. */
+function dumpGarmentPairs() {
+  const wardrobes = [
+    [],
+    ['a'],
+    ['a', 'b'],
+    ['b', 'a'],
+    ['c', 'a', 'b'],
+    ['g10', 'g2', 'g1'],
+    ['same', 'same'],
+    ['a', 'b', 'c', 'd'],
+  ];
+
+  return wardrobes.map(ids => JSON.stringify({ ids, pairs: garmentPairs(ids) }));
+}
+
 mkdirSync(OUT_DIR, { recursive: true });
 mkdirSync(DATA_OUT_DIR, { recursive: true });
 
@@ -593,6 +664,8 @@ const files: Record<string, string[]> = {
   'duplicates.jsonl': dumpDuplicates(),
   'occasions.jsonl': dumpOccasions(),
   'suggestions.jsonl': dumpSuggestions(),
+  'pair-learning.jsonl': dumpPairLearning(),
+  'garment-pairs.jsonl': dumpGarmentPairs(),
 };
 
 // The wardrobe and pair scores live in the fixture rather than being rebuilt on
