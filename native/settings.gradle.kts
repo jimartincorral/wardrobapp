@@ -10,6 +10,7 @@ rootProject.name = "wardrobapp-native"
 
 include(":domain")
 include(":data")
+include(":presentation")
 include(":parity-testing")
 
 // The Compose app is the one module that genuinely needs the Android SDK, so it

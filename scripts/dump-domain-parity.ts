@@ -27,6 +27,8 @@ import { jaccardSimilarity } from '../src/utils/tag-similarity';
 import { findDuplicatesAmong } from '../src/domain/duplicate-detection';
 import { buildSuggestions, pairKey } from '../src/domain/outfit-suggestions';
 import { foldRatingIntoPair, garmentPairs } from '../src/domain/pair-learning';
+import { filterGarments, sortGarments } from '../src/domain/garment-filtering';
+import type { GarmentFilter, GarmentSortOption } from '../src/domain/garment-filtering';
 import type { SeasonOption, OccasionOption } from '../src/constants/style-filters';
 import { getOccasionsFor } from '../src/utils/garment-occasions';
 import {
@@ -655,6 +657,64 @@ function dumpGarmentPairs() {
   return wardrobes.map(ids => JSON.stringify({ ids, pairs: garmentPairs(ids) }));
 }
 
+
+/**
+ * Wardrobe filtering and ordering, across the filter combinations the screens
+ * can produce.
+ *
+ * The wardrobe below deliberately includes a garment with no timestamp: that is
+ * the shape an install upgraded through the ALTER path can hold, and it used to
+ * make the whole list disappear.
+ */
+function dumpGarmentFiltering() {
+  const wardrobe: Garment[] = [
+    garment({ id: 'a', subcategories: ['T-Shirt'], subcategory: 'T-Shirt', tags: ['cotton', 'summer'], brand: 'Uniqlo', color_primary: '#000000', color_palette: ['#000000'], size: 'M', created_at: '2026-01-01' }),
+    garment({ id: 'b', subcategories: ['Blouse'], subcategory: 'Blouse', tags: ['Winter'], brand: 'COS', color_primary: '#FFFFFF', color_palette: ['#FFFFFF', '#CC0000'], size: 'S', created_at: '2026-03-01' }),
+    garment({ id: 'c', subcategories: ['Hoodie'], subcategory: 'Hoodie', tags: [], brand: 'uniqlo', color_primary: '#808080', color_palette: ['#808080'], size: 'XL', created_at: '2026-02-01' }),
+    garment({ id: 'd', subcategories: [], subcategory: 'Polo', tags: ['all-season'], brand: null, color_primary: '#000080', color_palette: ['#000080'], size: null, created_at: '2026-05-01' }),
+    garment({ id: 'e', subcategories: ['Sneakers'], subcategory: 'Sneakers', category: 'shoes', tags: ['summer'], brand: 'Nike', color_primary: '#FFFFFF', color_palette: ['#FFFFFF'], size: '42', created_at: '2026-04-01' }),
+    // No timestamp: the upgraded-install shape.
+    garment({ id: 'f', subcategories: ['Jeans'], subcategory: 'Jeans', category: 'bottoms', tags: [], brand: 'Levi', color_primary: '#000080', color_palette: ['#000080'], size: 'M', created_at: null as unknown as string }),
+  ];
+
+  const filters: GarmentFilter[] = [
+    {},
+    { subcategory: 'T-Shirt' },
+    { subcategory: 'Polo' },
+    { season: 'summer' },
+    { season: 'winter' },
+    { season: 'all-season' },
+    { occasion: 'work' },
+    { occasion: 'sport' },
+    { occasion: 'lounge' },
+    { brand: 'uniqlo' },
+    { brand: '  UNIQ ' },
+    { brand: 'nope' },
+    { size: 'm' },
+    { size: '4' },
+    { color: '#FFFFFF' },
+    { color: '#CC0000' },
+    { brand: 'Uniqlo', season: 'summer' },
+    { occasion: 'casual', size: 'm' },
+  ];
+
+  const sorts: GarmentSortOption[] = ['newest', 'oldest'];
+  const lines: string[] = [];
+
+  for (const filter of filters) {
+    const filtered = filterGarments(wardrobe, filter);
+    for (const sort of sorts) {
+      lines.push(JSON.stringify({
+        filter,
+        sort,
+        ids: sortGarments(filtered, sort).map(g => g.id),
+      }));
+    }
+  }
+
+  return { lines, wardrobe };
+}
+
 mkdirSync(OUT_DIR, { recursive: true });
 mkdirSync(DATA_OUT_DIR, { recursive: true });
 
@@ -690,6 +750,19 @@ for (const [name, lines] of Object.entries(dataFiles)) {
   writeFileSync(join(DATA_OUT_DIR, name), lines.join('\n') + '\n');
   console.log(`data/${name}: ${lines.length} cases`);
 }
+
+const PRESENTATION_OUT_DIR = join(
+  __dirname, '..', 'native', 'presentation', 'src', 'test', 'resources', 'parity'
+);
+mkdirSync(PRESENTATION_OUT_DIR, { recursive: true });
+
+const filtering = dumpGarmentFiltering();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'garment-filtering.jsonl'), filtering.lines.join('\n') + '\n');
+writeFileSync(
+  join(PRESENTATION_OUT_DIR, 'filtering-wardrobe.json'),
+  JSON.stringify(filtering.wardrobe, null, 2) + '\n'
+);
+console.log(`presentation/garment-filtering.jsonl: ${filtering.lines.length} cases`);
 
 const schemas = dumpSchemas();
 writeFileSync(join(DATA_OUT_DIR, 'schema-fresh.sql'), schemas.fresh + '\n');

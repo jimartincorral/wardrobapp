@@ -89,6 +89,7 @@ native/                   The Kotlin/Android port (see Architecture)
   domain/                   Ported algorithms, plain Kotlin/JVM — no Android SDK
                             needed to build or test
   data/                     Row and photo-reference mapping into domain types
+  presentation/             List filtering and ordering, form state — pure
   parity-testing/           Shared fixture loading for the parity suites
 ```
 
@@ -115,6 +116,7 @@ cd native && ./gradlew test
 | `:domain` | The algorithms — colour, tags, occasions, duplicates, suggestions |
 | `:data` | The database — row and photo-reference mapping, reads, writes, analytics |
 | `:parity-testing` | Shared fixture-loading for the parity suites |
+| `:presentation` | What the screens show — filtering, ordering, form state, as pure functions |
 | `:app` | The Compose UI — **only included when an Android SDK is present** |
 
 `:app` is the one module that genuinely needs the Android SDK, so `settings.gradle.kts` includes it only when one is found (`ANDROID_HOME`, `ANDROID_SDK_ROOT`, or `sdk.dir` in `local.properties`). `./gradlew test` therefore works on a machine with nothing but a JDK — which is the whole reason the other modules are pure — while CI builds everything. Keeping the pure parts pure is what lets everything so far be verified on any machine — and `:data` is the code that decides whether an *existing* wardrobe opens correctly, so it is the code most worth being able to test anywhere.
@@ -139,9 +141,9 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-20 suites, 190 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
+21 suites, 200 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
 
-The Kotlin port adds 60 more:
+The Kotlin port adds 62 more:
 
 ```bash
 cd native && ./gradlew test
