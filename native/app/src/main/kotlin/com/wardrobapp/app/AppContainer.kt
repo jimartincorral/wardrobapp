@@ -9,6 +9,7 @@ import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.ReopeningDriver
+import com.wardrobapp.data.Suggestions
 import com.wardrobapp.data.WardrobeFiles
 import com.wardrobapp.data.WardrobeSchema
 import java.io.File
@@ -51,6 +52,7 @@ class AppContainer(context: Context) {
     val outfits = OutfitQueries(database)
     val outfitWrites = OutfitWrites(database)
     val analytics = AnalyticsQueries(database)
+    val suggestions = Suggestions(garments, outfits)
 
     private val restore = ArchiveRestore(
         files = WardrobeFiles(

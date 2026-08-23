@@ -37,6 +37,43 @@ class OutfitWrites(private val driver: SqlDriver) {
         )
     }
 
+    /**
+     * Insert an outfit unless one with this id is already there.
+     *
+     * How a suggestion gets saved. Each suggestion in a batch is given its id
+     * when the batch is produced, so saving it -- by tapping "save", or by
+     * rating it, which has to save it first -- is the same request every time
+     * and the second one does nothing.
+     *
+     * The React Native app instead remembers the in-flight save per suggestion
+     * so two quick taps share one promise. That works while the screen is
+     * mounted; this does not need it to be. `OR IGNORE` makes the guarantee the
+     * database's rather than the UI's, so it also holds across a rotation, a
+     * process death, or two taps landing in genuinely parallel work.
+     *
+     * Returns true if the row was written, false if it was already there --
+     * which is what tells "saved" from "already saved".
+     */
+    fun insertIfAbsent(
+        id: String,
+        name: String,
+        garmentIds: List<String>,
+        occasion: String? = null,
+        season: String? = null,
+        isSuggested: Boolean = false,
+        isPinned: Boolean = false,
+        now: String,
+    ): Boolean = driver.execute(
+        """
+        INSERT OR IGNORE INTO outfits (id, name, garment_ids, occasion, season, created_at, is_suggested, is_pinned)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """.trimIndent(),
+        listOf(
+            id, name, jsonArray(garmentIds), occasion, season, now,
+            if (isSuggested) 1 else 0, if (isPinned) 1 else 0,
+        ),
+    ) > 0
+
     fun setPinned(id: String, isPinned: Boolean) {
         driver.execute(
             "UPDATE outfits SET is_pinned = ? WHERE id = ?",

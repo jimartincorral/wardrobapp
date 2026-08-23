@@ -288,6 +288,70 @@ class WritePathsTest {
     }
 
     @Test
+    fun `saving the same suggestion twice saves it once`() {
+        // How a suggestion is saved: its id is minted when the batch is
+        // produced, so tapping "save" and then rating it -- which has to save it
+        // first -- is the same request twice.
+        eachSchema { schema, driver, _, _ ->
+            val outfits = OutfitWrites(driver)
+
+            val written = outfits.insertIfAbsent(
+                id = "s1", name = "Suggested fit", garmentIds = listOf("a", "b"),
+                isSuggested = true, now = now,
+            )
+            val again = outfits.insertIfAbsent(
+                id = "s1", name = "Suggested fit", garmentIds = listOf("a", "b"),
+                isSuggested = true, now = now,
+            )
+
+            assertEquals(true, written, schema)
+            assertEquals(false, again, "the second save reported writing a row: $schema")
+            assertEquals(1, OutfitQueries(driver).all().size, schema)
+        }
+    }
+
+    @Test
+    fun `a second save does not overwrite what the first wrote`() {
+        // Nor quietly rewrite it: an outfit already saved and since renamed or
+        // pinned must not be reset by a stray second tap.
+        eachSchema { schema, driver, _, _ ->
+            val outfits = OutfitWrites(driver)
+            outfits.insertIfAbsent(id = "s1", name = "As saved", garmentIds = listOf("a"), now = now)
+            outfits.setPinned("s1", true)
+
+            outfits.insertIfAbsent(
+                id = "s1", name = "Different name", garmentIds = listOf("z"),
+                now = "2030-01-01T00:00:00.000Z",
+            )
+
+            val stored = OutfitQueries(driver).outfit("s1")!!
+            assertEquals("As saved", stored.name, schema)
+            assertEquals(listOf("a"), stored.garmentIds, schema)
+            assertEquals(true, stored.isPinned, schema)
+        }
+    }
+
+    @Test
+    fun `rating a suggestion that was already saved keeps one outfit and one rating`() {
+        // The whole path the outfits screen takes: save-if-absent, then rate.
+        eachSchema { schema, driver, _, _ ->
+            val outfits = OutfitWrites(driver)
+
+            repeat(3) {
+                outfits.insertIfAbsent(
+                    id = "s1", name = "Suggested fit", garmentIds = listOf("a", "b"),
+                    isSuggested = true, now = now,
+                )
+                outfits.rate(ratingId = "r$it", outfitId = "s1", rating = it + 2, now = now)
+            }
+
+            assertEquals(1, OutfitQueries(driver).all().size, schema)
+            assertEquals(4, OutfitQueries(driver).rating("s1")?.rating, schema)
+            assertEquals(1, driver.query("SELECT * FROM outfit_ratings").size, schema)
+        }
+    }
+
+    @Test
     fun `deleting an outfit takes its rating with it`() {
         eachSchema { schema, driver, _, _ ->
             val outfits = OutfitWrites(driver)

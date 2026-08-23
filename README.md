@@ -150,7 +150,7 @@ npm run test:watch
 
 25 suites, 272 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, what a garment's detail screen shows, how the outfit filters behave, the domain layer's dependency-freedom, and the pure utilities.
 
-The Kotlin port adds 143 more:
+The Kotlin port adds 151 more:
 
 ```bash
 cd native && ./gradlew test
@@ -163,7 +163,7 @@ Domain algorithms are checked by mutation: each behaviour the tests claim to pro
 ## Limitations
 
 - **Android only.** Web and iOS support were removed — the web build had its own storage layer that could silently lose data, and iOS was never finished.
-- **The native port is early.** The Kotlin app opens a real database, restores a backup into it, and draws the wardrobe list and a garment's detail — CI builds it as a debug APK. It installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it, so a wardrobe gets in there by restoring a backup rather than by being found. Outfits, analytics and the add/edit form are still missing, nothing there writes, and the UI is English-only. The shipped app is still the React Native one.
+- **The native port is early.** The Kotlin app opens a real database, restores a backup into it, and draws the wardrobe list, a garment's detail, and outfit suggestions you can rate and keep — CI builds it as a debug APK. It installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it, so a wardrobe gets in there by restoring a backup rather than by being found. Analytics, settings and the add/edit form are still missing, garments cannot be added or edited there, and the UI is English-only. The shipped app is still the React Native one.
 - **The `garments` schema is not uniform.** `created_at` and `updated_at` are `NOT NULL` on a fresh install but nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist, so readers must tolerate both — and it is why the native data layer will use plain SQL rather than Room, whose schema validation would reject one of them.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **Released APKs are debug-signed**, so they can't be upgraded in place from a properly signed build later.
