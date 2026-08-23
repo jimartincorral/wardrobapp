@@ -60,6 +60,10 @@ dependencies {
     implementation(project(":presentation"))
 
     implementation("androidx.core:core-ktx:1.15.0")
+    // A photo from a camera roll records which way up it is in EXIF rather than
+    // in its pixels, and BitmapFactory ignores the tag -- so without this every
+    // garment shot in portrait is stored lying on its side.
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
     // Used directly -- Dispatchers.IO, MutableStateFlow.update -- rather than
     // relied on transitively through lifecycle-viewmodel-ktx.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")

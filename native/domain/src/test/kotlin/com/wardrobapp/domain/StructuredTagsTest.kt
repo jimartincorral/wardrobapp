@@ -46,6 +46,55 @@ class StructuredTagsTest {
     }
 
     @Test
+    fun `folds typed tags and picked seasons into one column`() {
+        assertEquals(
+            listOf("cotton", "striped", "summer"),
+            mergeStructuredTags(listOf("Cotton", "Striped"), listOf(Season.SUMMER)),
+        )
+    }
+
+    @Test
+    fun `lowercases, trims and drops blanks on the way in`() {
+        // The column is read by both apps; they have to agree about this or a
+        // garment saved by one reads differently in the other.
+        assertEquals(
+            listOf("linen"),
+            mergeStructuredTags(listOf("  LINEN  ", "   ", ""), emptyList()),
+        )
+    }
+
+    @Test
+    fun `keeps one of anything repeated`() {
+        assertEquals(
+            listOf("wool", "winter"),
+            mergeStructuredTags(listOf("Wool", "wool", "WINTER"), listOf(Season.WINTER)),
+        )
+    }
+
+    @Test
+    fun `survives a round trip through the split`() {
+        // The pair has to compose: what is folded in comes back out as what went
+        // in, or editing a garment would silently rewrite its tags.
+        val typed = listOf("cotton", "striped")
+        val picked = listOf(Season.SPRING, Season.FALL)
+
+        val (customTags, seasons) = splitStructuredTags(mergeStructuredTags(typed, picked))
+
+        assertEquals(typed, customTags)
+        assertEquals(picked, seasons)
+    }
+
+    @Test
+    fun `does not fold in a value the split would throw away`() {
+        // 'formal' is a legacy occasion tag: split drops it. Merging it back in
+        // would mean a tag that disappears every time the garment is edited.
+        val merged = mergeStructuredTags(listOf("formal", "wool"), emptyList())
+        val (customTags, _) = splitStructuredTags(merged)
+
+        assertEquals(listOf("wool"), customTags)
+    }
+
+    @Test
     fun `keeps the order it was given, and every repeat`() {
         // Deduplicating is the caller's business: the detail screen puts seasons
         // into the app's own order, which removes repeats as a side effect.

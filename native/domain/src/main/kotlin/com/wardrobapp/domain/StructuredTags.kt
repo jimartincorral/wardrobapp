@@ -25,6 +25,27 @@ data class StructuredTags(
     val seasons: List<Season>,
 )
 
+/**
+ * Fold what the user typed and the seasons they picked into the tags column.
+ *
+ * The inverse of [splitStructuredTags]: the column carries both, so the two have
+ * to agree about normalisation or a garment saved by one app reads differently in
+ * the other. Everything is trimmed and lowercased, blanks are dropped, and a
+ * value appearing twice -- as a typed tag and as a season, or in two cases --
+ * appears once.
+ */
+fun mergeStructuredTags(customTags: List<String>, seasons: List<Season>): List<String> {
+    val merged = mutableListOf<String>()
+    val seen = mutableSetOf<String>()
+
+    for (tag in customTags.map { it.trim().lowercase() } + seasons.map { it.tag }) {
+        if (tag.isEmpty() || !seen.add(tag)) continue
+        merged.add(tag)
+    }
+
+    return merged
+}
+
 fun splitStructuredTags(tags: List<String>): StructuredTags {
     val customTags = mutableListOf<String>()
     val seasons = mutableListOf<Season>()

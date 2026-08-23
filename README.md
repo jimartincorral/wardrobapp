@@ -115,7 +115,7 @@ cd native && ./gradlew test
 | Module | What |
 |---|---|
 | `:domain` | The algorithms — colour, tags, occasions, duplicates, suggestions |
-| `:data` | The database — row and photo-reference mapping, reads, writes, analytics, suggestion loading, backup restore |
+| `:data` | The database — row and photo-reference mapping, reads, writes, analytics, suggestion loading, duplicate candidates, photo storage rules, backup restore |
 | `:parity-testing` | Shared fixture-loading for the parity suites |
 | `:presentation` | What the screens show — filtering, ordering, form state, a garment's detail, the outfit filters, the analytics bars, as pure functions |
 | `:app` | The Compose UI and the platform plumbing — **only included when an Android SDK is present** |
@@ -150,7 +150,7 @@ npm run test:watch
 
 26 suites, 286 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, what a garment's detail screen shows, how the outfit filters behave, the analytics bar arithmetic, the domain layer's dependency-freedom, and the pure utilities.
 
-The Kotlin port adds 155 more:
+The Kotlin port adds 189 more:
 
 ```bash
 cd native && ./gradlew test
