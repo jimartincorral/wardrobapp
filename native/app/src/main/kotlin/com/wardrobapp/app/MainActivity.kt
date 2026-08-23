@@ -234,6 +234,9 @@ class MainActivity : ComponentActivity() {
             onSave = model::onSaveRequested,
             onRate = model::onRated,
             onPinToggled = model::onPinToggled,
+            onDeleteRequested = model::onDeleteRequested,
+            onDeleteConfirmed = model::onDeleteConfirmed,
+            onDeleteDismissed = model::onDeleteDismissed,
             onGarmentOpened = onGarmentOpened,
         )
     }
@@ -314,12 +317,25 @@ class MainActivity : ComponentActivity() {
         )
         val state by model.state.collectAsStateWithLifecycle()
 
+        // Leaving is the activity's business, not the model's: the model reports
+        // that the garment is gone, and this is what that means for the back
+        // stack. Same shape as the form reporting that it saved.
+        LaunchedEffect(state.deleted) {
+            if (state.deleted) navigator.popBackStack()
+        }
+
         GarmentDetailScreen(
             state = state,
             onBack = { navigator.popBackStack() },
             onPhotoSelected = model::onPhotoSelected,
             onEdit = { navigator.navigate("$GARMENT_EDIT/${Uri.encode(garmentId)}") },
             onRetry = model::refresh,
+            onRetire = model::onRetireRequested,
+            onReturnToWardrobe = model::onReturnedToWardrobe,
+            onDelete = model::onDeleteRequested,
+            onConfirmed = model::onConfirmed,
+            onConfirmationDismissed = model::onConfirmationDismissed,
+            onActionErrorDismissed = model::onActionErrorDismissed,
         )
     }
 

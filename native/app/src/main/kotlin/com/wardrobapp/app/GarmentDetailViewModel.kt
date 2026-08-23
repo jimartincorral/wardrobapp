@@ -3,6 +3,7 @@ package com.wardrobapp.app
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.GarmentRecord
+import com.wardrobapp.data.isoTimestamp
 import com.wardrobapp.presentation.GarmentDetailView
 import com.wardrobapp.presentation.garmentDetail
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +37,30 @@ class GarmentDetailViewModel(
         val missing: Boolean = false,
         /** Set when the read failed, which is not the same as finding nothing. */
         val error: String? = null,
+        /** True while a write is in flight, so the actions cannot be double-tapped. */
+        val working: Boolean = false,
+        /** Non-null while a destructive action is being confirmed. */
+        val confirming: Confirm? = null,
+        /**
+         * Set once the garment is gone, so the screen showing it can leave.
+         *
+         * Distinct from [missing], which means it was never found. This one says
+         * *this* screen deleted it, which is the difference between "that garment
+         * does not exist" and closing quietly on the wardrobe behind.
+         */
+        val deleted: Boolean = false,
+        /** Set when an action failed. The read is fine; the write was not. */
+        val actionError: String? = null,
     )
+
+    /**
+     * The two actions worth asking about first.
+     *
+     * Retiring is reversible and would not need a prompt on its own, but it is
+     * what the React Native app asks about, and it does change what the wardrobe
+     * shows. Deleting is not reversible at all.
+     */
+    enum class Confirm { RETIRE, DELETE }
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
@@ -93,5 +117,103 @@ class GarmentDetailViewModel(
         // about what that photo shows.
         val loaded = record ?: return
         _state.update { it.copy(view = garmentDetail(loaded, index)) }
+    }
+
+    // ---- retiring, returning, deleting --------------------------------------
+
+    fun onRetireRequested() {
+        _state.update { it.copy(confirming = Confirm.RETIRE) }
+    }
+
+    fun onDeleteRequested() {
+        _state.update { it.copy(confirming = Confirm.DELETE) }
+    }
+
+    fun onConfirmationDismissed() {
+        _state.update { it.copy(confirming = null) }
+    }
+
+    fun onActionErrorDismissed() {
+        _state.update { it.copy(actionError = null) }
+    }
+
+    /** Carry out whatever is being confirmed. */
+    fun onConfirmed() {
+        when (_state.value.confirming) {
+            Confirm.RETIRE -> retire()
+            Confirm.DELETE -> delete()
+            null -> Unit
+        }
+    }
+
+    /**
+     * Put a retired garment back in use.
+     *
+     * No confirmation: it undoes something rather than doing something, and the
+     * React Native app does not ask either.
+     */
+    fun onReturnedToWardrobe() {
+        write { container.garmentWrites.markAvailable(garmentId, isoTimestamp(System.currentTimeMillis())) }
+    }
+
+    private fun retire() {
+        write { container.garmentWrites.markUnavailable(garmentId, isoTimestamp(System.currentTimeMillis())) }
+    }
+
+    /**
+     * Delete the garment, then its photos.
+     *
+     * In that order, and deliberately: the write is atomic and tells us which
+     * files are now unreferenced, so a failure leaves the garment and its photos
+     * both intact. Doing it the other way round would risk a row pointing at
+     * files that are gone -- which is the state the whole restore path exists to
+     * avoid.
+     *
+     * A file that fails to delete is not worth failing the action over. The
+     * garment is gone either way, and what is left is a few bytes nothing
+     * references -- while reporting failure would suggest the deletion had not
+     * happened.
+     */
+    private fun delete() {
+        _state.update { it.copy(confirming = null, working = true, actionError = null) }
+
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val photos = container.garmentWrites.delete(garmentId)
+                    for (photo in photos) {
+                        runCatching { container.photos.delete(photo) }
+                    }
+                }
+                _state.update { it.copy(working = false, deleted = true) }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        working = false,
+                        actionError = e.message ?: "That garment could not be deleted.",
+                    )
+                }
+            }
+        }
+    }
+
+    /** Run a write, then re-read: what the screen shows comes from the row. */
+    private fun write(action: () -> Unit) {
+        _state.update { it.copy(confirming = null, working = true, actionError = null) }
+
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { action() }
+                _state.update { it.copy(working = false) }
+                refresh()
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        working = false,
+                        actionError = e.message ?: e.javaClass.simpleName,
+                    )
+                }
+            }
+        }
     }
 }

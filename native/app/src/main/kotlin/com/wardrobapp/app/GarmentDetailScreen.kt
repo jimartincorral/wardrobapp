@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,12 +26,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -70,7 +74,27 @@ fun GarmentDetailScreen(
     onPhotoSelected: (Int) -> Unit,
     onEdit: () -> Unit,
     onRetry: () -> Unit,
+    onRetire: () -> Unit,
+    onReturnToWardrobe: () -> Unit,
+    onDelete: () -> Unit,
+    onConfirmed: () -> Unit,
+    onConfirmationDismissed: () -> Unit,
+    onActionErrorDismissed: () -> Unit,
 ) {
+    state.confirming?.let { confirming ->
+        ConfirmationDialog(confirming, onConfirmed, onConfirmationDismissed)
+    }
+    state.actionError?.let { message ->
+        AlertDialog(
+            onDismissRequest = onActionErrorDismissed,
+            title = { Text("That didn't work") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = onActionErrorDismissed) { Text("Close") }
+            },
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -117,7 +141,15 @@ fun GarmentDetailScreen(
                 }
             }
 
-            else -> GarmentBody(view, insets, onPhotoSelected)
+            else -> GarmentBody(
+                view = view,
+                insets = insets,
+                working = state.working,
+                onPhotoSelected = onPhotoSelected,
+                onRetire = onRetire,
+                onReturnToWardrobe = onReturnToWardrobe,
+                onDelete = onDelete,
+            )
         }
     }
 }
@@ -127,7 +159,11 @@ fun GarmentDetailScreen(
 private fun GarmentBody(
     view: GarmentDetailView,
     insets: PaddingValues,
+    working: Boolean,
     onPhotoSelected: (Int) -> Unit,
+    onRetire: () -> Unit,
+    onReturnToWardrobe: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -191,8 +227,103 @@ private fun GarmentBody(
                     for (tag in view.tags) Tag(tag)
                 }
             }
+
+            Actions(
+                isAvailable = view.isAvailable,
+                working = working,
+                onRetire = onRetire,
+                onReturnToWardrobe = onReturnToWardrobe,
+                onDelete = onDelete,
+            )
         }
     }
+}
+
+/**
+ * What can be done to a garment.
+ *
+ * At the bottom, below everything describing it, because these are the two
+ * actions worth reaching deliberately rather than by accident -- and one of them
+ * cannot be undone.
+ *
+ * Retiring is offered as its opposite once a garment is already retired, rather
+ * than shown greyed out: there is only ever one sensible move, and a disabled
+ * button asks the reader to work out why.
+ */
+@Composable
+private fun Actions(
+    isAvailable: Boolean,
+    working: Boolean,
+    onRetire: () -> Unit,
+    onReturnToWardrobe: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Column(modifier = Modifier.padding(top = 32.dp)) {
+        OutlinedButton(
+            onClick = if (isAvailable) onRetire else onReturnToWardrobe,
+            enabled = !working,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (isAvailable) "No longer wearing this" else "Wearing this again")
+        }
+
+        TextButton(
+            onClick = onDelete,
+            enabled = !working,
+            colors = ButtonDefaults.textButtonColors(
+                contentColor = MaterialTheme.colorScheme.error,
+            ),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        ) {
+            Text("Delete this garment")
+        }
+
+        // Room to scroll clear of the gesture area.
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+/**
+ * The prompt before something that changes the wardrobe.
+ *
+ * Deleting says what goes with the garment, because the answer is not obvious:
+ * its photos, its learned pairings, and its place in any saved outfit. Retiring
+ * says what *stays*, for the same reason -- it reads like a delete until you know
+ * it is not one.
+ */
+@Composable
+private fun ConfirmationDialog(
+    confirming: GarmentDetailViewModel.Confirm,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) = when (confirming) {
+    GarmentDetailViewModel.Confirm.RETIRE -> AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Stop wearing this?") },
+        text = {
+            Text(
+                "It leaves your wardrobe and stops appearing in outfits, but it is " +
+                    "kept -- with its photos -- and counts towards how long things last. " +
+                    "You can put it back at any time."
+            )
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Stop wearing it") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+
+    GarmentDetailViewModel.Confirm.DELETE -> AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete this garment?") },
+        text = {
+            Text(
+                "Its photos go too, along with what the app has learned about which " +
+                    "garments it goes with. Any saved outfit using it loses it, and an " +
+                    "outfit left with nothing is deleted. This cannot be undone."
+            )
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Delete") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Keep it") } },
+    )
 }
 
 @Composable

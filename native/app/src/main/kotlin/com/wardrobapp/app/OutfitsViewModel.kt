@@ -56,6 +56,14 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
         /** True once a batch has been asked for, so "none" can differ from "not yet". */
         val hasGenerated: Boolean = false,
         val error: String? = null,
+        /**
+         * The saved outfit being asked about, if any.
+         *
+         * The outfit rather than its id, so the prompt can name it -- "delete
+         * this?" next to a list of several is a question nobody should have to
+         * answer from position alone.
+         */
+        val deleting: OutfitRecord? = null,
     )
 
     private val _state = MutableStateFlow(State())
@@ -161,6 +169,31 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun refresh() = loadSaved()
+
+    fun onDeleteRequested(outfit: OutfitRecord) {
+        _state.update { it.copy(deleting = outfit) }
+    }
+
+    fun onDeleteDismissed() {
+        _state.update { it.copy(deleting = null) }
+    }
+
+    /**
+     * Delete the outfit being asked about.
+     *
+     * The garments are untouched: an outfit is a grouping of them, not a thing
+     * that owns them. `OutfitWrites.delete` takes its ratings with it, in one
+     * transaction, so a failure cannot leave ratings for an outfit that is gone.
+     */
+    fun onDeleteConfirmed() {
+        val outfit = _state.value.deleting ?: return
+        _state.update { it.copy(deleting = null) }
+
+        viewModelScope.launch {
+            runWrite { container.outfitWrites.delete(outfit.id) }
+            loadSaved()
+        }
+    }
 
     private fun save(suggestion: Suggestion) {
         container.outfitWrites.insertIfAbsent(

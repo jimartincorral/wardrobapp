@@ -15,11 +15,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -55,8 +60,29 @@ fun OutfitsScreen(
     onSave: (OutfitsViewModel.Suggestion) -> Unit,
     onRate: (OutfitsViewModel.Suggestion, Int) -> Unit,
     onPinToggled: (OutfitRecord) -> Unit,
+    onDeleteRequested: (OutfitRecord) -> Unit,
+    onDeleteConfirmed: () -> Unit,
+    onDeleteDismissed: () -> Unit,
     onGarmentOpened: (String) -> Unit,
 ) {
+    state.deleting?.let { outfit ->
+        AlertDialog(
+            onDismissRequest = onDeleteDismissed,
+            title = { Text("Delete this outfit?") },
+            // Named, because a prompt over a list of outfits that does not say
+            // which one is a prompt nobody can answer safely. And it says what
+            // survives: the garments are not going anywhere.
+            text = {
+                Text(
+                    "\"${outfit.name}\" and its rating are deleted. The garments in it " +
+                        "stay in your wardrobe."
+                )
+            },
+            confirmButton = { TextButton(onClick = onDeleteConfirmed) { Text("Delete") } },
+            dismissButton = { TextButton(onClick = onDeleteDismissed) { Text("Keep it") } },
+        )
+    }
+
     Scaffold(topBar = { TopAppBar(title = { Text("Outfits") }) }) { insets ->
         LazyColumn(
             modifier = Modifier.padding(insets),
@@ -146,7 +172,11 @@ fun OutfitsScreen(
                 }
 
                 items(state.saved, key = { "saved-${it.id}" }) { outfit ->
-                    SavedOutfitRow(outfit) { onPinToggled(outfit) }
+                    SavedOutfitRow(
+                        outfit = outfit,
+                        onPinToggled = { onPinToggled(outfit) },
+                        onDelete = { onDeleteRequested(outfit) },
+                    )
                 }
             }
         }
@@ -257,7 +287,11 @@ private fun Stars(rating: Int?, onRate: (Int) -> Unit) {
 }
 
 @Composable
-private fun SavedOutfitRow(outfit: OutfitRecord, onPinToggled: () -> Unit) {
+private fun SavedOutfitRow(
+    outfit: OutfitRecord,
+    onPinToggled: () -> Unit,
+    onDelete: () -> Unit,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -280,6 +314,14 @@ private fun SavedOutfitRow(outfit: OutfitRecord, onPinToggled: () -> Unit) {
             // A pin is a toggle, so it says which state tapping it reaches.
             TextButton(onClick = onPinToggled) {
                 Text(if (outfit.isPinned) "Unpin" else "Pin")
+            }
+
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Filled.Delete,
+                    contentDescription = "Delete this outfit",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
