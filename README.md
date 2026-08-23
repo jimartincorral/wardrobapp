@@ -141,9 +141,9 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-21 suites, 200 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
+22 suites, 228 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
 
-The Kotlin port adds 62 more:
+The Kotlin port adds 68 more:
 
 ```bash
 cd native && ./gradlew test

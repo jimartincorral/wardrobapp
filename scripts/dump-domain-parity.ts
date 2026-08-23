@@ -28,6 +28,22 @@ import { findDuplicatesAmong } from '../src/domain/duplicate-detection';
 import { buildSuggestions, pairKey } from '../src/domain/outfit-suggestions';
 import { foldRatingIntoPair, garmentPairs } from '../src/domain/pair-learning';
 import { filterGarments, sortGarments } from '../src/domain/garment-filtering';
+import {
+  EMPTY_FORM,
+  brandSuggestions,
+  displayedPreviewUri,
+  galleryItems,
+  normalizeForm,
+  selectedHasOriginal,
+  withBackgroundRemoved,
+  withDetectedColor,
+  withImage,
+  withImagesReordered,
+  withImportedPreview,
+  withSubcategories,
+  withoutImageAt,
+  type GarmentFormState,
+} from '../src/domain/garment-form';
 import type { GarmentFilter, GarmentSortOption } from '../src/domain/garment-filtering';
 import type { SeasonOption, OccasionOption } from '../src/constants/style-filters';
 import { getOccasionsFor } from '../src/utils/garment-occasions';
@@ -715,6 +731,185 @@ function dumpGarmentFiltering() {
   return { lines, wardrobe };
 }
 
+
+/**
+ * Form transitions, recorded step by step.
+ *
+ * Each step names an operation and records the whole state after it, so the port
+ * is compared at every point in a sequence rather than only at the end -- two
+ * implementations can disagree in the middle and coincide by the finish.
+ */
+type FormStep = { op: string; args?: unknown[] };
+
+const FORM_SCRIPTS: { name: string; steps: FormStep[] }[] = [
+  {
+    name: 'build up a gallery',
+    steps: [
+      { op: 'withImage', args: ['a.jpg'] },
+      { op: 'withImage', args: ['b.jpg'] },
+      { op: 'withImage', args: ['c.jpg'] },
+      { op: 'withBackgroundRemoved', args: ['c-nobg.png'] },
+      { op: 'withImagesReordered', args: [2, 0] },
+      { op: 'withoutImageAt', args: [1] },
+      { op: 'withImage', args: ['d.jpg', true] },
+    ],
+  },
+  {
+    name: 'replace and remove around the selection',
+    steps: [
+      { op: 'withImage', args: ['a.jpg'] },
+      { op: 'withImage', args: ['b.jpg'] },
+      { op: 'withBackgroundRemoved', args: ['b-nobg.png'] },
+      { op: 'withImage', args: ['b2.jpg', true] },
+      { op: 'withoutImageAt', args: [0] },
+      { op: 'withoutImageAt', args: [0] },
+      { op: 'withImage', args: ['fresh.jpg', true] },
+    ],
+  },
+  {
+    name: 'seasons, colours and an import',
+    steps: [
+      { op: 'withSubcategories', args: [['Parka']] },
+      { op: 'withDetectedColor', args: ['#000080'] },
+      { op: 'withDetectedColor', args: ['#000080'] },
+      { op: 'withDetectedColor', args: ['#CC0000'] },
+      { op: 'withSubcategories', args: [['Sundress']] },
+      { op: 'withImportedPreview', args: [['x.jpg', 'y.jpg'], 'Imported'] },
+      { op: 'withImportedPreview', args: [['z.jpg'], 'Ignored'] },
+    ],
+  },
+  {
+    name: 'a cut-out-only photo has no original',
+    steps: [
+      { op: 'withImage', args: ['only.png'] },
+      // Same path in both slots: imported already cut out.
+      { op: 'withBackgroundRemoved', args: ['only.png'] },
+      { op: 'withImage', args: ['second.jpg'] },
+      { op: 'withBackgroundRemoved', args: ['second-nobg.png'] },
+      { op: 'withImagesReordered', args: [1, 0] },
+    ],
+  },
+  {
+    name: 'out-of-range moves are no-ops',
+    steps: [
+      { op: 'withImage', args: ['a.jpg'] },
+      { op: 'withImagesReordered', args: [0, 5] },
+      { op: 'withImagesReordered', args: [-1, 0] },
+      { op: 'withImagesReordered', args: [0, 0] },
+      { op: 'withoutImageAt', args: [0] },
+    ],
+  },
+];
+
+/** A fixed season rule, so the fixture does not depend on the lookup table. */
+const SCRIPT_SEASONS: Record<string, string[]> = {
+  Parka: ['winter'],
+  Sundress: ['summer'],
+};
+
+function dumpFormTransitions() {
+  const lines: string[] = [];
+
+  for (const script of FORM_SCRIPTS) {
+    let state: GarmentFormState = normalizeForm(EMPTY_FORM);
+
+    for (const [index, step] of script.steps.entries()) {
+      const args = step.args ?? [];
+
+      switch (step.op) {
+        case 'withImage':
+          state = withImage(state, args[0] as string, (args[1] as boolean) ?? false);
+          break;
+        case 'withoutImageAt':
+          state = withoutImageAt(state, args[0] as number);
+          break;
+        case 'withImagesReordered':
+          state = withImagesReordered(state, args[0] as number, args[1] as number);
+          break;
+        case 'withBackgroundRemoved':
+          state = withBackgroundRemoved(state, args[0] as string);
+          break;
+        case 'withSubcategories':
+          state = withSubcategories(
+            state,
+            args[0] as string[],
+            subs => subs.flatMap(sub => SCRIPT_SEASONS[sub] ?? []) as GarmentFormState['seasons']
+          );
+          break;
+        case 'withDetectedColor':
+          state = withDetectedColor(state, args[0] as string);
+          break;
+        case 'withImportedPreview':
+          state = withImportedPreview(state, {
+            downloadedImageUris: args[0] as string[],
+            brand: args[1] as string | null,
+          });
+          break;
+        default:
+          throw new Error(`Unknown form op: ${step.op}`);
+      }
+
+      lines.push(JSON.stringify({
+        script: script.name,
+        step: index,
+        op: step.op,
+        args,
+        state,
+        derived: {
+          gallery: galleryItems(state),
+          preview: displayedPreviewUri(state),
+          hasOriginal: selectedHasOriginal(state),
+        },
+      }));
+    }
+  }
+
+  return lines;
+}
+
+const BRAND_LISTS = [
+  [],
+  ['Uniqlo'],
+  ['Uniqlo', 'Nike', 'New Balance', 'Adidas', 'COS'],
+  Array.from({ length: 20 }, (_, i) => `Brand${i}`),
+];
+
+/**
+ * Bringing a state into shape.
+ *
+ * The transition scripts all start from an already-aligned empty form, so the
+ * padding and trimming never has work to do there. These are the inputs that
+ * give it some.
+ */
+function dumpFormNormalization() {
+  const inputs: Partial<GarmentFormState>[] = [
+    {},
+    { imageUris: ['a', 'b', 'c'] },
+    { imageUris: ['a', 'b', 'c'], bgRemovedUris: ['a1'] },
+    { imageUris: ['a', 'b', 'c'], bgRemovedUris: ['a1', '', 'c1'] },
+    { imageUris: ['a'], bgRemovedUris: ['x', 'y', 'z'] },
+    { imageUris: [], bgRemovedUris: ['orphan'] },
+    { colorPalette: [] },
+    { colorPalette: ['#FFFFFF', '#000000'] },
+    { imageUris: ['a', 'b'], bgRemovedUris: ['a1'], colorPalette: [], brand: '  spaced  ', size: 'M' },
+  ];
+
+  return inputs.map(input => JSON.stringify({ input, normalized: normalizeForm(input) }));
+}
+
+function dumpBrandSuggestions() {
+  const typed = ['', '   ', 'ni', 'NI', 'Nike', '  nike  ', 'qlo', 'zzz', 'brand1', 'a'];
+  const lines: string[] = [];
+
+  for (const known of BRAND_LISTS) {
+    for (const input of typed) {
+      lines.push(JSON.stringify({ known, typed: input, suggestions: brandSuggestions(known, input) }));
+    }
+  }
+
+  return lines;
+}
+
 mkdirSync(OUT_DIR, { recursive: true });
 mkdirSync(DATA_OUT_DIR, { recursive: true });
 
@@ -763,6 +958,21 @@ writeFileSync(
   JSON.stringify(filtering.wardrobe, null, 2) + '\n'
 );
 console.log(`presentation/garment-filtering.jsonl: ${filtering.lines.length} cases`);
+
+const formTransitions = dumpFormTransitions();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'form-transitions.jsonl'), formTransitions.join('\n') + '\n');
+console.log(`presentation/form-transitions.jsonl: ${formTransitions.length} cases`);
+
+const normalization = dumpFormNormalization();
+writeFileSync(
+  join(PRESENTATION_OUT_DIR, 'form-normalization.jsonl'),
+  normalization.join('\n') + '\n'
+);
+console.log(`presentation/form-normalization.jsonl: ${normalization.length} cases`);
+
+const brands = dumpBrandSuggestions();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'brand-suggestions.jsonl'), brands.join('\n') + '\n');
+console.log(`presentation/brand-suggestions.jsonl: ${brands.length} cases`);
 
 const schemas = dumpSchemas();
 writeFileSync(join(DATA_OUT_DIR, 'schema-fresh.sql'), schemas.fresh + '\n');
