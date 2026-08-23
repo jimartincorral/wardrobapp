@@ -90,7 +90,19 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable(OUTFITS) {
-                            Outfits(container, onGarmentOpened = { navigator.openGarment(it) })
+                            Outfits(
+                                container = container,
+                                onGarmentOpened = { navigator.openGarment(it) },
+                                onOutfitOpened = { navigator.navigate("$OUTFIT/${Uri.encode(it)}") },
+                            )
+                        }
+
+                        composable("$OUTFIT/{$OUTFIT_ID}") { backStackEntry ->
+                            OutfitDetail(
+                                container = container,
+                                outfitId = backStackEntry.arguments?.getString(OUTFIT_ID).orEmpty(),
+                                navigator = navigator,
+                            )
                         }
 
                         composable(ANALYTICS) {
@@ -228,7 +240,11 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun Outfits(container: AppContainer, onGarmentOpened: (String) -> Unit) {
+    private fun Outfits(
+        container: AppContainer,
+        onGarmentOpened: (String) -> Unit,
+        onOutfitOpened: (String) -> Unit,
+    ) {
         val model: OutfitsViewModel = viewModel(
             factory = viewModelFactory { initializer { OutfitsViewModel(container) } }
         )
@@ -248,6 +264,7 @@ class MainActivity : ComponentActivity() {
             onDeleteConfirmed = model::onDeleteConfirmed,
             onDeleteDismissed = model::onDeleteDismissed,
             onGarmentOpened = onGarmentOpened,
+            onOutfitOpened = onOutfitOpened,
         )
     }
 
@@ -299,6 +316,37 @@ class MainActivity : ComponentActivity() {
             onSaveAnyway = { model.onSaveRequested(force = true) },
             onDuplicatesDismissed = model::onDuplicateWarningDismissed,
             onErrorDismissed = model::onErrorDismissed,
+        )
+    }
+
+    @Composable
+    private fun OutfitDetail(
+        container: AppContainer,
+        outfitId: String,
+        navigator: NavHostController,
+    ) {
+        val model: OutfitDetailViewModel = viewModel(
+            factory = viewModelFactory {
+                initializer { OutfitDetailViewModel(container, outfitId) }
+            }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        // Leaving is the activity's business, not the model's, as with the form
+        // reporting that it saved and the garment detail reporting a deletion.
+        LaunchedEffect(state.deleted) {
+            if (state.deleted) navigator.popBackStack()
+        }
+
+        OutfitDetailScreen(
+            state = state,
+            onBack = { navigator.popBackStack() },
+            onGarmentOpened = { navigator.openGarment(it) },
+            onRate = model::onRated,
+            onDelete = model::onDeleteRequested,
+            onDeleteConfirmed = model::onDeleteConfirmed,
+            onDeleteDismissed = model::onDeleteDismissed,
+            onRetry = model::refresh,
         )
     }
 
@@ -416,6 +464,8 @@ class MainActivity : ComponentActivity() {
         const val ANALYTICS = "analytics"
         const val SETTINGS = "settings"
         const val GARMENT = "garment"
+        const val OUTFIT = "outfit"
+        const val OUTFIT_ID = "outfitId"
         // Deliberately not "garment/add" and "garment/edit": the detail route is
         // "garment/{garmentId}", which would match both of them as an id, and
         // whether it wins is down to how the matcher ranks a literal segment
