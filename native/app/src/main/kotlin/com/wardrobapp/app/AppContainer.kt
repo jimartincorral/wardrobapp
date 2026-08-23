@@ -6,17 +6,15 @@ import com.wardrobapp.data.ArchiveBackup
 import com.wardrobapp.data.ArchiveRestore
 import com.wardrobapp.data.BackupSummary
 import com.wardrobapp.data.Duplicates
-import com.wardrobapp.data.GARMENT_IMAGE_DIRNAME
 import com.wardrobapp.data.GarmentQueries
 import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.ReopeningDriver
 import com.wardrobapp.data.Suggestions
-import com.wardrobapp.data.WardrobeFiles
 import com.wardrobapp.data.WardrobeSchema
 import com.wardrobapp.data.storedImageBytes
-import java.io.File
+import com.wardrobapp.data.wardrobeFilesIn
 import java.io.InputStream
 import java.io.OutputStream
 
@@ -30,6 +28,15 @@ import java.io.OutputStream
 class AppContainer(context: Context) {
 
     /**
+     * The database and the photo directory: everything the wardrobe *is* on disk.
+     *
+     * First, because everything below is derived from it, and from :data rather
+     * than assembled here -- where these live is shared with the React Native app
+     * and getting it wrong is silent. `wardrobeFilesIn` carries the reasoning.
+     */
+    private val files = wardrobeFilesIn(context.filesDir)
+
+    /**
      * The connection, reopened on demand.
      *
      * Through [ReopeningDriver] rather than opened once, because a restore
@@ -38,19 +45,19 @@ class AppContainer(context: Context) {
      * restore, which may have installed a database written by an older build.
      */
     private val database = ReopeningDriver {
-        AndroidSqlDriver.open(context).also { WardrobeSchema.applyTo(it) }
+        AndroidSqlDriver.open(context, files.databaseFile.absolutePath)
+            .also { WardrobeSchema.applyTo(it) }
     }
 
     /**
-     * Where garment photos live.
+     * Where garment photos live, as a URI.
      *
      * The database stores bare filenames, so this is re-attached on read. The
      * `file://` prefix and trailing separator match what the React Native app
      * produced, since `resolveImageRef` concatenates directly onto it -- and
      * Coil loads a file:// URI directly.
      */
-    val imageDirectory: String =
-        "file://${File(context.filesDir, GARMENT_IMAGE_DIRNAME).absolutePath}/"
+    val imageDirectory: String = "file://${files.imagesDir.absolutePath}/"
 
     val garments = GarmentQueries(database, imageDirectory)
     val garmentWrites = GarmentWrites(database)
@@ -65,12 +72,6 @@ class AppContainer(context: Context) {
 
     /** Cutting a garment out of its background, on device. */
     val backgrounds = AndroidBackgroundRemover(context, photos)
-
-    /** The two things a backup is made of, and a restore replaces. */
-    private val files = WardrobeFiles(
-        databaseFile = context.getDatabasePath(AndroidSqlDriver.DATABASE_NAME),
-        imagesDir = File(context.filesDir, GARMENT_IMAGE_DIRNAME),
-    )
 
     private val restore = ArchiveRestore(
         files = files,
