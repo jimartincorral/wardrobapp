@@ -59,6 +59,7 @@ import {
   checkLegacyPayload,
   parseArchiveManifest,
 } from '../src/domain/backup-archive';
+import { garmentDetail } from '../src/domain/garment-detail';
 import { CATEGORIES } from '../src/constants/categories';
 import type { Garment } from '../src/types';
 
@@ -1029,6 +1030,114 @@ function dumpArchiveValidation() {
   return lines;
 }
 
+/**
+ * What the detail screen shows, from the row up.
+ *
+ * The input is a raw row rather than a built garment, so the fixture exercises
+ * the whole path -- normalization and then the view -- and a divergence in
+ * either shows up here.
+ */
+const DETAIL_ROWS: Record<string, unknown>[] = [
+  // The ordinary case: one photo, one colour, a brand and a size.
+  {
+    id: 'plain', image_uri: 'front.jpg', image_uri_nobg: null,
+    image_uris: '["front.jpg"]', image_uris_nobg: '[]',
+    category: 'tops', subcategory: 'T-Shirt', subcategories: '["T-Shirt"]',
+    tags: '["cotton","summer","striped"]', brand: 'Uniqlo',
+    color_primary: '#000000', color_secondary: null, color_palette: '["#000000"]',
+    size: 'M', purchase_date: '2026-01-15', is_available: 1, unavailable_date: null,
+    created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z',
+  },
+  // Several photos, cut-outs on some of them.
+  {
+    id: 'gallery', image_uri: 'a.jpg', image_uri_nobg: 'a-cut.png',
+    image_uris: '["a.jpg","b.jpg","c.jpg"]', image_uris_nobg: '["a-cut.png","","c-cut.png"]',
+    category: 'outerwear', subcategory: 'Coat', subcategories: '["Coat"]',
+    tags: '["wool","winter","fall"]', brand: ' COS ',
+    color_primary: '#000080', color_secondary: '#FFFFFF',
+    color_palette: '["#000080","#FFFFFF","#123456"]',
+    size: ' L ', purchase_date: null, is_available: 1, unavailable_date: null,
+    created_at: '2026-02-01T00:00:00.000Z', updated_at: '2026-02-01T00:00:00.000Z',
+  },
+  // A cut-out that replaced its original: no undo to offer.
+  {
+    id: 'replaced', image_uri: 'only-cut.png', image_uri_nobg: 'only-cut.png',
+    image_uris: '["only-cut.png"]', image_uris_nobg: '["only-cut.png"]',
+    category: 'bottoms', subcategory: 'Jeans', subcategories: '["Jeans"]',
+    tags: '[]', brand: null,
+    color_primary: '#000080', color_secondary: null, color_palette: '[]',
+    size: null, purchase_date: null, is_available: 1, unavailable_date: null,
+    created_at: '2026-03-01T00:00:00.000Z', updated_at: '2026-03-01T00:00:00.000Z',
+  },
+  // Unavailable, with the date it went.
+  {
+    id: 'retired', image_uri: 'old.jpg', image_uri_nobg: null,
+    image_uris: '["old.jpg"]', image_uris_nobg: '[]',
+    category: 'shoes', subcategory: 'Heels', subcategories: '["Heels"]',
+    tags: '["leather"]', brand: 'Zara',
+    color_primary: '#CC0000', color_secondary: null, color_palette: '["#cc0000"]',
+    size: '38', purchase_date: '2024-06-01', is_available: 0,
+    unavailable_date: '2026-04-02T10:11:12.000Z',
+    created_at: '2024-06-01T00:00:00.000Z', updated_at: '2026-04-02T00:00:00.000Z',
+  },
+  // Available again, but the old unavailable_date is still on the row.
+  {
+    id: 'back-in-use', image_uri: 'again.jpg', image_uri_nobg: null,
+    image_uris: '["again.jpg"]', image_uris_nobg: '[]',
+    category: 'tops', subcategory: 'Shirt', subcategories: '["Shirt"]',
+    tags: '["formal","rainy","linen"]', brand: '   ',
+    color_primary: '#FFFFFF', color_secondary: null, color_palette: '["#FFFFFF"]',
+    size: '', purchase_date: null, is_available: 1,
+    unavailable_date: '2026-04-02T10:11:12.000Z',
+    created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z',
+  },
+  // No photo at all, and the multi-colour sentinel.
+  {
+    id: 'photoless', image_uri: '', image_uri_nobg: null,
+    image_uris: '[]', image_uris_nobg: '[]',
+    category: 'accessories', subcategory: 'Scarf', subcategories: '["Scarf","  "]',
+    tags: '["silk","all-season"]', brand: 'Hermes',
+    color_primary: '#RAINBOW', color_secondary: null, color_palette: '["#RAINBOW"]',
+    size: null, purchase_date: null, is_available: 1, unavailable_date: null,
+    created_at: '2026-06-01T00:00:00.000Z', updated_at: '2026-06-01T00:00:00.000Z',
+  },
+  // The much older row shape: comma-separated lists, no timestamps, no
+  // subcategories list -- so occasions come from the singular column.
+  {
+    id: 'legacy', image_uri: 'legacy.jpg',
+    image_uris: 'legacy.jpg,legacy-2.jpg',
+    category: 'activewear', subcategory: 'Yoga Pants',
+    tags: 'Stretch, SUMMER, stretch',
+    color_primary: '#808080',
+  },
+  // A type the occasion table does not know, in a category that has a fallback.
+  {
+    id: 'unknown-type', image_uri: 'x.jpg', image_uri_nobg: null,
+    image_uris: '["x.jpg"]', image_uris_nobg: '[]',
+    category: 'loungewear', subcategory: 'Something New', subcategories: '["Something New"]',
+    tags: '[]', brand: null,
+    color_primary: '#F5F5DC', color_secondary: null, color_palette: '["#F5F5DC"]',
+    size: 'S', purchase_date: null, is_available: 1, unavailable_date: null,
+    created_at: '2026-07-01T00:00:00.000Z', updated_at: '2026-07-01T00:00:00.000Z',
+  },
+];
+
+function dumpGarmentDetail() {
+  const lines: string[] = [];
+
+  for (const row of DETAIL_ROWS) {
+    const garment = normalizeGarmentRow(row, '');
+    // Every index the screen could hand over, plus two it should not: a
+    // remembered selection can outlive the photo it referred to.
+    for (const selected of [-1, 0, 1, 2, 5]) {
+      const view = garmentDetail(garment, selected);
+      lines.push(JSON.stringify({ row, selected, view }));
+    }
+  }
+
+  return lines;
+}
+
 mkdirSync(OUT_DIR, { recursive: true });
 mkdirSync(DATA_OUT_DIR, { recursive: true });
 
@@ -1099,6 +1208,10 @@ writeFileSync(
   archiveValidation.join('\n') + '\n'
 );
 console.log(`data/archive-validation.jsonl: ${archiveValidation.length} cases`);
+
+const detail = dumpGarmentDetail();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'garment-detail.jsonl'), detail.join('\n') + '\n');
+console.log(`presentation/garment-detail.jsonl: ${detail.length} cases`);
 
 const schemas = dumpSchemas();
 writeFileSync(join(DATA_OUT_DIR, 'schema-fresh.sql'), schemas.fresh + '\n');

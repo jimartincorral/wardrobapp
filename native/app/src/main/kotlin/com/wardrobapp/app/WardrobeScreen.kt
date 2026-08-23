@@ -1,6 +1,7 @@
 package com.wardrobapp.app
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,7 +29,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -49,6 +49,7 @@ fun WardrobeScreen(
     onSearchChanged: (String) -> Unit,
     onSortToggled: () -> Unit,
     onRetry: () -> Unit,
+    onGarmentOpened: (String) -> Unit,
     onRestoreRequested: () -> Unit,
     onRestoreConfirmed: () -> Unit,
     onRestoreDismissed: () -> Unit,
@@ -123,7 +124,7 @@ fun WardrobeScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(state.garments, key = { it.id }) { garment ->
-                        GarmentRow(garment)
+                        GarmentRow(garment) { onGarmentOpened(garment.id) }
                     }
                 }
             }
@@ -203,8 +204,8 @@ private fun Centered(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun GarmentRow(garment: GarmentRecord) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun GarmentRow(garment: GarmentRecord, onClick: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -275,13 +276,3 @@ private fun GarmentRow(garment: GarmentRecord) {
         }
     }
 }
-
-/**
- * A stored hex colour as a Compose colour, or null if it cannot be read.
- *
- * Parsing goes through the domain's parser rather than a second implementation:
- * it is the one that knows `#RGB` shorthand, the multi-colour sentinel, and how
- * to refuse malformed input instead of returning something wrong.
- */
-private fun String.toComposeColor(): Color? =
-    com.wardrobapp.domain.parseHexColor(this)?.let { Color(it.r, it.g, it.b) }

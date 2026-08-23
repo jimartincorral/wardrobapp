@@ -72,6 +72,16 @@ data class GarmentRecord(
     val displayImageUris: List<String>
         get() = imageUris.ifEmpty { listOfNotNull(imageUri).filter { it.isNotEmpty() } }
 
+    /**
+     * Cut-outs to show, one slot per photo, falling back to the single stored
+     * reference.
+     *
+     * Empty strings are kept rather than filtered: an entry of "" means "this
+     * photo has no cut-out", and the position is what says which photo.
+     */
+    val displayNoBgImageUris: List<String>
+        get() = imageUrisNoBg.ifEmpty { listOf(imageUriNoBg ?: "") }
+
     /** The background-removed photo if there is one, else the plain photo. */
     val displayImage: String
         get() = imageUrisNoBg.firstOrNull { it.isNotEmpty() }

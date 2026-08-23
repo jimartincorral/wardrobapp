@@ -4,16 +4,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getGarment, markUnavailable, markAvailable, deleteGarment, updateGarment } from '@/src/services/garment-service';
 import { isBackgroundRemovalAvailable, removeImageBackground } from '@/src/services/background-removal';
 import { deleteImage, saveBgRemovedImage } from '@/src/services/image-service';
-import { CATEGORIES } from '@/src/constants/categories';
-import { GARMENT_COLORS } from '@/src/constants/colors';
 import { Spacing, BorderRadius, FontSize } from '@/src/constants/theme';
 import { formatDate } from '@/src/utils/date-helpers';
-import { splitStructuredTags } from '@/src/utils/style-tags';
-import { getGarmentOccasions } from '@/src/utils/garment-occasions';
+import { garmentDetail } from '@/src/domain/garment-detail';
 import { localizeSubcategories } from '@/src/utils/localization-helpers';
 import { useTranslation } from '@/src/i18n';
 import type { Garment } from '@/src/types';
-import { getGarmentColorPalette, getGarmentImageUris, getGarmentNoBgImageUris } from '@/src/utils/garment-fields';
+import { getGarmentImageUris, getGarmentNoBgImageUris } from '@/src/utils/garment-fields';
 import { useTheme } from '@/src/theme';
 import type { ThemeColors } from '@/src/theme';
 
@@ -150,66 +147,63 @@ export default function GarmentDetailScreen() {
     return <View style={styles.loading}><Text>{t('garmentDetail.loading')}</Text></View>;
   }
 
-  const garmentImages = getGarmentImageUris(garment);
-  const garmentNoBgImages = getGarmentNoBgImageUris(garment);
-  const displayedImage = garmentNoBgImages[selectedImageIndex] || garmentImages[selectedImageIndex] || garmentImages[0];
-  const colorLabels = getGarmentColorPalette(garment).map(color => {
-    const colorKey = GARMENT_COLORS.find(c => c.hex === color)?.key;
-    return colorKey ? t(`colors.${colorKey}`) : color;
-  });
-  const localizedSubcategories = localizeSubcategories(garment.subcategories, t);
-  const { seasons, customTags } = splitStructuredTags(garment.tags);
-  const occasions = getGarmentOccasions(garment);
+  // What the screen shows is decided in the domain layer, which the Kotlin port
+  // shares through a parity fixture; this file localizes it and lays it out.
+  const view = garmentDetail(garment, selectedImageIndex);
+  const colorLabels = view.palette.map(entry =>
+    entry.colorKey ? t(`colors.${entry.colorKey}`) : entry.hex
+  );
+  const localizedSubcategories = localizeSubcategories(view.subcategories, t);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.imageFrame}>
-        <Image source={{ uri: displayedImage }} style={styles.image} resizeMode="contain" />
+        <Image source={{ uri: view.displayedImage ?? undefined }} style={styles.image} resizeMode="contain" />
       </View>
-      {garmentImages.length > 1 && (
+      {view.showsGallery && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailRow}>
-          {garmentImages.map((uri, index) => (
+          {view.gallery.map((entry, index) => (
             <Pressable
-              key={`${uri}-${index}`}
-              style={[styles.thumbnailButton, selectedImageIndex === index && styles.thumbnailButtonActive]}
+              key={`${entry.uri}-${index}`}
+              style={[styles.thumbnailButton, entry.selected && styles.thumbnailButtonActive]}
               onPress={() => setSelectedImageIndex(index)}
             >
-              <Image source={{ uri: garmentNoBgImages[index] || uri }} style={styles.thumbnailImage} resizeMode="cover" />
+              <Image source={{ uri: entry.uri }} style={styles.thumbnailImage} resizeMode="cover" />
             </Pressable>
           ))}
         </ScrollView>
       )}
-      {!garment.is_available && (
+      {!view.isAvailable && (
         <View style={styles.unavailableBanner}>
           <Text style={styles.unavailableBannerText}>
             {t('garmentDetail.unavailableSince', {
-              date: garment.unavailable_date ? formatDate(garment.unavailable_date) : '—'
+              date: view.unavailableDate ? formatDate(view.unavailableDate) : '—'
             })}
           </Text>
         </View>
       )}
       <View style={styles.details}>
         <Text style={styles.category}>
-          {t(`categories.${garment.category}`)}
+          {t(`categories.${view.category}`)}
           {localizedSubcategories.length > 0 ? ` \u2022 ${localizedSubcategories.join(', ')}` : ''}
         </Text>
-        {garment.brand && <Text style={styles.brand}>{garment.brand}</Text>}
+        {view.brand && <Text style={styles.brand}>{view.brand}</Text>}
         <View style={styles.propsSection}>
           <View style={styles.propRow}>
             <Text style={styles.propLabel}>{t('garmentDetail.props.colors')}</Text>
             <View style={styles.propValueWrap}>
               <View style={styles.propValueRow}>
-                {getGarmentColorPalette(garment).map(color => (
-                  <View key={color} style={[styles.colorDot, { backgroundColor: color }]} />
+                {view.palette.map(entry => (
+                  <View key={entry.hex} style={[styles.colorDot, { backgroundColor: entry.hex }]} />
                 ))}
               </View>
               <Text style={styles.propValue}>{colorLabels.join(', ')}</Text>
             </View>
           </View>
-          {garment.size && (
+          {view.size && (
             <View style={styles.propRow}>
               <Text style={styles.propLabel}>{t('garmentDetail.props.size')}</Text>
-              <Text style={styles.propValue}>{garment.size}</Text>
+              <Text style={styles.propValue}>{view.size}</Text>
             </View>
           )}
           {localizedSubcategories.length > 0 && (
@@ -218,30 +212,30 @@ export default function GarmentDetailScreen() {
               <Text style={styles.propValue}>{localizedSubcategories.join(', ')}</Text>
             </View>
           )}
-          {seasons.length > 0 && (
+          {view.seasons.length > 0 && (
             <View style={styles.propRow}>
               <Text style={styles.propLabel}>{t('garmentDetail.props.seasons')}</Text>
-              <Text style={styles.propValue}>{seasons.map(s => t(`outfits.filterValues.season.${s}`)).join(', ')}</Text>
+              <Text style={styles.propValue}>{view.seasons.map(s => t(`outfits.filterValues.season.${s}`)).join(', ')}</Text>
             </View>
           )}
-          {occasions.length > 0 && (
+          {view.occasions.length > 0 && (
             <View style={styles.propRow}>
               <Text style={styles.propLabel}>{t('garmentDetail.props.occasions')}</Text>
-              <Text style={styles.propValue}>{occasions.map(o => t(`outfits.filterValues.occasion.${o}`)).join(', ')}</Text>
+              <Text style={styles.propValue}>{view.occasions.map(o => t(`outfits.filterValues.occasion.${o}`)).join(', ')}</Text>
             </View>
           )}
-          {garment.purchase_date && (
+          {view.purchaseDate && (
             <View style={styles.propRow}>
               <Text style={styles.propLabel}>{t('garmentDetail.props.added')}</Text>
-              <Text style={styles.propValue}>{formatDate(garment.purchase_date)}</Text>
+              <Text style={styles.propValue}>{formatDate(view.purchaseDate)}</Text>
             </View>
           )}
         </View>
-        {customTags.length > 0 && (
+        {view.tags.length > 0 && (
           <View style={styles.tagsSection}>
             <Text style={styles.tagsTitle}>{t('garmentDetail.tags')}</Text>
             <View style={styles.tagsContainer}>
-              {customTags.map(tag => (
+              {view.tags.map(tag => (
                 <View key={tag} style={styles.tag}><Text style={styles.tagText}>{tag}</Text></View>
               ))}
             </View>
@@ -258,7 +252,7 @@ export default function GarmentDetailScreen() {
         <Pressable style={styles.editButton} onPress={() => router.push(`/garment/edit/${garment.id}`)}>
           <Text style={styles.editButtonText}>{t('garmentDetail.editGarment')}</Text>
         </Pressable>
-        {!garmentNoBgImages[selectedImageIndex] ? (
+        {view.backgroundAction === 'remove' ? (
           <Pressable style={styles.editButton} onPress={handleRemoveBackground} disabled={removingBg}>
             {removingBg ? (
               <ActivityIndicator color={colors.primary} />
@@ -266,7 +260,7 @@ export default function GarmentDetailScreen() {
               <Text style={styles.editButtonText}>{t('addGarment.removeBackground')}</Text>
             )}
           </Pressable>
-        ) : garmentImages[selectedImageIndex] && garmentImages[selectedImageIndex] !== garmentNoBgImages[selectedImageIndex] ? (
+        ) : view.backgroundAction === 'undo' ? (
           // A separate original still exists (legacy garment) — undo can revert to it.
           <Pressable style={styles.actionButton} onPress={handleUndoBackground} disabled={removingBg}>
             <Text style={styles.actionButtonText}>{t('addGarment.undoBackground')}</Text>

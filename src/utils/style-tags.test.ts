@@ -22,6 +22,16 @@ describe('splitStructuredTags', () => {
     expect(result.customTags).toEqual(['cotton', 'striped']);
   });
 
+  it('normalizes case and drops blanks, whatever it is handed', () => {
+    // Tags arrive lowercased from row normalization, so nothing in the app
+    // exercises this -- but the function is what defines "a tag", and the Kotlin
+    // port has to agree about it.
+    const result = splitStructuredTags(['Cotton', ' SUMMER ', '   ', 'Formal', 'STRIPED']);
+
+    expect(result.customTags).toEqual(['cotton', 'striped']);
+    expect(result.seasons).toEqual(['summer']);
+  });
+
   it('discards weather and occasion values left over from older versions', () => {
     // Restoring an old backup reintroduces these; without this they would
     // resurface as if the user had typed them as custom tags.
