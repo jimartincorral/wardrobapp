@@ -113,10 +113,11 @@ cd native && ./gradlew test
 | Module | What |
 |---|---|
 | `:domain` | The algorithms — colour, tags, occasions, duplicates, suggestions |
-| `:data` | The database — row and photo-reference mapping, reads and writes |
+| `:data` | The database — row and photo-reference mapping, reads, writes, analytics |
 | `:parity-testing` | Shared fixture-loading for the parity suites |
+| `:app` | The Compose UI — **only included when an Android SDK is present** |
 
-The Android-specific layers (the filesystem, Compose) arrive as separate modules later. Keeping the pure parts pure is what lets everything so far be verified on any machine — and `:data` is the code that decides whether an *existing* wardrobe opens correctly, so it is the code most worth being able to test anywhere.
+`:app` is the one module that genuinely needs the Android SDK, so `settings.gradle.kts` includes it only when one is found (`ANDROID_HOME`, `ANDROID_SDK_ROOT`, or `sdk.dir` in `local.properties`). `./gradlew test` therefore works on a machine with nothing but a JDK — which is the whole reason the other modules are pure — while CI builds everything. Keeping the pure parts pure is what lets everything so far be verified on any machine — and `:data` is the code that decides whether an *existing* wardrobe opens correctly, so it is the code most worth being able to test anywhere.
 
 `:data` reaches SQLite through a small `SqlDriver` interface rather than depending on `androidx.sqlite`. On Android that wraps a `SupportSQLiteDatabase`; in the tests it wraps JDBC. Both run the same SQL against the same schema, which is what lets the queries be exercised without an emulator.
 
@@ -138,9 +139,9 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-19 suites, 182 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
+20 suites, 190 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import, garment and outfit services, the domain layer's dependency-freedom, and the pure utilities.
 
-The Kotlin port adds 51 more:
+The Kotlin port adds 60 more:
 
 ```bash
 cd native && ./gradlew test
