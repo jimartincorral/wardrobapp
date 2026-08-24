@@ -26,7 +26,7 @@ import struct
 import zlib
 from pathlib import Path
 
-RES = Path(__file__).resolve().parent.parent / 'native' / 'app' / 'src' / 'main' / 'res'
+RES = Path(__file__).resolve().parent.parent / 'app' / 'src' / 'main' / 'res'
 
 # The adaptive icon's canvas, so the geometry below is the same numbers as the
 # vector's pathData.

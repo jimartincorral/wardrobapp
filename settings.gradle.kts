@@ -42,7 +42,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "wardrobapp-native"
+rootProject.name = "wardrobapp"
 
 include(":domain")
 include(":data")

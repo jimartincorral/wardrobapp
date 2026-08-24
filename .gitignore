@@ -1,12 +1,12 @@
 # ──────────────────────────────────────────────────────────────
 # Gradle
 # ──────────────────────────────────────────────────────────────
-native/.gradle/
-native/.kotlin/
-native/build/
-native/*/build/
+.gradle/
+.kotlin/
+build/
+*/build/
 # The SDK path, which is per-machine.
-native/local.properties
+local.properties
 
 # ──────────────────────────────────────────────────────────────
 # Build outputs
