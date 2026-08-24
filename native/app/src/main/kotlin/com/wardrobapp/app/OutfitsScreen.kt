@@ -33,6 +33,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,22 +71,21 @@ fun OutfitsScreen(
     state.deleting?.let { outfit ->
         AlertDialog(
             onDismissRequest = onDeleteDismissed,
-            title = { Text("Delete this outfit?") },
+            title = { Text(stringResource(R.string.outfit_delete_confirm)) },
             // Named, because a prompt over a list of outfits that does not say
             // which one is a prompt nobody can answer safely. And it says what
             // survives: the garments are not going anywhere.
             text = {
                 Text(
-                    "\"${outfit.name}\" and its rating are deleted. The garments in it " +
-                        "stay in your wardrobe."
+                    stringResource(R.string.outfit_delete_named_body, outfit.name)
                 )
             },
-            confirmButton = { TextButton(onClick = onDeleteConfirmed) { Text("Delete") } },
-            dismissButton = { TextButton(onClick = onDeleteDismissed) { Text("Keep it") } },
+            confirmButton = { TextButton(onClick = onDeleteConfirmed) { Text(stringResource(R.string.action_delete)) } },
+            dismissButton = { TextButton(onClick = onDeleteDismissed) { Text(stringResource(R.string.action_keep)) } },
         )
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Outfits") }) }) { insets ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.outfits_title)) }) }) { insets ->
         LazyColumn(
             modifier = Modifier.padding(insets),
             contentPadding = PaddingValues(16.dp),
@@ -92,21 +93,25 @@ fun OutfitsScreen(
         ) {
             item {
                 Text(
-                    "Suggestions are built from what you own, and learn from what you rate.",
+                    stringResource(R.string.outfits_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
             item {
-                ChipRow("Season", state.filters.seasonChips().map { chip ->
-                    Chip(chip.value?.label() ?: "Any", chip.active) { onSeasonTapped(chip.value) }
+                ChipRow(stringResource(R.string.filter_section_season), state.filters.seasonChips().map { chip ->
+                    val label = chip.value?.let { stringResource(it.labelRes) }
+                        ?: stringResource(R.string.outfits_filter_any)
+                    Chip(label, chip.active) { onSeasonTapped(chip.value) }
                 })
             }
 
             item {
-                ChipRow("Occasion", state.filters.occasionChips().map { chip ->
-                    Chip(chip.value?.label() ?: "Any", chip.active) { onOccasionTapped(chip.value) }
+                ChipRow(stringResource(R.string.filter_section_occasion), state.filters.occasionChips().map { chip ->
+                    val label = chip.value?.let { stringResource(it.labelRes) }
+                        ?: stringResource(R.string.outfits_filter_any)
+                    Chip(label, chip.active) { onOccasionTapped(chip.value) }
                 })
             }
 
@@ -116,7 +121,15 @@ fun OutfitsScreen(
                     enabled = !state.generating,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(if (state.generating) "Building outfits…" else "Suggest outfits")
+                    Text(
+                        stringResource(
+                            if (state.generating) {
+                                R.string.outfits_suggesting
+                            } else {
+                                R.string.outfits_suggest
+                            }
+                        )
+                    )
                 }
             }
 
@@ -153,10 +166,9 @@ fun OutfitsScreen(
                 item {
                     Text(
                         if (state.hasGenerated) {
-                            "No outfits could be built from what's available. " +
-                                "Try fewer filters, or add a few more garments."
+                            stringResource(R.string.outfits_none_possible)
                         } else {
-                            "Tap suggest to see what goes together."
+                            stringResource(R.string.outfits_prompt)
                         },
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -166,7 +178,7 @@ fun OutfitsScreen(
             if (state.saved.isNotEmpty()) {
                 item {
                     Text(
-                        "Saved",
+                        stringResource(R.string.outfits_saved_section),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 16.dp),
                     )
@@ -248,12 +260,12 @@ private fun SuggestionCard(
 
                 if (suggestion.saved) {
                     Text(
-                        "Saved",
+                        stringResource(R.string.outfit_saved_badge),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    TextButton(onClick = onSave) { Text("Save") }
+                    TextButton(onClick = onSave) { Text(stringResource(R.string.action_save)) }
                 }
             }
         }
@@ -283,7 +295,11 @@ private fun SavedOutfitRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    "${outfit.garmentIds.size} garments",
+                    pluralStringResource(
+                        R.plurals.garment_count,
+                        outfit.garmentIds.size,
+                        outfit.garmentIds.size,
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -291,13 +307,15 @@ private fun SavedOutfitRow(
 
             // A pin is a toggle, so it says which state tapping it reaches.
             TextButton(onClick = onPinToggled) {
-                Text(if (outfit.isPinned) "Unpin" else "Pin")
+                Text(
+                    stringResource(if (outfit.isPinned) R.string.action_unpin else R.string.action_pin)
+                )
             }
 
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Filled.Delete,
-                    contentDescription = "Delete this outfit",
+                    contentDescription = stringResource(R.string.outfit_delete),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -305,7 +323,4 @@ private fun SavedOutfitRow(
     }
 }
 
-private fun Season.label(): String =
-    tag.replace('-', ' ').replaceFirstChar { it.uppercase() }
 
-private fun Occasion.label(): String = id.replaceFirstChar { it.uppercase() }

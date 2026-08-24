@@ -18,9 +18,9 @@ import kotlin.test.assertTrue
  * already cost a round trip, and three of these checks are ones lint does not
  * make at all:
  *
- * - lint compares names, not *placeholders*. A `%1$s` that becomes `%2$s` in
- *   translation swaps two values in a sentence, which is invisible unless you
- *   read the language.
+ * - lint compares names, not what a string *substitutes*. A `%1$s` that becomes
+ *   `%1$d` in translation is a crash, and one that goes missing drops a value out
+ *   of a sentence -- both invisible unless you read the language.
  * - lint has no opinion about a Spanish string left byte-identical to its
  *   English twin. That is how the app that ships came to have `flats`, `bra` and
  *   `shapewear` untranslated among 24 legitimate loanwords.
@@ -73,6 +73,10 @@ class StringResourceParityTest {
         "subcategory_parka",
         "subcategory_polo",
         "subcategory_poncho",
+        // An alphabet range, not a word.
+        "statistics_sort_name",
+        // A unit symbol, and the same one in both languages.
+        "settings_megabytes",
     )
 
     @Test
@@ -90,28 +94,84 @@ class StringResourceParityTest {
     }
 
     @Test
-    fun `a translation uses the same placeholders in the same order`() {
+    fun `a translation substitutes the same values, whatever order it says them in`() {
+        // Position and type, not sequence. Reordering is the entire reason
+        // positional arguments exist: Spanish is free to put the count before the
+        // name, and a check that compared appearance order would reject correct
+        // translations -- which is what the first version of this did.
         val wrong = english.keys.mapNotNull { name ->
-            val here = placeholders(english.getValue(name))
-            val there = placeholders(spanish.getValue(name))
+            val here = formatArguments(english.getValue(name))
+            val there = formatArguments(spanish.getValue(name))
             if (here == there) null else "$name: en=$here es=$there"
         }
 
-        assertTrue(wrong.isEmpty(), "placeholders differ:\n  " + wrong.joinToString("\n  "))
+        assertTrue(
+            wrong.isEmpty(),
+            "these substitute different values:\n  " + wrong.joinToString("\n  "),
+        )
     }
 
     @Test
-    fun `the placeholder check can tell a reordering from a match`() {
-        // Nothing in either file carries a placeholder yet, so the check above
-        // currently passes over an empty corpus -- the shape of test that quietly
-        // means nothing. This pins the comparison itself, so the check is known to
-        // work before the first formatted string arrives and needs it.
-        assertEquals(listOf("%1\$s", "%2\$d"), placeholders("%1\$s has %2\$d"))
-        assertEquals(emptyList(), placeholders("nothing to substitute"))
-        assertTrue(
-            placeholders("%1\$s (%2\$d)") != placeholders("%2\$d (%1\$s)"),
-            "a reordered pair has to compare unequal, or the check cannot fire",
-        )
+    fun `both languages define the same plurals, with the same quantities`() {
+        // Read separately because <plurals> is not <string>: the checks above walk
+        // string elements only, so a plural could have gone missing, lost a
+        // quantity, or dropped its %d without any of them noticing.
+        val here = readPlurals("values")
+        val there = readPlurals("values-es")
+
+        assertEquals(here.keys, there.keys, "the set of plurals differs")
+
+        for (name in here.keys) {
+            assertEquals(
+                here.getValue(name).keys,
+                there.getValue(name).keys,
+                "quantities for $name",
+            )
+
+            for ((quantity, value) in here.getValue(name)) {
+                assertEquals(
+                    formatArguments(value),
+                    formatArguments(there.getValue(name).getValue(quantity)),
+                    "what $name/$quantity substitutes",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `a count keeps its number in every quantity`() {
+        // "1 garment" reads correctly in English and would be a lint mismatch
+        // against "%d garments"; more to the point, a language whose "one" form
+        // covers more than one still needs the number.
+        for ((name, forms) in readPlurals("values") + readPlurals("values-es")) {
+            for ((quantity, value) in forms) {
+                assertTrue(
+                    formatArguments(value).containsValue('d'),
+                    "$name/$quantity has no count in it: \"$value\"",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `reading format arguments`() {
+        // Pinned directly, because every property the checks above rely on lives
+        // in this one function.
+        assertEquals(mapOf(1 to 's', 2 to 'd'), formatArguments("%1\$s has %2\$d"))
+        assertEquals(emptyMap(), formatArguments("nothing to substitute"))
+
+        // A bare argument takes the next position, so "%d" and "%1\$d" are one
+        // string spelled two ways, and a translation may use either.
+        assertEquals(formatArguments("%1\$d"), formatArguments("%d"))
+        assertEquals(mapOf(1 to 'd', 2 to 's'), formatArguments("%d and %s"))
+
+        // Reordering is allowed; changing a type is not.
+        assertEquals(formatArguments("%1\$s (%2\$d)"), formatArguments("%2\$d (%1\$s)"))
+        assertTrue(formatArguments("%1\$s") != formatArguments("%1\$d"))
+        assertTrue(formatArguments("%1\$s %2\$d") != formatArguments("%1\$s"))
+
+        // An escaped percent substitutes nothing.
+        assertEquals(emptyMap(), formatArguments("100%% cotton"))
     }
 
     @Test
@@ -176,27 +236,66 @@ class StringResourceParityTest {
         replace(Regex("(?<=[a-z0-9])(?=[A-Z])"), "_").lowercase()
 
     /** `%1$s` and friends, in order of appearance. */
-    private fun placeholders(value: String): List<String> =
-        Regex("%\\d+\\$[sd]").findAll(value).map { it.value }.toList()
-
-    private fun readStrings(directory: String): Map<String, String> {
+    /**
+     * One resource file, as a document.
+     *
+     * Parsed as XML rather than scraped with a regex, which is what this did
+     * first. The regex read the file happily while it was not well-formed at all
+     * -- an em dash written as "--" inside a comment, which XML forbids -- and
+     * the whole point of this test is that it runs where aapt cannot. A check
+     * that only sees what a regex sees hands that class of mistake to CI.
+     */
+    private fun parse(directory: String): org.w3c.dom.Document {
         val resDir = System.getProperty("appResDir")
             ?: error("appResDir was not set; see presentation/build.gradle.kts")
         val file = File(resDir, "$directory/strings.xml")
         assertTrue(file.isFile, "expected string resources at $file")
 
-        // Parsed as XML rather than scraped with a regex, which is what this did
-        // first. The regex read the file happily while it was not well-formed at
-        // all -- an em dash written as "--" inside a comment, which XML forbids
-        // -- and the whole point of this test is that it runs where aapt cannot.
-        // A test that only checks what a regex can see hands that class of
-        // mistake straight to CI.
-        val document = DocumentBuilderFactory.newInstance()
+        return DocumentBuilderFactory.newInstance()
             .also { it.isNamespaceAware = false }
             .newDocumentBuilder()
             .parse(file)
+    }
 
-        val strings = document.getElementsByTagName("string")
+    /**
+     * What a string substitutes: argument position to conversion type.
+     *
+     * A bare `%d` takes the next implicit position, which is how Android reads it,
+     * so `%d` and `%1$d` come out equal. `%%` is a literal percent and substitutes
+     * nothing.
+     */
+    private fun formatArguments(value: String): Map<Int, Char> {
+        val arguments = mutableMapOf<Int, Char>()
+        var implicit = 0
+
+        for (match in Regex("%(?:(\\d+)\\$)?([%sdf])").findAll(value)) {
+            val type = match.groupValues[2].single()
+            if (type == '%') continue
+
+            val position = match.groupValues[1].toIntOrNull() ?: ++implicit
+            arguments[position] = type
+        }
+
+        return arguments
+    }
+
+    /** Plural name to quantity to text. */
+    private fun readPlurals(directory: String): Map<String, Map<String, String>> {
+        val plurals = parse(directory).getElementsByTagName("plurals")
+
+        return (0 until plurals.length).associate { index ->
+            val element = plurals.item(index) as Element
+            val items = element.getElementsByTagName("item")
+
+            element.getAttribute("name") to (0 until items.length).associate { item ->
+                val quantity = items.item(item) as Element
+                quantity.getAttribute("quantity") to quantity.textContent
+            }
+        }
+    }
+
+    private fun readStrings(directory: String): Map<String, String> {
+        val strings = parse(directory).getElementsByTagName("string")
 
         return (0 until strings.length).associate { index ->
             val element = strings.item(index) as Element

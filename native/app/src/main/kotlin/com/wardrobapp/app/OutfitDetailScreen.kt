@@ -31,6 +31,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,25 +65,24 @@ fun OutfitDetailScreen(
     if (state.confirmingDelete) {
         AlertDialog(
             onDismissRequest = onDeleteDismissed,
-            title = { Text("Delete this outfit?") },
+            title = { Text(stringResource(R.string.outfit_delete_confirm)) },
             text = {
                 Text(
-                    "The outfit and its rating are deleted. The garments in it stay " +
-                        "in your wardrobe."
+                    stringResource(R.string.outfit_delete_body)
                 )
             },
-            confirmButton = { TextButton(onClick = onDeleteConfirmed) { Text("Delete") } },
-            dismissButton = { TextButton(onClick = onDeleteDismissed) { Text("Keep it") } },
+            confirmButton = { TextButton(onClick = onDeleteConfirmed) { Text(stringResource(R.string.action_delete)) } },
+            dismissButton = { TextButton(onClick = onDeleteDismissed) { Text(stringResource(R.string.action_keep)) } },
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(state.outfit?.name ?: "Outfit") },
+                title = { Text(state.outfit?.name ?: stringResource(R.string.outfit_untitled)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )
@@ -94,15 +95,15 @@ fun OutfitDetailScreen(
 
             // Nothing to retry: the outfit is not there.
             state.missing -> Centered(insets) {
-                Text("That outfit is no longer saved.")
+                Text(stringResource(R.string.outfit_missing))
             }
 
             // A read that failed is not an empty outfit, and must not look like
             // one. Same rule as every other screen.
             outfit == null -> Centered(insets) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Couldn't read this outfit", style = MaterialTheme.typography.titleMedium)
-                    state.error?.let {
+                    Text(stringResource(R.string.outfit_unreadable), style = MaterialTheme.typography.titleMedium)
+                    state.errorText()?.let {
                         Text(
                             it,
                             style = MaterialTheme.typography.bodySmall,
@@ -110,7 +111,7 @@ fun OutfitDetailScreen(
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
-                    TextButton(onClick = onRetry) { Text("Try again") }
+                    TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
                 }
             }
 
@@ -156,11 +157,7 @@ private fun Body(
         val missing = state.outfit?.garmentIds?.size?.minus(state.garments.size) ?: 0
         if (missing > 0) {
             Text(
-                if (missing == 1) {
-                    "One garment in this outfit is no longer in your wardrobe."
-                } else {
-                    "$missing garments in this outfit are no longer in your wardrobe."
-                },
+                pluralStringResource(R.plurals.outfit_missing_garments, missing, missing),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 12.dp),
@@ -168,7 +165,7 @@ private fun Body(
         }
 
         Text(
-            "How was it?",
+            stringResource(R.string.outfit_rate),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 24.dp, bottom = 4.dp),
         )
@@ -182,7 +179,7 @@ private fun Body(
             ),
             modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
         ) {
-            Text("Delete this outfit")
+            Text(stringResource(R.string.outfit_delete))
         }
     }
 }
@@ -226,3 +223,14 @@ private fun Centered(insets: PaddingValues, content: @Composable () -> Unit) {
         contentAlignment = Alignment.Center,
     ) { content() }
 }
+
+/**
+ * What to show when something failed.
+ *
+ * The exception's own words if it had any -- they are the specific ones, and until
+ * :data carries typed reasons they are English whatever the language. Otherwise
+ * what the app was doing, which the model names as a resource.
+ */
+@Composable
+private fun OutfitDetailViewModel.State.errorText(): String? =
+    error ?: errorFallback?.let { stringResource(it) }

@@ -48,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -101,22 +102,28 @@ fun GarmentFormScreen(
         DuplicateWarning(state.duplicates, onSaveAnyway, onDuplicatesDismissed)
     }
 
-    state.error?.let { error ->
+    state.errorText()?.let { error ->
         AlertDialog(
             onDismissRequest = onErrorDismissed,
-            title = { Text("Couldn't save") },
+            title = { Text(stringResource(R.string.form_error_title)) },
             text = { Text(error) },
-            confirmButton = { TextButton(onClick = onErrorDismissed) { Text("Close") } },
+            confirmButton = { TextButton(onClick = onErrorDismissed) { Text(stringResource(R.string.action_close)) } },
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isEditing) "Edit garment" else "Add garment") },
+                title = {
+                    Text(
+                        stringResource(
+                            if (isEditing) R.string.form_title_edit else R.string.form_title_add
+                        )
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )
@@ -126,7 +133,7 @@ fun GarmentFormScreen(
             Box(
                 modifier = Modifier.fillMaxSize().padding(insets),
                 contentAlignment = Alignment.Center,
-            ) { Text("That garment is no longer in your wardrobe.") }
+            ) { Text(stringResource(R.string.garment_missing)) }
             return@Scaffold
         }
 
@@ -136,7 +143,7 @@ fun GarmentFormScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             item {
-                Section("Photos") {
+                Section(stringResource(R.string.form_section_photos)) {
                     Column {
                         Photos(
                             uris = form.galleryItems().map { it.uri },
@@ -165,8 +172,8 @@ fun GarmentFormScreen(
             }
 
             item {
-                Section("Category") {
-                    Chips(GARMENT_CATEGORIES.map { it.id }, setOf(form.category), { it.sentence() }) {
+                Section(stringResource(R.string.filter_section_category)) {
+                    Chips(GARMENT_CATEGORIES.map { it.id }, setOf(form.category), { categoryLabel(it) }) {
                         onCategorySelected(it)
                     }
                 }
@@ -174,8 +181,8 @@ fun GarmentFormScreen(
 
             garmentCategory(form.category)?.let { category ->
                 item {
-                    Section("Type") {
-                        Chips(category.subcategories, form.subcategories.toSet(), { it }) {
+                    Section(stringResource(R.string.filter_section_type)) {
+                        Chips(category.subcategories, form.subcategories.toSet(), { garmentTypeLabel(it) }) {
                             onSubcategoryToggled(it)
                         }
                     }
@@ -183,33 +190,33 @@ fun GarmentFormScreen(
             }
 
             item {
-                Section("Season") {
-                    Chips(Season.entries.toList(), form.seasons.toSet(), { it.label() }) {
+                Section(stringResource(R.string.filter_section_season)) {
+                    Chips(Season.entries.toList(), form.seasons.toSet(), { stringResource(it.labelRes) }) {
                         onSeasonToggled(it)
                     }
                 }
             }
 
             item {
-                Section("Colours") {
+                Section(stringResource(R.string.property_colours)) {
                     Colors(form.colorPalette.toSet(), onColorToggled)
                 }
             }
 
             item {
-                Section("Tags") {
+                Section(stringResource(R.string.form_section_tags)) {
                     Tags(form.tags, onTagsChanged)
                 }
             }
 
             item {
-                Section("Brand") {
+                Section(stringResource(R.string.filter_brand)) {
                     Brand(form.brand, brandSuggestions(form.brand), onBrandChanged)
                 }
             }
 
             item {
-                Section("Size") {
+                Section(stringResource(R.string.filter_size)) {
                     Column {
                         Chips(
                             COMMON_SIZES.take(SIZE_CHIPS),
@@ -220,7 +227,7 @@ fun GarmentFormScreen(
                         OutlinedTextField(
                             value = form.size,
                             onValueChange = onSizeChanged,
-                            label = { Text("Or type a size") },
+                            label = { Text(stringResource(R.string.form_size_custom)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         )
@@ -236,9 +243,9 @@ fun GarmentFormScreen(
                 ) {
                     Text(
                         when {
-                            state.saving -> "Saving…"
-                            isEditing -> "Save changes"
-                            else -> "Add to wardrobe"
+                            state.saving -> stringResource(R.string.form_saving)
+                            isEditing -> stringResource(R.string.form_save_edit)
+                            else -> stringResource(R.string.form_save_add)
                         }
                     )
                 }
@@ -275,16 +282,16 @@ private fun BackgroundControl(
             running -> {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp))
                 Text(
-                    "Cutting out the garment…",
+                    stringResource(R.string.background_cutting),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 12.dp),
                 )
             }
             action == BackgroundAction.REMOVE ->
-                TextButton(onClick = onRemove) { Text("Remove background") }
+                TextButton(onClick = onRemove) { Text(stringResource(R.string.background_remove)) }
             action == BackgroundAction.UNDO ->
-                TextButton(onClick = onUndo) { Text("Undo background removal") }
+                TextButton(onClick = onUndo) { Text(stringResource(R.string.background_undo)) }
         }
     }
 }
@@ -306,7 +313,9 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 private fun <T> Chips(
     options: List<T>,
     selected: Set<T>,
-    label: (T) -> String,
+    // Composable because the label comes out of resources now, and a plain
+    // function type cannot hold a lookup that reads the reader's language.
+    label: @Composable (T) -> String,
     onTap: (T) -> Unit,
 ) {
     FlowRow(
@@ -366,7 +375,7 @@ private fun Photos(
                     IconButton(onClick = { onRemove(index) }, modifier = Modifier.size(28.dp)) {
                         Icon(
                             Icons.Filled.Clear,
-                            contentDescription = "Remove photo",
+                            contentDescription = stringResource(R.string.form_remove_photo),
                             modifier = Modifier.size(16.dp),
                         )
                     }
@@ -387,7 +396,7 @@ private fun Photos(
                 if (busy) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                 } else {
-                    Icon(Icons.Filled.Add, contentDescription = "Add a photo")
+                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.form_add_photo))
                 }
             }
         }
@@ -445,7 +454,7 @@ private fun Tags(tags: List<String>, onChange: (List<String>) -> Unit) {
                         trailingIcon = {
                             Icon(
                                 Icons.Filled.Clear,
-                                contentDescription = "Remove tag",
+                                contentDescription = stringResource(R.string.form_remove_tag),
                                 modifier = Modifier.size(16.dp),
                             )
                         },
@@ -473,7 +482,7 @@ private fun Tags(tags: List<String>, onChange: (List<String>) -> Unit) {
                     draft = text
                 }
             },
-            label = { Text("Add a tag, then a comma") },
+            label = { Text(stringResource(R.string.form_tag_hint)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -486,7 +495,7 @@ private fun Brand(brand: String, suggestions: List<String>, onChange: (String) -
         OutlinedTextField(
             value = brand,
             onValueChange = onChange,
-            label = { Text("Brand") },
+            label = { Text(stringResource(R.string.filter_brand)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -519,7 +528,7 @@ private fun DuplicateWarning(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("You may already own this") },
+        title = { Text(stringResource(R.string.duplicate_title)) },
         text = {
             Column {
                 for (match in matches.take(3)) {
@@ -539,13 +548,14 @@ private fun DuplicateWarning(
                             )
                             Column(modifier = Modifier.padding(start = 12.dp)) {
                                 Text(
-                                    match.garment.subcategory ?: match.garment.category,
+                                    match.garment.subcategory?.let { garmentTypeLabel(it) }
+                                        ?: categoryLabel(match.garment.category),
                                     style = MaterialTheme.typography.bodyMedium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    match.reasons.joinToString(", ") { it.label() },
+                                    match.reasons.map { it.label() }.joinToString(", "),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -555,18 +565,27 @@ private fun DuplicateWarning(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onSaveAnyway) { Text("Add it anyway") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Let me look") } },
+        confirmButton = { TextButton(onClick = onSaveAnyway) { Text(stringResource(R.string.duplicate_add_anyway)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.duplicate_review)) } },
     )
 }
 
-private fun DuplicateReason.label(): String = when (this) {
-    DuplicateReason.SIMILAR_TAGS -> "similar tags"
-    DuplicateReason.SIMILAR_COLOR -> "similar colour"
-    DuplicateReason.SAME_SIZE -> "same size"
-    DuplicateReason.OVERALL_SIMILARITY -> "overall similarity"
-}
+@Composable
+private fun DuplicateReason.label(): String = stringResource(
+    when (this) {
+        DuplicateReason.SIMILAR_TAGS -> R.string.duplicate_reason_tags
+        DuplicateReason.SIMILAR_COLOR -> R.string.duplicate_reason_colour
+        DuplicateReason.SAME_SIZE -> R.string.duplicate_reason_size
+        DuplicateReason.OVERALL_SIMILARITY -> R.string.duplicate_reason_overall
+    }
+)
 
-private fun Season.label(): String = tag.replace('-', ' ').sentence()
-
-private fun String.sentence(): String = replaceFirstChar { it.uppercase() }
+/**
+ * What to show when saving or importing failed.
+ *
+ * The exception's own words if it had any, and otherwise what the app was doing.
+ * The same rule every screen here follows.
+ */
+@Composable
+private fun GarmentFormViewModel.State.errorText(): String? =
+    error ?: errorFallback?.let { stringResource(it) }

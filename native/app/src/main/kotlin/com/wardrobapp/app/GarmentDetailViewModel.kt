@@ -1,6 +1,7 @@
 package com.wardrobapp.app
 
 import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.GarmentRecord
@@ -57,7 +58,15 @@ class GarmentDetailViewModel(
          */
         val deleted: Boolean = false,
         /** Set when an action failed. The read is fine; the write was not. */
+        /** What the exception said, which is not translated and may be null. */
         val actionError: String? = null,
+        /**
+         * What the app was doing, for when the exception says nothing useful.
+         *
+         * A resource id rather than a sentence: the model has no Context, and the
+         * screen is where the reader's language is known.
+         */
+        @StringRes val actionErrorFallback: Int? = null,
     )
 
     /**
@@ -141,7 +150,7 @@ class GarmentDetailViewModel(
     }
 
     fun onActionErrorDismissed() {
-        _state.update { it.copy(actionError = null) }
+        _state.update { it.copy(actionError = null, actionErrorFallback = null) }
     }
 
     /** Carry out whatever is being confirmed. */
@@ -182,7 +191,9 @@ class GarmentDetailViewModel(
      * happened.
      */
     private fun delete() {
-        _state.update { it.copy(confirming = null, working = true, actionError = null) }
+        _state.update {
+            it.copy(confirming = null, working = true, actionError = null, actionErrorFallback = null)
+        }
 
         viewModelScope.launch {
             try {
@@ -197,7 +208,8 @@ class GarmentDetailViewModel(
                 _state.update {
                     it.copy(
                         working = false,
-                        actionError = e.message ?: "That garment could not be deleted.",
+                        actionError = e.message,
+                        actionErrorFallback = R.string.error_garment_not_deleted,
                     )
                 }
             }
@@ -221,7 +233,7 @@ class GarmentDetailViewModel(
         val original = loaded.displayImageUris.getOrNull(selectedIndex) ?: return
         if (original.isEmpty()) return
 
-        _state.update { it.copy(working = true, actionError = null) }
+        _state.update { it.copy(working = true, actionError = null, actionErrorFallback = null) }
 
         viewModelScope.launch {
             try {
@@ -249,7 +261,8 @@ class GarmentDetailViewModel(
                 _state.update {
                     it.copy(
                         working = false,
-                        actionError = e.message ?: "The background could not be removed.",
+                        actionError = e.message,
+                        actionErrorFallback = R.string.error_background_not_removed,
                     )
                 }
             }
@@ -267,7 +280,7 @@ class GarmentDetailViewModel(
         val loaded = record ?: return
         if (_state.value.working) return
 
-        _state.update { it.copy(working = true, actionError = null) }
+        _state.update { it.copy(working = true, actionError = null, actionErrorFallback = null) }
 
         viewModelScope.launch {
             try {
@@ -286,7 +299,8 @@ class GarmentDetailViewModel(
                 _state.update {
                     it.copy(
                         working = false,
-                        actionError = e.message ?: "That could not be undone.",
+                        actionError = e.message,
+                        actionErrorFallback = R.string.error_not_undone,
                     )
                 }
             }
@@ -322,7 +336,9 @@ class GarmentDetailViewModel(
 
     /** Run a write, then re-read: what the screen shows comes from the row. */
     private fun write(action: () -> Unit) {
-        _state.update { it.copy(confirming = null, working = true, actionError = null) }
+        _state.update {
+            it.copy(confirming = null, working = true, actionError = null, actionErrorFallback = null)
+        }
 
         viewModelScope.launch {
             try {

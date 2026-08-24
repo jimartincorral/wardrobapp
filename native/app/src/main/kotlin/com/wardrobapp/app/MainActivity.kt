@@ -258,7 +258,7 @@ class MainActivity : AppCompatActivity() {
                 model.onArchivePicked {
                     contentResolver.openInputStream(uri)
                         ?: throw FileNotFoundException(
-                            "That file could not be opened. Nothing was changed."
+                            getString(R.string.error_file_unreadable)
                         )
                 }
             }
@@ -275,7 +275,9 @@ class MainActivity : AppCompatActivity() {
             } else {
                 model.onBackupDestinationPicked {
                     contentResolver.openOutputStream(uri)
-                        ?: throw FileNotFoundException("That file could not be written to.")
+                        ?: throw FileNotFoundException(
+                            getString(R.string.error_file_unwritable)
+                        )
                 }
             }
         }

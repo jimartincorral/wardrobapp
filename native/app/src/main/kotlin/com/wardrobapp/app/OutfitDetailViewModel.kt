@@ -1,5 +1,6 @@
 package com.wardrobapp.app
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.GarmentRecord
@@ -49,7 +50,18 @@ class OutfitDetailViewModel(
         val rating: RatingSummary = ratingSummary(emptyList()),
         /** Set when the outfit is not there -- deleted, or a link to nothing. */
         val missing: Boolean = false,
+        /** What the exception said, which is not translated and may be null. */
         val error: String? = null,
+        /**
+         * What the app was doing when it failed, for when the exception says
+         * nothing useful -- which is the case this used to cover with an English
+         * sentence written into the model.
+         *
+         * A resource id rather than a string because the model has no Context and
+         * should not acquire one for this: an id is a number until a screen looks
+         * it up, and the screen is where the reader's language is known.
+         */
+        @StringRes val errorFallback: Int? = null,
         val working: Boolean = false,
         val confirmingDelete: Boolean = false,
         /** Set once it is gone, so the screen showing it can leave. */
@@ -64,7 +76,7 @@ class OutfitDetailViewModel(
     }
 
     fun refresh() {
-        _state.update { it.copy(loading = true, error = null) }
+        _state.update { it.copy(loading = true, error = null, errorFallback = null) }
 
         viewModelScope.launch {
             try {
@@ -110,7 +122,7 @@ class OutfitDetailViewModel(
      */
     fun onRated(rating: Int) {
         if (_state.value.working) return
-        _state.update { it.copy(working = true, error = null) }
+        _state.update { it.copy(working = true, error = null, errorFallback = null) }
 
         viewModelScope.launch {
             try {
@@ -126,7 +138,11 @@ class OutfitDetailViewModel(
                 refresh()
             } catch (e: Exception) {
                 _state.update {
-                    it.copy(working = false, error = e.message ?: "That rating could not be saved.")
+                    it.copy(
+                        working = false,
+                        error = e.message,
+                        errorFallback = R.string.error_rating_not_saved,
+                    )
                 }
             }
         }
@@ -142,7 +158,9 @@ class OutfitDetailViewModel(
 
     /** Delete the outfit. The garments in it are untouched. */
     fun onDeleteConfirmed() {
-        _state.update { it.copy(confirmingDelete = false, working = true, error = null) }
+        _state.update {
+            it.copy(confirmingDelete = false, working = true, error = null, errorFallback = null)
+        }
 
         viewModelScope.launch {
             try {
@@ -150,7 +168,11 @@ class OutfitDetailViewModel(
                 _state.update { it.copy(working = false, deleted = true) }
             } catch (e: Exception) {
                 _state.update {
-                    it.copy(working = false, error = e.message ?: "That outfit could not be deleted.")
+                    it.copy(
+                        working = false,
+                        error = e.message,
+                        errorFallback = R.string.error_outfit_not_deleted,
+                    )
                 }
             }
         }
