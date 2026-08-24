@@ -3,6 +3,8 @@ package com.wardrobapp.presentation
 import com.wardrobapp.domain.GARMENT_CATEGORIES
 import com.wardrobapp.domain.SUBCATEGORY_KEYS
 import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Element
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -25,6 +27,9 @@ import kotlin.test.assertTrue
  * - lint knows nothing about the vocabulary the *domain* defines. A garment type
  *   added to `GARMENT_CATEGORIES` with no matching resource renders as its raw
  *   stored value, and nothing in the build would say so.
+ * - and neither file has to be well-formed XML for a regex to read it. That is
+ *   not hypothetical: the first version of this test scraped both files with a
+ *   regex and passed on XML that aapt rejected outright.
  *
  * The res directory is handed over as a system property by build.gradle.kts
  * rather than reached for with a relative path, so the coupling to :app's layout
@@ -180,11 +185,22 @@ class StringResourceParityTest {
         val file = File(resDir, "$directory/strings.xml")
         assertTrue(file.isFile, "expected string resources at $file")
 
-        // Deliberately a regex and not an XML parser: the file is generated and
-        // flat, and a dependency on a parser here would be more machinery than
-        // one element type warrants.
-        return Regex("""<string name="([^"]+)"\s*>(.*?)</string>""", RegexOption.DOT_MATCHES_ALL)
-            .findAll(file.readText())
-            .associate { it.groupValues[1] to it.groupValues[2] }
+        // Parsed as XML rather than scraped with a regex, which is what this did
+        // first. The regex read the file happily while it was not well-formed at
+        // all -- an em dash written as "--" inside a comment, which XML forbids
+        // -- and the whole point of this test is that it runs where aapt cannot.
+        // A test that only checks what a regex can see hands that class of
+        // mistake straight to CI.
+        val document = DocumentBuilderFactory.newInstance()
+            .also { it.isNamespaceAware = false }
+            .newDocumentBuilder()
+            .parse(file)
+
+        val strings = document.getElementsByTagName("string")
+
+        return (0 until strings.length).associate { index ->
+            val element = strings.item(index) as Element
+            element.getAttribute("name") to element.textContent
+        }
     }
 }

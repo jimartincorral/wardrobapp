@@ -4,15 +4,15 @@
 
     Every user-facing string lives here rather than in a Kotlin literal, and
     values-es/strings.xml holds the same names in Spanish. StringResourceParityTest
-    in :presentation holds the two files to each other -- name for name, placeholder
-    for placeholder -- because :app cannot be built or linted without an Android
+    in :presentation holds the two files to each other — name for name, placeholder
+    for placeholder — because :app cannot be built or linted without an Android
     SDK, and this project has none outside CI.
 
     The vocabulary below (categories, garment types, colours, seasons, occasions)
     is generated from the React Native app's own tables, so a Spanish word cannot
     end up under the wrong key in transcription. The rest is written for this app,
     and diverges from the React Native wording in places where that wording was
-    wrong or misleading -- each divergence is noted where it is used.
+    wrong or misleading — each divergence is noted where it is used.
 -->
 <resources>
     <!-- Not translated: a name, and suffixed while this installs

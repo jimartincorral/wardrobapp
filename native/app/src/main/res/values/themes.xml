@@ -5,7 +5,7 @@
         first composition.
 
         An AppCompat parent rather than the platform's Material theme because
-        AppCompatActivity requires one -- and MainActivity is an AppCompatActivity
+        AppCompatActivity requires one — and MainActivity is an AppCompatActivity
         so that AppCompatDelegate can carry the per-app language back to API 24.
         DayNight rather than Light so the window behind Compose follows the system
         setting instead of flashing white on a dark device.

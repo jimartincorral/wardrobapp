@@ -4,7 +4,7 @@
 
     The vocabulary is the React Native app's own Spanish, reused verbatim rather
     than retranslated: it is what the person using this app already reads. Three
-    entries are corrections rather than copies -- see StringResourceParityTest.
+    entries are corrections rather than copies — see StringResourceParityTest.
 -->
 <resources>
     <!-- Not translated: a name, and suffixed while this installs

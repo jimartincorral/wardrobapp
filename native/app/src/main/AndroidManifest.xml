@@ -23,7 +23,7 @@
             AppCompat reads this service's metadata to decide whether it owns
             locale storage; with autoStoreLocales true it persists the choice
             itself, so nothing here has to. On Android 13 and up the platform
-            stores it instead, and the two stay in step -- which is why the
+            stores it instead, and the two stay in step — which is why the
             in-app picker and the system's own per-app language screen agree
             rather than being two settings for one thing.
 
