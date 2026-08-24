@@ -72,6 +72,9 @@ import com.wardrobapp.presentation.BackgroundAction
 import com.wardrobapp.presentation.GARMENT_COLORS
 import com.wardrobapp.presentation.backgroundActionFor
 
+/** The scrolling body of the form, for tests that need to reach past the fold. */
+const val GARMENT_FORM_LIST = "garment-form-list"
+
 /**
  * Adding or editing a garment.
  *
@@ -80,9 +83,6 @@ import com.wardrobapp.presentation.backgroundActionFor
  * :presentation before anything reached here.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-/** The scrolling body of the form, for tests that need to reach past the fold. */
-const val GARMENT_FORM_LIST = "garment-form-list"
-
 @Composable
 fun GarmentFormScreen(
     state: GarmentFormViewModel.State,
