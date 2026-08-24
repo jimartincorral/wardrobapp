@@ -1,14 +1,12 @@
 # Wardrobapp Product To-Do
 
-Both apps are meant here unless a line says otherwise. The Kotlin port has reached
-feature parity, so anything below lands in both until cutover — see the README.
+One app now: the Kotlin one. Anything below is built once.
 
 ## Done since this list was written
 
 - Advanced wardrobe filters — `season`, `occasion`, `size`, `brand`, and sorting.
-  In both apps.
 - Favourite/pin outfits — the `is_pinned` column, `ORDER BY is_pinned DESC`, and
-  pin/unpin in the UI. In both apps.
+  pin/unpin in the UI.
 - Empty states for the wardrobe, outfits, analytics and statistics screens.
 - Garment lifespan, surfaced on the analytics screen.
 - Versioned backups with validation and migration safety: the format carries a
@@ -48,7 +46,7 @@ So the first decision is the wear log itself, not the features on top of it:
   - [ ] Select garments by category
   - [ ] Preview combination
   - [ ] Save custom outfit
-- [ ] Outfit editing in `app/outfit/[id].tsx` and its Kotlin counterpart:
+- [ ] Outfit editing on the outfit detail screen:
   - [ ] Rename outfit
   - [ ] Replace/remove garments
   - [ ] Update occasion/season metadata
@@ -59,17 +57,6 @@ So the first decision is the wear log itself, not the features on top of it:
   - [ ] View upcoming planned outfits
 - [ ] Restore preview: show what an archive contains before replacing anything.
       The validation it would read from already exists.
-- [ ] Translate what goes wrong. Both apps are shipped in two languages, and the
-      React Native one still answers a failure in English: 27 of the sentences it
-      throws from `src/services` are literals, and the screens put them straight
-      in front of the reader — `Alert.alert(t('...importTitle'), error.message)`
-      on the add screen, `${t('...backupFailedMsg')}${getErrorMessage(error)}` on
-      settings. The backup progress bar is the same, seven phase messages long.
-      The Kotlin port already solved this by throwing a reason rather than a
-      sentence (`ImportFailureReason`, `UnsafeUrlReason`), so there is a shape to
-      copy. `src/i18n/hardcoded-strings.test.ts` guards the screens against this
-      and deliberately does not cover the services, so this is not a check anyone
-      is waiting on — it is a decision about whose job the wording is.
 - [ ] Recommendation engine v2:
   - [ ] Better personalization signals
   - [ ] Context-aware constraints — the "recent wear" half needs the wear log
@@ -87,5 +74,5 @@ So the first decision is the wear log itself, not the features on top of it:
 3. Planning calendar, which is where the wear log starts paying for itself.
 4. Recommendation v2 and notifications.
 
-Cutover to the Kotlin app is tracked in the README rather than here; it is not a
-product feature, but it does decide how many places each of these has to be built.
+The cutover to Kotlin is done, so each of these is built once. What is left of it
+is a keystore: see Signing in the README.
