@@ -237,6 +237,47 @@ class AndroidPhotoStore(private val context: Context) {
         photoOrientation(ExifInterface.ORIENTATION_NORMAL)
     }
 
+    /**
+     * A photo decoded at the size it is stored at, ready for the segmentation
+     * model.
+     *
+     * Here rather than in [AndroidBackgroundRemover] because opening a photo is
+     * this class's job and it already does it correctly. The version that lived
+     * over there wrote
+     *
+     *     contentResolver.openInputStream(photo)?.use { decodeStream(it, null, bounds) }
+     *         ?: throw IOException("That photo could not be opened.")
+     *
+     * with `inJustDecodeBounds = true` in `bounds` -- and a bounds-only decode
+     * *always* returns null, by design, since the point is to fill in the options
+     * rather than produce a bitmap. So the elvis fired on every photo that opened
+     * perfectly, and background removal failed on every photo in the wardrobe with
+     * a message about the file being unopenable. One reader, one place, so there is
+     * no second copy to get that wrong in.
+     *
+     * ARGB_8888 because the model hands back an alpha channel and the result has
+     * to be able to hold it. Null when the photo cannot be decoded at all; the
+     * failure to *open* it throws, which is a different thing and reads
+     * differently.
+     */
+    fun bitmapFor(source: Uri): Bitmap? {
+        val bounds = readBounds(source)
+        if (bounds.width <= 0 || bounds.height <= 0) return null
+
+        val target = storedPhotoSize(bounds.width, bounds.height)
+
+        return open(source).use { stream ->
+            BitmapFactory.decodeStream(
+                stream,
+                null,
+                BitmapFactory.Options().apply {
+                    inSampleSize = decodeSampleSize(bounds.width, bounds.height, target)
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                },
+            )
+        }
+    }
+
     private fun decode(source: Uri, sampleSize: Int): Bitmap? = open(source).use { stream ->
         BitmapFactory.decodeStream(
             stream,

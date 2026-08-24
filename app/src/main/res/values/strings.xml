@@ -138,6 +138,14 @@
     <string name="form_save_edit">Save changes</string>
     <string name="form_saving">Saving…</string>
     <string name="form_error_title">Couldn\'t save</string>
+    <!--
+        Titles for the things this screen does that are not saving. The form used
+        to call every failure "Couldn't save", which sent one bug report chasing
+        the save path when the fault was in reading a photo.
+    -->
+    <string name="error_title_photo">Couldn\'t use that photo</string>
+    <string name="error_title_colors">Couldn\'t read the colours</string>
+    <string name="error_title_background">Couldn\'t remove the background</string>
     <string name="form_section_photos">Photos</string>
     <string name="form_section_tags">Tags</string>
     <string name="form_size_custom">Or type a size</string>
@@ -219,9 +227,9 @@
     <!-- What the photo and background work can go wrong with -->
     <string name="error_background_busy">A background is already being removed.</string>
     <string name="error_photo_unreadable">That photo could not be read.</string>
-    <string name="error_photo_unopenable">That photo could not be opened.</string>
     <string name="error_no_subject">No subject was found in that photo, so there was no background to remove.</string>
     <string name="error_background_downloading">Background removal is still downloading what it needs. Try again in a moment.</string>
+    <string name="error_background_timed_out">Background removal took too long and was stopped. If this is the first time, the model may still be downloading.</string>
     <string name="error_background_failed">Background removal failed: %1$s</string>
     <string name="error_image_unreadable">That image could not be read.</string>
     <string name="error_image_unsaveable">That image could not be saved.</string>

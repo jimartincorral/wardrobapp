@@ -2,17 +2,18 @@ package com.wardrobapp.app
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmenter
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
-import com.wardrobapp.data.decodeSampleSize
-import com.wardrobapp.data.storedPhotoSize
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+
+/** How long to wait for the model before calling it a failure. */
+private const val MODEL_TIMEOUT_SECONDS = 60L
 
 /**
  * Cutting a garment out of its background.
@@ -63,7 +64,8 @@ class AndroidBackgroundRemover(
         }
 
         try {
-            val bitmap = decode(photo) ?: throw IOException(context.getString(R.string.error_photo_unreadable))
+            val bitmap = photos.bitmapFor(photo)
+                ?: throw IOException(context.getString(R.string.error_photo_unreadable))
             val foreground = try {
                 segment(bitmap)
             } finally {
@@ -106,7 +108,14 @@ class AndroidBackgroundRemover(
                 done.countDown()
             }
 
-        done.await()
+        // Bounded, because an unbounded wait on somebody else's callback is a
+        // spinner that never stops: the model arrives through Play Services, and
+        // a download that stalls calls neither listener. A minute is far longer
+        // than segmenting an 800px photo takes and short enough to be a wait
+        // rather than a hang.
+        if (!done.await(MODEL_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+            throw IOException(context.getString(R.string.error_background_timed_out))
+        }
 
         failure?.let { throw IOException(describe(it), it) }
 
@@ -131,33 +140,6 @@ class AndroidBackgroundRemover(
             context.getString(R.string.error_background_downloading)
         } else {
             context.getString(R.string.error_background_failed, message)
-        }
-    }
-
-    /**
-     * Decode the photo, sub-sampled towards the size it is stored at.
-     *
-     * The arithmetic comes from :data rather than a second copy of it here.
-     * ARGB_8888 because the model hands back an alpha channel and the result has to
-     * be able to hold it.
-     */
-    private fun decode(photo: Uri): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        context.contentResolver.openInputStream(photo)?.use { stream ->
-            BitmapFactory.decodeStream(stream, null, bounds)
-        } ?: throw IOException(context.getString(R.string.error_photo_unopenable))
-
-        val target = storedPhotoSize(bounds.outWidth, bounds.outHeight)
-
-        return context.contentResolver.openInputStream(photo)?.use { stream ->
-            BitmapFactory.decodeStream(
-                stream,
-                null,
-                BitmapFactory.Options().apply {
-                    inSampleSize = decodeSampleSize(bounds.outWidth, bounds.outHeight, target)
-                    inPreferredConfig = Bitmap.Config.ARGB_8888
-                },
-            )
         }
     }
 
