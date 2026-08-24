@@ -36,7 +36,7 @@ class Suggestions(
      * Suggest outfits from the available wardrobe.
      *
      * [currentSeason] and [random] are arguments rather than read here, so a run
-     * can be reproduced exactly -- which is what the engine's parity tests
+     * can be reproduced exactly -- which is what the engine's own tests
      * depend on, and what makes a surprising suggestion investigable.
      */
     fun suggest(

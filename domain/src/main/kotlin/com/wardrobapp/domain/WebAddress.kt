@@ -5,7 +5,7 @@ import java.net.IDN
 /**
  * A web address, parsed the way a browser parses one.
  *
- * This exists because the port cannot use `java.net.URI` here. The TypeScript
+ * This exists because `java.net.URI` cannot be used here. The TypeScript
  * side reaches for `URL`, which is WHATWG's parser, and the two disagree about
  * nearly every case that matters to a safety check:
  *

@@ -8,11 +8,16 @@ package com.wardrobapp.domain
  * keys on: a subcategory is stored verbatim and looked up by name when a
  * garment's occasions are derived, so a typo would not fail -- it would silently
  * give the garment its category's fallback occasions instead of its type's. A
- * parity fixture compares both lists rather than trusting the transcription.
+ * `GarmentCatalogueTest` holds the table and the translation keys to each other,
+ * so a type added here without a key fails rather than showing untranslated.
  */
 data class GarmentCategory(
     val id: String,
-    /** The English label. The React Native app localizes these; the port cannot yet. */
+    /**
+     * The English label, and only a fallback: :app resolves every category and
+     * type to a string resource through `Vocabulary.kt`, because this module has
+     * no resources and no business holding words in one language.
+     */
     val label: String,
     val subcategories: List<String>,
 )

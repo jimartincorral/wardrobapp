@@ -8,14 +8,15 @@ import kotlin.test.assertTrue
 /**
  * What an import does with what it is given.
  *
- * The one part of URL import with no parity fixture behind it, because the
+ * The one part of URL import that was never compared against the app this
+ * replaced, because the
  * function it mirrors calls `fetch` and imports Expo's image service -- neither of
  * which the dump script can run. So these are written from the TypeScript
  * directly, and they cover the decisions rather than the plumbing: which
  * addresses are dialled, when the body is read at all, how many images are taken,
  * and what is said about the ones that were not.
  *
- * Every one of them is a case the app that ships cannot test, which is the point
+ * Every one of them is a case the app this replaced cannot test, which is the point
  * of the network being an argument here.
  */
 class GarmentImportRunTest {

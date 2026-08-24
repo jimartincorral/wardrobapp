@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
  * The fixture carries real JPEG output -- each case was encoded and decoded again
  * on the TypeScript side -- so the artefacts are the ones a photograph actually
  * picks up, not a clean synthetic ramp. What it deliberately does *not* compare is
- * the decoding: the app that ships averages a 64px JPEG thumbnail and this decodes
+ * the decoding: the app this replaced averages a 64px JPEG thumbnail and this decodes
  * the original, so the two never see identical pixels for one photograph. Feeding
  * both the same bytes is what isolates the part that can be compared.
  *

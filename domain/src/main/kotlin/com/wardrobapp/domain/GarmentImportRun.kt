@@ -12,14 +12,13 @@ package com.wardrobapp.domain
  * That split is not decoration. This is the path where a page the user did not
  * choose gets to name addresses the app then dials, so the caps and the refusals
  * are the feature. A version of this with `fetch` hardcoded in the middle could
- * only be tested by standing up a server, which is why the TypeScript's own
- * equivalent has no test for the ordering, the caps or any of the warnings.
+ * only be tested by standing up a server, which is why the equivalent in the app
+ * this replaced had no test for the ordering, the caps or any of the warnings.
  *
- * Unlike the extraction, this is not held to the TypeScript by a fixture: the
- * function it mirrors calls `fetch` and dynamically imports Expo's image service,
- * neither of which the parity dump can run -- it imports only the layers that are
- * free of React Native by construction. So the behaviour is pinned by the tests
- * next to it, written from the TypeScript line by line.
+ * It was never compared against that app the way the extraction was: the function
+ * it mirrors calls `fetch` and dynamically imports Expo's image service, and
+ * nothing in a JVM test can run either. So the behaviour is pinned by the tests
+ * next to it, written from that implementation line by line.
  */
 
 /**

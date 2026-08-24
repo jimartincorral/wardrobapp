@@ -9,7 +9,7 @@ import kotlin.math.min
  *
  * Pure domain logic: no database, no filesystem, no clock, no platform. Every
  * input arrives through [SuggestionContext], so a run is reproducible -- which is
- * what made this portable, and what lets the port be checked against the
+ * what made this portable, and what let it be checked against the
  * TypeScript draw for draw.
  */
 

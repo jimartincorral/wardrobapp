@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
  *   `%1$d` in translation is a crash, and one that goes missing drops a value out
  *   of a sentence -- both invisible unless you read the language.
  * - lint has no opinion about a Spanish string left byte-identical to its
- *   English twin. That is how the app that ships came to have `flats`, `bra` and
+ *   English twin. That is how the app this replaced came to have `flats`, `bra` and
  *   `shapewear` untranslated among 24 legitimate loanwords.
  * - lint knows nothing about the vocabulary the *domain* defines. A garment type
  *   added to `GARMENT_CATEGORIES` with no matching resource renders as its raw

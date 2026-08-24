@@ -29,7 +29,7 @@ import java.util.zip.GZIPInputStream
  * The network side of URL import.
  *
  * Everything that decides anything is in :domain; this fetches. Two things here
- * are better than what the app that ships can do, and both come from the platform
+ * are better than what the app this replaced can do, and both come from the platform
  * rather than from cleverness:
  *
  *  - **Redirects are checked before they are followed.** React Native's fetch
@@ -43,7 +43,7 @@ import java.util.zip.GZIPInputStream
  *    what :domain will accept, so a server streaming without a `Content-Length`
  *    cannot make the app allocate a page it was always going to refuse.
  *
- * One thing is stricter than the app that ships: an `http://` page will not load.
+ * One thing is stricter than the app this replaced: an `http://` page will not load.
  * Android blocks cleartext by default and this app does not opt in. Turning it on
  * app-wide to reach the occasional shop still on http would weaken every other
  * request the app makes. The checks still treat http as an allowed scheme, because

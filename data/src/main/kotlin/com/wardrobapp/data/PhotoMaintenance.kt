@@ -15,7 +15,7 @@ package com.wardrobapp.data
  *
  * One deliberate difference. The TypeScript asks whether a photo is wider than the
  * cap; this asks whether it is *bigger* than the cap, which for a tall cut-out is
- * a different question. That is not a new rule -- it is the rule the port already
+ * a different question. That is not a new rule -- it is the rule this app already
  * stores photos by ([storedPhotoSize] caps the longest side, because scaling a
  * portrait by its width leaves it taller than the cap) -- so a pass that used the
  * width alone would leave behind exactly the files this app would not have written.
@@ -48,7 +48,7 @@ fun cutoutNeedsShrinking(cutout: StoredCutout): Boolean {
  * The cut-outs among a directory's files, oversized ones first.
  *
  * Filtered by [isCutoutFilename] rather than by "is it a PNG", because that suffix
- * is the contract both apps write cut-outs under, and an ordinary photo has already
+ * is the contract cut-outs have always been written under, and an ordinary photo has already
  * been scaled.
  *
  * Sorted largest first so that a pass interrupted partway -- the app being killed,

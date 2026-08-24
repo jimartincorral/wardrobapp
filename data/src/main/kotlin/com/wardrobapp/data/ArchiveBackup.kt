@@ -18,11 +18,11 @@ import java.util.zip.ZipOutputStream
  * app emits is exercised by ordinary JVM tests. The test that matters most is
  * the round trip -- write an archive here, restore it with [ArchiveRestore], and
  * see the wardrobe come back -- because that drives the same validators the
- * React Native app uses, which are held to it by parity fixtures.
+ * app this replaced used, and BackupArchiveTest covers.
  *
- * Why this exists at all: the port could already read the shipping app's
+ * Why this exists at all: this app could already read the archives written by
  * archives but not write any, which made it a one-way door. Anything done in the
- * port had no way back to the app that ships.
+ * port had no way back to the app this replaced.
  */
 
 /** Where a backup's staged pieces are built. */

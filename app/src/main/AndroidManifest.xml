@@ -71,7 +71,7 @@
             </intent-filter>
 
             <!--
-                URL import, the way the app that ships is reached: a
+                URL import, the way the app this replaced is reached: a
                 `wardrobapp://...?importUrl=...` link. Kept identical so a QR code
                 or a saved link that opens that app opens this one.
 

@@ -17,7 +17,7 @@ import com.wardrobapp.domain.colorDistance
  * withDetectedColor` is the transition, and it was already ported.
  *
  * Held to the TypeScript by `dominant-color.jsonl`. What the fixture compares is
- * this arithmetic and not the decoding: the app that ships re-encodes a 64px
+ * this arithmetic and not the decoding: the app this replaced re-encodes a 64px
  * thumbnail as JPEG and averages that, while this decodes the original with
  * Android's own decoder, so the two never see identical pixels for one photograph.
  * The fixture therefore carries the pixels the TypeScript actually saw -- JPEG

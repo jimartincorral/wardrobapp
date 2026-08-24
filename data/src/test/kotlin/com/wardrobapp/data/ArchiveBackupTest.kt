@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
  * the real [ArchiveRestore] into an empty tree and check the wardrobe arrives.
  * That is worth more than asserting the bytes of the format, because it drives
  * `classifyArchiveEntries`, `parseArchiveManifest` and `checkArchiveCompleteness`
- * -- the three validators the React Native app uses, which parity fixtures hold
+ * -- the three validators the app this replaced used, which BackupArchiveTest
  * to the TypeScript. An archive that survives them is one the shipping app has
  * no reason to refuse.
  *

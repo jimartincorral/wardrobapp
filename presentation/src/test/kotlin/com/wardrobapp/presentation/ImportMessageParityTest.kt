@@ -16,12 +16,11 @@ import org.w3c.dom.Element
  *
  * [ArchiveMessageParityTest] does this for the archive failures and the reasoning
  * is identical: there are two Englishes for every refusal, the one :domain
- * produces (which `url-safety.jsonl` pins against the React Native app) and the
- * one in `values/strings.xml` (which the Spanish is translated from). Neither can
- * go: the first is what parity compares, the second is what a screen shows. So the
- * risk is drift, and drift is invisible -- the fixture still passes, the app still
- * reads sensibly in English, and only a Spanish reader gets a sentence nobody
- * checked.
+ * produces and the one in `values/strings.xml` that the Spanish is translated
+ * from. Neither can go -- the first is the fallback wherever there are no
+ * resources, the second is what a screen shows -- so the risk is drift, and drift
+ * is invisible: everything still passes, the app still reads sensibly in English,
+ * and only a Spanish reader gets a sentence nobody checked.
  *
  * Three families here, all found by the same convention -- the case's own name in
  * snake_case, under a prefix per family.

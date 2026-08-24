@@ -174,7 +174,7 @@ fun GarmentFormScreen(
         ) {
             // Only when adding. An import replaces every photo in the form, which
             // on an edit would mean quietly discarding the garment's own -- and
-            // the app that ships offers it on the add screen alone for the same
+            // the app this replaced offers it on the add screen alone for the same
             // reason.
             if (!isEditing) {
                 item {
@@ -200,7 +200,7 @@ fun GarmentFormScreen(
                             onRemove = onPhotoRemoved,
                         )
 
-                        // Two ways to add one, as the app that ships has: the
+                        // Two ways to add one, as the app this replaced has: the
                         // picker for a photo already taken, the camera for a
                         // garment in front of you.
                         OutlinedButton(
@@ -806,7 +806,7 @@ private fun hostOf(url: String): String =
 /**
  * Read the selected photo's colour, on request.
  *
- * On request rather than on every photo, which is how the app that ships offers it:
+ * On request rather than on every photo, which is how the app this replaced offers it:
  * the answer is a suggestion moved to the front of the palette, and doing that
  * unasked to a garment whose colours somebody has already picked is a correction
  * nobody asked for.

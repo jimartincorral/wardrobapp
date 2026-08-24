@@ -7,7 +7,7 @@ import com.wardrobapp.domain.Season
  * Everything the wardrobe screen lets you narrow by, in one place.
  *
  * Separate from [GarmentFilter], which is the set of predicates the *database*
- * cannot express and is held to the TypeScript by parity fixtures. This is the
+ * cannot express. This is the
  * screen's own state: it holds what the text boxes literally contain, decides
  * what counts as narrowed, and produces the filter from it. Keeping the two apart
  * means the text boxes can hold blanks -- which is what an empty box is -- without

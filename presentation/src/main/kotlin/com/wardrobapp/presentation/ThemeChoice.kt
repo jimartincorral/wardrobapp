@@ -23,7 +23,7 @@ enum class ThemeChoice {
  *
  * Anything unrecognised -- a value written by a later build, or a preference file
  * that has been edited -- is [SYSTEM] rather than an arbitrary palette, which is
- * what `loadSavedThemeMode` does in the app that ships: it returns null for
+ * what `loadSavedThemeMode` does in the app this replaced: it returns null for
  * anything outside the three, and null leaves the mode at `system`.
  */
 fun themeChoiceFor(stored: String?): ThemeChoice = when (stored?.trim()?.lowercase()) {

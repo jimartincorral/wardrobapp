@@ -379,7 +379,7 @@ class GarmentFormViewModel(
      * A suggestion, not a correction: the detected colour goes to the front of the
      * palette and anything already chosen stays, which is what `withDetectedColor`
      * does. That is why this is a button rather than something that fires on every
-     * photo -- the app that ships offers it the same way.
+     * photo -- the app this replaced offers it the same way.
      */
     fun onDetectColorRequested() {
         val form = _state.value.form

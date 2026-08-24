@@ -506,7 +506,7 @@ class ArchiveRestoreTest {
      * A driver that answers the two questions the check asks.
      *
      * The integrity check is stubbed rather than provoked because SQLite is not
-     * what is under test here -- what the port *does* with the answer is, and a
+     * what is under test here -- what the app *does* with the answer is, and a
      * file that fails the integrity check while still answering a query is not
      * something that can be produced on demand.
      */

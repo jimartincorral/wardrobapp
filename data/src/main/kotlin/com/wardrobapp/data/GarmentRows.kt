@@ -14,7 +14,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * a single-value and a list form, either of which may be the populated one.
  *
  * Pure: `imageDirectory` is supplied by the caller rather than looked up, so this
- * -- the most compatibility-critical code in the port -- can be tested anywhere.
+ * -- the most compatibility-critical code here -- can be tested anywhere.
  */
 
 private val json = Json

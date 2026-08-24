@@ -4,7 +4,7 @@ package com.wardrobapp.presentation
  * Which language the app has been told to use.
  *
  * [SYSTEM] is not a third language: it means nothing has been chosen, so the
- * device decides. The app that ships cannot express it -- its picker offers two
+ * device decides. The app this replaced cannot express it -- its picker offers two
  * options and stores one the first time it runs -- but Android can, and its own
  * per-app language screen shows it as "System default". Keeping it means "I never
  * chose" stays distinguishable from "I chose English", which is what makes moving

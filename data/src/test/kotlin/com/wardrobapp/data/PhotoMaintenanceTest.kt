@@ -8,7 +8,8 @@ import kotlin.test.assertTrue
 /**
  * Which stored photos a tidy-up would touch.
  *
- * No parity fixture: the TypeScript's version of this reads a directory and calls
+ * Never compared against the app this replaced: its version of this reads a
+ * directory and calls
  * expo-image-manipulator in the same function, so there is nothing in it to dump.
  * These are written from it directly, and they cover the two places it can be
  * wrong quietly -- picking the wrong files, and reporting a saving that did not

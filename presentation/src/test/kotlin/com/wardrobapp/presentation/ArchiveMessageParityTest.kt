@@ -13,13 +13,13 @@ import org.w3c.dom.Element
 /**
  * The same sentence, in two places, kept the same.
  *
- * There are now two Englishes for every archive failure: the one `:data` produces
- * (`UnrestorableReason.englishMessage`, which `archive-validation.jsonl` pins
- * against the React Native app) and the one in `values/strings.xml` (which the
- * Spanish is translated from). Neither can be deleted -- the first is what parity
- * compares, the second is what a screen shows -- so the risk is that they drift,
- * and a drift is invisible: the fixture still passes, the app still reads sensibly
- * in English, and only a Spanish reader gets a sentence nobody checked.
+ * There are two Englishes for every archive failure: the one `:data` produces
+ * (`UnrestorableReason.englishMessage`) and the one in `values/strings.xml`, which
+ * the Spanish is translated from. Neither can be deleted -- the first is the
+ * fallback wherever there are no resources, and the second is what a screen shows
+ * -- so the risk is that they drift, and a drift is invisible: everything still
+ * passes, the app still reads sensibly in English, and only a Spanish reader gets
+ * a sentence nobody checked.
  *
  * This closes that. Every reason is formatted from the resource with the values it
  * carries and compared to the sentence `:data` builds. A reason with no resource,

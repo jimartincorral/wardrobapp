@@ -3,11 +3,13 @@ package com.wardrobapp.data
 /**
  * The wardrobe schema, applied on every open.
  *
- * A transcription of src/db/schema.ts, which is itself the schema the React
- * Native app applies -- there is no `PRAGMA user_version`, so the DDL *is* the
- * schema. WardrobeSchemaTest guards the transcription by applying both and
- * comparing the resulting sqlite_master, so a drift fails rather than surfacing
- * as a column that is missing on a device.
+ * Transcribed from `src/db/schema.ts` in the app this replaced, which is why it
+ * is shaped the way it is: there is no `PRAGMA user_version`, so the DDL *is*
+ * the schema, and every database out there was created by one of these
+ * statements. WardrobeSchemaTest holds the two populations that produces to each
+ * other -- a fresh install and one carried forward by the ALTERs below -- so a
+ * missing ALTER fails there rather than as a column absent on somebody's
+ * phone.
  *
  * Order matters: columns are added before the indexes over them. The other way
  * round throws on an install old enough to predate `is_available`, and index

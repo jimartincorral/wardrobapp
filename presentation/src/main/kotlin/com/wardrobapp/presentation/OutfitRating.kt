@@ -7,8 +7,8 @@ import kotlin.math.roundToInt
 /**
  * What a set of ratings adds up to.
  *
- * Ported from `src/domain/outfit-rating.ts` and held to it by
- * `outfit-rating.jsonl`. That module exists because the React Native app computed
+ * Ported from `src/domain/outfit-rating.ts` in the app this replaced. That module
+ * existed because that app computed
  * this twice, differently: the outfit detail screen reduced the ratings it had
  * loaded and treated "none" as zero, while an unused service function asked
  * SQLite for `AVG(rating)` and treated "none" as null.

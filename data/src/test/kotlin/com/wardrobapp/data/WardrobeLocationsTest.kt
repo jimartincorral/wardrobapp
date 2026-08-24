@@ -35,7 +35,7 @@ class WardrobeLocationsTest {
     }
 
     @Test
-    fun `photos are where both apps already agree they are`() {
+    fun `photos are where the wardrobes on real phones already are`() {
         assertEquals(
             "/data/user/0/com.anonymous.wardrobapp/files/garment-images",
             wardrobeFilesIn(filesDir).imagesDir.path,

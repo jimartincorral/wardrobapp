@@ -26,7 +26,7 @@ import com.wardrobapp.presentation.ThemeChoice
  * The stored values themselves stay English. A garment's type is written to the
  * database as "T-Shirt" whichever language added it, because the domain keys its
  * occasion derivation on that exact string -- so this translates for display
- * only, exactly as `localizeSubcategory` does in the app that ships.
+ * only, exactly as `localizeSubcategory` does in the app this replaced.
  *
  * Anything absent falls back to the stored value rather than to a placeholder: a
  * colour someone typed by hand is better shown as they typed it than as a crash.
@@ -208,7 +208,7 @@ private fun String.humanised(): String =
 /**
  * What to call each language option.
  *
- * English and Español are each named in their own language, as the app that ships
+ * English and Español are each named in their own language, as the app this replaced
  * names them: a language you cannot read is not worth offering in a language you
  * cannot read. "Automatic" is the exception, since it is the only one whose
  * meaning depends on the reader's current language.
@@ -224,7 +224,7 @@ val LanguageChoice.labelRes: Int
 /**
  * What to call each theme option.
  *
- * "Automatic" rather than "System", which is what the app that ships calls it: the
+ * "Automatic" rather than "System", which is what the app this replaced calls it: the
  * word matches the language picker's own first option, and two settings offering
  * the same idea under two different names is how a screen reads as two screens.
  */
@@ -242,7 +242,8 @@ val ThemeChoice.labelRes: Int
  * The resource names match the case names by convention, which
  * `ImportMessageParityTest` relies on to hold each of these to the sentence
  * :domain produces. Same arrangement as the archive failures, and for the same
- * reason: the English in :domain is what the parity fixture compares, and the
+ * reason: the English in :domain is the fallback for a caller with no
+ * resources, and the
  * English here is what the Spanish was translated from.
  */
 fun Context.unsafeUrlText(reason: UnsafeUrlReason): String = when (reason) {

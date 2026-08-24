@@ -26,9 +26,9 @@ import androidx.compose.ui.unit.dp
 /**
  * Where the app opens: what you own, and the way to everywhere else.
  *
- * The fourth tab, which brings the bar to the four the app that ships has. Worth
- * having beyond parity for one reason: Statistics is reached from here and from
- * the Analytics tab, and until this existed the port had one route to it.
+ * The fourth tab, which brings the bar to the four the app this replaced has. Worth
+ * having for one reason: Statistics is reached from here and from
+ * the Analytics tab, and before this screen existed there was one route to it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,10 +96,10 @@ fun HomeScreen(
             item {
                 Action(
                     title = stringResource(R.string.home_outfits_title),
-                    // Not "AI-powered", which is what the app that ships calls
+                    // Not "AI-powered", which is what the app this replaced calls
                     // it: the suggestions come from the pair scores it learns
                     // from your own ratings, which is a better thing to say
-                    // about them and is what both apps actually do.
+                    // about them and is what the app actually does.
                     detail = stringResource(R.string.home_outfits_detail),
                     onClick = onOutfitsRequested,
                 )

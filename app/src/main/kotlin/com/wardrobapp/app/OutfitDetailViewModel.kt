@@ -44,7 +44,7 @@ class OutfitDetailViewModel(
          * What the rating adds up to.
          *
          * Over at most one rating, because rating an outfit replaces any previous
-         * one -- in both apps. So this is really "the rating", with the clamping
+         * one. So this is really "the rating", with the clamping
          * and the star rounding that a value from a restored backup needs.
          */
         val rating: RatingSummary = ratingSummary(emptyList()),

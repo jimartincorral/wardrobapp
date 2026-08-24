@@ -14,7 +14,7 @@ import com.wardrobapp.presentation.themeChoiceFor
  *
  *  - A restore replaces the wardrobe, and a theme is not part of one. Putting the
  *    choice in the database would mean restoring a backup from another phone
- *    repainted this one -- or, since the app that ships writes nothing to that
+ *    repainted this one -- or, since the app this replaced writes nothing to that
  *    table, silently reset the choice to Automatic.
  *  - It has to be known *before* the first composition, or the app draws in the
  *    wrong colours and then corrects itself. The database is opened lazily on a

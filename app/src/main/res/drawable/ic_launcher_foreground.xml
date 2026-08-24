@@ -2,10 +2,10 @@
 <!--
     The launcher icon's foreground: a t-shirt.
 
-    Drawn here rather than imported because there was nothing to import. Every file
-    in assets/images is a 1x1 transparent placeholder — the Expo template's, never
-    replaced — so the app that ships has no icon either, and generating densities
-    from those would have produced one blank PNG per density.
+    Drawn here rather than imported because there was nothing to import. Every icon
+    asset in the app this replaced was a 1x1 transparent placeholder — the Expo
+    template's, never replaced — so generating densities from those would have
+    produced one blank PNG per density.
 
     A filled silhouette, and a garment rather than a wardrobe or a hanger, because
     the size that matters is 48dp. A cupboard at 48dp is a grey rectangle; a hanger

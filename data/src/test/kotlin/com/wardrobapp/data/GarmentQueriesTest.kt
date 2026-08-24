@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
  * This is the claim that matters for the migration: an existing wardrobe opens
  * correctly under the native app. It cannot be tested against a database the
  * React Native app wrote -- that needs a device -- so it is tested against the
- * schema the app actually applies, emitted from src/db/schema.ts so it cannot
+ * schema the app actually applies, built from WardrobeSchema so it cannot
  * drift from the real thing.
  *
  * Every test runs twice, once per schema, because the two differ:

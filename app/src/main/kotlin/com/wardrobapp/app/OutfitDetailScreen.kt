@@ -45,7 +45,7 @@ import com.wardrobapp.data.GarmentRecord
  *
  * Deliberately without the React Native screen's "average rating" block. Rating
  * an outfit replaces any previous rating -- `rateOutfit` deletes the old rows
- * before inserting, in both apps -- so that average is over a single value. It
+ * before inserting -- so that average is over a single value. It
  * always equals the rating, always reads "(1 ratings)", and sits directly above
  * an editable star row showing the same number. Nothing is lost by showing the
  * rating once.

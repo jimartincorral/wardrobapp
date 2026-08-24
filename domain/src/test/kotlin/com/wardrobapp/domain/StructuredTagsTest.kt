@@ -55,7 +55,8 @@ class StructuredTagsTest {
 
     @Test
     fun `lowercases, trims and drops blanks on the way in`() {
-        // The column is read by both apps; they have to agree about this or a
+        // The column holds rows written by the app this replaced, so this has to
+        // stay as it was or a
         // garment saved by one reads differently in the other.
         assertEquals(
             listOf("linen"),

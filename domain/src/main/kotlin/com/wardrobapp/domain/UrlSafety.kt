@@ -14,7 +14,8 @@ package com.wardrobapp.domain
  * hole these checks close: only publicly routable hosts, and the check is
  * re-applied after redirects, since a permitted URL can redirect anywhere.
  *
- * A port of `src/utils/url-safety.ts`, held to it by `url-safety.jsonl` -- 180
+ * A port of `src/utils/url-safety.ts` in the app this replaced, and covered by
+ * `UrlSafetyTest` -- 180
  * cases covering every private range on both sides of its edge, the addresses
  * written to look like something else, and what an accepted URL normalizes to.
  * Refusals are compared on the message, because the message is the only thing
@@ -247,7 +248,7 @@ fun safeImportUrl(input: String): String {
  * A permitted URL can redirect to a private one, so this is what stops the
  * *response* being read and parsed. On Android the request can also be stopped
  * before it is made -- the client is told not to follow redirects -- which is one
- * thing the port does better than the app it came from, where React Native's
+ * thing this app does better than the one it came from, where React Native's
  * fetch offers no way to interrupt a redirect and one request therefore reaches
  * the target. Here nothing does; this is the second line rather than the only one.
  *
@@ -275,7 +276,7 @@ fun checkFetchedUrl(finalUrl: String?, requestedUrl: String) {
  * `String.trim()` in Kotlin uses `Char.isWhitespace`, which says no to a no-break
  * space and to a byte-order mark; JavaScript's says yes to both. They arrive: a
  * share sheet hands over text copied from a page, and a BOM leads a file read as
- * UTF-8. Without this the port refuses addresses the app that ships accepts.
+ * UTF-8. Without this it would refuse addresses the app this replaced accepted.
  */
 private fun String.jsTrim(): String = trim { char ->
     char.isWhitespace() || Character.isSpaceChar(char) || char == '\uFEFF'

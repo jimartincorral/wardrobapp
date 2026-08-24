@@ -4,8 +4,8 @@ package com.wardrobapp.presentation
 /**
  * What the statistics screen shows.
  *
- * Ported from `src/domain/statistics-view.ts` and held to it by
- * `statistics-view.jsonl`. Counts in, bars out: every bar's width is a division,
+ * Ported from `src/domain/statistics-view.ts` in the app this replaced. Counts
+ * in, bars out: every bar's width is a division,
  * and a bar of the wrong length is wrong in a way nobody notices, which is why
  * the arithmetic came out of the React Native screen -- where it was inline, in
  * two places, and untested.

@@ -390,7 +390,7 @@ class MainActivity : AppCompatActivity() {
             // while the app is running.
             version = remember { appVersion() },
             onBack = { navigator.popBackStack() },
-            // Named the way the app that ships names its own backups: its
+            // Named the way the app this replaced names its own backups: its
             // Settings screen lists them by that prefix, so one written here
             // into the same folder shows up there.
             onBackupRequested = { creator.launch(backupFilename(System.currentTimeMillis())) },
@@ -712,7 +712,7 @@ class MainActivity : AppCompatActivity() {
      * The address an intent is asking to import, if any.
      *
      * Two shapes, because there are two ways in. A `wardrobapp://...?importUrl=`
-     * link is what the app that ships handles, and keeping it means a QR code or a
+     * link is what the app this replaced handles, and keeping it means a QR code or a
      * link that works there works here. A plain `ACTION_SEND` of text is the one
      * people actually use: the share sheet from a browser, which the manifest also
      * declares.
@@ -800,11 +800,11 @@ class MainActivity : AppCompatActivity() {
         const val GARMENT_ID = "garmentId"
 
         /**
-         * The scheme and parameter the app that ships already answers to.
+         * The scheme and parameter the app this replaced already answers to.
          *
-         * Kept identical on purpose: a QR code or a saved link that opens the
-         * React Native app opens this one the same way, so nothing anyone has
-         * lying around stops working at cutover.
+         * Kept identical on purpose: a QR code or a saved link made for the app
+         * this replaced opens this one the same way, so nothing anyone has lying
+         * around stopped working when the app changed underneath it.
          */
         const val APP_SCHEME = "wardrobapp"
         const val IMPORT_URL = "importUrl"

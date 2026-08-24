@@ -39,8 +39,8 @@ val releaseKeyPassword: String? = providers.gradleProperty("WARDROBAPP_KEY_PASSW
 
 android {
     namespace = "com.wardrobapp.app"
-    // Matches what the React Native app is built against, so nothing about the
-    // platform surface changes under the port.
+    // Unchanged from what the app this replaced was built against, so nothing
+    // about the platform surface moved when the app did.
     compileSdk = 36
 
     defaultConfig {

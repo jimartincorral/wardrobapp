@@ -5,7 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * Properties of the rating summary that the parity fixture cannot see.
+ * A property of the rating summary that a JVM test almost cannot see.
  *
  * The fixture is replayed on whatever JVM runs it, and that JVM's locale is
  * English -- so it compares the label without ever exercising the one thing about

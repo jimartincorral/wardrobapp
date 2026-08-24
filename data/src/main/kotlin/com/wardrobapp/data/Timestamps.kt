@@ -9,7 +9,8 @@ import java.util.TimeZone
  * The timestamp format the rows hold.
  *
  * Exactly what JavaScript's `Date.toISOString()` produces, because the same
- * database is read by both apps and the columns are sorted as text: a row
+ * columns are sorted as text, and rows written by the app this replaced are
+ * still in there: a row
  * written in a different shape would sort into the wrong place rather than
  * failing visibly. Always UTC, always three decimal places, always `Z`.
  *
