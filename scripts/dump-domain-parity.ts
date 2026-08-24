@@ -63,6 +63,8 @@ import {
   parseArchiveManifest,
 } from '../src/domain/backup-archive';
 import { analyticsView } from '../src/domain/analytics-view';
+import { ratingSummary } from '../src/domain/outfit-rating';
+import { statisticsView } from '../src/domain/statistics-view';
 import { garmentDetail } from '../src/domain/garment-detail';
 import {
   NO_FILTERS,
@@ -1419,6 +1421,201 @@ const ANALYTICS_CASES: {
   },
 ];
 
+/**
+ * Rating sets worth being sure about: the halves that decide a star, the values
+ * that mean "unrated", and the ones no star row can produce but a restored
+ * backup can.
+ */
+const RATING_CASES: { name: string; ratings: number[] }[] = [
+  { name: 'no ratings', ratings: [] },
+  { name: 'one rating', ratings: [3] },
+  { name: 'the lowest', ratings: [1] },
+  { name: 'the highest', ratings: [5] },
+  { name: 'rounds up at the half', ratings: [4, 5] },
+  { name: 'rounds up at the half, lower', ratings: [3, 4] },
+  { name: 'rounds down below the half', ratings: [3, 3, 4] },
+  { name: 'a whole average still shows a decimal', ratings: [4, 4] },
+  { name: 'every rating the same', ratings: [2, 2, 2, 2] },
+  { name: 'the full spread', ratings: [1, 2, 3, 4, 5] },
+  { name: 'a zero means unrated, not terrible', ratings: [0, 4] },
+  { name: 'nothing but zeroes', ratings: [0, 0] },
+  { name: 'a negative rating', ratings: [-3, 4] },
+  { name: 'above the scale, from a restored backup', ratings: [9, 9] },
+  { name: 'above the scale, mixed', ratings: [9, 1] },
+  { name: 'a repeating average', ratings: [1, 2] },
+  { name: 'a third', ratings: [1, 1, 2] },
+];
+
+/**
+ * Wardrobe shapes chosen for the arithmetic rather than for realism: charts that
+ * dwarf each other, a subcategory group far smaller than its category, counts of
+ * zero, and colours stored in both cases.
+ */
+const STATISTICS_CASES: {
+  name: string;
+  total: number;
+  categories: { key: string; count: number }[];
+  colors: { key: string; count: number }[];
+  brands: { key: string; count: number }[];
+  subcategories: Record<string, { key: string; count: number }[]>;
+  brandSort?: 'count' | 'alpha';
+}[] = [
+  {
+    name: 'an empty wardrobe',
+    total: 0,
+    categories: [],
+    colors: [],
+    brands: [],
+    subcategories: {},
+  },
+  {
+    name: 'one garment',
+    total: 1,
+    categories: [{ key: 'tops', count: 1 }],
+    colors: [{ key: '#000000', count: 1 }],
+    brands: [{ key: 'Uniqlo', count: 1 }],
+    subcategories: { tops: [{ key: 'Shirt', count: 1 }] },
+  },
+  {
+    name: 'charts of very different sizes',
+    total: 100,
+    categories: [{ key: 'tops', count: 90 }, { key: 'shoes', count: 10 }],
+    colors: [{ key: '#000000', count: 60 }, { key: '#FFFFFF', count: 40 }],
+    brands: [{ key: 'A', count: 2 }, { key: 'B', count: 1 }],
+    subcategories: {
+      shoes: [{ key: 'Sneakers', count: 8 }, { key: 'Boots', count: 2 }],
+    },
+  },
+  {
+    name: 'the same subcategory name under two categories',
+    total: 4,
+    categories: [{ key: 'tops', count: 2 }, { key: 'shoes', count: 2 }],
+    colors: [],
+    brands: [],
+    subcategories: {
+      tops: [{ key: 'Other', count: 2 }],
+      shoes: [{ key: 'Other', count: 2 }],
+    },
+  },
+  {
+    name: 'a garment with no subcategory',
+    total: 2,
+    categories: [{ key: 'tops', count: 2 }],
+    colors: [],
+    brands: [],
+    subcategories: { tops: [{ key: '__none__', count: 1 }, { key: 'Shirt', count: 1 }] },
+  },
+  {
+    name: 'every count zero',
+    total: 5,
+    categories: [{ key: 'tops', count: 0 }, { key: 'shoes', count: 0 }],
+    colors: [],
+    brands: [],
+    subcategories: {},
+  },
+  {
+    name: 'colours stored in both cases, and one with no name',
+    total: 3,
+    categories: [],
+    colors: [
+      { key: '#ffffff', count: 1 },
+      { key: '#FFFFFF', count: 1 },
+      { key: '#123456', count: 1 },
+    ],
+    brands: [],
+    subcategories: {},
+  },
+  {
+    name: 'the many-coloured swatch',
+    total: 2,
+    categories: [],
+    colors: [{ key: '#RAINBOW', count: 2 }],
+    brands: [],
+    subcategories: {},
+  },
+  {
+    name: 'brands by count',
+    total: 6,
+    categories: [],
+    colors: [],
+    brands: [{ key: 'Zara', count: 3 }, { key: 'Adidas', count: 2 }, { key: 'Étam', count: 1 }],
+    subcategories: {},
+  },
+  {
+    name: 'brands by name',
+    total: 6,
+    categories: [],
+    colors: [],
+    brands: [{ key: 'Zara', count: 3 }, { key: 'Adidas', count: 2 }, { key: 'Étam', count: 1 }],
+    subcategories: {},
+    brandSort: 'alpha',
+  },
+  {
+    name: 'a wardrobe of one brand',
+    total: 9,
+    categories: [{ key: 'tops', count: 9 }],
+    colors: [],
+    brands: [{ key: 'Uniqlo', count: 9 }],
+    subcategories: {},
+    brandSort: 'alpha',
+  },
+  {
+    name: 'a subcategory group with a single entry',
+    total: 3,
+    categories: [{ key: 'tops', count: 3 }],
+    colors: [],
+    brands: [],
+    subcategories: { tops: [{ key: 'Shirt', count: 3 }] },
+  },
+];
+
+function dumpStatisticsView() {
+  return STATISTICS_CASES.map(testCase => {
+    const view = statisticsView(testCase);
+
+    return JSON.stringify({
+      name: testCase.name,
+      input: {
+        total: testCase.total,
+        categories: testCase.categories,
+        colors: testCase.colors,
+        brands: testCase.brands,
+        subcategories: testCase.subcategories,
+        brandSort: testCase.brandSort ?? 'count',
+      },
+      view: {
+        total: view.total,
+        isEmpty: view.isEmpty,
+        distinctCategories: view.distinctCategories,
+        distinctColors: view.distinctColors,
+        distinctBrands: view.distinctBrands,
+        categories: view.categories,
+        colors: view.colors,
+        brands: view.brands,
+        subcategories: view.subcategories,
+      },
+    });
+  });
+}
+
+function dumpOutfitRating() {
+  return RATING_CASES.map(testCase => {
+    const summary = ratingSummary(testCase.ratings);
+
+    return JSON.stringify({
+      name: testCase.name,
+      input: { ratings: testCase.ratings },
+      summary: {
+        count: summary.count,
+        average: summary.average,
+        stars: summary.stars,
+        label: summary.label,
+        showsAverage: summary.showsAverage,
+      },
+    });
+  });
+}
+
 function dumpAnalyticsView() {
   return ANALYTICS_CASES.map(testCase => {
     const view = analyticsView({
@@ -1547,6 +1744,14 @@ console.log(`presentation/garment-detail.jsonl: ${detail.length} cases`);
 const outfitFilters = dumpOutfitFilters();
 writeFileSync(join(PRESENTATION_OUT_DIR, 'outfit-filters.jsonl'), outfitFilters.join('\n') + '\n');
 console.log(`presentation/outfit-filters.jsonl: ${outfitFilters.length} cases`);
+
+const statistics = dumpStatisticsView();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'statistics-view.jsonl'), statistics.join('\n') + '\n');
+console.log(`presentation/statistics-view.jsonl: ${statistics.length} cases`);
+
+const outfitRating = dumpOutfitRating();
+writeFileSync(join(PRESENTATION_OUT_DIR, 'outfit-rating.jsonl'), outfitRating.join('\n') + '\n');
+console.log(`presentation/outfit-rating.jsonl: ${outfitRating.length} cases`);
 
 const analytics = dumpAnalyticsView();
 writeFileSync(join(PRESENTATION_OUT_DIR, 'analytics-view.jsonl'), analytics.join('\n') + '\n');

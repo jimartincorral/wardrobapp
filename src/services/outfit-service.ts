@@ -174,11 +174,3 @@ export async function getOutfitRatings(outfitId: string): Promise<OutfitRating[]
   return rows as OutfitRating[];
 }
 
-export async function getAverageRating(outfitId: string): Promise<number | null> {
-  const db = await getDatabase();
-  const result = await db.getFirstAsync<{ avg_rating: number | null }>(
-    'SELECT AVG(rating) as avg_rating FROM outfit_ratings WHERE outfit_id = ?',
-    outfitId
-  );
-  return result?.avg_rating ?? null;
-}

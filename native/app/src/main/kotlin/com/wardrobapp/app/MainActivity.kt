@@ -10,6 +10,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Star
@@ -73,9 +74,23 @@ class MainActivity : ComponentActivity() {
                 ) { insets ->
                     NavHost(
                         navController = navigator,
-                        startDestination = WARDROBE,
+                        startDestination = HOME,
                         modifier = Modifier.padding(insets),
                     ) {
+                        composable(HOME) {
+                            Home(
+                                container = container,
+                                onAddRequested = { navigator.navigate(GARMENT_ADD) },
+                                // Tabs are switched to, not pushed: pushing one
+                                // would stack a second copy of a screen the bar
+                                // is already showing as selected.
+                                onOutfitsRequested = { navigator.switchTo(OUTFITS) },
+                                onAnalyticsRequested = { navigator.switchTo(ANALYTICS) },
+                                onStatisticsRequested = { navigator.navigate(STATISTICS) },
+                                onSettingsRequested = { navigator.navigate(SETTINGS) },
+                            )
+                        }
+
                         composable(WARDROBE) {
                             Wardrobe(
                                 container = container,
@@ -90,11 +105,30 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable(OUTFITS) {
-                            Outfits(container, onGarmentOpened = { navigator.openGarment(it) })
+                            Outfits(
+                                container = container,
+                                onGarmentOpened = { navigator.openGarment(it) },
+                                onOutfitOpened = { navigator.navigate("$OUTFIT/${Uri.encode(it)}") },
+                            )
+                        }
+
+                        composable("$OUTFIT/{$OUTFIT_ID}") { backStackEntry ->
+                            OutfitDetail(
+                                container = container,
+                                outfitId = backStackEntry.arguments?.getString(OUTFIT_ID).orEmpty(),
+                                navigator = navigator,
+                            )
                         }
 
                         composable(ANALYTICS) {
-                            Analytics(container)
+                            Analytics(
+                                container = container,
+                                onStatisticsRequested = { navigator.navigate(STATISTICS) },
+                            )
+                        }
+
+                        composable(STATISTICS) {
+                            Statistics(container, navigator = navigator)
                         }
 
                         composable(GARMENT_ADD) {
@@ -124,6 +158,33 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    @Composable
+    private fun Home(
+        container: AppContainer,
+        onAddRequested: () -> Unit,
+        onOutfitsRequested: () -> Unit,
+        onAnalyticsRequested: () -> Unit,
+        onStatisticsRequested: () -> Unit,
+        onSettingsRequested: () -> Unit,
+    ) {
+        val model: HomeViewModel = viewModel(
+            factory = viewModelFactory { initializer { HomeViewModel(container) } }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        RefreshOnReturn(model::refresh)
+
+        HomeScreen(
+            state = state,
+            onAddRequested = onAddRequested,
+            onOutfitsRequested = onOutfitsRequested,
+            onAnalyticsRequested = onAnalyticsRequested,
+            onStatisticsRequested = onStatisticsRequested,
+            onSettingsRequested = onSettingsRequested,
+            onRetry = model::refresh,
+        )
     }
 
     @Composable
@@ -228,7 +289,11 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun Outfits(container: AppContainer, onGarmentOpened: (String) -> Unit) {
+    private fun Outfits(
+        container: AppContainer,
+        onGarmentOpened: (String) -> Unit,
+        onOutfitOpened: (String) -> Unit,
+    ) {
         val model: OutfitsViewModel = viewModel(
             factory = viewModelFactory { initializer { OutfitsViewModel(container) } }
         )
@@ -248,6 +313,7 @@ class MainActivity : ComponentActivity() {
             onDeleteConfirmed = model::onDeleteConfirmed,
             onDeleteDismissed = model::onDeleteDismissed,
             onGarmentOpened = onGarmentOpened,
+            onOutfitOpened = onOutfitOpened,
         )
     }
 
@@ -303,7 +369,38 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun Analytics(container: AppContainer) {
+    private fun OutfitDetail(
+        container: AppContainer,
+        outfitId: String,
+        navigator: NavHostController,
+    ) {
+        val model: OutfitDetailViewModel = viewModel(
+            factory = viewModelFactory {
+                initializer { OutfitDetailViewModel(container, outfitId) }
+            }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        // Leaving is the activity's business, not the model's, as with the form
+        // reporting that it saved and the garment detail reporting a deletion.
+        LaunchedEffect(state.deleted) {
+            if (state.deleted) navigator.popBackStack()
+        }
+
+        OutfitDetailScreen(
+            state = state,
+            onBack = { navigator.popBackStack() },
+            onGarmentOpened = { navigator.openGarment(it) },
+            onRate = model::onRated,
+            onDelete = model::onDeleteRequested,
+            onDeleteConfirmed = model::onDeleteConfirmed,
+            onDeleteDismissed = model::onDeleteDismissed,
+            onRetry = model::refresh,
+        )
+    }
+
+    @Composable
+    private fun Analytics(container: AppContainer, onStatisticsRequested: () -> Unit) {
         val model: AnalyticsViewModel = viewModel(
             factory = viewModelFactory { initializer { AnalyticsViewModel(container) } }
         )
@@ -311,7 +408,27 @@ class MainActivity : ComponentActivity() {
 
         RefreshOnReturn(model::refresh)
 
-        AnalyticsScreen(state = state, onRetry = model::refresh)
+        AnalyticsScreen(
+            state = state,
+            onStatisticsRequested = onStatisticsRequested,
+            onRetry = model::refresh,
+        )
+    }
+
+    @Composable
+    private fun Statistics(container: AppContainer, navigator: NavHostController) {
+        val model: StatisticsViewModel = viewModel(
+            factory = viewModelFactory { initializer { StatisticsViewModel(container) } }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        StatisticsScreen(
+            state = state,
+            onBack = { navigator.popBackStack() },
+            onCategoryTapped = model::onCategoryTapped,
+            onBrandSortChanged = model::onBrandSortChanged,
+            onRetry = model::refresh,
+        )
     }
 
     @Composable
@@ -411,11 +528,15 @@ class MainActivity : ComponentActivity() {
     private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
     private companion object {
+        const val HOME = "home"
         const val WARDROBE = "wardrobe"
         const val OUTFITS = "outfits"
         const val ANALYTICS = "analytics"
+        const val STATISTICS = "statistics"
         const val SETTINGS = "settings"
         const val GARMENT = "garment"
+        const val OUTFIT = "outfit"
+        const val OUTFIT_ID = "outfitId"
         // Deliberately not "garment/add" and "garment/edit": the detail route is
         // "garment/{garmentId}", which would match both of them as an id, and
         // whether it wins is down to how the matcher ranks a literal segment
@@ -425,6 +546,7 @@ class MainActivity : ComponentActivity() {
         const val GARMENT_ID = "garmentId"
 
         val TABS = listOf(
+            Tab(HOME, "Home", Icons.Filled.Home),
             Tab(WARDROBE, "Wardrobe", Icons.Filled.List),
             Tab(OUTFITS, "Outfits", Icons.Filled.Star),
             Tab(ANALYTICS, "Analytics", Icons.Filled.Info),

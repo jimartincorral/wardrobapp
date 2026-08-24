@@ -2,6 +2,7 @@ package com.wardrobapp.app
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +46,7 @@ import com.wardrobapp.presentation.LifespanBar
 @Composable
 fun AnalyticsScreen(
     state: AnalyticsViewModel.State,
+    onStatisticsRequested: () -> Unit,
     onRetry: () -> Unit,
 ) {
     Scaffold(topBar = { TopAppBar(title = { Text("Analytics") }) }) { insets ->
@@ -73,13 +75,17 @@ fun AnalyticsScreen(
                 TextButton(onClick = onRetry) { Text("Try again") }
             }
 
-            else -> Body(view, insets)
+            else -> Body(view, insets, onStatisticsRequested)
         }
     }
 }
 
 @Composable
-private fun Body(view: AnalyticsView, insets: PaddingValues) {
+private fun Body(
+    view: AnalyticsView,
+    insets: PaddingValues,
+    onStatisticsRequested: () -> Unit,
+) {
     LazyColumn(
         modifier = Modifier.padding(insets),
         contentPadding = PaddingValues(16.dp),
@@ -105,6 +111,22 @@ private fun Body(view: AnalyticsView, insets: PaddingValues) {
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
+                }
+            }
+        }
+
+        // Where the colour, brand and subcategory breakdowns live, as in the app
+        // that ships: this tab answers "how much and how long", and the detail is
+        // one tap away rather than on the same page.
+        item {
+            Card(modifier = Modifier.clickable(onClick = onStatisticsRequested)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text("View detailed statistics", style = MaterialTheme.typography.bodyLarge)
+                    Text("\u203a", style = MaterialTheme.typography.titleMedium)
                 }
             }
         }

@@ -64,6 +64,7 @@ fun OutfitsScreen(
     onDeleteConfirmed: () -> Unit,
     onDeleteDismissed: () -> Unit,
     onGarmentOpened: (String) -> Unit,
+    onOutfitOpened: (String) -> Unit,
 ) {
     state.deleting?.let { outfit ->
         AlertDialog(
@@ -174,6 +175,7 @@ fun OutfitsScreen(
                 items(state.saved, key = { "saved-${it.id}" }) { outfit ->
                     SavedOutfitRow(
                         outfit = outfit,
+                        onOpened = { onOutfitOpened(outfit.id) },
                         onPinToggled = { onPinToggled(outfit) },
                         onDelete = { onDeleteRequested(outfit) },
                     )
@@ -257,42 +259,18 @@ private fun SuggestionCard(
         }
     }
 }
-
-/**
- * Five stars.
- *
- * Text rather than icons: the extended icon set is not a dependency, and a star
- * is a character. It scales with the type size, which an icon would not.
- */
-@Composable
-private fun Stars(rating: Int?, onRate: (Int) -> Unit) {
-    Row {
-        for (star in 1..5) {
-            val filled = rating != null && star <= rating
-
-            Text(
-                if (filled) "★" else "☆",
-                style = MaterialTheme.typography.headlineSmall,
-                color = if (filled) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                modifier = Modifier
-                    .clickable { onRate(star) }
-                    .padding(horizontal = 2.dp),
-            )
-        }
-    }
-}
-
 @Composable
 private fun SavedOutfitRow(
     outfit: OutfitRecord,
+    onOpened: () -> Unit,
     onPinToggled: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    // The card opens the outfit; the two buttons on it do their own thing. The
+    // clickable goes on the card rather than the row inside it so the whole
+    // surface is the target, which is what a list of cards behaves like
+    // everywhere else.
+    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onOpened)) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
