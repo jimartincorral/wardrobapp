@@ -71,6 +71,8 @@ fun SettingsScreen(
     onRestoreRequested: () -> Unit,
     onRestoreConfirmed: () -> Unit,
     onRestoreDismissed: () -> Unit,
+    onTidyRequested: () -> Unit,
+    onTidyDismissed: () -> Unit,
     onRetry: () -> Unit,
 ) {
     state.backup?.let { backup ->
@@ -78,6 +80,9 @@ fun SettingsScreen(
     }
     state.restore?.let { restore ->
         RestoreDialog(restore, onRestoreConfirmed, onRestoreDismissed)
+    }
+    state.tidy?.let { tidy ->
+        TidyDialog(tidy, onTidyDismissed)
     }
 
     Scaffold(
@@ -138,6 +143,20 @@ fun SettingsScreen(
                     }
                     TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
                 }
+            }
+
+            Text(
+                stringResource(R.string.settings_tidy_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            OutlinedButton(
+                onClick = onTidyRequested,
+                enabled = state.tidy !is SettingsViewModel.Tidy.Running,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            ) {
+                Text(stringResource(R.string.settings_tidy))
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -454,4 +473,70 @@ private fun Context.archiveFailureText(reason: UnrestorableReason): String = whe
 private fun Context.detailText(detail: ArchiveDetail): String = when (detail) {
     is ArchiveDetail.Known -> archiveFailureText(detail.reason)
     is ArchiveDetail.Foreign -> detail.text
+}
+
+/**
+ * What the photo tidy-up has to say.
+ *
+ * The running dialog cannot be dismissed, as the backup's cannot: the work carries
+ * on either way, and every file it touches is one it is rewriting in place.
+ *
+ * "Nothing to optimize" is a separate answer rather than a saving of zero, because
+ * it means something different -- the wardrobe is already as small as this app can
+ * make it, which is the answer anyone running this twice should get.
+ */
+@Composable
+private fun TidyDialog(
+    tidy: SettingsViewModel.Tidy,
+    onDismiss: () -> Unit,
+) = when (tidy) {
+    is SettingsViewModel.Tidy.Running -> AlertDialog(
+        onDismissRequest = {},
+        title = { Text(stringResource(R.string.tidy_running_title)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.tidy_running_body, tidy.done, tidy.total))
+                LinearProgressIndicator(
+                    // Indeterminate until the total is known, which is only after
+                    // the directory has been read: a bar sitting at zero because it
+                    // has nothing to divide by reads as stuck.
+                    progress = { if (tidy.total > 0) tidy.done / tidy.total.toFloat() else 0f },
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                )
+            }
+        },
+        confirmButton = {},
+    )
+
+    is SettingsViewModel.Tidy.NothingToDo -> AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.tidy_nothing_title)) },
+        text = {
+            Text(pluralStringResource(R.plurals.tidy_nothing_body, tidy.examined, tidy.examined))
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
+    )
+
+    is SettingsViewModel.Tidy.Done -> AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.tidy_done_title)) },
+        text = {
+            Text(
+                pluralStringResource(
+                    R.plurals.tidy_done_body,
+                    tidy.shrunk,
+                    tidy.shrunk,
+                    tidy.megabytes,
+                )
+            )
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
+    )
+
+    is SettingsViewModel.Tidy.Failed -> AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.tidy_failed_title)) },
+        text = { Text(tidy.message) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+    )
 }

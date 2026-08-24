@@ -40,7 +40,24 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         val backup: Backup? = null,
         /** Non-null while a restore is being asked about, run, or reported. */
         val restore: Restore? = null,
+        /** Non-null while the photo tidy-up is running or has something to say. */
+        val tidy: Tidy? = null,
     )
+
+    /**
+     * Where the photo tidy-up has got to.
+     *
+     * Its own three states rather than a boolean and a message, so "nothing needed
+     * doing" is a distinct answer from "here is what was saved". They read
+     * differently and they mean differently: the first says the wardrobe is already
+     * as small as this app can make it.
+     */
+    sealed interface Tidy {
+        data class Running(val done: Int, val total: Int) : Tidy
+        data class NothingToDo(val examined: Int) : Tidy
+        data class Done(val shrunk: Int, val megabytes: String) : Tidy
+        data class Failed(val message: String) : Tidy
+    }
 
     /** Where a backup has got to. */
     sealed interface Backup {
@@ -86,6 +103,49 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun refresh() {
         viewModelScope.launch { reload() }
     }
+
+    /**
+     * Shrink cut-outs an older build stored at full resolution.
+     *
+     * Safe to run whenever: a file already small enough is skipped, so a second run
+     * over the same wardrobe finds nothing to do and says so. Nothing is renamed,
+     * so no row is touched and the wardrobe is readable throughout.
+     */
+    fun onTidyRequested() {
+        if (_state.value.tidy is Tidy.Running) return
+
+        _state.update { it.copy(tidy = Tidy.Running(done = 0, total = 0)) }
+
+        viewModelScope.launch {
+            try {
+                val summary = withContext(Dispatchers.IO) {
+                    container.tidyPhotos { done, total ->
+                        _state.update { it.copy(tidy = Tidy.Running(done, total)) }
+                    }
+                }
+
+                _state.update {
+                    it.copy(
+                        tidy = if (summary.shrunk == 0) {
+                            Tidy.NothingToDo(summary.examined)
+                        } else {
+                            Tidy.Done(summary.shrunk, formatMegabytes(summary.bytesSaved))
+                        },
+                    )
+                }
+
+                // The storage figures above this button are now wrong, which is the
+                // point of having pressed it.
+                reload()
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(tidy = Tidy.Failed(e.message ?: e.javaClass.simpleName))
+                }
+            }
+        }
+    }
+
+    fun onTidyDismissed() = _state.update { it.copy(tidy = null) }
 
     private suspend fun reload(): Long? {
         _state.update { it.copy(loading = true, error = null) }

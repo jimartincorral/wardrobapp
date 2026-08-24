@@ -1,5 +1,6 @@
 package com.wardrobapp.app
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -34,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.os.LocaleListCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -52,6 +54,7 @@ import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.languageChoiceFor
 import com.wardrobapp.presentation.languageTag
 import com.wardrobapp.presentation.usesDarkColors
+import java.io.File
 import java.io.FileNotFoundException
 
 /**
@@ -399,6 +402,8 @@ class MainActivity : AppCompatActivity() {
             // from them, so every type is offered and the archive decides.
             onRestoreConfirmed = { opener.launch(arrayOf("*/*")) },
             onRestoreDismissed = model::onRestoreDismissed,
+            onTidyRequested = model::onTidyRequested,
+            onTidyDismissed = model::onTidyDismissed,
             onRetry = model::refresh,
         )
     }
@@ -451,6 +456,19 @@ class MainActivity : AppCompatActivity() {
             ActivityResultContracts.PickVisualMedia()
         ) { uri -> uri?.let(model::onPhotoPicked) }
 
+        // Where the camera will write, minted per composition rather than per tap:
+        // the contract needs the destination before it launches, and a file that
+        // changed between launching and answering would leave the photo unread.
+        val destination = remember { cameraDestination() }
+        val camera = rememberLauncherForActivityResult(
+            ActivityResultContracts.TakePicture()
+        ) { taken ->
+            // False means dismissed, or a camera app that wrote nothing. Neither is
+            // a failure worth a dialog; the file is cleaned up either way once the
+            // photo has been stored.
+            if (taken) model.onPhotoPicked(destination)
+        }
+
         // Leaving is the activity's business, not the model's: the model reports
         // that it saved, and this is what that means for the back stack.
         LaunchedEffect(state.saved) {
@@ -479,6 +497,17 @@ class MainActivity : AppCompatActivity() {
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                 )
             },
+            onTakePhoto = {
+                try {
+                    camera.launch(destination)
+                } catch (_: ActivityNotFoundException) {
+                    // A device with no camera app at all. Rare, and better said
+                    // than crashed on -- which is what launching an unhandled
+                    // intent does.
+                    model.onCameraUnavailable()
+                }
+            },
+            onDetectColor = model::onDetectColorRequested,
             onPhotoSelected = model::onPhotoSelected,
             onPhotoRemoved = model::onPhotoRemoved,
             onRemoveBackground = model::onRemoveBackground,
@@ -645,6 +674,23 @@ class MainActivity : AppCompatActivity() {
                 isAppearanceLightNavigationBars = !dark
             }
         }
+    }
+
+    /**
+     * A file for the camera to write into, as a URI it is allowed to use.
+     *
+     * In the cache, because this is the full-resolution original and the wardrobe
+     * keeps its own scaled copy: once the photo is stored this file is spent. One
+     * fixed name rather than one per capture, so the next photo overwrites it and
+     * at most one is ever lying around for the system to reclaim.
+     *
+     * Through FileProvider because handing a camera app a `file://` path has thrown
+     * FileUriExposedException since Android 7.
+     */
+    private fun cameraDestination(): Uri {
+        val directory = File(cacheDir, "camera").also { it.mkdirs() }
+        val file = File(directory, "capture.jpg")
+        return FileProvider.getUriForFile(this, "$packageName.camera", file)
     }
 
     /**

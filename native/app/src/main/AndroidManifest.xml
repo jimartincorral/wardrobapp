@@ -41,6 +41,24 @@
                 android:value="true" />
         </service>
 
+        <!--
+            How a camera app is handed somewhere to write.
+
+            Not exported and with no permission of its own: the grant travels with
+            the intent, for one URI, and is revoked when the activity finishes.
+            `android:authorities` is derived from the application id so the dev
+            build and a future cutover build cannot collide on one device.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.camera"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/camera_paths" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

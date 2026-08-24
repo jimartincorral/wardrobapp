@@ -254,6 +254,30 @@
     <string name="language_english">English</string>
     <string name="language_spanish">Español</string>
 
+    <!-- Tidying up photos stored by an older build -->
+    <string name="settings_tidy">Optimize storage</string>
+    <string name="settings_tidy_hint">Shrinks cut-out photos saved by an older version. Nothing else is changed, and it is safe to run again.</string>
+    <string name="tidy_running_title">Optimizing storage</string>
+    <string name="tidy_running_body">Shrinking photo %1$d of %2$d…</string>
+    <string name="tidy_nothing_title">Nothing to optimize</string>
+    <plurals name="tidy_nothing_body">
+        <item quantity="one">%1$d cut-out photo, already as small as this app makes them.</item>
+        <item quantity="other">%1$d cut-out photos, already as small as this app makes them.</item>
+    </plurals>
+    <string name="tidy_done_title">Storage optimized</string>
+    <plurals name="tidy_done_body">
+        <item quantity="one">%1$d photo shrunk, saving %2$s MB.</item>
+        <item quantity="other">%1$d photos shrunk, saving %2$s MB.</item>
+    </plurals>
+    <string name="tidy_failed_title">Could not optimize</string>
+
+    <!-- Taking a photo, and reading a colour off one -->
+    <string name="form_take_photo">Take Photo</string>
+    <string name="form_detect_colors">Detect Colors</string>
+    <string name="form_detecting_colors">Reading colors from photo…</string>
+    <string name="error_colors_not_read">The colors could not be read from that photo.</string>
+    <string name="error_no_camera">No camera app answered, so no photo was taken.</string>
+
     <!-- URL import, in the garment form -->
     <string name="import_section">Import from a link</string>
     <string name="import_hint">Paste a product link to pull in its images</string>

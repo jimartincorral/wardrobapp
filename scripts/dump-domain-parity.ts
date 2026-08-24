@@ -62,6 +62,7 @@ import {
   safeImportUrl,
 } from '../src/utils/url-safety';
 import { extractGarmentImportDataFromHtml } from '../src/services/url-import-service';
+import { dominantColorOf } from '../src/utils/dominant-color';
 import { ALTER_STATEMENTS, CREATE_TABLES_SQL, INDEX_STATEMENTS } from '../src/db/schema';
 import {
   checkArchiveCompleteness,
@@ -1322,6 +1323,116 @@ function dumpGarmentImport() {
   return lines;
 }
 
+/**
+ * The colour a photo suggests.
+ *
+ * `dominantColorOf` averages every fourth pixel and snaps the result to the app's
+ * palette. Only that is worth comparing across the two apps: the port decodes the
+ * original photo with Android's own decoder, where the TypeScript re-encodes a
+ * 64px thumbnail as JPEG first, so the *pixels* the two see for one photograph are
+ * never going to be identical -- a fixture that pretended otherwise would be
+ * comparing two JPEG encoders.
+ *
+ * So the round trip is deliberately still here, and then factored out: each case
+ * encodes an image, decodes it again, and records the pixels that came back
+ * alongside the answer they produce. Real JPEG artefacts, and the Kotlin is handed
+ * the exact same bytes -- which pins the averaging and the palette snap, and
+ * nothing else.
+ */
+function dumpDominantColor() {
+  const jpegCodec = require('jpeg-js');
+
+  /** An image of one colour. */
+  const solid = (width: number, height: number, rgb: [number, number, number]) => {
+    const data = Buffer.alloc(width * height * 4);
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = rgb[0];
+      data[i + 1] = rgb[1];
+      data[i + 2] = rgb[2];
+      data[i + 3] = 255;
+    }
+    return { data, width, height };
+  };
+
+  /** Two colours, split down the middle, so the average is between them. */
+  const halves = (
+    width: number,
+    height: number,
+    left: [number, number, number],
+    right: [number, number, number]
+  ) => {
+    const data = Buffer.alloc(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const rgb = x < width / 2 ? left : right;
+        const at = (y * width + x) * 4;
+        data[at] = rgb[0];
+        data[at + 1] = rgb[1];
+        data[at + 2] = rgb[2];
+        data[at + 3] = 255;
+      }
+    }
+    return { data, width, height };
+  };
+
+  /** A horizontal ramp, which no palette entry sits on. */
+  const ramp = (width: number, height: number) => {
+    const data = Buffer.alloc(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const value = Math.round((x / (width - 1)) * 255);
+        const at = (y * width + x) * 4;
+        data[at] = value;
+        data[at + 1] = Math.round(value / 2);
+        data[at + 2] = 255 - value;
+        data[at + 3] = 255;
+      }
+    }
+    return { data, width, height };
+  };
+
+  const cases: { name: string; image: { data: Buffer; width: number; height: number } }[] = [
+    // Every palette colour, so each one is reachable and none is shadowed by a
+    // neighbour. The palette is 25 entries; these are the ones a garment is
+    // actually photographed in, plus the extremes.
+    { name: 'black', image: solid(16, 16, [0, 0, 0]) },
+    { name: 'white', image: solid(16, 16, [255, 255, 255]) },
+    { name: 'mid grey', image: solid(16, 16, [128, 128, 128]) },
+    { name: 'navy', image: solid(16, 16, [0, 31, 63]) },
+    { name: 'red', image: solid(16, 16, [220, 20, 30]) },
+    { name: 'olive', image: solid(16, 16, [110, 120, 60]) },
+    { name: 'beige', image: solid(16, 16, [230, 215, 190]) },
+    { name: 'teal', image: solid(16, 16, [0, 128, 128]) },
+    { name: 'gold', image: solid(16, 16, [200, 170, 60]) },
+    { name: 'lavender', image: solid(16, 16, [200, 190, 230]) },
+    // An average that lands between entries, which is where the snap decides.
+    { name: 'halves: red and blue', image: halves(16, 16, [255, 0, 0], [0, 0, 255]) },
+    { name: 'halves: black and white', image: halves(16, 16, [0, 0, 0], [255, 255, 255]) },
+    { name: 'ramp', image: ramp(32, 8) },
+    // Not a multiple of the stride, so the last partial pixel matters.
+    { name: 'odd size', image: solid(7, 5, [90, 140, 200]) },
+    { name: 'one pixel', image: solid(1, 1, [12, 200, 90]) },
+  ];
+
+  const lines: string[] = [];
+
+  for (const testCase of cases) {
+    const encoded = jpegCodec.encode(testCase.image, 80).data;
+    const seen = jpegCodec.decode(encoded, { useTArray: true });
+
+    lines.push(JSON.stringify({
+      name: testCase.name,
+      width: seen.width,
+      height: seen.height,
+      // The pixels the function saw, base64 so a 32x8 image is one short line.
+      pixels: Buffer.from(seen.data).toString('base64'),
+      color: dominantColorOf(seen.data),
+    }));
+  }
+
+  return lines;
+}
+
 function dumpArchiveValidation() {
   const manifests = [
     // Valid.
@@ -2055,6 +2166,13 @@ console.log(`garment-import.jsonl: ${garmentImport.length} cases`);
 const urlSafety = dumpUrlSafety();
 writeFileSync(join(OUT_DIR, 'url-safety.jsonl'), urlSafety.join('\n') + '\n');
 console.log(`url-safety.jsonl: ${urlSafety.length} cases`);
+
+const dominantColor = dumpDominantColor();
+writeFileSync(
+  join(PRESENTATION_OUT_DIR, 'dominant-color.jsonl'),
+  dominantColor.join('\n') + '\n'
+);
+console.log(`presentation/dominant-color.jsonl: ${dominantColor.length} cases`);
 
 const archiveValidation = dumpArchiveValidation();
 writeFileSync(

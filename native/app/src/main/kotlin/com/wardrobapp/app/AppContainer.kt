@@ -8,6 +8,7 @@ import com.wardrobapp.data.BackupSummary
 import com.wardrobapp.data.Duplicates
 import com.wardrobapp.data.GarmentQueries
 import com.wardrobapp.data.GarmentWrites
+import com.wardrobapp.data.MaintenanceSummary
 import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.ReopeningDriver
@@ -97,6 +98,15 @@ class AppContainer(context: Context) {
 
     /** How much disk the wardrobe's photos take, for the settings screen. */
     fun photoStorageBytes(): Long = storedImageBytes(files.imagesDir)
+
+    /**
+     * Shrink cut-outs an older build stored at full resolution.
+     *
+     * On the photo store rather than here: it is photo work, and the connection is
+     * not involved -- the filenames do not change, so no row needs touching.
+     */
+    fun tidyPhotos(onProgress: (Int, Int) -> Unit): MaintenanceSummary =
+        photos.shrinkOversizedCutouts(onProgress)
 
     /**
      * Replace the wardrobe with the contents of a backup archive.

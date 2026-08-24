@@ -1,9 +1,8 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import jpeg from 'jpeg-js';
-import { GARMENT_COLORS } from '../constants/colors';
 import { SEASON_OPTIONS } from '../constants/style-filters';
 import type { SeasonOption } from '../constants/style-filters';
-import { colorDistance } from '../utils/color-distance';
+import { dominantColorOf } from '../utils/dominant-color';
 
 /**
  * Garment analysis.
@@ -59,46 +58,15 @@ function base64ToBytes(base64: string): Uint8Array {
   throw new Error('No base64 decoder available on this platform');
 }
 
-function rgbToHex(r: number, g: number, b: number): string {
-  return `#${[r, g, b].map(n => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
-}
-
-function nearestGarmentColor(hex: string): string {
-  const palette = GARMENT_COLORS.filter(c => c.hex !== '#RAINBOW');
-  let nearest = palette[0]?.hex ?? '#000000';
-  let nearestDistance = Number.POSITIVE_INFINITY;
-  for (const color of palette) {
-    const dist = colorDistance(hex, color.hex);
-    // Skip unparseable comparisons explicitly: `null < Infinity` is true in JS,
-    // so a bare comparison would pick an unknown colour as the nearest one.
-    if (dist !== null && dist < nearestDistance) {
-      nearestDistance = dist;
-      nearest = color.hex;
-    }
-  }
-  return nearest;
-}
-
+/**
+ * The palette colour a JPEG averages out to.
+ *
+ * Decoding is this module's half of the job; the arithmetic is in
+ * `utils/dominant-color`, where it can be run without React Native -- which is
+ * what lets the Kotlin port be held to it.
+ */
 export function estimateDominantColor(data: Uint8Array): string {
-  const decoded = jpeg.decode(data, { useTArray: true });
-  const pixels = decoded.data;
-  let rTotal = 0;
-  let gTotal = 0;
-  let bTotal = 0;
-  let count = 0;
-
-  for (let i = 0; i < pixels.length; i += 16) {
-    const alpha = pixels[i + 3];
-    if (alpha < 16) continue;
-    rTotal += pixels[i];
-    gTotal += pixels[i + 1];
-    bTotal += pixels[i + 2];
-    count += 1;
-  }
-
-  if (count === 0) return '#000000';
-  const avgHex = rgbToHex(Math.round(rTotal / count), Math.round(gTotal / count), Math.round(bTotal / count));
-  return nearestGarmentColor(avgHex);
+  return dominantColorOf(jpeg.decode(data, { useTArray: true }).data);
 }
 
 /**

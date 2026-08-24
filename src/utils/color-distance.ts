@@ -16,7 +16,7 @@
  */
 
 /** Sentinel stored for garments the user marked as multi-coloured. */
-const MULTI_COLOR = '#RAINBOW';
+export const MULTI_COLOR = '#RAINBOW';
 
 /**
  * Distance reported between a multi-coloured garment and a specific colour.

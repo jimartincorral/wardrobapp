@@ -23,6 +23,7 @@ import com.wardrobapp.domain.seasonsForSubcategories
 import com.wardrobapp.domain.splitStructuredTags
 import com.wardrobapp.presentation.GarmentFormState
 import com.wardrobapp.presentation.brandSuggestions
+import com.wardrobapp.presentation.dominantGarmentColor
 import com.wardrobapp.presentation.toggled
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,6 +82,13 @@ class GarmentFormViewModel(
         val removingBackground: Boolean = false,
         /** Where URL import has got to, if it is anywhere. */
         val urlImport: UrlImport = UrlImport(),
+        /**
+         * True while a photo's colour is being read.
+         *
+         * Separate from [saving] like [removingBackground] is, and for the same
+         * reason: it is its own wait with its own thing to say about it.
+         */
+        val detectingColor: Boolean = false,
     )
 
     /**
@@ -352,6 +360,61 @@ class GarmentFormViewModel(
         it.copy(urlImport = it.urlImport.copy(running = false, problem = problem))
     }
 
+    /**
+     * There was no camera app to ask.
+     *
+     * Reported by the screen rather than found here: whether an intent resolves is
+     * something only the activity can know, and it finds out by the launch throwing.
+     */
+    fun onCameraUnavailable() = _state.update {
+        it.copy(error = null, errorFallback = R.string.error_no_camera)
+    }
+
+    // ---- reading a colour off a photo -----------------------------------------
+
+    /**
+     * Suggest a colour from the selected photo.
+     *
+     * A suggestion, not a correction: the detected colour goes to the front of the
+     * palette and anything already chosen stays, which is what `withDetectedColor`
+     * does. That is why this is a button rather than something that fires on every
+     * photo -- the app that ships offers it the same way.
+     */
+    fun onDetectColorRequested() {
+        val form = _state.value.form
+        val photo = form.imageUris.getOrNull(form.selectedImageIndex)
+        if (photo.isNullOrEmpty() || _state.value.detectingColor) return
+
+        _state.update { it.copy(detectingColor = true, error = null) }
+
+        viewModelScope.launch {
+            try {
+                val detected = withContext(Dispatchers.IO) {
+                    container.photos
+                        .pixelsFor(Uri.parse(photo), COLOR_SAMPLE_WIDTH)
+                        ?.let { dominantGarmentColor(it) }
+                }
+
+                _state.update { state ->
+                    state.copy(
+                        detectingColor = false,
+                        // A photo that would not decode is not an error worth a
+                        // dialog: nothing was lost and nothing was changed.
+                        form = detected?.let { state.form.withDetectedColor(it) } ?: state.form,
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        detectingColor = false,
+                        error = e.message,
+                        errorFallback = R.string.error_colors_not_read,
+                    )
+                }
+            }
+        }
+    }
+
     // ---- background removal --------------------------------------------------
 
     /**
@@ -590,5 +653,18 @@ class GarmentFormViewModel(
 
             _state.update { it.copy(brands = brands) }
         }
+    }
+
+    private companion object {
+        /**
+         * How wide a photo is decoded to before its colour is read.
+         *
+         * The same 64 pixels `detectDominantColor` resizes to on the other side. The
+         * exact number is not what the two apps have to agree on -- they decode
+         * differently and never see identical pixels -- but averaging a thumbnail
+         * rather than a photograph is, because it is what makes the answer about the
+         * garment rather than about its weave.
+         */
+        const val COLOR_SAMPLE_WIDTH = 64
     }
 }

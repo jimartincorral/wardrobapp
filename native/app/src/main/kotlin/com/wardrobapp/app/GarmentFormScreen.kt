@@ -86,6 +86,8 @@ fun GarmentFormScreen(
     brandSuggestions: (String) -> List<String>,
     onBack: () -> Unit,
     onAddPhoto: () -> Unit,
+    onTakePhoto: () -> Unit,
+    onDetectColor: () -> Unit,
     onPhotoSelected: (Int) -> Unit,
     onPhotoRemoved: (Int) -> Unit,
     onRemoveBackground: () -> Unit,
@@ -187,6 +189,24 @@ fun GarmentFormScreen(
                             onAdd = onAddPhoto,
                             onSelect = onPhotoSelected,
                             onRemove = onPhotoRemoved,
+                        )
+
+                        // Two ways to add one, as the app that ships has: the
+                        // picker for a photo already taken, the camera for a
+                        // garment in front of you.
+                        OutlinedButton(
+                            onClick = onTakePhoto,
+                            enabled = !state.saving,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        ) {
+                            Text(stringResource(R.string.form_take_photo))
+                        }
+
+                        DetectColorControl(
+                            enabled = form.imageUris.getOrNull(form.selectedImageIndex)
+                                ?.isNotEmpty() == true,
+                            running = state.detectingColor,
+                            onDetect = onDetectColor,
                         )
 
                         // What to offer is :presentation's call, from the same
@@ -773,3 +793,42 @@ private fun ImportProblemDialog(
  */
 private fun hostOf(url: String): String =
     Uri.parse(url).host ?: url
+
+/**
+ * Read the selected photo's colour, on request.
+ *
+ * On request rather than on every photo, which is how the app that ships offers it:
+ * the answer is a suggestion moved to the front of the palette, and doing that
+ * unasked to a garment whose colours somebody has already picked is a correction
+ * nobody asked for.
+ */
+@Composable
+private fun DetectColorControl(
+    enabled: Boolean,
+    running: Boolean,
+    onDetect: () -> Unit,
+) {
+    if (running) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 12.dp),
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp))
+            Text(
+                stringResource(R.string.form_detecting_colors),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
+        return
+    }
+
+    OutlinedButton(
+        onClick = onDetect,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    ) {
+        Text(stringResource(R.string.form_detect_colors))
+    }
+}
