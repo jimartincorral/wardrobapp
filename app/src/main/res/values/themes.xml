@@ -37,8 +37,8 @@
         options menu and its layout is the crop view alone, so under the app's
         NoActionBar theme they would have nowhere to appear and the screen would
         open with no way to confirm a crop. expo-image-picker does the same thing
-        for the same reason -- it declares its subclass with a Base.Theme.AppCompat
-        theme rather than the app's.
+        for the same reason (it declares its subclass with a Base.Theme.AppCompat
+        theme rather than the app's).
 
         DayNight, so it is dark on a dark phone. That follows the system rather
         than the app's own light/dark setting, which is a Compose one; the
