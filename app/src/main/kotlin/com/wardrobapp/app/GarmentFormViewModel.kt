@@ -390,6 +390,21 @@ class GarmentFormViewModel(
         )
     }
 
+    /**
+     * The crop screen gave up on the photo.
+     *
+     * Reported by the screen for the same reason as the above: what came back from
+     * another activity is something only the activity that launched it sees. Only a
+     * real failure arrives here -- cancelling a crop simply adds no photo.
+     */
+    fun onCropFailed() = _state.update {
+        it.copy(
+            error = null,
+            errorFallback = R.string.error_crop_failed,
+            errorTitle = R.string.error_title_photo,
+        )
+    }
+
     // ---- reading a colour off a photo -----------------------------------------
 
     /**

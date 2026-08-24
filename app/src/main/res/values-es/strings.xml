@@ -272,6 +272,7 @@
     <string name="form_detecting_colors">Leyendo los colores de la foto…</string>
     <string name="error_colors_not_read">No se han podido leer los colores de esa foto.</string>
     <string name="error_no_camera">Ninguna aplicación de cámara ha respondido, así que no se ha hecho ninguna foto.</string>
+    <string name="error_crop_failed">No se ha podido recortar esa foto, así que no se ha añadido.</string>
 
     <!-- URL import, in the garment form -->
     <string name="import_section">Importar desde un enlace</string>

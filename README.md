@@ -6,7 +6,7 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 
 ## Features
 
-- **Garment catalog** — photos, category and type, colour palette, tags, brand, size. Photos are resized to 800px and re-encoded at 70% JPEG on import to keep the database and backups small.
+- **Garment catalog** — photos, category and type, colour palette, tags, brand, size. A photo is cropped to 3:4 as it is added, from the gallery or the camera, which is the shape every screen shows a garment in; it is then resized to 800px and re-encoded at 70% JPEG to keep the database and backups small.
 - **On-device background removal** — strips the background from a garment photo using ML Kit subject segmentation, from the add/edit form or from a garment already saved.
 - **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged by a weighted average of tag overlap (Jaccard, 0.6), colour similarity (0.3) and size match (0.1). Signals with nothing to compare abstain rather than scoring zero, so an untagged garment can still be recognised as a duplicate.
 - **Outfit suggestions** — an epsilon-greedy engine combining category templates, colour harmony judged by hue, season and occasion fit, and pair scores learned from your ratings.
@@ -21,7 +21,7 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 - **Language:** Kotlin 2.1, JVM target 17, `minSdk` 24 / `targetSdk` 36
 - **Storage:** SQLite through a small `SqlDriver` interface — `SupportSQLiteDatabase` on a device, JDBC in tests; photos as files under `<documents>/garment-images/`, referenced from the database by filename
 - **Build:** Gradle with AGP 8.9, four modules, no code generation
-- **Dependencies:** AndroidX and ML Kit only. No dependency injection framework, no image loader, no ORM.
+- **Dependencies:** AndroidX, ML Kit, Coil for loading photos, and the same crop screen Expo's image picker used. No dependency injection framework, no ORM.
 
 ## Getting started
 
@@ -123,12 +123,12 @@ Two things it left behind, both deliberate. Comments across this codebase explai
 
 ```bash
 ./gradlew test                    # 478 tests, no Android SDK, seconds
-./gradlew :app:testDebugUnitTest  # 36 more, needs the SDK — no emulator
+./gradlew :app:testDebugUnitTest  # 42 more, needs the SDK — no emulator
 ```
 
 The 478 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
 
-The 36 in `:app` are Robolectric tests, not instrumented ones — what a screen shows and where a file lands, which is the part no pure module can answer:
+The 42 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 
 ```bash
 ./gradlew :app:testDebugUnitTest

@@ -28,4 +28,22 @@
         -->
         <item name="android:windowBackground">@color/ic_launcher_background</item>
     </style>
+
+    <!--
+        The crop screen, which is somebody else's activity.
+
+        With an action bar, deliberately, and that is the whole reason this style
+        exists: CropImageActivity puts its Crop, Rotate and Flip buttons in the
+        options menu and its layout is the crop view alone, so under the app's
+        NoActionBar theme they would have nowhere to appear and the screen would
+        open with no way to confirm a crop. expo-image-picker does the same thing
+        for the same reason (it declares its subclass with a Base.Theme.AppCompat
+        theme rather than the app's).
+
+        DayNight, so it is dark on a dark phone. That follows the system rather
+        than the app's own light/dark setting, which is a Compose one; the
+        remaining gap is closed by handing the crop screen the app's actual colours
+        (see cropTo3by4) rather than by anything here.
+    -->
+    <style name="Theme.Wardrobapp.Crop" parent="Theme.AppCompat.DayNight" />
 </resources>

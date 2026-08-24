@@ -1,16 +1,19 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-    Where the camera is allowed to write.
+    Where a photo on its way in is allowed to be written.
 
-    One directory, inside the app's own cache. A camera app cannot be handed a
-    `file://` path — that has thrown FileUriExposedException since Android 7 — so it
-    gets a `content://` URI from the provider below, granted for one write and
-    nothing else.
+    Two directories, both inside the app's own cache: one for a capture, one for
+    the cropped copy of it. Neither activity can be handed a `file://` path — that
+    has thrown FileUriExposedException since Android 7 — so each gets a
+    `content://` URI from the provider that names this file, granted for one write
+    and nothing else.
 
-    Deliberately not the photo directory: what the camera produces is a
-    full-resolution original, and what the wardrobe keeps is a scaled copy. The
-    original is read once, stored properly, and deleted.
+    Deliberately not the photo directory: what a camera produces and what the crop
+    screen writes are full-resolution intermediates, and what the wardrobe keeps is
+    a scaled copy. Each is read once, stored properly, and left for the system to
+    reclaim.
 -->
 <paths>
     <cache-path name="camera" path="camera/" />
+    <cache-path name="crop" path="crop/" />
 </paths>
