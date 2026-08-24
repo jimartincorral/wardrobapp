@@ -41,6 +41,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -83,17 +85,17 @@ fun WardrobeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Wardrobe") },
+                title = { Text(stringResource(R.string.wardrobe_title)) },
                 actions = {
                     IconButton(onClick = onSettingsRequested) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                        Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.action_settings))
                     }
                 },
             )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddRequested) {
-                Icon(Icons.Filled.Add, contentDescription = "Add a garment")
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.home_add_garment))
             }
         },
     ) { insets ->
@@ -105,12 +107,20 @@ fun WardrobeScreen(
                 OutlinedTextField(
                     value = state.query.search,
                     onValueChange = onSearchChanged,
-                    label = { Text("Search") },
+                    label = { Text(stringResource(R.string.wardrobe_search)) },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                 )
                 TextButton(onClick = onSortToggled) {
-                    Text(if (state.query.sort == GarmentSort.NEWEST) "Newest" else "Oldest")
+                    Text(
+                        stringResource(
+                            if (state.query.sort == GarmentSort.NEWEST) {
+                                R.string.sort_newest
+                            } else {
+                                R.string.sort_oldest
+                            }
+                        )
+                    )
                 }
             }
 
@@ -123,10 +133,12 @@ fun WardrobeScreen(
                     // sign that the list is not the whole wardrobe.
                     Text(
                         when {
-                            state.filtersExpanded -> "Hide filters"
-                            state.query.activeFilterCount > 0 ->
-                                "Filters (${state.query.activeFilterCount})"
-                            else -> "Filters"
+                            state.filtersExpanded -> stringResource(R.string.filters_hide)
+                            state.query.activeFilterCount > 0 -> stringResource(
+                                R.string.filters_show_count,
+                                state.query.activeFilterCount,
+                            )
+                            else -> stringResource(R.string.filters_show)
                         }
                     )
                 }
@@ -134,7 +146,7 @@ fun WardrobeScreen(
                 Spacer(modifier = Modifier.weight(1f))
 
                 if (state.query.isNarrowed) {
-                    TextButton(onClick = onFiltersCleared) { Text("Clear all") }
+                    TextButton(onClick = onFiltersCleared) { Text(stringResource(R.string.action_clear_filters)) }
                 }
             }
 
@@ -156,7 +168,11 @@ fun WardrobeScreen(
             // said, more usefully, by the empty state below.
             if (state.garments.isNotEmpty()) {
                 Text(
-                    if (state.garments.size == 1) "1 garment" else "${state.garments.size} garments",
+                    pluralStringResource(
+                        R.plurals.garment_count,
+                        state.garments.size,
+                        state.garments.size,
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -173,7 +189,7 @@ fun WardrobeScreen(
                 state.error != null -> Centered {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            "Couldn't read the wardrobe",
+                            stringResource(R.string.error_wardrobe_unreadable),
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
@@ -182,7 +198,7 @@ fun WardrobeScreen(
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(top = 4.dp, start = 24.dp, end = 24.dp),
                         )
-                        TextButton(onClick = onRetry) { Text("Try again") }
+                        TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
                     }
                 }
 
@@ -191,19 +207,17 @@ fun WardrobeScreen(
                 state.isFilteredEmpty -> Centered {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            if (state.query.searchTerm != null) {
-                                "Nothing matches \"${state.query.searchTerm}\"."
-                            } else {
-                                "Nothing matches these filters."
-                            },
+                            state.query.searchTerm?.let {
+                                stringResource(R.string.wardrobe_no_match_search, it)
+                            } ?: stringResource(R.string.wardrobe_no_match_filters),
                             style = MaterialTheme.typography.bodyLarge,
                         )
-                        TextButton(onClick = onFiltersCleared) { Text("Clear all") }
+                        TextButton(onClick = onFiltersCleared) { Text(stringResource(R.string.action_clear_filters)) }
                     }
                 }
 
                 state.isEmpty -> Centered {
-                    Text("No garments yet.", style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.wardrobe_empty), style = MaterialTheme.typography.bodyLarge)
                 }
 
                 else -> LazyColumn(
@@ -248,52 +262,52 @@ private fun FilterPanel(
             OutlinedTextField(
                 value = query.brand,
                 onValueChange = onBrandChanged,
-                label = { Text("Brand") },
+                label = { Text(stringResource(R.string.filter_brand)) },
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
             OutlinedTextField(
                 value = query.size,
                 onValueChange = onSizeChanged,
-                label = { Text("Size") },
+                label = { Text(stringResource(R.string.filter_size)) },
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
         }
 
-        FilterSection("Category") {
+        FilterSection(stringResource(R.string.filter_section_category)) {
             for (category in GARMENT_CATEGORIES) {
-                FilterPill(category.label, query.category == category.id) {
+                FilterPill(categoryLabel(category.id), query.category == category.id) {
                     onCategoryTapped(category.id)
                 }
             }
         }
 
         GARMENT_CATEGORIES.firstOrNull { it.id == query.category }?.let { category ->
-            FilterSection("Type") {
+            FilterSection(stringResource(R.string.filter_section_type)) {
                 for (subcategory in category.subcategories) {
-                    FilterPill(subcategory.sentence(), query.subcategory == subcategory) {
+                    FilterPill(garmentTypeLabel(subcategory), query.subcategory == subcategory) {
                         onSubcategoryTapped(subcategory)
                     }
                 }
             }
         }
 
-        FilterSection("Season") {
+        FilterSection(stringResource(R.string.filter_section_season)) {
             for (season in Season.entries) {
-                FilterPill(season.label(), query.season == season) { onSeasonTapped(season) }
+                FilterPill(stringResource(season.labelRes), query.season == season) { onSeasonTapped(season) }
             }
         }
 
-        FilterSection("Occasion") {
+        FilterSection(stringResource(R.string.filter_section_occasion)) {
             for (occasion in Occasion.entries) {
-                FilterPill(occasion.label(), query.occasion == occasion) {
+                FilterPill(stringResource(occasion.labelRes), query.occasion == occasion) {
                     onOccasionTapped(occasion)
                 }
             }
         }
 
-        FilterSection("Colour") {
+        FilterSection(stringResource(R.string.filter_section_colour)) {
             for ((key, hex) in GARMENT_COLORS) {
                 val selected = query.color == key
                 Box(
@@ -323,7 +337,7 @@ private fun FilterPanel(
             Text(
                 // The reason this exists: without it a retired garment cannot be
                 // found again, so it cannot be un-retired either.
-                "Include things I no longer wear",
+                stringResource(R.string.filter_include_retired),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(start = 4.dp),
             )
@@ -351,12 +365,8 @@ private fun FilterPill(label: String, selected: Boolean, onTap: () -> Unit) {
     FilterChip(selected = selected, onClick = onTap, label = { Text(label) })
 }
 
-private fun Season.label(): String =
-    tag.replace('-', ' ').replaceFirstChar { it.uppercase() }
-
-private fun Occasion.label(): String = id.replaceFirstChar { it.uppercase() }
-
-private fun String.sentence(): String = replace('-', ' ').replaceFirstChar { it.uppercase() }
+// The three label helpers that used to live here are gone: Vocabulary.kt answers
+// for seasons, occasions, categories and types now, out of resources.
 
 @Composable
 private fun Centered(content: @Composable () -> Unit) {
@@ -386,7 +396,10 @@ private fun GarmentRow(garment: GarmentRecord, onClick: () -> Unit) {
                     .padding(start = 12.dp),
             ) {
                 Text(
-                    garment.subcategory ?: garment.category,
+                    // Through the vocabulary rather than shown as stored: the row
+                    // held raw English -- "T-Shirt" -- whatever the language.
+                    garment.subcategory?.let { garmentTypeLabel(it) }
+                        ?: categoryLabel(garment.category),
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

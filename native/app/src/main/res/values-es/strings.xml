@@ -39,6 +39,34 @@
     <string name="home_settings_title">Configuración</string>
     <string name="home_settings_detail">Crea una copia de seguridad o restaura una</string>
 
+    <!-- Files chosen through the system picker -->
+    <string name="error_file_unreadable">No se pudo abrir ese archivo. No se cambió nada.</string>
+    <string name="error_file_unwritable">No se pudo escribir en ese archivo.</string>
+
+    <!-- The wardrobe list -->
+    <string name="wardrobe_title">Armario</string>
+    <string name="wardrobe_search">Buscar</string>
+    <string name="wardrobe_empty">Aún no hay prendas.</string>
+    <string name="wardrobe_no_match_filters">Nada coincide con estos filtros.</string>
+    <string name="wardrobe_no_match_search">Nada coincide con «%1$s».</string>
+    <string name="sort_newest">Más recientes</string>
+    <string name="sort_oldest">Más antiguas</string>
+    <string name="action_settings">Configuración</string>
+
+    <!-- Filters -->
+    <string name="filters_show">Filtros</string>
+    <string name="filters_show_count">Filtros (%1$d)</string>
+    <string name="filters_hide">Ocultar filtros</string>
+    <string name="action_clear_filters">Borrar todo</string>
+    <string name="filter_brand">Marca</string>
+    <string name="filter_size">Talla</string>
+    <string name="filter_include_retired">Incluir prendas que ya no uso</string>
+    <string name="filter_section_category">Categoría</string>
+    <string name="filter_section_type">Tipo</string>
+    <string name="filter_section_season">Temporada</string>
+    <string name="filter_section_occasion">Ocasión</string>
+    <string name="filter_section_colour">Color</string>
+
     <!-- Language, in Settings -->
     <string name="settings_language">Idioma</string>
     <string name="settings_language_hint">Solo afecta a esta aplicación. Android lo recuerda, así que se mantiene al reiniciar y también se puede cambiar desde los ajustes del sistema.</string>
@@ -169,4 +197,10 @@
     <string name="occasion_formal">Formal</string>
     <string name="occasion_sport">Deporte</string>
     <string name="occasion_lounge">Descanso</string>
+
+    <!-- Counts. English and Spanish share the one/other rule. -->
+    <plurals name="garment_count">
+        <item quantity="one">%d prenda</item>
+        <item quantity="other">%d prendas</item>
+    </plurals>
 </resources>

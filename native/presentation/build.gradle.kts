@@ -38,6 +38,15 @@ tasks.withType<Test>().configureEach {
     inputs.dir(appResources)
         .withPropertyName("appStringResources")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+
+    // And the screens themselves, for HardcodedStringTest. Same reasoning: :app
+    // has no local compiler, so a test that reads its sources is the only check
+    // available before CI.
+    val appSources = rootProject.file("app/src/main/kotlin/com/wardrobapp/app")
+    systemProperty("appSourceDir", appSources.absolutePath)
+    inputs.dir(appSources)
+        .withPropertyName("appScreenSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 java {
