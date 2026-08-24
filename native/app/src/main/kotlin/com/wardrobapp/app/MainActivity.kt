@@ -24,10 +24,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -43,6 +46,7 @@ import androidx.navigation.compose.rememberNavController
 import com.wardrobapp.data.backupFilename
 import com.wardrobapp.presentation.languageChoiceFor
 import com.wardrobapp.presentation.languageTag
+import java.io.File
 import java.io.FileNotFoundException
 
 /**
@@ -366,9 +370,26 @@ class MainActivity : AppCompatActivity() {
         )
         val state by model.state.collectAsStateWithLifecycle()
 
+        // Whether the next photo replaces the selected one or joins the strip.
+        // Held here because a launcher callback cannot be told anything the launch
+        // did not put somewhere first.
+        var replaceCurrent by remember { mutableStateOf(false) }
+
         val picker = rememberLauncherForActivityResult(
             ActivityResultContracts.PickVisualMedia()
-        ) { uri -> uri?.let(model::onPhotoPicked) }
+        ) { uri -> uri?.let { model.onPhotoPicked(it, replaceCurrent) } }
+
+        // Where the camera app is about to write. Kept across the launch because
+        // TakePicture reports only success, not the URI it was given.
+        var capture by remember { mutableStateOf<Uri?>(null) }
+
+        val camera = rememberLauncherForActivityResult(
+            ActivityResultContracts.TakePicture()
+        ) { taken ->
+            val target = capture
+            capture = null
+            if (taken && target != null) model.onPhotoPicked(target, replaceCurrent)
+        }
 
         // Leaving is the activity's business, not the model's: the model reports
         // that it saved, and this is what that means for the back stack.
@@ -382,10 +403,23 @@ class MainActivity : AppCompatActivity() {
             brandSuggestions = model::suggestionsFor,
             onBack = { navigator.popBackStack() },
             onAddPhoto = {
+                replaceCurrent = false
                 picker.launch(
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                 )
             },
+            onTakePhoto = {
+                replaceCurrent = false
+                capture = newCaptureUri()
+                capture?.let(camera::launch)
+            },
+            onRetakePhoto = {
+                replaceCurrent = true
+                capture = newCaptureUri()
+                capture?.let(camera::launch)
+            },
+            onPhotoMoved = model::onPhotoMoved,
+            onCoverSelected = model::onCoverSelected,
             onPhotoSelected = model::onPhotoSelected,
             onPhotoRemoved = model::onPhotoRemoved,
             onRemoveBackground = model::onRemoveBackground,
@@ -524,6 +558,23 @@ class MainActivity : AppCompatActivity() {
             onPauseOrDispose { }
         }
     }
+
+    /**
+     * A file for a camera app to write the next photo into, as a content URI.
+     *
+     * In the cache, because it only has to live until the photo pipeline has read,
+     * turned and scaled it into the wardrobe -- and if the app dies in between,
+     * Android is welcome to the space.
+     *
+     * Through FileProvider rather than a `file://` URI: passing one of those to
+     * another app has thrown FileUriExposedException since Android 7, and this app
+     * supports 24.
+     */
+    private fun newCaptureUri(): Uri? = runCatching {
+        val directory = File(cacheDir, "captures").apply { mkdirs() }
+        val file = File.createTempFile("capture-", ".jpg", directory)
+        FileProvider.getUriForFile(this, "$packageName.photos", file)
+    }.getOrNull()
 
     /** What the installed package says this build is. */
     private fun appVersion(): AppVersion {

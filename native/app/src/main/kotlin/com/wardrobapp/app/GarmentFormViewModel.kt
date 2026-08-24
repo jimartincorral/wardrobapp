@@ -130,6 +130,20 @@ class GarmentFormViewModel(
 
     fun onPhotoSelected(index: Int) = edit { it.copy(selectedImageIndex = index) }
 
+    /**
+     * Move a photo within the strip.
+     *
+     * Straight through to the tested transition, which carries the cut-out column
+     * with it: the two lists are positionally aligned, and a reorder touching only
+     * one would leave a cut-out on the wrong photo.
+     */
+    fun onPhotoMoved(fromIndex: Int, toIndex: Int) = edit {
+        it.withImagesReordered(fromIndex, toIndex)
+    }
+
+    /** Make the selected photo the cover, which is to say the first one. */
+    fun onCoverSelected() = edit { it.withImagesReordered(it.selectedImageIndex, 0) }
+
     fun onPhotoRemoved(index: Int) {
         val removed = _state.value.form.imageUris.getOrNull(index)
         val removedCutout = _state.value.form.bgRemovedUris.getOrNull(index)
@@ -174,7 +188,13 @@ class GarmentFormViewModel(
      * has to be able to draw every photo in its gallery the same way. The write
      * boundary reduces them all back to filenames.
      */
-    fun onPhotoPicked(source: Uri) {
+    /**
+     * Store a photo just picked or taken.
+     *
+     * [replaceCurrent] swaps it for the selected one instead of appending, which is
+     * what "retake" means: a bad third photo should come back as the third photo.
+     */
+    fun onPhotoPicked(source: Uri, replaceCurrent: Boolean = false) {
         _state.update { it.copy(saving = true, error = null) }
 
         viewModelScope.launch {
@@ -185,7 +205,11 @@ class GarmentFormViewModel(
                 val uri = resolveImageRef(stored, container.imageDirectory)
                 created.add(uri)
                 _state.update {
-                    it.copy(saving = false, form = it.form.withImage(uri), duplicates = emptyList())
+                    it.copy(
+                        saving = false,
+                        form = it.form.withImage(uri, replaceCurrent),
+                        duplicates = emptyList(),
+                    )
                 }
             } catch (e: Exception) {
                 _state.update {

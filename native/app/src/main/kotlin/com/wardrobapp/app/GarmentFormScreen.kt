@@ -48,9 +48,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -80,6 +82,10 @@ fun GarmentFormScreen(
     brandSuggestions: (String) -> List<String>,
     onBack: () -> Unit,
     onAddPhoto: () -> Unit,
+    onTakePhoto: () -> Unit,
+    onRetakePhoto: () -> Unit,
+    onPhotoMoved: (Int, Int) -> Unit,
+    onCoverSelected: () -> Unit,
     onPhotoSelected: (Int) -> Unit,
     onPhotoRemoved: (Int) -> Unit,
     onRemoveBackground: () -> Unit,
@@ -150,6 +156,10 @@ fun GarmentFormScreen(
                             selected = form.selectedImageIndex,
                             busy = state.saving,
                             onAdd = onAddPhoto,
+                            onTake = onTakePhoto,
+                            onRetake = onRetakePhoto,
+                            onMove = onPhotoMoved,
+                            onMakeCover = onCoverSelected,
                             onSelect = onPhotoSelected,
                             onRemove = onPhotoRemoved,
                         )
@@ -332,12 +342,18 @@ private fun <T> Chips(
     }
 }
 
+// FlowRow, for the per-photo controls: four buttons need to wrap on a narrow phone.
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Photos(
     uris: List<String>,
     selected: Int,
     busy: Boolean,
     onAdd: () -> Unit,
+    onTake: () -> Unit,
+    onRetake: () -> Unit,
+    onMove: (Int, Int) -> Unit,
+    onMakeCover: () -> Unit,
     onSelect: (Int) -> Unit,
     onRemove: (Int) -> Unit,
 ) {
@@ -384,21 +400,81 @@ private fun Photos(
         }
 
         item {
-            Box(
-                modifier = Modifier
-                    .width(96.dp)
-                    .aspectRatio(0.75f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable(enabled = !busy, onClick = onAdd),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (busy) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                } else {
-                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.form_add_photo))
-                }
+            // Two ways in, because they are not interchangeable: the camera is for
+            // the garment in your hands, the gallery for one already photographed.
+            // The app that ships offers both; this offered only the gallery.
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PhotoSourceTile(
+                    icon = Icons.Filled.Add,
+                    label = stringResource(R.string.form_add_photo),
+                    busy = busy,
+                    onClick = onAdd,
+                )
+                // Worded rather than drawn: material-icons-core has no camera
+                // glyph, and the extended set is megabytes for one icon.
+                PhotoSourceTile(
+                    icon = null,
+                    label = stringResource(R.string.form_take_photo),
+                    busy = busy,
+                    onClick = onTake,
+                )
             }
+        }
+    }
+
+    // Under the strip rather than on each thumbnail: four controls per photo would
+    // leave no room for the photo.
+    if (uris.isNotEmpty()) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(top = 4.dp),
+        ) {
+            TextButton(onClick = onMakeCover, enabled = !busy && selected > 0) {
+                Text(stringResource(R.string.photo_make_cover))
+            }
+            TextButton(
+                onClick = { onMove(selected, selected - 1) },
+                enabled = !busy && selected > 0,
+            ) { Text(stringResource(R.string.photo_move_earlier)) }
+            TextButton(
+                onClick = { onMove(selected, selected + 1) },
+                enabled = !busy && selected < uris.lastIndex,
+            ) { Text(stringResource(R.string.photo_move_later)) }
+            TextButton(onClick = onRetake, enabled = !busy) {
+                Text(stringResource(R.string.photo_retake))
+            }
+        }
+    }
+}
+
+/** One way to add a photo. */
+@Composable
+private fun PhotoSourceTile(
+    icon: ImageVector?,
+    label: String,
+    busy: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .width(96.dp)
+            .aspectRatio(0.75f)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(enabled = !busy, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (busy) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+        } else if (icon != null) {
+            Icon(icon, contentDescription = label)
+        } else {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
         }
     }
 }

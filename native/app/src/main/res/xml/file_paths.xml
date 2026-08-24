@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<paths>
+    <!--
+        Where a camera app is allowed to write the photo it just took.
+
+        The cache, not the wardrobe: this file only has to survive long enough for
+        the photo pipeline to read, scale and store it under files/garment-images,
+        and leaving it in the cache means Android can reclaim it if the app is
+        killed between the capture and the save.
+    -->
+    <cache-path name="captures" path="captures/" />
+</paths>

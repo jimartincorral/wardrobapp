@@ -247,6 +247,13 @@
     <string name="archive_restore_failed">Restore failed: %1$s. Your wardrobe was left unchanged.</string>
     <string name="archive_rollback_failed">Restore failed (%1$s) and the wardrobe could not be put back (%2$s). Your original data is still on the device as %3$s and %4$s.</string>
 
+    <!-- Photos on the form -->
+    <string name="form_take_photo">Take a photo</string>
+    <string name="photo_move_earlier">Move earlier</string>
+    <string name="photo_move_later">Move later</string>
+    <string name="photo_make_cover">Make cover</string>
+    <string name="photo_retake">Retake</string>
+
     <!-- Language, in Settings -->
     <string name="settings_language">Language</string>
     <string name="settings_language_hint">Applies to this app only. Android remembers it, so it survives a restart and can also be changed from the system settings.</string>

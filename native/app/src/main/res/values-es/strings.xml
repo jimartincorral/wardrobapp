@@ -239,6 +239,13 @@
     <string name="archive_restore_failed">La restauración falló: %1$s. Tu armario quedó sin cambios.</string>
     <string name="archive_rollback_failed">La restauración falló (%1$s) y no se pudo devolver el armario a su estado anterior (%2$s). Tus datos originales siguen en el dispositivo como %3$s y %4$s.</string>
 
+    <!-- Photos on the form -->
+    <string name="form_take_photo">Tomar una foto</string>
+    <string name="photo_move_earlier">Mover antes</string>
+    <string name="photo_move_later">Mover después</string>
+    <string name="photo_make_cover">Usar como portada</string>
+    <string name="photo_retake">Volver a tomar</string>
+
     <!-- Language, in Settings -->
     <string name="settings_language">Idioma</string>
     <string name="settings_language_hint">Solo afecta a esta aplicación. Android lo recuerda, así que se mantiene al reiniciar y también se puede cambiar desde los ajustes del sistema.</string>

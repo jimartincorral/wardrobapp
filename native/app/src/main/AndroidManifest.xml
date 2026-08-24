@@ -39,6 +39,25 @@
                 android:value="true" />
         </service>
 
+        <!--
+            How a camera app hands back the photo it took.
+
+            The capture goes through ACTION_IMAGE_CAPTURE, which means the camera
+            app takes the picture and this one never touches the camera — so no
+            CAMERA permission, and no runtime prompt. What it does need is a file
+            the other app may write to, and a content URI is the only way to grant
+            that without making the directory world-readable.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.photos"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
