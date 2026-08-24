@@ -186,7 +186,7 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-31 suites, 379 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import and which addresses it will fetch, garment and outfit services, what a garment's detail screen shows, how the outfit filters behave, the analytics bar arithmetic, the domain layer's dependency-freedom, and the pure utilities.
+32 suites, 383 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import and which addresses it will fetch, garment and outfit services, what a garment's detail screen shows, how the outfit filters behave, the analytics bar arithmetic, the domain layer's dependency-freedom, whether any user-facing text is left outside the translations, and the pure utilities.
 
 The Kotlin port adds 403 more. 367 of them need nothing but a JDK, which is the
 point of the layering:
@@ -209,7 +209,11 @@ activity the Compose tests compose into, and it is a debug-only artifact by
 design, so running them against release fails every one of them.
 
 `typecheck`, `test`, the Kotlin tests and the Android build all run in CI on every
-pull request.
+pull request, and on pushes to `main` and to `claude/**` branches — the Android job
+is the only place `:app` compiles or lints at all, so a branch needs to be able to
+run it without opening a pull request first. Lint runs every check it has, and a
+warning fails the build: there is no baseline file, because there is no backlog to
+freeze.
 
 Domain algorithms are checked by mutation: each behaviour the tests claim to protect is removed in turn, and the intended test must fail. A test that passes without the code it covers is not a test.
 
@@ -220,7 +224,7 @@ Domain algorithms are checked by mutation: each behaviour the tests claim to pro
 
   It installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it, so a wardrobe gets in there by restoring a backup — and back out the same way, since both apps read and write the same archive format.
 
-  What is genuinely still missing is small and mostly not features: listing and deleting old backups from inside the app (which would mean holding a persistent directory grant the port currently does without — backups go in and out through the document picker with no storage permission at all, and the Files app already deletes a zip); a full `lint` pass, which needs a baseline recorded first so the existing backlog is frozen rather than failing the build; and the cutover itself. The shipped app is still the React Native one.
+  What is genuinely still missing is small and mostly not features: listing and deleting old backups from inside the app (which would mean holding a persistent directory grant the port currently does without — backups go in and out through the document picker with no storage permission at all, and the Files app already deletes a zip); and the cutover itself. The shipped app is still the React Native one.
 
 - **Two places the port deliberately behaves differently.** A redirect is checked *before* it is followed, which closes the residual risk described under URL import below — `HttpURLConnection` can be told not to follow one, and React Native's fetch cannot. And an `http://` page will not load at all: Android blocks cleartext by default and the port does not opt in, since turning it on app-wide to reach the occasional shop still on http would weaken every other request it makes.
 - **The `garments` schema is not uniform.** `created_at` and `updated_at` are `NOT NULL` on a fresh install but nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist, so readers must tolerate both — and it is why the native data layer will use plain SQL rather than Room, whose schema validation would reject one of them.

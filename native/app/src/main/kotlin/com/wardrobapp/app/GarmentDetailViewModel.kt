@@ -1,7 +1,7 @@
 package com.wardrobapp.app
 
-import android.net.Uri
 import androidx.annotation.StringRes
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.GarmentRecord
@@ -240,7 +240,7 @@ class GarmentDetailViewModel(
                 withContext(Dispatchers.IO) {
                     val cutout = resolveImageRef(
                         container.backgrounds.removeBackground(
-                            Uri.parse(original),
+                            original.toUri(),
                             UUID.randomUUID().toString(),
                         ),
                         container.imageDirectory,

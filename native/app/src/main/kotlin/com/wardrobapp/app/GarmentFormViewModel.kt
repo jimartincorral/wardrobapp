@@ -2,6 +2,7 @@ package com.wardrobapp.app
 
 import android.net.Uri
 import androidx.annotation.StringRes
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.DuplicateGarment
@@ -391,7 +392,7 @@ class GarmentFormViewModel(
             try {
                 val detected = withContext(Dispatchers.IO) {
                     container.photos
-                        .pixelsFor(Uri.parse(photo), COLOR_SAMPLE_WIDTH)
+                        .pixelsFor(photo.toUri(), COLOR_SAMPLE_WIDTH)
                         ?.let { dominantGarmentColor(it) }
                 }
 
@@ -436,7 +437,7 @@ class GarmentFormViewModel(
             try {
                 val cutout = withContext(Dispatchers.IO) {
                     container.backgrounds.removeBackground(
-                        Uri.parse(photo),
+                        photo.toUri(),
                         UUID.randomUUID().toString(),
                     )
                 }

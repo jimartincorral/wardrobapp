@@ -87,6 +87,7 @@ const en = {
     emptyNudge: 'Try tagging garments with a season to improve suggestions.',
     savedTitle: 'Saved Outfits',
     itemsCount: '%{count} items',
+    pinnedName: 'Pinned: %{name}',
     pin: 'Pin',
     unpin: 'Unpin',
     saved: 'Saved!',
