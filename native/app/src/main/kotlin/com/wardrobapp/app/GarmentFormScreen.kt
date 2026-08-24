@@ -54,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -79,6 +80,9 @@ import com.wardrobapp.presentation.backgroundActionFor
  * :presentation before anything reached here.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+/** The scrolling body of the form, for tests that need to reach past the fold. */
+const val GARMENT_FORM_LIST = "garment-form-list"
+
 @Composable
 fun GarmentFormScreen(
     state: GarmentFormViewModel.State,
@@ -159,7 +163,12 @@ fun GarmentFormScreen(
         }
 
         LazyColumn(
-            modifier = Modifier.padding(insets),
+            // Tagged so a test can scroll it. A LazyColumn only composes what is on
+            // screen, so anything below the fold -- the camera button, the colour
+            // chips -- is not merely invisible to a test, it does not exist yet.
+            // Scrolling to it needs the list named, and naming it here is cheaper
+            // than a test that only ever checks the top of the form.
+            modifier = Modifier.testTag(GARMENT_FORM_LIST).padding(insets),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {

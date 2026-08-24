@@ -1,8 +1,11 @@
 package com.wardrobapp.app
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollToNode
 import com.wardrobapp.domain.ImportFailureReason
 import com.wardrobapp.domain.UnsafeUrlReason
 import com.wardrobapp.presentation.GarmentFormState
@@ -88,6 +91,12 @@ class GarmentFormScreenTest {
     @Test
     fun `both ways of adding a photo are offered`() {
         show()
+
+        // Scrolled to first, because it is below the fold on a small screen and a
+        // LazyColumn has not composed it yet -- which is a different failure from
+        // the button being absent, and reads identically in the assertion. This is
+        // what the first run of this test found.
+        compose.onNodeWithTag(GARMENT_FORM_LIST).performScrollToNode(hasText("Take Photo"))
 
         compose.onNodeWithText("Take Photo").assertIsDisplayed()
     }
