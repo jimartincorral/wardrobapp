@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -49,6 +50,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.canhub.cropper.CropImageContract
 import com.wardrobapp.data.backupFilename
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.languageChoiceFor
@@ -452,9 +454,25 @@ class MainActivity : AppCompatActivity() {
         )
         val state by model.state.collectAsStateWithLifecycle()
 
+        // Every photo comes in through here, from the gallery or from the camera:
+        // both launchers below hand their result to the crop screen, and only what
+        // comes back from it is stored. The ratio is fixed at 3:4, which is the
+        // shape every screen shows a garment photo in -- see cropTo3by4.
+        val cropOutput = remember { cropDestination() }
+        val colors = MaterialTheme.colorScheme
+        val cropper = rememberLauncherForActivityResult(CropImageContract()) { result ->
+            when {
+                result.isSuccessful -> result.uriContent?.let(model::onPhotoPicked)
+                // Cancelling is not a failure: it means no photo, the same as
+                // backing out of the picker, and it says so by having no error.
+                result.error != null -> model.onCropFailed()
+                else -> Unit
+            }
+        }
+
         val picker = rememberLauncherForActivityResult(
             ActivityResultContracts.PickVisualMedia()
-        ) { uri -> uri?.let(model::onPhotoPicked) }
+        ) { uri -> uri?.let { cropper.launch(cropTo3by4(it, cropOutput, colors)) } }
 
         // Where the camera will write, minted per composition rather than per tap:
         // the contract needs the destination before it launches, and a file that
@@ -466,7 +484,7 @@ class MainActivity : AppCompatActivity() {
             // False means dismissed, or a camera app that wrote nothing. Neither is
             // a failure worth a dialog; the file is cleaned up either way once the
             // photo has been stored.
-            if (taken) model.onPhotoPicked(destination)
+            if (taken) cropper.launch(cropTo3by4(destination, cropOutput, colors))
         }
 
         // Leaving is the activity's business, not the model's: the model reports
@@ -690,6 +708,21 @@ class MainActivity : AppCompatActivity() {
     private fun cameraDestination(): Uri {
         val directory = File(cacheDir, "camera").also { it.mkdirs() }
         val file = File(directory, "capture.jpg")
+        return FileProvider.getUriForFile(this, "$packageName.camera", file)
+    }
+
+    /**
+     * A file for the crop screen to write into, on the same terms.
+     *
+     * Its own directory rather than the camera's, so a capture and the cropped copy
+     * of it are never the same file being read and written at once. Otherwise the
+     * reasoning above applies unchanged: spent once stored, one fixed name, and a
+     * provider URI because a `file://` one handed to an activity is a
+     * FileUriExposedException waiting to happen.
+     */
+    private fun cropDestination(): Uri {
+        val directory = File(cacheDir, "crop").also { it.mkdirs() }
+        val file = File(directory, "cropped.jpg")
         return FileProvider.getUriForFile(this, "$packageName.camera", file)
     }
 

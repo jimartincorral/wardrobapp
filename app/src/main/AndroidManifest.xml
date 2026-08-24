@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="false"
@@ -44,12 +45,16 @@
         </service>
 
         <!--
-            How a camera app is handed somewhere to write.
+            How a photo on its way in is handed somewhere to write: a camera app
+            is given a file to put a capture in, and the crop screen is given one
+            to put the cropped copy in.
 
             Not exported and with no permission of its own: the grant travels with
             the intent, for one URI, and is revoked when the activity finishes.
             `android:authorities` is derived from the application id so the dev
-            build and a future cutover build cannot collide on one device.
+            build and a future cutover build cannot collide on one device. It
+            still says `camera` because that is what is installed on phones, and
+            renaming it would buy nothing.
         -->
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -60,6 +65,21 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/camera_paths" />
         </provider>
+
+        <!--
+            The crop screen, redeclared to put it under a theme with an action
+            bar. See Theme.Wardrobapp.Crop: without one the library's Crop button
+            has nowhere to appear.
+
+            Unexported, because nothing outside this app has any business
+            launching it. `tools:replace` because the library's own manifest says
+            exported="true" and the merger will not silently pick a side.
+        -->
+        <activity
+            android:name="com.canhub.cropper.CropImageActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Wardrobapp.Crop"
+            tools:replace="android:exported" />
 
         <activity
             android:name=".MainActivity"

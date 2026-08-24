@@ -256,6 +256,13 @@ dependencies {
     // Photos are files on disk; Coil loads them without hand-rolled decoding.
     implementation("io.coil-kt:coil-compose:2.7.0")
 
+    // The crop screen a photo goes through on its way in. Android has none to
+    // call -- ACTION_CROP is an undocumented intent that most phones answer with
+    // nothing -- so expo-image-picker's `allowsEditing`, which is what the React
+    // Native app cropped with, was this library. Same one, so a photo is framed
+    // the way it always was.
+    implementation("com.vanniktech:android-image-cropper:4.7.0")
+
     // The SqlDriver implementation wraps this rather than android.database
     // directly, so WAL and the pragmas are configured the same way expo-sqlite
     // configures them.
