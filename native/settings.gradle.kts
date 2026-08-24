@@ -1,9 +1,10 @@
-// The native Android port. Kept alongside the React Native app rather than
-// replacing it: the RN app keeps shipping until this reaches parity.
+// Wardrobapp.
 //
 // :domain, :data and :presentation are deliberately plain Kotlin/JVM, so they
 // build and test without the Android SDK -- on any machine and in CI. Only :app
-// needs the SDK, and it is included only where one exists.
+// needs the SDK, and it is included only where one exists. That split started as
+// a way to port the app a layer at a time; it is kept because it is the reason
+// most of this codebase can be tested in seconds without an emulator.
 //
 // The SDK probe is repeated rather than shared: pluginManagement is evaluated in
 // an early scope that cannot see declarations from the rest of the file.
@@ -46,7 +47,6 @@ rootProject.name = "wardrobapp-native"
 include(":domain")
 include(":data")
 include(":presentation")
-include(":parity-testing")
 
 val androidSdk = System.getenv("ANDROID_HOME")?.takeIf { it.isNotBlank() }
                 ?: System.getenv("ANDROID_SDK_ROOT")?.takeIf { it.isNotBlank() }

@@ -19,7 +19,7 @@ import kotlin.test.assertTrue
  */
 class SuggestionsTest {
 
-    private val driver = JdbcSqlDriver.fromSchemaFixture("schema-fresh.sql")
+    private val driver = JdbcSqlDriver.fresh()
     private val imageDirectory = "file:///photos/"
     private val subject = Suggestions(
         GarmentQueries(driver, imageDirectory),

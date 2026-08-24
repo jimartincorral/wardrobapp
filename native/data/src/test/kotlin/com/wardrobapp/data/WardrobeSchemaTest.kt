@@ -4,16 +4,22 @@ import java.sql.DriverManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlin.test.fail
 
 /**
- * The Kotlin schema against the TypeScript one.
+ * The schema, and the two shapes it produces.
  *
- * WardrobeSchema is a transcription of src/db/schema.ts, and a transcription can
- * drift. Rather than compare the SQL text -- which would fail on whitespace and
- * pass on a genuine difference expressed differently -- both are applied to an
- * empty database and the resulting sqlite_master is compared. That is the thing
- * that actually has to match.
+ * This used to compare [WardrobeSchema] against a schema dumped from the
+ * TypeScript it was transcribed from. That app is gone, so the comparison has
+ * gone with it -- but the thing it was protecting has not: a database created
+ * years ago by the small `CREATE TABLE` in [LegacySchema] and carried forward by
+ * additive `ALTER`s has to end up holding the same columns as one created fresh
+ * today, or a query written against one will fail against the other. That is now
+ * asserted directly, which is a better test than the one it replaces: it says
+ * what has to be true rather than that two implementations agree.
+ *
+ * Compared through `sqlite_master` and `PRAGMA table_info` rather than by reading
+ * the SQL text, which would fail on whitespace and pass on a real difference
+ * expressed differently.
  */
 class WardrobeSchemaTest {
 
@@ -29,8 +35,8 @@ class WardrobeSchemaTest {
                 ).use { rs ->
                     val objects = mutableListOf<String>()
                     while (rs.next()) {
-                        // Normalized: the two sources format their DDL
-                        // differently, and only the structure matters.
+                        // Normalized: the fresh and upgraded paths format their
+                        // DDL differently, and only the structure matters.
                         val sql = (rs.getString("sql") ?: "")
                             .replace(Regex("\\s+"), " ")
                             .trim()
@@ -42,53 +48,77 @@ class WardrobeSchemaTest {
         }
     }
 
-    /** Apply a schema fixture, ignoring the failures the app ignores. */
-    private fun applyFixture(name: String): (SqlDriver) -> Unit = { driver ->
-        val sql = javaClass.getResourceAsStream("/parity/$name")
-            ?.bufferedReader()?.readText()
-            ?: fail("Missing $name. Generate it with: npm run parity:dump")
+    /** The old install, as it was created. */
+    private val applyLegacyTables: (SqlDriver) -> Unit = { driver ->
+        for (statement in LegacySchema.CREATE_TABLES) driver.execute(statement)
+    }
 
-        val statements = sql.lines()
-            .filterNot { it.trimStart().startsWith("--") }
-            .joinToString("\n")
-            .split(';')
+    /** Every table's columns, as name to whether the column is `NOT NULL`. */
+    private fun columnsOf(driver: SqlDriver): Map<String, Map<String, Boolean>> {
+        val tables = driver
+            .query("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+            .map { it["name"] as String }
+            .filterNot { it.startsWith("sqlite_") }
 
-        for (statement in statements) {
-            val trimmed = statement.trim()
-            if (trimmed.isEmpty()) continue
-            try {
-                driver.execute(trimmed)
-            } catch (e: Exception) {
-                if (e.message?.contains("duplicate column name") != true) throw e
+        return tables.associateWith { table ->
+            driver.query("PRAGMA table_info($table)").associate {
+                (it["name"] as String) to ((it["notnull"] as Number).toInt() == 1)
             }
         }
     }
 
+    private fun <T> withDatabase(apply: (SqlDriver) -> Unit, read: (SqlDriver) -> T): T {
+        DriverManager.getConnection("jdbc:sqlite::memory:").use { connection ->
+            val driver = JdbcSqlDriver(connection)
+            apply(driver)
+            return read(driver)
+        }
+    }
+
     @Test
-    fun `produces the same schema as the TypeScript on a fresh database`() {
-        val fromKotlin = schemaOf { WardrobeSchema.applyTo(it) }
-        val fromTypeScript = schemaOf(applyFixture("schema-fresh.sql"))
+    fun `an upgraded install ends up holding the same columns as a fresh one`() {
+        val fresh = withDatabase({ WardrobeSchema.applyTo(it) }, ::columnsOf)
+        val upgraded = withDatabase(
+            { driver ->
+                applyLegacyTables(driver)
+                WardrobeSchema.applyTo(driver)
+            },
+            ::columnsOf,
+        )
 
         assertEquals(
-            fromTypeScript,
-            fromKotlin,
-            "the Kotlin transcription has drifted from src/db/schema.ts"
+            fresh.mapValues { (_, columns) -> columns.keys },
+            upgraded.mapValues { (_, columns) -> columns.keys },
+            "an ALTER is missing: a query written for one install would fail on the other",
         )
     }
 
     @Test
-    fun `upgrades an old install the same way the TypeScript does`() {
-        // The same old-install DDL the upgraded fixture starts from, loaded
-        // rather than copied: a second copy is a second thing that can drift,
-        // and the first version of this test compared two different starting
-        // states without saying so.
-        val fromKotlin = schemaOf { driver ->
-            applyFixture("schema-old-install.sql")(driver)
-            WardrobeSchema.applyTo(driver)
-        }
-        val fromTypeScript = schemaOf(applyFixture("schema-upgraded.sql"))
+    fun `and differs from it in exactly the two columns SQLite will not add`() {
+        // SQLite cannot add a NOT NULL column without a default, so the two
+        // timestamps are nullable on any install old enough to have been ALTERed
+        // into its current shape. Both populations are out there, which is the
+        // reason this layer reads SQL by hand instead of using Room -- Room's
+        // schema validation would reject one of them.
+        //
+        // Pinned rather than described: if a third column ever joins them, that
+        // is a fact about the app's data worth noticing on purpose.
+        val fresh = withDatabase({ WardrobeSchema.applyTo(it) }, ::columnsOf)
+        val upgraded = withDatabase(
+            { driver ->
+                applyLegacyTables(driver)
+                WardrobeSchema.applyTo(driver)
+            },
+            ::columnsOf,
+        )
 
-        assertEquals(fromTypeScript, fromKotlin, "the upgrade path has drifted")
+        val relaxed = fresh.flatMap { (table, columns) ->
+            columns.filter { (column, notNull) ->
+                notNull && upgraded.getValue(table)[column] == false
+            }.keys.map { "$table.$it" }
+        }
+
+        assertEquals(listOf("garments.created_at", "garments.updated_at"), relaxed.sorted())
     }
 
     @Test
@@ -107,7 +137,7 @@ class WardrobeSchemaTest {
     fun `keeps the rows an old install already had`() {
         DriverManager.getConnection("jdbc:sqlite::memory:").use { connection ->
             val driver = JdbcSqlDriver(connection)
-            applyFixture("schema-old-install.sql")(driver)
+            applyLegacyTables(driver)
             driver.execute("INSERT INTO garments VALUES ('old', 'a.jpg', 'tops')")
 
             WardrobeSchema.applyTo(driver)
@@ -132,5 +162,19 @@ class WardrobeSchemaTest {
         val plain = schemaOf { WardrobeSchema.applyTo(it) }
 
         assertTrue(withExtraTable != plain, "the schema comparison is not comparing anything")
+    }
+
+    @Test
+    fun `the column comparison would notice a missing ALTER`() {
+        // Same reasoning one level down: the two tests above pass if columnsOf
+        // returns the same thing for every input, which is also what it would do
+        // if it were broken.
+        val fresh = withDatabase({ WardrobeSchema.applyTo(it) }, ::columnsOf)
+        val legacyOnly = withDatabase(applyLegacyTables, ::columnsOf)
+
+        assertTrue(
+            fresh.getValue("garments").keys != legacyOnly.getValue("garments").keys,
+            "columnsOf cannot tell an old install from an upgraded one",
+        )
     }
 }

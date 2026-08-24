@@ -20,7 +20,6 @@ dependencies {
     // not just a test one.
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     testImplementation(kotlin("test"))
-    testImplementation(project(":parity-testing"))
     // Real SQLite, so the read paths are exercised against the schema the app
     // actually applies rather than a stand-in. Test-only: the Android
     // implementation of SqlDriver wraps SupportSQLiteDatabase instead.

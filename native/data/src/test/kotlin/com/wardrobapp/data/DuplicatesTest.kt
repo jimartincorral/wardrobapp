@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
  */
 class DuplicatesTest {
 
-    private val driver = JdbcSqlDriver.fromSchemaFixture("schema-fresh.sql")
+    private val driver = JdbcSqlDriver.fresh()
     private val subject = Duplicates(GarmentQueries(driver, "file:///photos/"))
 
     @AfterTest

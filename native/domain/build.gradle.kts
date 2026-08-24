@@ -14,7 +14,6 @@ dependencies {
     // depends on this. No new weight in the APK: :data already ships it.
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     testImplementation(kotlin("test"))
-    testImplementation(project(":parity-testing"))
 }
 
 // Pinned to 17 -- the JDK the Android build uses -- so these modules can be

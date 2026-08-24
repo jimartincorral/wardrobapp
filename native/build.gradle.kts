@@ -1,8 +1,8 @@
 // Test guards applied to every Kotlin module, rather than repeated in each.
 //
 // Both exist because a test task that verifies nothing reports success exactly
-// like one that verified everything, and these modules are ports whose entire
-// value is the suite proving they match the TypeScript.
+// like one that verified everything, and the whole reason these modules are
+// plain Kotlin is that their behaviour can be checked without a device.
 subprojects {
     val project = this
     plugins.withId("org.jetbrains.kotlin.jvm") {
@@ -22,8 +22,9 @@ subprojects {
             doLast {
                 if (testSources.get().files.none { it.extension == "kt" }) {
                     throw GradleException(
-                        "No Kotlin test sources found in ${project.path}. The parity suite is " +
-                            "the point of these modules, so its absence is a failure, not a pass."
+                        "No Kotlin test sources found in ${project.path}. These modules are " +
+                            "pure so that they can be tested, so an untested one is a failure, " +
+                            "not a pass."
                     )
                 }
             }

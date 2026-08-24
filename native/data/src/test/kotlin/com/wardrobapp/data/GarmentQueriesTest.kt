@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
  */
 class GarmentQueriesTest {
 
-    private val schemas = listOf("schema-fresh.sql", "schema-upgraded.sql")
+    private val schemas = JdbcSqlDriver.bothSchemas()
 
     private val directory = "file:///data/user/0/com.anonymous.wardrobapp/files/garment-images/"
 
@@ -56,8 +56,8 @@ class GarmentQueriesTest {
     }
 
     private fun eachSchema(body: (schema: String, driver: JdbcSqlDriver, queries: GarmentQueries) -> Unit) {
-        for (schema in schemas) {
-            JdbcSqlDriver.fromSchemaFixture(schema).use { driver ->
+        for ((schema, openDatabase) in schemas) {
+            openDatabase().use { driver ->
                 body(schema, driver, GarmentQueries(driver, directory))
             }
         }
@@ -80,7 +80,7 @@ class GarmentQueriesTest {
         }
 
         assertEquals(
-            mapOf("schema-fresh.sql" to true, "schema-upgraded.sql" to false),
+            mapOf("fresh install" to true, "upgraded install" to false),
             notNull,
             "the fresh schema should have created_at NOT NULL and the upgraded one nullable"
         )
@@ -223,7 +223,7 @@ class GarmentQueriesTest {
     fun `an upgraded install with no timestamps still reads`() {
         // Only the upgraded schema permits this, and it is the case Room's schema
         // validation would have rejected outright.
-        JdbcSqlDriver.fromSchemaFixture("schema-upgraded.sql").use { driver ->
+        JdbcSqlDriver.upgraded().use { driver ->
             driver.execute(
                 """
                 INSERT INTO garments (id, image_uri, category, color_primary, is_available)

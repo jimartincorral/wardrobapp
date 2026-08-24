@@ -17,15 +17,15 @@ import kotlin.test.assertTrue
  */
 class WritePathsTest {
 
-    private val schemas = listOf("schema-fresh.sql", "schema-upgraded.sql")
+    private val schemas = JdbcSqlDriver.bothSchemas()
     private val directory = "/photos/"
     private val now = "2026-01-01T00:00:00.000Z"
 
     private fun eachSchema(
         body: (schema: String, driver: JdbcSqlDriver, reads: GarmentQueries, writes: GarmentWrites) -> Unit,
     ) {
-        for (schema in schemas) {
-            JdbcSqlDriver.fromSchemaFixture(schema).use { driver ->
+        for ((schema, openDatabase) in schemas) {
+            openDatabase().use { driver ->
                 body(schema, driver, GarmentQueries(driver, directory), GarmentWrites(driver))
             }
         }

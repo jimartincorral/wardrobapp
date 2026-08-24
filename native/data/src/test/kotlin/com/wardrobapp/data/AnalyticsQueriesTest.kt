@@ -13,11 +13,11 @@ import kotlin.test.assertTrue
  */
 class AnalyticsQueriesTest {
 
-    private val schemas = listOf("schema-fresh.sql", "schema-upgraded.sql")
+    private val schemas = JdbcSqlDriver.bothSchemas()
 
     private fun eachSchema(body: (schema: String, driver: JdbcSqlDriver, analytics: AnalyticsQueries) -> Unit) {
-        for (schema in schemas) {
-            JdbcSqlDriver.fromSchemaFixture(schema).use { driver ->
+        for ((schema, openDatabase) in schemas) {
+            openDatabase().use { driver ->
                 body(schema, driver, AnalyticsQueries(driver))
             }
         }

@@ -57,50 +57,37 @@ class JdbcSqlDriver(private val connection: Connection) : CloseableSqlDriver {
 
     companion object {
         /**
-         * Build an in-memory database from one of the schema fixtures.
+         * A database with the schema a fresh install gets.
          *
-         * The fixtures are emitted from src/db/schema.ts, so this is the schema
-         * the app actually applies -- not a copy of it that can drift.
+         * [WardrobeSchema.applyTo] is what the app runs on every open, so the
+         * tests run against the same statements rather than against a copy of
+         * them that can drift.
          */
-        fun fromSchemaFixture(name: String): JdbcSqlDriver {
-            val sql = JdbcSqlDriver::class.java.getResourceAsStream("/parity/$name")
-                ?.bufferedReader()?.readText()
-                ?: fail("Missing schema fixture '$name'. Generate it with: npm run parity:dump")
+        fun fresh(): JdbcSqlDriver = built { WardrobeSchema.applyTo(it) }
 
-            val connection = DriverManager.getConnection("jdbc:sqlite::memory:")
-            var applied = 0
-            var ignored = 0
+        /**
+         * A database with the schema an install from before the additive `ALTER`s
+         * ends up with -- [LegacySchema] as it was created, then brought up to
+         * date the way the app brings it up to date on every open.
+         *
+         * Not the same shape as [fresh]: SQLite cannot add a `NOT NULL` column
+         * without a default, so `garments.created_at` is nullable here. Both
+         * populations exist on real phones, which is why every read-path test
+         * runs against both.
+         */
+        fun upgraded(): JdbcSqlDriver = built { driver ->
+            for (statement in LegacySchema.CREATE_TABLES) driver.execute(statement)
+            WardrobeSchema.applyTo(driver)
+        }
 
-            // Comments are stripped before splitting, not after: a `--` comment
-            // may itself contain a semicolon, and splitting first chops it into a
-            // fragment that then fails as a statement. (No statement here has a
-            // semicolon inside a string literal, which this would also split.)
-            val statements = sql.lines()
-                .filterNot { it.trimStart().startsWith("--") }
-                .joinToString("\n")
-                .split(';')
+        /** Both, by the name a failure should print. */
+        fun bothSchemas(): List<Pair<String, () -> JdbcSqlDriver>> =
+            listOf("fresh install" to ::fresh, "upgraded install" to ::upgraded)
 
-            for (statement in statements) {
-                val trimmed = statement.trim()
-                if (trimmed.isEmpty()) continue
-
-                try {
-                    connection.createStatement().use { it.execute(trimmed) }
-                    applied++
-                } catch (e: Exception) {
-                    // The app ignores "duplicate column name" the same way, which
-                    // is the whole mechanism by which an upgraded install ends up
-                    // with a different schema from a fresh one.
-                    if (e.message?.contains("duplicate column name") == true) {
-                        ignored++
-                    } else {
-                        fail("Schema fixture '$name' failed on:\n$trimmed\n\n${e.message}")
-                    }
-                }
-            }
-
-            if (applied == 0) fail("Schema fixture '$name' applied no statements")
-            return JdbcSqlDriver(connection)
+        private fun built(apply: (SqlDriver) -> Unit): JdbcSqlDriver {
+            val driver = JdbcSqlDriver(DriverManager.getConnection("jdbc:sqlite::memory:"))
+            apply(driver)
+            return driver
         }
     }
 }
