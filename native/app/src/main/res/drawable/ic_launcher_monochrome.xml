@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    The themed-icon layer, for the Android 13 setting that repaints every icon in
+    the launcher's own colours.
+
+    The same outline as the foreground, and deliberately a separate file rather than
+    a reference to it: the system tints this one itself, so its colour has to be the
+    placeholder black that tinting expects, not the white that sits on the violet
+    background.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:pathData="M42,26 L30,30 L22,46 L34,52 L34,82 L74,82 L74,52 L86,46 L78,30 L66,26 C62,34 46,34 42,26 Z"
+        android:fillColor="#000000" />
+</vector>

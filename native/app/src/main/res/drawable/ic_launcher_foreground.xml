@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    The launcher icon's foreground: a t-shirt.
+
+    Drawn here rather than imported because there was nothing to import. Every file
+    in assets/images is a 1x1 transparent placeholder — the Expo template's, never
+    replaced — so the app that ships has no icon either, and generating densities
+    from those would have produced one blank PNG per density.
+
+    A filled silhouette, and a garment rather than a wardrobe or a hanger, because
+    the size that matters is 48dp. A cupboard at 48dp is a grey rectangle; a hanger
+    is worse, because its hook comes out about three pixels across and reads as a
+    blob on a stick — which is what the first draft of this file did. A shape with
+    an outline and a collar notch still reads at that size.
+
+    The 108x108 viewport is the adaptive-icon canvas. Only the middle 72x72 is
+    guaranteed to be visible — the launcher masks the rest and may animate within
+    it — so the artwork stays inside 18..90 on both axes.
+
+    Keep this in step with scripts/generate-launcher-icons.py, which draws the same
+    outline for the Android 7 rasters.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:pathData="M42,26 L30,30 L22,46 L34,52 L34,82 L74,82 L74,52 L86,46 L78,30 L66,26 C62,34 46,34 42,26 Z"
+        android:fillColor="#FFFFFF" />
+</vector>

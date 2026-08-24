@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    The round variant, which some launchers ask for by name.
+
+    Identical to the square one on purpose: an adaptive icon is masked by the
+    launcher, so the shape is the launcher's decision and there is nothing here to
+    round. It exists because a launcher that requests `roundIcon` and does not find
+    one falls back to the legacy raster instead of the adaptive icon.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
+</adaptive-icon>
