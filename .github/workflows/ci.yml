@@ -3,7 +3,11 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    # Development branches too, not just main: the Android job is the only place
+    # :app can be compiled or linted at all, and a branch should be able to prove
+    # itself before a pull request exists to run it. The cost is that a branch
+    # with an open pull request runs twice.
+    branches: [main, 'claude/**']
   workflow_dispatch:
 
 concurrency:
@@ -149,6 +153,20 @@ jobs:
       - name: Lint
         run: ./gradlew :app:lintDebug --console=plain
         working-directory: native
+
+      # Every finding on one line each, since a warning now fails the build and
+      # the full report is mostly the explanations. Information too: the version
+      # checks are downgraded to it rather than switched off, and this is where
+      # they get read. Runs even when lint failed -- especially then.
+      - name: Show the lint findings
+        if: always()
+        run: |
+          report=native/app/build/reports/lint-results-debug.txt
+          [ -f "$report" ] || exit 0
+          grep -E '^/.*(Warning|Error|Information):' "$report" \
+            | sed 's|.*/native/|native/|' || true
+          tail -1 "$report"
+
 
       - name: Assemble
         run: ./gradlew :app:assembleDebug --console=plain
