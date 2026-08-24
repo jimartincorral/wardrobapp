@@ -232,9 +232,12 @@ jobs:
   build:
     name: Build release APK
     needs: verify
-    # The APK is only worth building for something we might publish, and a
-    # pull request is never that. Keeps PR runs to the verify job alone.
-    if: github.event_name != 'pull_request'
+    # The APK is only worth building for something we might publish. That used to
+    # mean "not a pull request", which stopped being the same thing when pushes to
+    # development branches started running this workflow: prebuild plus an NDK
+    # build of Reanimated is a quarter of an hour, and a branch push has nothing
+    # to publish -- the release step below is main-only anyway.
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     # Needed to publish the APK to a release. The repository default is
