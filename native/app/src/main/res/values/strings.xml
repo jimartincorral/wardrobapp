@@ -160,6 +160,75 @@
     <string name="duplicate_reason_size">same size</string>
     <string name="duplicate_reason_overall">overall similarity</string>
 
+    <!-- Analytics -->
+    <string name="analytics_title">Analytics</string>
+    <string name="analytics_in_use">In use</string>
+    <string name="analytics_retired">Retired</string>
+    <string name="analytics_empty_title">Nothing to measure yet</string>
+    <string name="analytics_empty_body">Add a few garments and this fills in: what your wardrobe is made of, and how long the things you retire tend to last.</string>
+    <string name="analytics_open_statistics">View detailed statistics</string>
+    <string name="analytics_by_category">By category</string>
+    <string name="analytics_no_garments">Nothing in the wardrobe yet.</string>
+    <string name="analytics_lifespan">How long things lasted</string>
+    <string name="analytics_no_lifespan">Nothing retired yet. Mark a garment as no longer in use and it appears here.</string>
+    <string name="analytics_days">%1$dd</string>
+
+    <!-- Statistics -->
+    <string name="statistics_title">Statistics</string>
+    <string name="statistics_subtitle">A breakdown of what you own.</string>
+    <string name="statistics_items">Items</string>
+    <string name="statistics_categories">Categories</string>
+    <string name="statistics_colours">Colours</string>
+    <string name="statistics_brands">Brands</string>
+    <string name="statistics_empty_body">Add a few garments and this fills in: what your wardrobe is made of, which colours you actually wear, and who made it all.</string>
+    <string name="statistics_expand_hint">Tap a category to see what\'s in it</string>
+    <string name="statistics_expand">Show subcategories</string>
+    <string name="statistics_collapse">Hide subcategories</string>
+    <string name="statistics_by_colour">By colour</string>
+    <string name="statistics_by_brand">By brand</string>
+    <string name="statistics_sort_count">Most</string>
+    <string name="statistics_sort_name">A-Z</string>
+    <string name="statistics_no_subcategory">Not specified</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_storage">Storage</string>
+    <string name="settings_section_backup">Backup</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_garments">Garments</string>
+    <string name="settings_retired">No longer in use</string>
+    <string name="settings_photos">Photos</string>
+    <string name="settings_megabytes">%1$s MB</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_build">Build</string>
+    <string name="settings_backup_hint">A backup is one file holding the wardrobe and every photo. It is also how a wardrobe moves between this app and the one on the Play Store.</string>
+    <string name="settings_backup_create">Create a backup</string>
+    <string name="settings_backup_restore">Restore from a backup</string>
+    <string name="backup_running_title">Backing up</string>
+    <string name="backup_running_body">Copying the wardrobe and its photos.</string>
+    <string name="backup_done_title">Backup saved</string>
+    <string name="backup_failed_title">Couldn\'t save that backup</string>
+    <string name="restore_confirm_title">Restore from a backup?</string>
+    <string name="restore_confirm_body">Everything in this app\'s wardrobe will be replaced by the contents of the backup you pick. If the backup turns out not to be usable, nothing is changed.</string>
+    <string name="restore_pick">Pick a backup</string>
+    <string name="restore_running_title">Restoring</string>
+    <string name="restore_running_body">Unpacking and checking the backup.</string>
+    <string name="restore_done_title">Wardrobe restored</string>
+    <string name="restore_done_body">The backup was restored.</string>
+    <string name="restore_failed_title">Couldn\'t restore that backup</string>
+    <string name="action_done">Done</string>
+
+    <!-- What the photo and background work can go wrong with -->
+    <string name="error_background_busy">A background is already being removed.</string>
+    <string name="error_photo_unreadable">That photo could not be read.</string>
+    <string name="error_photo_unopenable">That photo could not be opened.</string>
+    <string name="error_no_subject">No subject was found in that photo, so there was no background to remove.</string>
+    <string name="error_background_downloading">Background removal is still downloading what it needs. Try again in a moment.</string>
+    <string name="error_background_failed">Background removal failed: %1$s</string>
+    <string name="error_image_unreadable">That image could not be read.</string>
+    <string name="error_image_unsaveable">That image could not be saved.</string>
+    <string name="error_image_unopenable">That image could not be opened.</string>
+
     <!-- Language, in Settings -->
     <string name="settings_language">Language</string>
     <string name="settings_language_hint">Applies to this app only. Android remembers it, so it survives a restart and can also be changed from the system settings.</string>
@@ -295,6 +364,18 @@
     <plurals name="garment_count">
         <item quantity="one">%d garment</item>
         <item quantity="other">%d garments</item>
+    </plurals>
+    <plurals name="photo_count">
+        <item quantity="one">%d photo</item>
+        <item quantity="other">%d photos</item>
+    </plurals>
+    <plurals name="backup_photos_skipped">
+        <item quantity="one">%d photo could not be read and was left out.</item>
+        <item quantity="other">%d photos could not be read and were left out.</item>
+    </plurals>
+    <plurals name="restore_done_garments">
+        <item quantity="one">The backup was restored: %d garment.</item>
+        <item quantity="other">The backup was restored: %d garments.</item>
     </plurals>
     <plurals name="outfit_missing_garments">
         <item quantity="one">%d garment in this outfit is no longer in your wardrobe.</item>

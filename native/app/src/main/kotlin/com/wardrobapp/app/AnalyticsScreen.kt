@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,7 +50,7 @@ fun AnalyticsScreen(
     onStatisticsRequested: () -> Unit,
     onRetry: () -> Unit,
 ) {
-    Scaffold(topBar = { TopAppBar(title = { Text("Analytics") }) }) { insets ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.analytics_title)) }) }) { insets ->
         val view = state.view
 
         when {
@@ -62,7 +63,7 @@ fun AnalyticsScreen(
                 modifier = Modifier.fillMaxWidth().padding(insets).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Couldn't read the wardrobe", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.error_wardrobe_unreadable), style = MaterialTheme.typography.titleMedium)
                 state.error?.let {
                     Text(
                         it,
@@ -72,7 +73,7 @@ fun AnalyticsScreen(
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
-                TextButton(onClick = onRetry) { Text("Try again") }
+                TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
             }
 
             else -> Body(view, insets, onStatisticsRequested)
@@ -93,8 +94,8 @@ private fun Body(
     ) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Summary("In use", view.totalItems, Modifier.weight(1f))
-                Summary("Retired", view.archivedItems, Modifier.weight(1f))
+                Summary(stringResource(R.string.analytics_in_use), view.totalItems, Modifier.weight(1f))
+                Summary(stringResource(R.string.analytics_retired), view.archivedItems, Modifier.weight(1f))
             }
         }
 
@@ -102,10 +103,9 @@ private fun Body(
             item {
                 Card {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Nothing to measure yet", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.analytics_empty_title), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Add a few garments and this fills in: what your wardrobe is made " +
-                                "of, and how long the things you retire tend to last.",
+                            stringResource(R.string.analytics_empty_body),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp),
@@ -125,31 +125,35 @@ private fun Body(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("View detailed statistics", style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.analytics_open_statistics), style = MaterialTheme.typography.bodyLarge)
                     Text("\u203a", style = MaterialTheme.typography.titleMedium)
                 }
             }
         }
 
-        item { Text("By category", style = MaterialTheme.typography.titleMedium) }
+        item { Text(stringResource(R.string.analytics_by_category), style = MaterialTheme.typography.titleMedium) }
 
         item {
-            Chart(view.categories.isEmpty(), "Nothing in the wardrobe yet.") {
+            Chart(view.categories.isEmpty(), stringResource(R.string.analytics_no_garments)) {
                 for (bar in view.categories) {
-                    BarRow(label = bar.categoryLabel(), fraction = bar.fraction, value = "${bar.value}")
+                    BarRow(label = bar.heading(), fraction = bar.fraction, value = "${bar.value}")
                 }
             }
         }
 
-        item { Text("How long things lasted", style = MaterialTheme.typography.titleMedium) }
+        item { Text(stringResource(R.string.analytics_lifespan), style = MaterialTheme.typography.titleMedium) }
 
         item {
             Chart(
                 view.lifespans.isEmpty(),
-                "Nothing retired yet. Mark a garment as no longer in use and it appears here.",
+                stringResource(R.string.analytics_no_lifespan),
             ) {
                 for (bar in view.lifespans) {
-                    BarRow(label = bar.label(), fraction = bar.fraction, value = "${bar.value}d")
+                    BarRow(
+                        label = bar.label(),
+                        fraction = bar.fraction,
+                        value = stringResource(R.string.analytics_days, bar.value),
+                    )
                 }
             }
         }
@@ -244,10 +248,12 @@ private fun BarRow(label: String, fraction: Double, value: String) {
     }
 }
 
-/** A category key as a heading, until the port has a translation table. */
-private fun CategoryBar.categoryLabel(): String =
-    category.replaceFirstChar { it.uppercase() }
+/** The port has a translation table now, so this reads from it. */
+@Composable
+private fun CategoryBar.heading(): String = categoryLabel(category)
 
 /** A garment's type if it has one, else its category -- the same rule as the list. */
+@Composable
 private fun LifespanBar.label(): String =
-    entry.subcategories.firstOrNull() ?: entry.category.replaceFirstChar { it.uppercase() }
+    entry.subcategories.firstOrNull()?.let { garmentTypeLabel(it) }
+        ?: categoryLabel(entry.category)

@@ -81,7 +81,7 @@ class AndroidPhotoStore(private val context: Context) {
         val target = storedPhotoSize(oriented.width, oriented.height)
 
         var bitmap = decode(source, decodeSampleSize(bounds.width, bounds.height, target))
-            ?: throw IOException("That image could not be read.")
+            ?: throw IOException(context.getString(R.string.error_image_unreadable))
 
         try {
             bitmap = turnUpright(bitmap, orientation)
@@ -104,11 +104,11 @@ class AndroidPhotoStore(private val context: Context) {
         try {
             staging.outputStream().use { out ->
                 if (!bitmap.compress(format, PHOTO_JPEG_QUALITY, out)) {
-                    throw IOException("That image could not be saved.")
+                    throw IOException(context.getString(R.string.error_image_unsaveable))
                 }
             }
             if (!staging.renameTo(destination)) {
-                throw IOException("That image could not be saved.")
+                throw IOException(context.getString(R.string.error_image_unsaveable))
             }
         } finally {
             staging.delete()
@@ -184,5 +184,5 @@ class AndroidPhotoStore(private val context: Context) {
 
     private fun open(source: Uri): InputStream =
         context.contentResolver.openInputStream(source)
-            ?: throw IOException("That image could not be opened.")
+            ?: throw IOException(context.getString(R.string.error_image_unopenable))
 }

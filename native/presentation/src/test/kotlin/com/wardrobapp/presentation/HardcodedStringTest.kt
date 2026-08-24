@@ -31,13 +31,7 @@ class HardcodedStringTest {
      *
      * Every entry is a promise, not a decision. Empty is the finished state.
      */
-    private val filesStillToConvert = setOf(
-        "AndroidBackgroundRemover.kt",
-        "AndroidPhotoStore.kt",
-        "AnalyticsScreen.kt",
-        "SettingsScreen.kt",
-        "StatisticsScreen.kt",
-    )
+    private val filesStillToConvert = emptySet<String>()
 
     @Test
     fun `converted screens have no user-facing literal left`() {
@@ -109,6 +103,9 @@ class HardcodedStringTest {
             Icon(x, contentDescription = null)
             driver.query("SELECT 1")
             animateFloatAsState(targetValue = f, label = "bar")
+            Text("${'$'}value")
+            Text("${'$'}{count} ")
+            Text("\u203a")
             """.trimIndent()
         )
 
@@ -146,6 +143,27 @@ class HardcodedStringTest {
 
         return patterns.flatMap { pattern ->
             pattern.findAll(code).map { it.groupValues[1] }
-        }.filter { it.length > 1 }
+        }.filter { hasWords(it) }
+    }
+
+    /**
+     * Whether a literal is text a translator would have anything to do with.
+     *
+     * Interpolations and glyphs are not: `"$count"` is a number wherever you read
+     * it, and a chevron is a shape. What is left after taking those out has to
+     * contain at least two letters, which is the shortest thing here that is a
+     * word ("Ok" would qualify; "%" and "\u203a" do not).
+     */
+    private fun hasWords(literal: String): Boolean {
+        val withoutValues = literal
+            .replace(Regex("""\$\{[^}]*\}"""), "")
+            .replace(Regex("""\$\w+"""), "")
+            .replace(Regex("""%[\d$]*[sdf]"""), "")
+            // A \uXXXX escape is six characters in the source, two of which are
+            // letters -- so counting letters without taking these out first reads
+            // a chevron as a word.
+            .replace(Regex("""\\u[0-9a-fA-F]{4}"""), "")
+
+        return withoutValues.count { it.isLetter() } >= 2
     }
 }

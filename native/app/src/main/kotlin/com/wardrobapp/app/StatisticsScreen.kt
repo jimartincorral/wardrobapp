@@ -78,10 +78,10 @@ fun StatisticsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Statistics") },
+                title = { Text(stringResource(R.string.statistics_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )
@@ -99,7 +99,7 @@ fun StatisticsScreen(
                 modifier = Modifier.fillMaxWidth().padding(insets).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Couldn't read the wardrobe", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.error_wardrobe_unreadable), style = MaterialTheme.typography.titleMedium)
                 state.error?.let {
                     Text(
                         it,
@@ -109,7 +109,7 @@ fun StatisticsScreen(
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
-                TextButton(onClick = onRetry) { Text("Try again") }
+                TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
             }
 
             else -> Body(
@@ -140,7 +140,7 @@ private fun Body(
     ) {
         item {
             Text(
-                "A breakdown of what you own.",
+                stringResource(R.string.statistics_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -148,15 +148,15 @@ private fun Body(
 
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Tile("Items", view.total, Modifier.weight(1f))
-                Tile("Categories", view.distinctCategories.toLong(), Modifier.weight(1f))
+                Tile(stringResource(R.string.statistics_items), view.total, Modifier.weight(1f))
+                Tile(stringResource(R.string.statistics_categories), view.distinctCategories.toLong(), Modifier.weight(1f))
             }
         }
 
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Tile("Colours", view.distinctColors.toLong(), Modifier.weight(1f))
-                Tile("Brands", view.distinctBrands.toLong(), Modifier.weight(1f))
+                Tile(stringResource(R.string.statistics_colours), view.distinctColors.toLong(), Modifier.weight(1f))
+                Tile(stringResource(R.string.statistics_brands), view.distinctBrands.toLong(), Modifier.weight(1f))
             }
         }
 
@@ -166,10 +166,9 @@ private fun Body(
             item {
                 Card {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Nothing to measure yet", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.analytics_empty_title), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Add a few garments and this fills in: what your wardrobe is made " +
-                                "of, which colours you actually wear, and who made it all.",
+                            stringResource(R.string.statistics_empty_body),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp),
@@ -182,7 +181,12 @@ private fun Body(
         }
 
         if (view.categories.isNotEmpty()) {
-            item { SectionHeader("By category", hint = "Tap a category to see what's in it") }
+            item {
+                SectionHeader(
+                    stringResource(R.string.analytics_by_category),
+                    hint = stringResource(R.string.statistics_expand_hint),
+                )
+            }
 
             item {
                 Chart {
@@ -190,14 +194,16 @@ private fun Body(
                         val isOpen = bar.key in expanded
 
                         BarRow(
-                            label = bar.key.sentence(),
+                            label = categoryLabel(bar.key),
                             fraction = bar.fraction,
                             value = "${bar.count}",
                             chevron = if (isOpen) "▾" else "▸",
                             onClick = { onCategoryTapped(bar.key) },
                             // What tapping does, for a screen reader, which the
                             // chevron only says visually.
-                            clickLabel = if (isOpen) "Hide subcategories" else "Show subcategories",
+                            clickLabel = stringResource(
+                                if (isOpen) R.string.statistics_collapse else R.string.statistics_expand
+                            ),
                         )
 
                         if (isOpen) {
@@ -216,7 +222,7 @@ private fun Body(
         }
 
         if (view.colors.isNotEmpty()) {
-            item { SectionHeader("By colour") }
+            item { SectionHeader(stringResource(R.string.statistics_by_colour)) }
 
             item {
                 Chart {
@@ -239,18 +245,18 @@ private fun Body(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("By brand", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.statistics_by_brand), style = MaterialTheme.typography.titleMedium)
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = brandSort == BrandSort.COUNT,
                             onClick = { onBrandSortChanged(BrandSort.COUNT) },
-                            label = { Text("Most") },
+                            label = { Text(stringResource(R.string.statistics_sort_count)) },
                         )
                         FilterChip(
                             selected = brandSort == BrandSort.ALPHA,
                             onClick = { onBrandSortChanged(BrandSort.ALPHA) },
-                            label = { Text("A-Z") },
+                            label = { Text(stringResource(R.string.statistics_sort_name)) },
                         )
                     }
                 }
@@ -493,21 +499,22 @@ private fun RowScope.Quadrant(color: Color) {
  * The sentinel is named here rather than looked up: the palette is keyed by hex,
  * and `multi` is not one.
  */
-internal fun ColorBar.colorLabel(): String {
-    if (swatch == MULTI_SWATCH) return "Multi"
-    return paletteColorFor(swatch)?.first?.paletteWording() ?: key
-}
-
 /**
- * A palette key as the garment detail already words it: "lightBlue" becomes
- * "Light blue".
+ * The palette key a colour bar belongs to, or null if it is not in the palette.
  *
- * Its own copy rather than a shared one, deliberately: the detail screen's is
- * file-private, and a module-wide version would be a second candidate for that
- * name in the file that already declares it.
+ * Separate from the wording so the rule stays testable without an Android
+ * resource table: what the palette answers is arithmetic on strings, and what the
+ * reader sees is a lookup.
+ *
+ * The sentinel is named directly because it is not a hex, and the palette is
+ * keyed by hex.
  */
-private fun String.paletteWording(): String =
-    replace(Regex("([a-z])([A-Z])"), "$1 $2").lowercase().replaceFirstChar { it.uppercase() }
+internal fun ColorBar.paletteKey(): String? =
+    if (swatch == MULTI_SWATCH) MULTI_SWATCH else paletteColorFor(swatch)?.first
+
+/** A palette colour by name, and anything else by the value stored. */
+@Composable
+internal fun ColorBar.colorLabel(): String = paletteKey()?.let { paletteLabel(it) } ?: key
 
 /**
  * A subcategory's own name, without the category the module prefixed it with.
@@ -516,9 +523,20 @@ private fun String.paletteWording(): String =
  * elsewhere; the reader is already looking at the category, so the label drops
  * it.
  */
-internal fun StatBar.subcategoryLabel(category: String): String {
+/**
+ * The garment type a subcategory bar stands for, without the category the module
+ * prefixed it with -- or null where no type was recorded.
+ *
+ * Pure, for the same reason as [paletteKey]: the prefix rule is the part that goes
+ * wrong silently, and it is worth testing where no resources exist.
+ */
+internal fun StatBar.subcategoryName(category: String): String? {
     val name = key.removePrefix("$category:")
-    return if (name == NO_SUBCATEGORY) "Not specified" else name.sentence()
+    return if (name == NO_SUBCATEGORY) null else name
 }
 
-private fun String.sentence(): String = replace('-', ' ').replaceFirstChar { it.uppercase() }
+@Composable
+internal fun StatBar.subcategoryLabel(category: String): String =
+    subcategoryName(category)?.let { garmentTypeLabel(it) }
+        ?: stringResource(R.string.statistics_no_subcategory)
+

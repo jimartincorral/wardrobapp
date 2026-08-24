@@ -31,6 +31,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.presentation.LanguageChoice
@@ -71,10 +72,10 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )
@@ -91,16 +92,19 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
-            Section("Storage")
+            Section(stringResource(R.string.settings_section_storage))
             when {
                 view != null -> {
-                    Figure("Garments", view.garments.toString())
+                    Figure(stringResource(R.string.settings_garments), view.garments.toString())
                     // Only when there is something to say: a wardrobe nobody has
                     // retired anything from does not need a row reading zero.
                     if (view.retired > 0) {
-                        Figure("No longer in use", view.retired.toString())
+                        Figure(stringResource(R.string.settings_retired), view.retired.toString())
                     }
-                    Figure("Photos", "${view.photoMegabytes} MB")
+                    Figure(
+                        stringResource(R.string.settings_photos),
+                        stringResource(R.string.settings_megabytes, view.photoMegabytes),
+                    )
                 }
 
                 state.loading -> Row(
@@ -113,7 +117,7 @@ fun SettingsScreen(
                 // A read that failed is not an empty wardrobe, and must not look
                 // like one. Same rule as every other screen.
                 else -> Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                    Text("Couldn't read the wardrobe", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.error_wardrobe_unreadable), style = MaterialTheme.typography.bodyMedium)
                     state.error?.let {
                         Text(
                             it,
@@ -121,17 +125,15 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
-                    TextButton(onClick = onRetry) { Text("Try again") }
+                    TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
                 }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            Section("Backup")
+            Section(stringResource(R.string.settings_section_backup))
             Text(
-                "A backup is one file holding the wardrobe and every photo. It is " +
-                    "also how a wardrobe moves between this app and the one on the " +
-                    "Play Store.",
+                stringResource(R.string.settings_backup_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -140,14 +142,14 @@ fun SettingsScreen(
                 enabled = state.backup !is SettingsViewModel.Backup.Running,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             ) {
-                Text("Create a backup")
+                Text(stringResource(R.string.settings_backup_create))
             }
             OutlinedButton(
                 onClick = onRestoreRequested,
                 enabled = state.restore == null && state.backup !is SettingsViewModel.Backup.Running,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
-                Text("Restore from a backup")
+                Text(stringResource(R.string.settings_backup_restore))
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -173,12 +175,12 @@ fun SettingsScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            Section("About")
+            Section(stringResource(R.string.settings_section_about))
             // Read from the installed package rather than written here. The
             // React Native app hardcodes its version string, which means it has
             // been reporting 1.0.0 for every build it ever shipped.
-            Figure("Version", version.name)
-            Figure("Build", version.code.toString())
+            Figure(stringResource(R.string.settings_version), version.name)
+            Figure(stringResource(R.string.settings_build), version.code.toString())
 
             // Room to scroll clear of the gesture area at the bottom.
             Spacer(modifier = Modifier.height(24.dp))
@@ -224,10 +226,10 @@ private fun BackupDialog(
 ) = when (backup) {
     is SettingsViewModel.Backup.Running -> AlertDialog(
         onDismissRequest = {},
-        title = { Text("Backing up") },
+        title = { Text(stringResource(R.string.backup_running_title)) },
         text = {
             Column {
-                Text("Copying the wardrobe and its photos.")
+                Text(stringResource(R.string.backup_running_body))
                 LinearProgressIndicator(
                     progress = { backup.percent / 100f },
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
@@ -239,40 +241,38 @@ private fun BackupDialog(
 
     is SettingsViewModel.Backup.Done -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Backup saved") },
+        title = { Text(stringResource(R.string.backup_done_title)) },
         text = {
             Text(
                 buildString {
-                    append("${backup.megabytes} MB, ")
-                    append(
-                        when (backup.photos) {
-                            1 -> "1 photo"
-                            else -> "${backup.photos} photos"
-                        }
-                    )
+                    append(stringResource(R.string.settings_megabytes, backup.megabytes))
+                    append(", ")
+                    append(pluralStringResource(R.plurals.photo_count, backup.photos, backup.photos))
                     append(".")
                     // Only mentioned when it happened. A photo can disappear
                     // between being listed and being read, and saying nothing
                     // would leave the archive quietly short.
                     if (backup.skipped > 0) {
+                        append(" ")
                         append(
-                            when (backup.skipped) {
-                                1 -> " One photo could not be read and was left out."
-                                else -> " ${backup.skipped} photos could not be read and were left out."
-                            }
+                            pluralStringResource(
+                                R.plurals.backup_photos_skipped,
+                                backup.skipped,
+                                backup.skipped,
+                            )
                         )
                     }
                 }
             )
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
     )
 
     is SettingsViewModel.Backup.Failed -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Couldn't save that backup") },
+        title = { Text(stringResource(R.string.backup_failed_title)) },
         text = { Text(backup.message) },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }
 
@@ -293,25 +293,23 @@ private fun RestoreDialog(
 ) = when (restore) {
     is SettingsViewModel.Restore.Confirming -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Restore from a backup?") },
+        title = { Text(stringResource(R.string.restore_confirm_title)) },
         text = {
             Text(
-                "Everything in this app's wardrobe will be replaced by the contents " +
-                    "of the backup you pick. If the backup turns out not to be usable, " +
-                    "nothing is changed."
+                stringResource(R.string.restore_confirm_body)
             )
         },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Pick a backup") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.restore_pick)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 
     is SettingsViewModel.Restore.Running -> AlertDialog(
         onDismissRequest = {},
-        title = { Text("Restoring") },
+        title = { Text(stringResource(R.string.restore_running_title)) },
         text = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                Text("Unpacking and checking the backup.", modifier = Modifier.padding(start = 16.dp))
+                Text(stringResource(R.string.restore_running_body), modifier = Modifier.padding(start = 16.dp))
             }
         },
         confirmButton = {},
@@ -319,25 +317,23 @@ private fun RestoreDialog(
 
     is SettingsViewModel.Restore.Done -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Wardrobe restored") },
+        title = { Text(stringResource(R.string.restore_done_title)) },
         text = {
             Text(
-                when (restore.garments) {
-                    null -> "The backup was restored."
-                    1L -> "The backup was restored: 1 garment."
-                    else -> "The backup was restored: ${restore.garments} garments."
-                }
+                restore.garments?.let { count ->
+                    pluralStringResource(R.plurals.restore_done_garments, count.toInt(), count)
+                } ?: stringResource(R.string.restore_done_body)
             )
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
     )
 
     is SettingsViewModel.Restore.Failed -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Couldn't restore that backup") },
+        title = { Text(stringResource(R.string.restore_failed_title)) },
         // The message is the whole point: it says whether to update the app,
         // find a different file, or that nothing was lost.
         text = { Text(restore.message) },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }

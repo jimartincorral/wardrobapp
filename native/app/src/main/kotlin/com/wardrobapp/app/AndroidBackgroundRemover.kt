@@ -59,11 +59,11 @@ class AndroidBackgroundRemover(
      */
     fun removeBackground(photo: Uri, id: String): String {
         if (!running.compareAndSet(false, true)) {
-            throw IOException("A background is already being removed.")
+            throw IOException(context.getString(R.string.error_background_busy))
         }
 
         try {
-            val bitmap = decode(photo) ?: throw IOException("That photo could not be read.")
+            val bitmap = decode(photo) ?: throw IOException(context.getString(R.string.error_photo_unreadable))
             val foreground = try {
                 segment(bitmap)
             } finally {
@@ -110,9 +110,7 @@ class AndroidBackgroundRemover(
 
         failure?.let { throw IOException(describe(it), it) }
 
-        return foreground ?: throw IOException(
-            "No subject was found in that photo, so there was no background to remove."
-        )
+        return foreground ?: throw IOException(context.getString(R.string.error_no_subject))
     }
 
     /**
@@ -130,9 +128,9 @@ class AndroidBackgroundRemover(
             .any { message.contains(it, ignoreCase = true) }
 
         return if (notReady) {
-            "Background removal is still downloading what it needs. Try again in a moment."
+            context.getString(R.string.error_background_downloading)
         } else {
-            "Background removal failed: $message"
+            context.getString(R.string.error_background_failed, message)
         }
     }
 
@@ -147,7 +145,7 @@ class AndroidBackgroundRemover(
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         context.contentResolver.openInputStream(photo)?.use { stream ->
             BitmapFactory.decodeStream(stream, null, bounds)
-        } ?: throw IOException("That photo could not be opened.")
+        } ?: throw IOException(context.getString(R.string.error_photo_unopenable))
 
         val target = storedPhotoSize(bounds.outWidth, bounds.outHeight)
 

@@ -73,6 +73,10 @@ class StringResourceParityTest {
         "subcategory_parka",
         "subcategory_polo",
         "subcategory_poncho",
+        // An alphabet range, not a word.
+        "statistics_sort_name",
+        // A unit symbol, and the same one in both languages.
+        "settings_megabytes",
     )
 
     @Test
