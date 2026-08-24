@@ -61,7 +61,7 @@ fun checkWardrobeDatabase(driver: SqlDriver) {
 
     if (integrity != "ok") {
         throw UnrestorableArchiveException(
-            "it failed SQLite's integrity check (${integrity ?: "no result"})"
+            UnrestorableReason.IntegrityCheckFailed(integrity ?: "no result")
         )
     }
 
@@ -156,7 +156,7 @@ class ArchiveRestore(
                 ArchiveLayout.FOLDER -> restoreCurrentFormat(root)
                 ArchiveLayout.LEGACY -> restoreLegacyFormat(root)
                 else -> throw UnrestorableArchiveException(
-                    "Invalid backup archive: no $MANIFEST_NAME found"
+                    UnrestorableReason.ManifestNotFound(MANIFEST_NAME)
                 )
             }
         } finally {
@@ -245,7 +245,7 @@ class ArchiveRestore(
             writeDatabase(stagedDatabase)
             if (!stagedDatabase.isFile || stagedDatabase.length() == 0L) {
                 throw UnrestorableArchiveException(
-                    "Invalid backup: $ARCHIVE_DB_FILENAME is empty. Nothing was changed."
+                    UnrestorableReason.DatabaseEmpty(ARCHIVE_DB_FILENAME)
                 )
             }
 
@@ -254,7 +254,9 @@ class ArchiveRestore(
             try {
                 databaseCheck.check(stagedDatabase)
             } catch (e: Exception) {
-                throw UnrestorableArchiveException("Invalid backup: ${describe(e)}. Nothing was changed.")
+                throw UnrestorableArchiveException(
+                    UnrestorableReason.InvalidBackup(detailOf(e))
+                )
             } finally {
                 // Opening the file may have created sidecars; they must not
                 // travel with it into the live slot.
@@ -311,16 +313,17 @@ class ArchiveRestore(
             } catch (rollbackFailure: Throwable) {
                 // Say exactly where the data is rather than pretending it is lost.
                 throw UnrestorableArchiveException(
-                    "Restore failed (${describe(e)}) and the wardrobe could not be put back " +
-                        "(${describe(rollbackFailure)}). Your original data is still on the " +
-                        "device as ${previousDatabase.name} and ${previousImages.name}."
+                    UnrestorableReason.RollbackFailed(
+                        detail = detailOf(e),
+                        rollbackDetail = detailOf(rollbackFailure),
+                        databaseName = previousDatabase.name,
+                        imagesName = previousImages.name,
+                    )
                 )
             }
 
             discardStaged()
-            throw UnrestorableArchiveException(
-                "Restore failed: ${describe(e)}. Your wardrobe was left unchanged."
-            )
+            throw UnrestorableArchiveException(UnrestorableReason.RestoreFailed(detailOf(e)))
         }
 
         // Only now is the displaced copy expendable.
@@ -365,13 +368,13 @@ internal fun parseLegacyPayload(text: String): LegacyPayload {
         lenient.parseToJsonElement(text)
     } catch (_: Exception) {
         throw UnrestorableArchiveException(
-            "Invalid backup: $LEGACY_PAYLOAD_NAME is not readable JSON."
+            UnrestorableReason.ManifestUnreadable(LEGACY_PAYLOAD_NAME)
         )
     }
 
     if (root !is JsonObject) {
         throw UnrestorableArchiveException(
-            "Invalid backup: $LEGACY_PAYLOAD_NAME does not describe a backup."
+            UnrestorableReason.ManifestNotABackup(LEGACY_PAYLOAD_NAME)
         )
     }
 
@@ -381,7 +384,7 @@ internal fun parseLegacyPayload(text: String): LegacyPayload {
         ?.takeIf { it.isFinite() }
         ?.toInt()
         ?: throw UnrestorableArchiveException(
-            "Invalid backup: $LEGACY_PAYLOAD_NAME has no version number."
+            UnrestorableReason.ManifestVersionMissing(LEGACY_PAYLOAD_NAME)
         )
 
     val images = (root["images"] as? JsonArray).orEmpty().mapNotNull { entry ->
@@ -403,9 +406,7 @@ private fun JsonArray?.orEmpty(): List<kotlinx.serialization.json.JsonElement> =
 private fun decodeBase64(text: String): ByteArray = try {
     Base64.getMimeDecoder().decode(text)
 } catch (_: IllegalArgumentException) {
-    throw UnrestorableArchiveException(
-        "Invalid backup: its contents are not valid base64. Nothing was changed."
-    )
+    throw UnrestorableArchiveException(UnrestorableReason.NotBase64)
 }
 
 /**
@@ -429,8 +430,7 @@ internal fun extractZip(archive: InputStream, destination: File) {
 
             if (!target.path.startsWith(root.path + File.separator)) {
                 throw UnrestorableArchiveException(
-                    "Invalid backup: the archive contains an entry outside itself " +
-                        "(${entry.name}). Nothing was changed."
+                    UnrestorableReason.EntryOutsideArchive(entry.name)
                 )
             }
 
@@ -483,6 +483,22 @@ internal fun renameOrThrow(source: File, destination: File) {
     if (source.renameTo(destination)) return
     throw IllegalStateException("could not move ${source.name} to ${destination.name}")
 }
+
+/**
+ * What a caught failure was, for a wrapping reason.
+ *
+ * A failure this module already described keeps its reason, so the whole sentence
+ * can be translated -- that is the case where a staged database failed its
+ * integrity check. Anything else is someone else's words, kept because they are
+ * the only diagnostic there is and marked as untranslatable rather than pretended
+ * otherwise.
+ */
+private fun detailOf(error: Throwable): ArchiveDetail =
+    if (error is UnrestorableArchiveException) {
+        ArchiveDetail.Known(error.reason)
+    } else {
+        ArchiveDetail.Foreign(describe(error))
+    }
 
 private fun describe(error: Throwable): String =
     error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName

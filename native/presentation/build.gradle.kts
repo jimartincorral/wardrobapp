@@ -19,6 +19,9 @@ dependencies {
     api(project(":data"))
     testImplementation(kotlin("test"))
     testImplementation(project(":parity-testing"))
+    // Only for ArchiveMessageParityTest, which asks UnrestorableReason for its
+    // sealed subclasses to prove it has a sample of every one. Nothing ships it.
+    testImplementation(kotlin("reflect"))
 }
 
 // Where :app keeps its string resources, for StringResourceParityTest.

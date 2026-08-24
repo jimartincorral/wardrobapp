@@ -221,6 +221,24 @@
     <string name="error_image_unsaveable">No se pudo guardar esa imagen.</string>
     <string name="error_image_unopenable">No se pudo abrir esa imagen.</string>
 
+    <!-- Why a backup will not restore -->
+    <string name="archive_manifest_unreadable">Copia no válida: %1$s no es un JSON legible.</string>
+    <string name="archive_manifest_not_a_backup">Copia no válida: %1$s no describe una copia de seguridad.</string>
+    <string name="archive_manifest_version_missing">Copia no válida: %1$s no tiene número de versión.</string>
+    <string name="archive_manifest_not_found">Archivo de copia no válido: no se encontró %1$s</string>
+    <string name="archive_backup_from_newer_app">Esta copia se hizo con una versión más reciente de Wardrobapp (formato %1$d; esta aplicación lee %2$d). Actualiza la aplicación e inténtalo de nuevo.</string>
+    <string name="archive_unsupported_version">Formato de copia no admitido %1$d; esta aplicación lee %2$s.</string>
+    <string name="archive_database_missing">Copia no válida: falta %1$s en el archivo. No se cambió nada.</string>
+    <string name="archive_database_empty">Copia no válida: %1$s está vacío. No se cambió nada.</string>
+    <string name="archive_no_database">Copia no válida: no contiene ninguna base de datos. No se cambió nada.</string>
+    <string name="archive_archive_truncated">Copia incompleta: el manifiesto indica %1$d fotos pero solo hay %2$d, así que el archivo está truncado. No se cambió nada.</string>
+    <string name="archive_not_base64">Copia no válida: su contenido no es base64 válido. No se cambió nada.</string>
+    <string name="archive_entry_outside_archive">Copia no válida: el archivo contiene una entrada fuera de sí mismo (%1$s). No se cambió nada.</string>
+    <string name="archive_integrity_check_failed">no pasó la comprobación de integridad de SQLite (%1$s)</string>
+    <string name="archive_invalid_backup">Copia no válida: %1$s. No se cambió nada.</string>
+    <string name="archive_restore_failed">La restauración falló: %1$s. Tu armario quedó sin cambios.</string>
+    <string name="archive_rollback_failed">La restauración falló (%1$s) y no se pudo devolver el armario a su estado anterior (%2$s). Tus datos originales siguen en el dispositivo como %3$s y %4$s.</string>
+
     <!-- Language, in Settings -->
     <string name="settings_language">Idioma</string>
     <string name="settings_language_hint">Solo afecta a esta aplicación. Android lo recuerda, así que se mantiene al reiniciar y también se puede cambiar desde los ajustes del sistema.</string>

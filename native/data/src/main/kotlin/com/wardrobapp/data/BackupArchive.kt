@@ -38,8 +38,15 @@ data class ArchiveManifest(
  * A distinct type so callers can tell "this file is not restorable" from a
  * filesystem or zip failure, and report it as the user's problem to solve
  * rather than as a crash.
+ *
+ * Carries the [reason] as well as the sentence, so a screen can say the same
+ * thing in the reader's language. The message is derived from the reason rather
+ * than passed in: one English source, and `archive-validation.jsonl` keeps
+ * comparing it.
  */
-class UnrestorableArchiveException(message: String) : Exception(message)
+class UnrestorableArchiveException(
+    val reason: UnrestorableReason,
+) : Exception(reason.englishMessage())
 
 private val lenientJson = Json { ignoreUnknownKeys = true }
 
@@ -53,12 +60,14 @@ fun parseArchiveManifest(text: String): ArchiveManifest {
     val root = try {
         lenientJson.parseToJsonElement(text)
     } catch (_: Exception) {
-        throw UnrestorableArchiveException("Invalid backup: $MANIFEST_NAME is not readable JSON.")
+        throw UnrestorableArchiveException(
+            UnrestorableReason.ManifestUnreadable(MANIFEST_NAME)
+        )
     }
 
     if (root !is JsonObject) {
         throw UnrestorableArchiveException(
-            "Invalid backup: $MANIFEST_NAME does not describe a backup."
+            UnrestorableReason.ManifestNotABackup(MANIFEST_NAME)
         )
     }
 
@@ -74,18 +83,20 @@ fun parseArchiveManifest(text: String): ArchiveManifest {
         ?.takeIf { it.isFinite() && floor(it) == it }
         ?.toInt()
         ?: throw UnrestorableArchiveException(
-            "Invalid backup: $MANIFEST_NAME has no version number."
+            UnrestorableReason.ManifestVersionMissing(MANIFEST_NAME)
         )
 
     if (version > BACKUP_VERSION) {
         throw UnrestorableArchiveException(
-            "This backup was made by a newer version of Wardrobapp (backup format $version; " +
-                "this app reads $BACKUP_VERSION). Update the app and try again."
+            UnrestorableReason.BackupFromNewerApp(found = version, supported = BACKUP_VERSION)
         )
     }
     if (version < BACKUP_VERSION) {
         throw UnrestorableArchiveException(
-            "Unsupported backup format $version; this app reads $BACKUP_VERSION."
+            UnrestorableReason.UnsupportedVersion(
+                found = version,
+                readable = BACKUP_VERSION.toString(),
+            )
         )
     }
 
@@ -114,15 +125,14 @@ fun checkArchiveCompleteness(
 ) {
     if (!hasDatabase) {
         throw UnrestorableArchiveException(
-            "Invalid backup: $ARCHIVE_DB_FILENAME is missing from the archive. Nothing was changed."
+            UnrestorableReason.DatabaseMissing(ARCHIVE_DB_FILENAME)
         )
     }
 
     val expected = manifest.imageCount
     if (expected != null && imageCount < expected) {
         throw UnrestorableArchiveException(
-            "Incomplete backup: the manifest lists $expected photo(s) but only " +
-                "$imageCount are present, so the archive is truncated. Nothing was changed."
+            UnrestorableReason.ArchiveTruncated(expected = expected, present = imageCount)
         )
     }
 }
@@ -136,13 +146,13 @@ fun checkArchiveCompleteness(
 fun checkLegacyPayload(version: Int, hasDatabase: Boolean) {
     if (version !in LEGACY_BACKUP_VERSIONS) {
         throw UnrestorableArchiveException(
-            "Unsupported backup format $version; this app reads " +
-                "${LEGACY_BACKUP_VERSIONS.joinToString(", ")} and $BACKUP_VERSION."
+            UnrestorableReason.UnsupportedVersion(
+                found = version,
+                readable = "${LEGACY_BACKUP_VERSIONS.joinToString(", ")} and $BACKUP_VERSION",
+            )
         )
     }
     if (!hasDatabase) {
-        throw UnrestorableArchiveException(
-            "Invalid backup: it contains no database. Nothing was changed."
-        )
+        throw UnrestorableArchiveException(UnrestorableReason.NoDatabase)
     }
 }

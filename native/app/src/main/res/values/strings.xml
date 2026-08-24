@@ -229,6 +229,24 @@
     <string name="error_image_unsaveable">That image could not be saved.</string>
     <string name="error_image_unopenable">That image could not be opened.</string>
 
+    <!-- Why a backup will not restore -->
+    <string name="archive_manifest_unreadable">Invalid backup: %1$s is not readable JSON.</string>
+    <string name="archive_manifest_not_a_backup">Invalid backup: %1$s does not describe a backup.</string>
+    <string name="archive_manifest_version_missing">Invalid backup: %1$s has no version number.</string>
+    <string name="archive_manifest_not_found">Invalid backup archive: no %1$s found</string>
+    <string name="archive_backup_from_newer_app">This backup was made by a newer version of Wardrobapp (backup format %1$d; this app reads %2$d). Update the app and try again.</string>
+    <string name="archive_unsupported_version">Unsupported backup format %1$d; this app reads %2$s.</string>
+    <string name="archive_database_missing">Invalid backup: %1$s is missing from the archive. Nothing was changed.</string>
+    <string name="archive_database_empty">Invalid backup: %1$s is empty. Nothing was changed.</string>
+    <string name="archive_no_database">Invalid backup: it contains no database. Nothing was changed.</string>
+    <string name="archive_archive_truncated">Incomplete backup: the manifest lists %1$d photo(s) but only %2$d are present, so the archive is truncated. Nothing was changed.</string>
+    <string name="archive_not_base64">Invalid backup: its contents are not valid base64. Nothing was changed.</string>
+    <string name="archive_entry_outside_archive">Invalid backup: the archive contains an entry outside itself (%1$s). Nothing was changed.</string>
+    <string name="archive_integrity_check_failed">it failed SQLite\'s integrity check (%1$s)</string>
+    <string name="archive_invalid_backup">Invalid backup: %1$s. Nothing was changed.</string>
+    <string name="archive_restore_failed">Restore failed: %1$s. Your wardrobe was left unchanged.</string>
+    <string name="archive_rollback_failed">Restore failed (%1$s) and the wardrobe could not be put back (%2$s). Your original data is still on the device as %3$s and %4$s.</string>
+
     <!-- Language, in Settings -->
     <string name="settings_language">Language</string>
     <string name="settings_language_hint">Applies to this app only. Android remembers it, so it survives a restart and can also be changed from the system settings.</string>

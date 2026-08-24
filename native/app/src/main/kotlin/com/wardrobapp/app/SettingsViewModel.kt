@@ -2,6 +2,8 @@ package com.wardrobapp.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wardrobapp.data.UnrestorableArchiveException
+import com.wardrobapp.data.UnrestorableReason
 import com.wardrobapp.presentation.BackupPhase
 import com.wardrobapp.presentation.SettingsView
 import com.wardrobapp.presentation.backupPercent
@@ -60,7 +62,18 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         data object Running : Restore
         /** Restored; the count is absent only if the reload afterwards failed. */
         data class Done(val garments: Long?) : Restore
-        data class Failed(val message: String) : Restore
+        /**
+         * Could not restore.
+         *
+         * [reason] is present when :data recognised the failure, which is every
+         * unusable archive; [message] is its English sentence, kept for anything
+         * that is not one -- a filesystem error, say -- where there is nothing but
+         * the exception's own words.
+         */
+        data class Failed(
+            val message: String,
+            val reason: UnrestorableReason? = null,
+        ) : Restore
     }
 
     private val _state = MutableStateFlow(State())
@@ -190,7 +203,10 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                     restore = outcome.fold(
                         onSuccess = { Restore.Done(garments) },
                         onFailure = { error ->
-                            Restore.Failed(error.message ?: error.javaClass.simpleName)
+                            Restore.Failed(
+                                message = error.message ?: error.javaClass.simpleName,
+                                reason = (error as? UnrestorableArchiveException)?.reason,
+                            )
                         },
                     )
                 )

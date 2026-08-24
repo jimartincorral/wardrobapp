@@ -131,7 +131,9 @@ class ReopeningDriverTest {
         garmentIds()
 
         assertFailsWith<UnrestorableArchiveException> {
-            driver.whileClosed { throw UnrestorableArchiveException("not a backup") }
+            driver.whileClosed {
+                throw UnrestorableArchiveException(UnrestorableReason.NoDatabase)
+            }
         }
 
         assertEquals(listOf("before"), garmentIds())
