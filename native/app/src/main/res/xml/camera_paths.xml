@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Where the camera is allowed to write.
+
+    One directory, inside the app's own cache. A camera app cannot be handed a
+    `file://` path — that has thrown FileUriExposedException since Android 7 — so it
+    gets a `content://` URI from the provider below, granted for one write and
+    nothing else.
+
+    Deliberately not the photo directory: what the camera produces is a
+    full-resolution original, and what the wardrobe keeps is a scaled copy. The
+    original is read once, stored properly, and deleted.
+-->
+<paths>
+    <cache-path name="camera" path="camera/" />
+</paths>

@@ -10,12 +10,20 @@ import com.wardrobapp.data.isoTimestamp
 import com.wardrobapp.data.orphanedImageRefs
 import com.wardrobapp.data.resolveImageRef
 import com.wardrobapp.domain.DuplicateCandidate
+import com.wardrobapp.domain.GarmentImportException
+import com.wardrobapp.domain.ImportFailureReason
+import com.wardrobapp.domain.ImportWarning
 import com.wardrobapp.domain.Season
+import com.wardrobapp.domain.UnsafeUrlException
+import com.wardrobapp.domain.UnsafeUrlReason
+import com.wardrobapp.domain.importGarmentFromUrl
+import com.wardrobapp.domain.safeImportUrl
 import com.wardrobapp.domain.mergeStructuredTags
 import com.wardrobapp.domain.seasonsForSubcategories
 import com.wardrobapp.domain.splitStructuredTags
 import com.wardrobapp.presentation.GarmentFormState
 import com.wardrobapp.presentation.brandSuggestions
+import com.wardrobapp.presentation.dominantGarmentColor
 import com.wardrobapp.presentation.toggled
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,7 +80,59 @@ class GarmentFormViewModel(
          * something different about it.
          */
         val removingBackground: Boolean = false,
+        /** Where URL import has got to, if it is anywhere. */
+        val urlImport: UrlImport = UrlImport(),
+        /**
+         * True while a photo's colour is being read.
+         *
+         * Separate from [saving] like [removingBackground] is, and for the same
+         * reason: it is its own wait with its own thing to say about it.
+         */
+        val detectingColor: Boolean = false,
     )
+
+    /**
+     * URL import, as the form sees it.
+     *
+     * Its own type rather than six more fields on [State]: it is a self-contained
+     * side conversation -- paste, confirm, wait, read what happened -- and the rest
+     * of the form carries on regardless of where it has got to.
+     */
+    data class UrlImport(
+        /** What has been typed or pasted. */
+        val url: String = "",
+        /**
+         * An address handed over by something else, waiting for a tap.
+         *
+         * Present means the confirmation is on screen. A deep link or a share can
+         * carry an address, and any web page, message or QR code can produce
+         * either -- so fetching it unasked would let a page use this app's position
+         * inside the user's network to reach whatever it names. The host is shown
+         * and nothing is fetched until someone agrees.
+         */
+        val awaitingConfirmation: String? = null,
+        val running: Boolean = false,
+        /** The shop an import came from, once one has succeeded. */
+        val source: String? = null,
+        /** How many photos arrived, for the line under the field. */
+        val imported: Int? = null,
+        val warnings: List<ImportWarning> = emptyList(),
+        val problem: ImportProblem? = null,
+    )
+
+    /**
+     * Why an import did not happen.
+     *
+     * Reasons rather than sentences, so the screen can say them in the reader's
+     * language -- the same arrangement as the archive failures. [Foreign] is the
+     * exception that proves it: words from the network stack, which this app did
+     * not write and cannot translate.
+     */
+    sealed interface ImportProblem {
+        data class Unsafe(val reason: UnsafeUrlReason) : ImportProblem
+        data class Failed(val reason: ImportFailureReason) : ImportProblem
+        data class Foreign(val text: String?) : ImportProblem
+    }
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
@@ -190,6 +250,166 @@ class GarmentFormViewModel(
             } catch (e: Exception) {
                 _state.update {
                     it.copy(saving = false, error = e.message, errorFallback = R.string.error_photo_not_imported)
+                }
+            }
+        }
+    }
+
+    // ---- URL import -----------------------------------------------------------
+
+    fun onImportUrlChanged(url: String) = _state.update {
+        // Clearing the problem as soon as the address changes: a refusal is about
+        // the address it named, and leaving it up next to a different one reads as
+        // a verdict on the new one.
+        it.copy(urlImport = it.urlImport.copy(url = url, problem = null))
+    }
+
+    /** Import what has been typed, now. */
+    fun onImportRequested() {
+        val url = _state.value.urlImport.url
+        if (url.isBlank() || _state.value.urlImport.running) return
+        runImport(url)
+    }
+
+    /**
+     * An address arrived from somewhere else -- a share, or a link.
+     *
+     * Checked immediately and confirmed before anything is fetched. A refusal
+     * happens here, unasked: an address on the local network is not something to
+     * offer a choice about, it is something to decline.
+     */
+    fun onSharedLinkReceived(url: String) {
+        val checked = try {
+            safeImportUrl(url)
+        } catch (error: UnsafeUrlException) {
+            _state.update {
+                it.copy(urlImport = it.urlImport.copy(url = url, problem = ImportProblem.Unsafe(error.reason)))
+            }
+            return
+        }
+
+        _state.update {
+            it.copy(urlImport = it.urlImport.copy(url = checked, awaitingConfirmation = checked, problem = null))
+        }
+    }
+
+    fun onSharedLinkConfirmed() {
+        val url = _state.value.urlImport.awaitingConfirmation ?: return
+        _state.update { it.copy(urlImport = it.urlImport.copy(awaitingConfirmation = null)) }
+        runImport(url)
+    }
+
+    fun onSharedLinkDismissed() = _state.update {
+        it.copy(urlImport = it.urlImport.copy(awaitingConfirmation = null))
+    }
+
+    fun onImportProblemDismissed() = _state.update {
+        it.copy(urlImport = it.urlImport.copy(problem = null))
+    }
+
+    /**
+     * Fetch a page and fill the form in from it.
+     *
+     * The photos are written into the wardrobe as they arrive -- through the same
+     * path a picked photo takes -- so they are registered as [created]: nothing
+     * else references them yet, and backing out of the form should not leave them
+     * behind.
+     */
+    private fun runImport(url: String) {
+        _state.update { it.copy(urlImport = it.urlImport.copy(running = true, problem = null)) }
+
+        viewModelScope.launch {
+            try {
+                val preview = withContext(Dispatchers.IO) {
+                    // `use`, because :domain judges the response's headers before
+                    // asking for its body and may never ask -- so the connection
+                    // has to be closed by whoever opened it.
+                    container.importPages().use { pages ->
+                        importGarmentFromUrl(url, pages, container.importImages)
+                    }
+                }
+
+                created.addAll(preview.downloadedImageUris)
+                _state.update {
+                    it.copy(
+                        form = it.form.withImportedPreview(preview.downloadedImageUris, preview.brand),
+                        duplicates = emptyList(),
+                        urlImport = it.urlImport.copy(
+                            running = false,
+                            url = preview.sourceUrl,
+                            source = preview.brand,
+                            imported = preview.downloadedImageUris.size,
+                            warnings = preview.warnings,
+                        ),
+                    )
+                }
+            } catch (error: UnsafeUrlException) {
+                failImport(ImportProblem.Unsafe(error.reason))
+            } catch (error: GarmentImportException) {
+                failImport(ImportProblem.Failed(error.reason))
+            } catch (error: Exception) {
+                // The network stack's own words: a DNS failure, a refused
+                // connection, cleartext being blocked. Not translatable, and
+                // better than a shrug.
+                failImport(ImportProblem.Foreign(error.message))
+            }
+        }
+    }
+
+    private fun failImport(problem: ImportProblem) = _state.update {
+        it.copy(urlImport = it.urlImport.copy(running = false, problem = problem))
+    }
+
+    /**
+     * There was no camera app to ask.
+     *
+     * Reported by the screen rather than found here: whether an intent resolves is
+     * something only the activity can know, and it finds out by the launch throwing.
+     */
+    fun onCameraUnavailable() = _state.update {
+        it.copy(error = null, errorFallback = R.string.error_no_camera)
+    }
+
+    // ---- reading a colour off a photo -----------------------------------------
+
+    /**
+     * Suggest a colour from the selected photo.
+     *
+     * A suggestion, not a correction: the detected colour goes to the front of the
+     * palette and anything already chosen stays, which is what `withDetectedColor`
+     * does. That is why this is a button rather than something that fires on every
+     * photo -- the app that ships offers it the same way.
+     */
+    fun onDetectColorRequested() {
+        val form = _state.value.form
+        val photo = form.imageUris.getOrNull(form.selectedImageIndex)
+        if (photo.isNullOrEmpty() || _state.value.detectingColor) return
+
+        _state.update { it.copy(detectingColor = true, error = null) }
+
+        viewModelScope.launch {
+            try {
+                val detected = withContext(Dispatchers.IO) {
+                    container.photos
+                        .pixelsFor(Uri.parse(photo), COLOR_SAMPLE_WIDTH)
+                        ?.let { dominantGarmentColor(it) }
+                }
+
+                _state.update { state ->
+                    state.copy(
+                        detectingColor = false,
+                        // A photo that would not decode is not an error worth a
+                        // dialog: nothing was lost and nothing was changed.
+                        form = detected?.let { state.form.withDetectedColor(it) } ?: state.form,
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        detectingColor = false,
+                        error = e.message,
+                        errorFallback = R.string.error_colors_not_read,
+                    )
                 }
             }
         }
@@ -433,5 +653,18 @@ class GarmentFormViewModel(
 
             _state.update { it.copy(brands = brands) }
         }
+    }
+
+    private companion object {
+        /**
+         * How wide a photo is decoded to before its colour is read.
+         *
+         * The same 64 pixels `detectDominantColor` resizes to on the other side. The
+         * exact number is not what the two apps have to agree on -- they decode
+         * differently and never see identical pixels -- but averaging a thumbnail
+         * rather than a photograph is, because it is what makes the answer about the
+         * garment rather than about its weave.
+         */
+        const val COLOR_SAMPLE_WIDTH = 64
     }
 }

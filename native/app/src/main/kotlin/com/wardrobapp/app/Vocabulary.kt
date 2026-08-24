@@ -1,11 +1,16 @@
 package com.wardrobapp.app
 
+import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
+import com.wardrobapp.domain.ImportFailureReason
+import com.wardrobapp.domain.ImportWarning
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.domain.UnsafeUrlReason
 import com.wardrobapp.presentation.LanguageChoice
+import com.wardrobapp.presentation.ThemeChoice
 
 /**
  * The wardrobe's vocabulary, in the reader's language.
@@ -215,3 +220,90 @@ val LanguageChoice.labelRes: Int
         LanguageChoice.ENGLISH -> R.string.language_english
         LanguageChoice.SPANISH -> R.string.language_spanish
     }
+
+/**
+ * What to call each theme option.
+ *
+ * "Automatic" rather than "System", which is what the app that ships calls it: the
+ * word matches the language picker's own first option, and two settings offering
+ * the same idea under two different names is how a screen reads as two screens.
+ */
+@get:StringRes
+val ThemeChoice.labelRes: Int
+    get() = when (this) {
+        ThemeChoice.SYSTEM -> R.string.theme_automatic
+        ThemeChoice.LIGHT -> R.string.theme_light
+        ThemeChoice.DARK -> R.string.theme_dark
+    }
+
+/**
+ * Why a link was refused, in the reader's language.
+ *
+ * The resource names match the case names by convention, which
+ * `ImportMessageParityTest` relies on to hold each of these to the sentence
+ * :domain produces. Same arrangement as the archive failures, and for the same
+ * reason: the English in :domain is what the parity fixture compares, and the
+ * English here is what the Spanish was translated from.
+ */
+fun Context.unsafeUrlText(reason: UnsafeUrlReason): String = when (reason) {
+    UnsafeUrlReason.UrlRequired -> getString(R.string.unsafe_url_required)
+
+    UnsafeUrlReason.NotAWebAddress -> getString(R.string.unsafe_not_a_web_address)
+
+    UnsafeUrlReason.SchemeNotAllowed -> getString(R.string.unsafe_scheme_not_allowed)
+
+    UnsafeUrlReason.CredentialsInUrl -> getString(R.string.unsafe_credentials_in_url)
+
+    is UnsafeUrlReason.HostIsLocal -> getString(R.string.unsafe_host_is_local, reason.host)
+
+    UnsafeUrlReason.RedirectUnreadable -> getString(R.string.unsafe_redirect_unreadable)
+
+    is UnsafeUrlReason.RedirectedToLocalHost ->
+        getString(R.string.unsafe_redirected_to_local_host, reason.host)
+}
+
+/** Why an import produced nothing, in the reader's language. */
+fun Context.importFailureText(reason: ImportFailureReason): String = when (reason) {
+    ImportFailureReason.PageTimedOut -> getString(R.string.import_page_timed_out)
+
+    ImportFailureReason.PageTooLarge -> getString(R.string.import_page_too_large)
+
+    is ImportFailureReason.PageNotLoaded ->
+        getString(R.string.import_page_not_loaded, reason.status)
+
+    ImportFailureReason.NotAWebPage -> getString(R.string.import_not_a_web_page)
+
+    ImportFailureReason.NoImagesFound -> getString(R.string.import_no_images_found)
+
+    ImportFailureReason.NoFetchableImages -> getString(R.string.import_no_fetchable_images)
+
+    ImportFailureReason.NoImagesDownloaded -> getString(R.string.import_no_images_downloaded)
+}
+
+/**
+ * What an import wants to mention, in the reader's language.
+ *
+ * The counted ones go through `getQuantityString` rather than a formatted
+ * sentence: :domain spells out its own singular and plural because a fixture
+ * compares that English, and Android is where a language with other plural rules
+ * than English gets them right.
+ */
+fun Context.importWarningText(warning: ImportWarning): String = when (warning) {
+    ImportWarning.StructuredDataUnreadable ->
+        getString(R.string.import_warning_structured_data_unreadable)
+
+    is ImportWarning.ImagesCapped ->
+        getString(R.string.import_warning_images_capped, warning.listed, warning.used)
+
+    is ImportWarning.ImagesBlocked -> resources.getQuantityString(
+        R.plurals.import_warning_images_blocked,
+        warning.count,
+        warning.count,
+    )
+
+    is ImportWarning.ImagesFailed -> resources.getQuantityString(
+        R.plurals.import_warning_images_failed,
+        warning.count,
+        warning.count,
+    )
+}

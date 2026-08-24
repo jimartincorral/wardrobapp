@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<resources>
+    <!--
+        The icon's background, and the splash screen's.
+
+        The app's own primary colour, from src/constants/theme.ts, rather than the
+        #E6F4FE in app.json: that value is the Expo template's default and was never
+        chosen, and a pale blue behind a white glyph is a white glyph on nothing. At
+        cutover it is app.json that should follow this, not the reverse.
+    -->
+    <color name="ic_launcher_background">#6C63FF</color>
+</resources>

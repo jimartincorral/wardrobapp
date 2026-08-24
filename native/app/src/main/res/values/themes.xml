@@ -10,5 +10,22 @@
         DayNight rather than Light so the window behind Compose follows the system
         setting instead of flashing white on a dark device.
     -->
-    <style name="Theme.Wardrobapp" parent="Theme.AppCompat.DayNight.NoActionBar" />
+    <style name="Theme.Wardrobapp" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!--
+            The launch screen, in one line.
+
+            From Android 12 the platform draws a splash screen by itself: the app's
+            icon on this colour. Setting it therefore does two jobs — it is the
+            splash on new versions, and on older ones it is the frame that shows
+            between the launcher and the first composition, which was otherwise a
+            white flash on the way into a dark app.
+
+            androidx.core:core-splashscreen would backport the animated version to
+            Android 7. Deliberately not used: it is a dependency and a documented
+            interaction with AppCompatActivity — which this is, for the per-app
+            language — in exchange for an icon on a coloured rectangle, which is
+            what this already gives.
+        -->
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
+    </style>
 </resources>

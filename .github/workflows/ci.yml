@@ -102,11 +102,20 @@ jobs:
 
   # The Compose app. Separate from the Kotlin tests above so a broken Android
   # build is reported as one, and so the fast gate does not wait on the Android
-  # toolchain. Assembles debug only: nothing publishes the port's APK yet, so a
-  # release build here would buy nothing until cutover.
+  # toolchain.
+  #
+  # Debug only, and published as a prerelease so the port can actually be
+  # installed and used on a phone. A release build here would still buy nothing:
+  # it needs the keystore that does not exist yet, and until cutover the port is
+  # something to try rather than something to run.
   android:
     name: Build the port's APK
     runs-on: ubuntu-latest
+
+    # Needed to publish the preview release below. The repository default is
+    # read-only; a workflow may request more for itself, as the release job does.
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -122,8 +131,15 @@ jobs:
 
       # The only tests that need Android, which is why they run here rather than
       # in the Kotlin tests job -- that one blanks the SDK on purpose.
+      #
+      # The debug variant specifically, not `:app:test`, which would also run them
+      # against release. The Compose tests cannot run there: `ui-test-manifest`
+      # supplies the activity they compose into and Google ships it as a
+      # debug-only artifact, on purpose -- so in release there is no activity to
+      # launch and all of them fail at once. Nothing in these tests is
+      # variant-dependent, so debug is the whole story.
       - name: Test
-        run: ./gradlew :app:test --console=plain
+        run: ./gradlew :app:testDebugUnitTest --console=plain
         working-directory: native
 
       # The Android-only half of the localization checks. StringResourceParityTest
@@ -145,6 +161,55 @@ jobs:
           path: native/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      # And the same APK as a release asset, because an artifact cannot be
+      # installed from a phone: it is a zip behind a GitHub login, which means
+      # downloading, extracting and finding the file before anything can be
+      # installed. A release asset is one tap.
+      #
+      # A rolling `port-preview` tag, recreated each time so the download URL never
+      # changes and always holds the newest build -- the same shape as the `nightly`
+      # release for the app that ships, and for the same reason.
+      #
+      # Marked prerelease, and the notes say what it is: debug-signed, installing
+      # alongside the real app under its own application id, for testing the port
+      # rather than for using. It is not what `nightly` is; that stays the shipped
+      # app's release build, published only from main.
+      - name: Publish the port's APK for testing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # The branch head, not `github.sha`: on a pull_request event that is the
+          # merge commit, which is not a commit on anybody's branch and a strange
+          # thing to hang a tag on.
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+        run: |
+          cp native/app/build/outputs/apk/debug/app-debug.apk wardrobapp-port.apk
+
+          {
+            echo "The Kotlin port, built from \`$BRANCH\` — run #${GITHUB_RUN_NUMBER}, commit ${HEAD_SHA}."
+            echo
+            echo "**A test build, not a release.**"
+            echo
+            echo "- Signed with the public Android debug key, so installing it needs"
+            echo "  \"install unknown apps\" allowed for whatever opens it."
+            echo "- Installs *alongside* the app that ships, under its own application"
+            echo "  id (\`com.anonymous.wardrobapp.dev\`). It cannot see or touch that"
+            echo "  app's wardrobe."
+            echo "- A wardrobe gets into it by restoring a backup written from the"
+            echo "  shipped app, and back out by writing one from here — both apps read"
+            echo "  and write the same archive format."
+            echo
+            echo "Replaced by the next build of the port. For the app that ships, see"
+            echo "the [nightly release](https://github.com/jimartincorral/wardrobapp/releases/tag/nightly)."
+          } > port-notes.md
+
+          gh release delete port-preview --yes --cleanup-tag || true
+          gh release create port-preview wardrobapp-port.apk \
+            --target "$HEAD_SHA" \
+            --title "Port preview" \
+            --prerelease \
+            --notes-file port-notes.md
 
   build:
     name: Build release APK

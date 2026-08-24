@@ -83,14 +83,21 @@ android {
     }
 
     lint {
-        // Only the localization checks, deliberately. A full lint run on a
-        // codebase that has never had one would fail CI on a backlog of unrelated
-        // findings, which would mean turning abortOnError off -- and a lint that
-        // cannot fail is a report nobody opens. Scoped like this, these four stop
-        // the build at their normal error severity and nothing else can.
+        // A chosen set, not the whole of lint. A full run on a codebase that has
+        // never had one would fail CI on a backlog of unrelated findings, which
+        // would mean turning abortOnError off -- and a lint that cannot fail is a
+        // report nobody opens.
         //
-        // A full lint pass is worth doing; it is its own piece of work.
+        // Getting to a full pass needs a baseline recorded first
+        // (`lint { baseline = file("lint-baseline.xml") }`, then one
+        // `./gradlew :app:lintDebug` on a machine with an SDK to write it), so that
+        // the backlog is frozen and anything new fails. That is worth doing and
+        // cannot be done from here -- generating a baseline means running lint.
+        //
+        // Until then, this list grows a check at a time, and every one of these
+        // stops the build at its normal error severity.
         checkOnly += setOf(
+            // -- Localization ------------------------------------------------
             // A name in values/ with no values-es/ counterpart, and the reverse.
             "MissingTranslation",
             "ExtraTranslation",
@@ -99,6 +106,37 @@ android {
             // oddly.
             "StringFormatInvalid",
             "StringFormatMatches",
+
+            // -- The things URL import made relevant --------------------------
+            // This app now fetches pages an outside link named, so the checks that
+            // catch a client which trusts anything are no longer theoretical.
+            "TrustAllX509TrustManager",
+            "BadHostnameVerifier",
+            "AllowAllHostnameVerifier",
+            "InsecureBaseConfiguration",
+            "UnsafeImplicitIntentLaunch",
+            "UnsafeIntentLaunch",
+
+            // -- The things the camera made relevant --------------------------
+            // A FileProvider handing out more than it means to, and the file-URI
+            // exposure it exists to avoid.
+            "GrantAllUris",
+            "ExportedContentProvider",
+            "FileEndsWithExt",
+
+            // -- Ordinary correctness ----------------------------------------
+            // A resource or an API used on a version that does not have it, which
+            // is the one class of finding that crashes on exactly the phones least
+            // likely to be tested on.
+            "NewApi",
+            "InlinedApi",
+            "ObsoleteSdkInt",
+            // A stream or a bitmap left open. Both apply: this decodes photos and
+            // reads network responses.
+            "Recycle",
+            // A release build that ships debuggable, which is the mistake that is
+            // invisible until someone attaches a debugger to a phone.
+            "HardcodedDebugMode",
         )
     }
 
@@ -220,5 +258,23 @@ dependencies {
     // was wrong for weeks precisely because no test could see it.
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.16.1")
+
+    // Compose UI tests, run by Robolectric rather than on a device. That is the
+    // whole point: these assert what a screen shows, and asserting it in the same
+    // `:app:test` task as everything else means CI needs no emulator. They read the
+    // semantics tree, not pixels, so no graphics mode is involved.
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    // Supplies the activity `createComposeRule` starts the composition in. On the
+    // debug manifest, which is the one Robolectric merges.
+    //
+    // Debug-only because that is how it is published -- it exists to add an
+    // activity to a manifest, and no release build should carry one. The
+    // consequence is that `:app:test` fails: it runs the unit tests against both
+    // variants, and in release there is no activity for these to launch. So the
+    // test task is named by variant in CI and in the README. Disabling the release
+    // unit-test variant outright (`androidComponents { beforeVariants ... }`) would
+    // say it once instead of twice, and is worth doing by whoever next has an SDK
+    // in front of them to verify it against.
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 

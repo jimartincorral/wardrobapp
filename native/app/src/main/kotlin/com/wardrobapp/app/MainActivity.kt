@@ -1,5 +1,7 @@
 package com.wardrobapp.app
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -10,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -23,13 +26,19 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.os.LocaleListCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -41,8 +50,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.wardrobapp.data.backupFilename
+import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.languageChoiceFor
 import com.wardrobapp.presentation.languageTag
+import com.wardrobapp.presentation.usesDarkColors
+import java.io.File
 import java.io.FileNotFoundException
 
 /**
@@ -56,14 +68,45 @@ import java.io.FileNotFoundException
  */
 class MainActivity : AppCompatActivity() {
 
+    /**
+     * An address something outside the app asked it to import.
+     *
+     * Held here rather than in a ViewModel because it arrives as an intent, which
+     * is the activity's business, and it is consumed by the garment form -- which
+     * may not exist yet when it arrives.
+     */
+    private val pendingLink = mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         val container = AppContainer.get(applicationContext)
 
+        // Read before the first composition, not from within it: the colours have
+        // to be right on the first frame, and a choice arriving afterwards is a
+        // visible repaint of the whole app.
+        val appearance = ThemePreference(this)
+
+        // An address handed over from outside: a `wardrobapp://` link, or text
+        // shared from a browser. A field rather than a local, because a second
+        // link can arrive through onNewIntent while the app is already open.
+        pendingLink.value = importUrlFrom(intent)
+
         setContent {
-            WardrobappTheme {
+            // The one piece of app state held here rather than in a ViewModel.
+            // It has to wrap the theme, and the theme wraps every screen -- so
+            // there is nothing below it for a model to belong to.
+            var theme by remember { mutableStateOf(appearance.choice) }
+
+            WardrobappTheme(theme) {
+                // The status and navigation bar icons, which are drawn by the
+                // system and so are not covered by the colour scheme above.
+                // `enableEdgeToEdge()` decides their appearance from the device's
+                // dark mode setting, which is the wrong answer as soon as this app
+                // is told to override it: dark icons on a dark app, unreadable.
+                SystemBarIcons(dark = theme.usesDarkColors(isSystemInDarkTheme()))
+
                 val navigator = rememberNavController()
                 val entry by navigator.currentBackStackEntryAsState()
                 val route = entry?.destination?.route
@@ -87,6 +130,16 @@ class MainActivity : AppCompatActivity() {
                         }
                     },
                 ) { insets ->
+                    // Routed once, when it arrives. Not consumed here -- the form
+                    // is what asks about it, and it has to exist first.
+                    LaunchedEffect(pendingLink.value) {
+                        // Single top: a link tapped while the form is already open
+                        // should not stack a second copy of it.
+                        if (pendingLink.value != null) {
+                            navigator.navigate(GARMENT_ADD) { launchSingleTop = true }
+                        }
+                    }
+
                     NavHost(
                         navController = navigator,
                         startDestination = HOME,
@@ -116,7 +169,20 @@ class MainActivity : AppCompatActivity() {
                         }
 
                         composable(SETTINGS) {
-                            Settings(container, navigator = navigator)
+                            Settings(
+                                container = container,
+                                navigator = navigator,
+                                theme = theme,
+                                onThemeSelected = { choice ->
+                                    // Stored and applied. Both, because the
+                                    // preference is what the next launch reads and
+                                    // the state is what this composition draws
+                                    // from -- and unlike the language, nothing
+                                    // recreates the activity to bridge them.
+                                    appearance.choice = choice
+                                    theme = choice
+                                },
+                            )
                         }
 
                         composable(OUTFITS) {
@@ -147,7 +213,16 @@ class MainActivity : AppCompatActivity() {
                         }
 
                         composable(GARMENT_ADD) {
-                            GarmentForm(container, garmentId = null, navigator = navigator)
+                            GarmentForm(
+                                container = container,
+                                garmentId = null,
+                                navigator = navigator,
+                                // Taken rather than read: an address is offered
+                                // once, and a second visit to this screen should
+                                // not re-open the confirmation for a link that has
+                                // already been answered.
+                                sharedLink = pendingLink,
+                            )
                         }
 
                         composable("$GARMENT_EDIT/{$GARMENT_ID}") { backStackEntry ->
@@ -238,7 +313,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     @Composable
-    private fun Settings(container: AppContainer, navigator: NavHostController) {
+    private fun Settings(
+        container: AppContainer,
+        navigator: NavHostController,
+        theme: ThemeChoice,
+        onThemeSelected: (ThemeChoice) -> Unit,
+    ) {
         val model: SettingsViewModel = viewModel(
             factory = viewModelFactory { initializer { SettingsViewModel(container) } }
         )
@@ -290,6 +370,8 @@ class MainActivity : AppCompatActivity() {
             language = languageChoiceFor(
                 AppCompatDelegate.getApplicationLocales().toLanguageTags()
             ),
+            theme = theme,
+            onThemeSelected = onThemeSelected,
             onLanguageSelected = { choice ->
                 // AppCompat persists this itself -- that is what the manifest's
                 // locales service with autoStoreLocales is for -- and on Android
@@ -320,6 +402,8 @@ class MainActivity : AppCompatActivity() {
             // from them, so every type is offered and the archive decides.
             onRestoreConfirmed = { opener.launch(arrayOf("*/*")) },
             onRestoreDismissed = model::onRestoreDismissed,
+            onTidyRequested = model::onTidyRequested,
+            onTidyDismissed = model::onTidyDismissed,
             onRetry = model::refresh,
         )
     }
@@ -358,6 +442,8 @@ class MainActivity : AppCompatActivity() {
         container: AppContainer,
         garmentId: String?,
         navigator: NavHostController,
+        /** An address from outside, waiting to be offered. Null when adding normally. */
+        sharedLink: MutableState<String?>? = null,
     ) {
         val model: GarmentFormViewModel = viewModel(
             factory = viewModelFactory {
@@ -370,10 +456,35 @@ class MainActivity : AppCompatActivity() {
             ActivityResultContracts.PickVisualMedia()
         ) { uri -> uri?.let(model::onPhotoPicked) }
 
+        // Where the camera will write, minted per composition rather than per tap:
+        // the contract needs the destination before it launches, and a file that
+        // changed between launching and answering would leave the photo unread.
+        val destination = remember { cameraDestination() }
+        val camera = rememberLauncherForActivityResult(
+            ActivityResultContracts.TakePicture()
+        ) { taken ->
+            // False means dismissed, or a camera app that wrote nothing. Neither is
+            // a failure worth a dialog; the file is cleaned up either way once the
+            // photo has been stored.
+            if (taken) model.onPhotoPicked(destination)
+        }
+
         // Leaving is the activity's business, not the model's: the model reports
         // that it saved, and this is what that means for the back stack.
         LaunchedEffect(state.saved) {
             if (state.saved) navigator.popBackStack()
+        }
+
+        // Handed to the model once and then cleared, so rotating the phone or
+        // coming back to this screen does not ask about the same link again.
+        val pending = sharedLink?.value
+        LaunchedEffect(pending) {
+            if (pending != null) {
+                model.onSharedLinkReceived(pending)
+                // Safe-call assignment: `pending` being non-null implies the
+                // state is there, but only to a reader.
+                sharedLink?.value = null
+            }
         }
 
         GarmentFormScreen(
@@ -386,6 +497,17 @@ class MainActivity : AppCompatActivity() {
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                 )
             },
+            onTakePhoto = {
+                try {
+                    camera.launch(destination)
+                } catch (_: ActivityNotFoundException) {
+                    // A device with no camera app at all. Rare, and better said
+                    // than crashed on -- which is what launching an unhandled
+                    // intent does.
+                    model.onCameraUnavailable()
+                }
+            },
+            onDetectColor = model::onDetectColorRequested,
             onPhotoSelected = model::onPhotoSelected,
             onPhotoRemoved = model::onPhotoRemoved,
             onRemoveBackground = model::onRemoveBackground,
@@ -401,6 +523,11 @@ class MainActivity : AppCompatActivity() {
             onSaveAnyway = { model.onSaveRequested(force = true) },
             onDuplicatesDismissed = model::onDuplicateWarningDismissed,
             onErrorDismissed = model::onErrorDismissed,
+            onImportUrlChanged = model::onImportUrlChanged,
+            onImportRequested = model::onImportRequested,
+            onSharedLinkConfirmed = model::onSharedLinkConfirmed,
+            onSharedLinkDismissed = model::onSharedLinkDismissed,
+            onImportProblemDismissed = model::onImportProblemDismissed,
         )
     }
 
@@ -525,6 +652,90 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Light or dark icons in the system bars.
+     *
+     * The bars themselves are transparent -- that is what `enableEdgeToEdge` did --
+     * so what is left to decide is whether the clock and the back gesture hint are
+     * drawn dark (for a light app) or light (for a dark one). That call is made
+     * from the app's own resolved theme rather than the device's, which is the
+     * whole point: a phone in light mode showing this app in dark would otherwise
+     * put dark icons on a dark background.
+     *
+     * A SideEffect because it mutates the window, which is not Compose state: it
+     * has to run after a successful composition and re-run whenever the answer
+     * changes.
+     */
+    @Composable
+    private fun SystemBarIcons(dark: Boolean) {
+        SideEffect {
+            WindowInsetsControllerCompat(window, window.decorView).run {
+                isAppearanceLightStatusBars = !dark
+                isAppearanceLightNavigationBars = !dark
+            }
+        }
+    }
+
+    /**
+     * A file for the camera to write into, as a URI it is allowed to use.
+     *
+     * In the cache, because this is the full-resolution original and the wardrobe
+     * keeps its own scaled copy: once the photo is stored this file is spent. One
+     * fixed name rather than one per capture, so the next photo overwrites it and
+     * at most one is ever lying around for the system to reclaim.
+     *
+     * Through FileProvider because handing a camera app a `file://` path has thrown
+     * FileUriExposedException since Android 7.
+     */
+    private fun cameraDestination(): Uri {
+        val directory = File(cacheDir, "camera").also { it.mkdirs() }
+        val file = File(directory, "capture.jpg")
+        return FileProvider.getUriForFile(this, "$packageName.camera", file)
+    }
+
+    /**
+     * A second link, while the app is already open.
+     *
+     * Without this the activity keeps the intent it was created with and a link
+     * tapped now does nothing -- the launcher brings the existing task forward
+     * rather than starting a new activity. Setting the intent is what makes the
+     * value read in `onCreate` see it, since that read happens again on
+     * recreation.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        importUrlFrom(intent)?.let { pendingLink.value = it }
+    }
+
+    /**
+     * The address an intent is asking to import, if any.
+     *
+     * Two shapes, because there are two ways in. A `wardrobapp://...?importUrl=`
+     * link is what the app that ships handles, and keeping it means a QR code or a
+     * link that works there works here. A plain `ACTION_SEND` of text is the one
+     * people actually use: the share sheet from a browser, which the manifest also
+     * declares.
+     *
+     * Nothing is validated here -- that is the form's job, and it has to be, since
+     * a refusal is something to show a person rather than to swallow at the door.
+     */
+    private fun importUrlFrom(intent: Intent?): String? {
+        if (intent == null) return null
+
+        val fromDeepLink = intent.data
+            ?.takeIf { it.scheme == APP_SCHEME }
+            ?.getQueryParameter(IMPORT_URL)
+        if (!fromDeepLink.isNullOrBlank()) return fromDeepLink
+
+        if (intent.action == Intent.ACTION_SEND) {
+            val shared = intent.getStringExtra(Intent.EXTRA_TEXT)
+            if (!shared.isNullOrBlank()) return shared
+        }
+
+        return null
+    }
+
     /** What the installed package says this build is. */
     private fun appVersion(): AppVersion {
         val info = packageManager.getPackageInfo(packageName, 0)
@@ -587,6 +798,16 @@ class MainActivity : AppCompatActivity() {
         const val GARMENT_ADD = "add-garment"
         const val GARMENT_EDIT = "edit-garment"
         const val GARMENT_ID = "garmentId"
+
+        /**
+         * The scheme and parameter the app that ships already answers to.
+         *
+         * Kept identical on purpose: a QR code or a saved link that opens the
+         * React Native app opens this one the same way, so nothing anyone has
+         * lying around stops working at cutover.
+         */
+        const val APP_SCHEME = "wardrobapp"
+        const val IMPORT_URL = "importUrl"
 
         val TABS = listOf(
             Tab(HOME, R.string.tab_home, Icons.Filled.Home),

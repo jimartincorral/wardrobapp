@@ -1,5 +1,6 @@
 package com.wardrobapp.app
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -34,6 +36,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -48,22 +51,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.wardrobapp.data.DuplicateGarment
+import com.wardrobapp.domain.COMMON_SIZES
 import com.wardrobapp.domain.DuplicateReason
 import com.wardrobapp.domain.GARMENT_CATEGORIES
 import com.wardrobapp.domain.SIZE_CHIPS
-import com.wardrobapp.domain.COMMON_SIZES
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.garmentCategory
 import com.wardrobapp.presentation.BackgroundAction
 import com.wardrobapp.presentation.GARMENT_COLORS
 import com.wardrobapp.presentation.backgroundActionFor
+
+/** The scrolling body of the form, for tests that need to reach past the fold. */
+const val GARMENT_FORM_LIST = "garment-form-list"
 
 /**
  * Adding or editing a garment.
@@ -80,6 +90,8 @@ fun GarmentFormScreen(
     brandSuggestions: (String) -> List<String>,
     onBack: () -> Unit,
     onAddPhoto: () -> Unit,
+    onTakePhoto: () -> Unit,
+    onDetectColor: () -> Unit,
     onPhotoSelected: (Int) -> Unit,
     onPhotoRemoved: (Int) -> Unit,
     onRemoveBackground: () -> Unit,
@@ -95,11 +107,24 @@ fun GarmentFormScreen(
     onSaveAnyway: () -> Unit,
     onDuplicatesDismissed: () -> Unit,
     onErrorDismissed: () -> Unit,
+    onImportUrlChanged: (String) -> Unit,
+    onImportRequested: () -> Unit,
+    onSharedLinkConfirmed: () -> Unit,
+    onSharedLinkDismissed: () -> Unit,
+    onImportProblemDismissed: () -> Unit,
 ) {
     val form = state.form
 
     if (state.duplicates.isNotEmpty()) {
         DuplicateWarning(state.duplicates, onSaveAnyway, onDuplicatesDismissed)
+    }
+
+    state.urlImport.awaitingConfirmation?.let { url ->
+        SharedLinkConfirmation(url, onSharedLinkConfirmed, onSharedLinkDismissed)
+    }
+
+    state.urlImport.problem?.let { problem ->
+        ImportProblemDialog(problem, onImportProblemDismissed)
     }
 
     state.errorText()?.let { error ->
@@ -138,10 +163,31 @@ fun GarmentFormScreen(
         }
 
         LazyColumn(
-            modifier = Modifier.padding(insets),
+            // Tagged so a test can scroll it. A LazyColumn only composes what is on
+            // screen, so anything below the fold -- the camera button, the colour
+            // chips -- is not merely invisible to a test, it does not exist yet.
+            // Scrolling to it needs the list named, and naming it here is cheaper
+            // than a test that only ever checks the top of the form.
+            modifier = Modifier.testTag(GARMENT_FORM_LIST).padding(insets),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            // Only when adding. An import replaces every photo in the form, which
+            // on an edit would mean quietly discarding the garment's own -- and
+            // the app that ships offers it on the add screen alone for the same
+            // reason.
+            if (!isEditing) {
+                item {
+                    Section(stringResource(R.string.import_section)) {
+                        ImportFromLink(
+                            state = state.urlImport,
+                            onUrlChanged = onImportUrlChanged,
+                            onImport = onImportRequested,
+                        )
+                    }
+                }
+            }
+
             item {
                 Section(stringResource(R.string.form_section_photos)) {
                     Column {
@@ -152,6 +198,24 @@ fun GarmentFormScreen(
                             onAdd = onAddPhoto,
                             onSelect = onPhotoSelected,
                             onRemove = onPhotoRemoved,
+                        )
+
+                        // Two ways to add one, as the app that ships has: the
+                        // picker for a photo already taken, the camera for a
+                        // garment in front of you.
+                        OutlinedButton(
+                            onClick = onTakePhoto,
+                            enabled = !state.saving,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        ) {
+                            Text(stringResource(R.string.form_take_photo))
+                        }
+
+                        DetectColorControl(
+                            enabled = form.imageUris.getOrNull(form.selectedImageIndex)
+                                ?.isNotEmpty() == true,
+                            running = state.detectingColor,
+                            onDetect = onDetectColor,
                         )
 
                         // What to offer is :presentation's call, from the same
@@ -589,3 +653,191 @@ private fun DuplicateReason.label(): String = stringResource(
 @Composable
 private fun GarmentFormViewModel.State.errorText(): String? =
     error ?: errorFallback?.let { stringResource(it) }
+
+/**
+ * Paste a product link and pull its photos in.
+ *
+ * First on the screen, above the photo picker, because an import fills in the rest
+ * of the form: pasting a link and then scrolling back up to it would be the wrong
+ * way round. It is also the only section that disappears -- on an edit there is
+ * nothing here to replace the garment's own photos with.
+ */
+@Composable
+private fun ImportFromLink(
+    state: GarmentFormViewModel.UrlImport,
+    onUrlChanged: (String) -> Unit,
+    onImport: () -> Unit,
+) {
+    Column {
+        Text(
+            stringResource(R.string.import_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        OutlinedTextField(
+            value = state.url,
+            onValueChange = onUrlChanged,
+            label = { Text(stringResource(R.string.import_url_label)) },
+            singleLine = true,
+            enabled = !state.running,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        )
+
+        if (state.running) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 12.dp),
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                Text(
+                    stringResource(R.string.import_running),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+        } else {
+            OutlinedButton(
+                onClick = onImport,
+                enabled = state.url.isNotBlank(),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            ) {
+                Text(stringResource(R.string.import_action))
+            }
+        }
+
+        // What happened, once it has. The count and the shop are separate lines
+        // because either can be present without the other: a page can give up its
+        // photos while naming no brand at all.
+        state.imported?.let { count ->
+            Text(
+                pluralStringResource(R.plurals.import_success, count, count),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+
+        state.source?.let { source ->
+            Text(
+                stringResource(R.string.import_source, source),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (state.warnings.isNotEmpty()) {
+            val context = LocalContext.current
+            Text(
+                stringResource(
+                    R.string.import_notes,
+                    state.warnings.joinToString(" ") { context.importWarningText(it) },
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Asking before fetching an address the user did not type.
+ *
+ * The host is the whole message: it is the one part that says where this app is
+ * about to go, and the reason the answer is not just "yes" is that the address
+ * came from outside -- a link, a share, a QR code -- and none of those is a
+ * decision the user made.
+ */
+@Composable
+private fun SharedLinkConfirmation(
+    url: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.shared_link_title)) },
+        text = { Text(stringResource(R.string.shared_link_body, hostOf(url))) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(stringResource(R.string.shared_link_confirm)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.shared_link_cancel)) }
+        },
+    )
+}
+
+/** Why an import did not happen, in the reader's language where it can be. */
+@Composable
+private fun ImportProblemDialog(
+    problem: GarmentFormViewModel.ImportProblem,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val message = when (problem) {
+        is GarmentFormViewModel.ImportProblem.Unsafe -> context.unsafeUrlText(problem.reason)
+        is GarmentFormViewModel.ImportProblem.Failed -> context.importFailureText(problem.reason)
+        // The network's own words, or nothing useful at all -- in which case the
+        // app says what it was trying to do instead of showing an empty dialog.
+        is GarmentFormViewModel.ImportProblem.Foreign ->
+            problem.text ?: stringResource(R.string.import_invalid_url)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.import_failed_title)) },
+        text = { Text(message) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+    )
+}
+
+/**
+ * The host of an address, for the confirmation.
+ *
+ * Falls back to the whole address rather than to nothing: the dialog exists to say
+ * where the app is about to go, and a blank there would make it meaningless. It
+ * cannot happen for an address that passed the check, which is the only kind that
+ * reaches this.
+ */
+private fun hostOf(url: String): String =
+    Uri.parse(url).host ?: url
+
+/**
+ * Read the selected photo's colour, on request.
+ *
+ * On request rather than on every photo, which is how the app that ships offers it:
+ * the answer is a suggestion moved to the front of the palette, and doing that
+ * unasked to a garment whose colours somebody has already picked is a correction
+ * nobody asked for.
+ */
+@Composable
+private fun DetectColorControl(
+    enabled: Boolean,
+    running: Boolean,
+    onDetect: () -> Unit,
+) {
+    if (running) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 12.dp),
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp))
+            Text(
+                stringResource(R.string.form_detecting_colors),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
+        return
+    }
+
+    OutlinedButton(
+        onClick = onDetect,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    ) {
+        Text(stringResource(R.string.form_detect_colors))
+    }
+}

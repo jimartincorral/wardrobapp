@@ -7,11 +7,16 @@ import android.graphics.Matrix
 import android.net.Uri
 import androidx.exifinterface.media.ExifInterface
 import com.wardrobapp.data.GARMENT_IMAGE_DIRNAME
+import com.wardrobapp.data.MaintenanceSummary
+import com.wardrobapp.data.StoredCutout
 import com.wardrobapp.data.PHOTO_JPEG_QUALITY
 import com.wardrobapp.data.PhotoOrientation
 import com.wardrobapp.data.StoredPhotoSize
 import com.wardrobapp.data.cutoutFilename
+import com.wardrobapp.data.cutoutsToShrink
 import com.wardrobapp.data.decodeSampleSize
+import com.wardrobapp.data.isCutoutFilename
+import com.wardrobapp.data.maintenanceSummary
 import com.wardrobapp.data.orientedSize
 import com.wardrobapp.data.photoFilename
 import com.wardrobapp.data.photoOrientation
@@ -62,6 +67,101 @@ class AndroidPhotoStore(private val context: Context) {
         val name = cutoutFilename(id)
         writeBitmap(cutout, File(directory.also { it.mkdirs() }, name), Bitmap.CompressFormat.PNG)
         return name
+    }
+
+    /**
+     * A photo's pixels, small, as RGBA for [com.wardrobapp.presentation.dominantGarmentColor].
+     *
+     * Downscaled hard first, the way `detectDominantColor` does before it averages:
+     * a thumbnail is faster to average and less swayed by a pattern's detail than
+     * the full image. Not turned upright, because averaging every fourth pixel does
+     * not care which way up they are.
+     *
+     * Null when the photo cannot be decoded -- a missing file, or something that is
+     * not an image. The caller says nothing rather than guessing a colour.
+     */
+    fun pixelsFor(source: Uri, targetWidth: Int): ByteArray? {
+        val bounds = readBounds(source)
+        if (bounds.width <= 0 || bounds.height <= 0) return null
+
+        val bitmap = decode(source, (bounds.width / targetWidth).coerceAtLeast(1)) ?: return null
+
+        return try {
+            val packed = IntArray(bitmap.width * bitmap.height)
+            bitmap.getPixels(packed, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+
+            // ARGB ints into RGBA bytes, which is the layout every decoder on the
+            // TypeScript side produces and what the fixture is recorded in.
+            // `getPixels` hands back non-premultiplied values, so a cut-out's
+            // transparent pixels arrive as alpha 0 and are skipped rather than
+            // averaged in as black.
+            val bytes = ByteArray(packed.size * 4)
+            for ((index, colour) in packed.withIndex()) {
+                bytes[index * 4] = (colour shr 16 and 0xff).toByte()
+                bytes[index * 4 + 1] = (colour shr 8 and 0xff).toByte()
+                bytes[index * 4 + 2] = (colour and 0xff).toByte()
+                bytes[index * 4 + 3] = (colour ushr 24 and 0xff).toByte()
+            }
+            bytes
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /**
+     * Shrink cut-outs that an older build stored at full resolution.
+     *
+     * Which files and whether each one needs it are :data's call
+     * ([cutoutsToShrink]); this does the decoding, scaling and writing, and reports
+     * what it came to.
+     *
+     * Rewritten in place, over the same filename, because the database stores that
+     * name and every row referencing it has to keep working. That is also why a
+     * failure on one file is swallowed and the pass continues: a cut-out that will
+     * not decode is left exactly as it was, which is worse than shrinking it and
+     * far better than losing it.
+     *
+     * [onProgress] is called with how many of the oversized files are done.
+     */
+    fun shrinkOversizedCutouts(onProgress: (Int, Int) -> Unit = { _, _ -> }): MaintenanceSummary {
+        val files = directory.listFiles()?.toList() ?: return MaintenanceSummary(0, 0, 0)
+
+        val cutouts = files
+            .filter { it.isFile && isCutoutFilename(it.name) }
+            .map { file ->
+                val bounds = readBounds(Uri.fromFile(file))
+                StoredCutout(
+                    name = file.name,
+                    width = bounds.width,
+                    height = bounds.height,
+                    bytes = file.length(),
+                )
+            }
+
+        val oversized = cutoutsToShrink(cutouts)
+        val savings = mutableListOf<Long>()
+
+        for ((done, cutout) in oversized.withIndex()) {
+            val file = File(directory, cutout.name)
+            val before = file.length()
+
+            try {
+                // Through the same write path a picked photo takes, so the result
+                // is the shape this app would have stored in the first place --
+                // including PNG, which a cut-out has to stay: it is transparent
+                // where the background was.
+                write(Uri.fromFile(file), file, Bitmap.CompressFormat.PNG)
+                savings += before - file.length()
+            } catch (_: Exception) {
+                // Any failure: an unreadable file, no room to stage a copy. The
+                // original is untouched and the next file is not this one's
+                // problem.
+            }
+
+            onProgress(done + 1, oversized.size)
+        }
+
+        return maintenanceSummary(examined = cutouts.size, savings = savings)
     }
 
     /** Remove a stored photo. A file already gone is not a failure. */

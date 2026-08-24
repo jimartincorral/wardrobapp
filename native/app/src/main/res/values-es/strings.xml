@@ -246,6 +246,88 @@
     <string name="language_english">English</string>
     <string name="language_spanish">Español</string>
 
+    <!-- Tidying up photos stored by an older build -->
+    <string name="settings_tidy">Optimizar almacenamiento</string>
+    <string name="settings_tidy_hint">Reduce las fotos recortadas guardadas por una versión anterior. No cambia nada más, y se puede repetir sin problema.</string>
+    <string name="tidy_running_title">Optimizando el almacenamiento</string>
+    <string name="tidy_running_body">Reduciendo la foto %1$d de %2$d…</string>
+    <string name="tidy_nothing_title">Nada que optimizar</string>
+    <plurals name="tidy_nothing_body">
+        <item quantity="one">%1$d foto recortada, ya tan pequeña como esta aplicación las hace.</item>
+        <item quantity="other">%1$d fotos recortadas, ya tan pequeñas como esta aplicación las hace.</item>
+    </plurals>
+    <string name="tidy_done_title">Almacenamiento optimizado</string>
+    <plurals name="tidy_done_body">
+        <item quantity="one">%1$d foto reducida; se han ahorrado %2$s MB.</item>
+        <item quantity="other">%1$d fotos reducidas; se han ahorrado %2$s MB.</item>
+    </plurals>
+    <string name="tidy_failed_title">No se ha podido optimizar</string>
+
+    <!-- Taking a photo, and reading a colour off one -->
+    <string name="form_take_photo">Hacer foto</string>
+    <string name="form_detect_colors">Detectar colores</string>
+    <string name="form_detecting_colors">Leyendo los colores de la foto…</string>
+    <string name="error_colors_not_read">No se han podido leer los colores de esa foto.</string>
+    <string name="error_no_camera">Ninguna aplicación de cámara ha respondido, así que no se ha hecho ninguna foto.</string>
+
+    <!-- URL import, in the garment form -->
+    <string name="import_section">Importar desde un enlace</string>
+    <string name="import_hint">Pega un enlace del producto para traer sus imágenes</string>
+    <string name="import_url_label">Enlace del producto</string>
+    <string name="import_action">Importar URL</string>
+    <string name="import_running">Importando imágenes desde el enlace…</string>
+    <string name="import_source">Importado desde %1$s</string>
+    <string name="import_notes">Notas de importación: %1$s</string>
+    <plurals name="import_success">
+        <item quantity="one">Se importó %1$d imagen de la página del producto.</item>
+        <item quantity="other">Se importaron %1$d imágenes de la página del producto.</item>
+    </plurals>
+    <string name="import_failed_title">Importación por URL</string>
+    <string name="import_invalid_url">Ingresa una URL de producto válida.</string>
+
+    <!-- Being handed a link by something else: a share, or a deep link -->
+    <string name="shared_link_title">¿Importar desde un enlace?</string>
+    <string name="shared_link_body">Algo ha pedido a esta app cargar una prenda desde %1$s. Todavía no se ha descargado nada.</string>
+    <string name="shared_link_confirm">Cargarlo</string>
+    <string name="shared_link_cancel">Ahora no</string>
+
+    <!-- Why a link was refused. Mirrors UnsafeUrlReason in :domain. -->
+    <string name="unsafe_url_required">Hace falta una URL.</string>
+    <string name="unsafe_not_a_web_address">Eso no parece una dirección web.</string>
+    <string name="unsafe_scheme_not_allowed">Solo se pueden importar direcciones http y https.</string>
+    <string name="unsafe_credentials_in_url">Esa dirección lleva un usuario o una contraseña, así que no se ha abierto.</string>
+    <string name="unsafe_host_is_local">%1$s está en este dispositivo o en su red local, así que no se ha abierto.</string>
+    <string name="unsafe_redirect_unreadable">Esa dirección redirige a algún sitio ilegible.</string>
+    <string name="unsafe_redirected_to_local_host">Esa dirección redirige a %1$s, en este dispositivo o en su red local.</string>
+
+    <!-- Why an import produced nothing. Mirrors ImportFailureReason in :domain. -->
+    <string name="import_page_timed_out">Esa página ha tardado demasiado en responder.</string>
+    <string name="import_page_too_large">Esa página es demasiado grande para leerla.</string>
+    <string name="import_page_not_loaded">No se ha podido cargar la página (%1$d).</string>
+    <string name="import_not_a_web_page">Esa dirección no es una página web.</string>
+    <string name="import_no_images_found">No se han encontrado imágenes de prendas en esa página.</string>
+    <string name="import_no_fetchable_images">Las imágenes de esa página no son de las que esta app descarga.</string>
+    <string name="import_no_images_downloaded">Se han encontrado imágenes, pero no se ha podido descargar ninguna.</string>
+
+    <!-- What an import wants to mention. Mirrors ImportWarning in :domain. -->
+    <string name="import_warning_structured_data_unreadable">No se han podido leer algunos datos estructurados del producto.</string>
+    <string name="import_warning_images_capped">Esa página listaba %1$d imágenes; se han usado las %2$d primeras.</string>
+    <plurals name="import_warning_images_blocked">
+        <item quantity="one">%1$d imagen apuntaba a un sitio que esta app no descarga.</item>
+        <item quantity="other">%1$d imágenes apuntaban a un sitio que esta app no descarga.</item>
+    </plurals>
+    <plurals name="import_warning_images_failed">
+        <item quantity="one">No se ha podido descargar %1$d imagen.</item>
+        <item quantity="other">No se han podido descargar %1$d imágenes.</item>
+    </plurals>
+
+    <!-- Theme, in Settings -->
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_hint">Automático sigue el ajuste de claro u oscuro del dispositivo.</string>
+    <string name="theme_automatic">Automático</string>
+    <string name="theme_light">Claro</string>
+    <string name="theme_dark">Oscuro</string>
+
     <!-- Categories -->
     <string name="category_tops">Parte Superior</string>
     <string name="category_bottoms">Parte Inferior</string>

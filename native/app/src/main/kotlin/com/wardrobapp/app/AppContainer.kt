@@ -8,11 +8,13 @@ import com.wardrobapp.data.BackupSummary
 import com.wardrobapp.data.Duplicates
 import com.wardrobapp.data.GarmentQueries
 import com.wardrobapp.data.GarmentWrites
+import com.wardrobapp.data.MaintenanceSummary
 import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.ReopeningDriver
 import com.wardrobapp.data.Suggestions
 import com.wardrobapp.data.WardrobeSchema
+import com.wardrobapp.domain.ImageFetcher
 import com.wardrobapp.data.storedImageBytes
 import com.wardrobapp.data.wardrobeFilesIn
 import java.io.InputStream
@@ -73,6 +75,17 @@ class AppContainer(context: Context) {
     /** Cutting a garment out of its background, on device. */
     val backgrounds = AndroidBackgroundRemover(context, photos)
 
+    /**
+     * Downloading a product page's images into the wardrobe.
+     *
+     * Held here because it is stateless; the page fetcher below is not -- it owns
+     * one connection at a time -- so that one is handed out fresh per import.
+     */
+    val importImages: ImageFetcher = AndroidImageFetcher(context, photos, imageDirectory)
+
+    /** A fetcher for one page. Closed by the caller. */
+    fun importPages(): AndroidPageFetcher = AndroidPageFetcher()
+
     private val restore = ArchiveRestore(
         files = files,
         // The same volume as the wardrobe, so installing the extracted archive
@@ -85,6 +98,15 @@ class AppContainer(context: Context) {
 
     /** How much disk the wardrobe's photos take, for the settings screen. */
     fun photoStorageBytes(): Long = storedImageBytes(files.imagesDir)
+
+    /**
+     * Shrink cut-outs an older build stored at full resolution.
+     *
+     * On the photo store rather than here: it is photo work, and the connection is
+     * not involved -- the filenames do not change, so no row needs touching.
+     */
+    fun tidyPhotos(onProgress: (Int, Int) -> Unit): MaintenanceSummary =
+        photos.shrinkOversizedCutouts(onProgress)
 
     /**
      * Replace the wardrobe with the contents of a backup archive.

@@ -115,17 +115,20 @@ src/
                           OutfitPreview, RatingStars, DuplicateWarning, ...
   hooks/                  useGarments, useGarmentForm, useAnalytics, ...
   utils/                  colour distance (CIE76 ΔE), tag similarity (Jaccard),
-                          image paths, garment fields, dates, style tags,
-                          which URLs are safe to fetch
+                          a photo's dominant colour, image paths, garment
+                          fields, dates, style tags, which URLs are safe to
+                          fetch
   constants/  i18n/  theme/  types/
 assets/                   App icon and splash
-scripts/                  build-apk.ps1, dump-domain-parity.ts
+scripts/                  build-apk.ps1, dump-domain-parity.ts,
+                          generate-launcher-icons.py
 native/                   The Kotlin/Android port (see Architecture)
   domain/                   Ported algorithms, plain Kotlin/JVM — no Android SDK
                             needed to build or test
   data/                     Row and photo-reference mapping into domain types,
                             reading and writing backup archives
-  presentation/             List filtering and ordering, form state — pure
+  presentation/             List filtering and ordering, form state, the colour
+                            a photo suggests — pure
   parity-testing/           Shared fixture loading for the parity suites
 ```
 
@@ -149,10 +152,10 @@ cd native && ./gradlew test
 
 | Module | What |
 |---|---|
-| `:domain` | The algorithms — colour, tags, occasions, duplicates, suggestions — and the garment vocabulary they key on |
-| `:data` | The database — row and photo-reference mapping, reads, writes, analytics, suggestion loading, duplicate candidates, photo storage rules, backup restore |
+| `:domain` | The algorithms — colour, tags, occasions, duplicates, suggestions — the garment vocabulary they key on, and which addresses a link may reach plus what a product page says |
+| `:data` | The database — row and photo-reference mapping, reads, writes, analytics, suggestion loading, duplicate candidates, photo storage rules, backup restore, which stored photos a tidy-up would touch |
 | `:parity-testing` | Shared fixture-loading for the parity suites |
-| `:presentation` | What the screens show — filtering, ordering, form state, a garment's detail, the outfit filters, the analytics bars, as pure functions |
+| `:presentation` | What the screens show — filtering, ordering, form state, a garment's detail, the outfit filters, the analytics bars, the colour a photo suggests, as pure functions |
 | `:app` | The Compose UI and the platform plumbing — **only included when an Android SDK is present** |
 
 `:app` is the one module that genuinely needs the Android SDK, so `settings.gradle.kts` includes it only when one is found (`ANDROID_HOME`, `ANDROID_SDK_ROOT`, or `sdk.dir` in `local.properties`). `./gradlew test` therefore works on a machine with nothing but a JDK — which is the whole reason the other modules are pure — while CI builds everything. Keeping the pure parts pure is what lets everything so far be verified on any machine — and `:data` is the code that decides whether an *existing* wardrobe opens correctly, so it is the code most worth being able to test anywhere.
@@ -171,7 +174,7 @@ The schema those tests run against is emitted from `src/db/schema.ts` as `schema
 
 The React Native app is untouched and keeps shipping; nothing is removed until the native app reaches parity.
 
-Because it is a port rather than a rewrite, the tests ask whether the Kotlin **agrees with the TypeScript it came from**, not merely whether it passes tests written for it. `npm run parity:dump` records the TypeScript answers for a fixed corpus — 3096 cases across 18 files: 1156 colour pairs, 169 tag-set pairs, 60 duplicate scenarios, 700 category/subcategory pairings, 432 engine runs, 222 rating folds, 213 list, form, detail, filter and chart states, 93 row and photo-reference shapes, 41 backup archives, and the category and size lists themselves — and the Kotlin tests replay it. The engine is compared draw for draw: both sides step the same linear congruential generator, so an agreeing outfit list means every intermediate choice matched — the same template, epsilon branch, tie-break and roulette slot.
+Because it is a port rather than a rewrite, the tests ask whether the Kotlin **agrees with the TypeScript it came from**, not merely whether it passes tests written for it. `npm run parity:dump` records the TypeScript answers for a fixed corpus — 3341 cases across 23 files: 1156 colour pairs, 169 tag-set pairs, 60 duplicate scenarios, 700 category/subcategory pairings, 432 engine runs, 222 rating folds, 249 list, form, detail, filter and chart states, 180 addresses the importer will or will not fetch, 93 row and photo-reference shapes, 41 backup archives, 15 photos read for their dominant colour, 14 product pages, and the category and size lists themselves — and the Kotlin tests replay it. The engine is compared draw for draw: both sides step the same linear congruential generator, so an agreeing outfit list means every intermediate choice matched — the same template, epsilon branch, tie-break and roulette slot.
 
 Drift is caught from both sides. CI regenerates the fixtures and fails if they moved, so changing a TypeScript algorithm without regenerating cannot leave the port pinned to old behaviour; and the Kotlin tests fail if the fixtures move without the Kotlin following. After changing either side, run `npm run parity:dump` and commit the result.
 
@@ -183,28 +186,52 @@ npm test           # vitest, one-shot
 npm run test:watch
 ```
 
-27 suites, 335 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import and which addresses it will fetch, garment and outfit services, what a garment's detail screen shows, how the outfit filters behave, the analytics bar arithmetic, the domain layer's dependency-freedom, and the pure utilities.
+31 suites, 379 tests, covering the suggestion engine, duplicate detection, colour comparison, backup validation, the database lock and migrations, URL import and which addresses it will fetch, garment and outfit services, what a garment's detail screen shows, how the outfit filters behave, the analytics bar arithmetic, the domain layer's dependency-freedom, and the pure utilities.
 
-The Kotlin port adds 205 more:
+The Kotlin port adds 403 more. 367 of them need nothing but a JDK, which is the
+point of the layering:
 
 ```bash
 cd native && ./gradlew test
 ```
 
-`typecheck`, `test` and the Kotlin domain tests all run in CI on every pull request.
+The other 36 are in `:app` and need the Android SDK, so they run in CI rather than
+everywhere. They are Robolectric tests, not instrumented ones — what a screen shows
+and where a file lands, which is the part of this app no pure module can answer —
+so CI needs an SDK but no emulator:
+
+```bash
+cd native && ./gradlew :app:testDebugUnitTest
+```
+
+The debug variant by name, not `:app:test`: `ui-test-manifest` supplies the
+activity the Compose tests compose into, and it is a debug-only artifact by
+design, so running them against release fails every one of them.
+
+`typecheck`, `test`, the Kotlin tests and the Android build all run in CI on every
+pull request.
 
 Domain algorithms are checked by mutation: each behaviour the tests claim to protect is removed in turn, and the intended test must fail. A test that passes without the code it covers is not a test.
 
 ## Limitations
 
 - **Android only.** Web and iOS support were removed — the web build had its own storage layer that could silently lose data, and iOS was never finished.
-- **The native port is early.** The Kotlin app now covers the wardrobe: adding and editing garments with photos, on-device background removal, the list, a garment's detail, outfit suggestions you can rate and keep, the analytics, and a settings screen that both writes and restores backups. CI builds it as a debug APK. It installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it, so a wardrobe gets in there by restoring a backup — and back out the same way, since both apps read and write the same archive format. Still missing: URL import, switching language or theme, and removing a background from a garment already saved (the form does it, the detail screen does not yet). Every string in it is still hardcoded English. The shipped app is still the React Native one.
+- **The native port is close, and not finished.** The Kotlin app now covers what the shipped one does: adding and editing garments by photo, camera or product link, on-device background removal from both the form and a garment's detail, colour detection, the wardrobe list with its filters, outfit suggestions you can rate and keep, the analytics and statistics, and a settings screen that writes backups, restores them, shrinks photos an older build left large, and switches language and theme. Every string is translated. CI builds it as a debug APK and publishes it to a rolling [`port-preview`](https://github.com/jimartincorral/wardrobapp/releases/tag/port-preview) prerelease, so it can be installed and tried on a phone — debug-signed, alongside the shipped app, replaced by each new build of the port.
+
+  It installs under its own application id (`com.anonymous.wardrobapp.dev`) alongside the React Native app rather than replacing it, so a wardrobe gets in there by restoring a backup — and back out the same way, since both apps read and write the same archive format.
+
+  What is genuinely still missing is small and mostly not features: listing and deleting old backups from inside the app (which would mean holding a persistent directory grant the port currently does without — backups go in and out through the document picker with no storage permission at all, and the Files app already deletes a zip); a full `lint` pass, which needs a baseline recorded first so the existing backlog is frozen rather than failing the build; and the cutover itself. The shipped app is still the React Native one.
+
+- **Two places the port deliberately behaves differently.** A redirect is checked *before* it is followed, which closes the residual risk described under URL import below — `HttpURLConnection` can be told not to follow one, and React Native's fetch cannot. And an `http://` page will not load at all: Android blocks cleartext by default and the port does not opt in, since turning it on app-wide to reach the occasional shop still on http would weaken every other request it makes.
 - **The `garments` schema is not uniform.** `created_at` and `updated_at` are `NOT NULL` on a fresh install but nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist, so readers must tolerate both — and it is why the native data layer will use plain SQL rather than Room, whose schema validation would reject one of them.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **Released APKs are debug-signed.** Signing is wired up but has no key yet, so the first signed build will need a one-time back-up, uninstall and restore — see [Signing releases](#signing-releases).
 - **The schema is applied idempotently** at startup from `src/db/schema.ts` — `CREATE TABLE IF NOT EXISTS`, then additive `ALTER`s, then the indexes over them. There's no `PRAGMA user_version` yet. Keyed, run-once data migrations live in `src/db/migrations.ts`.
 - **No wear log.** The app records outfit ratings, not what you wore on a given day, so there is no cost-per-wear or wear-trend reporting.
-- **URL import only fetches public addresses.** A `wardrobapp://…?importUrl=…` deep link can be opened by any web page, message or QR code, so the address it carries is not necessarily one you chose. Import therefore asks before fetching anything, and refuses addresses on the device or its local network — a phone sits *inside* a home network, and without that the app would be a way to reach a router or a printer that the page could not reach itself. The check is re-applied after redirects and to the image URLs the page supplies, and page reads are capped and given a deadline. One residual: a redirect to a private address is refused *after* the request has been made, since React Native's fetch cannot be told to stop at a redirect — nothing is read back from it.
+- **Colour detection is approximate, and both apps are approximate in the same way.** "Detect Colors" averages every fourth pixel of the whole photo and snaps the result to the nearest of the 24 palette colours. Two things follow from that, and they compound: the background is averaged in along with the garment — a navy shirt on a white duvet reads as pale blue — and a mean is not a mode, so a red-and-white striped shirt averages to pink, a colour appearing nowhere in it. Treat it as a prefill to correct rather than an answer; the palette is one tap away.
+
+  Both improvements are available and neither is large, for whoever wants them. Detection reads `imageUris[selectedImageIndex]` — the original photo — even when a background-removed cut-out of exactly the garment already exists; pointing it at the cut-out would let the existing alpha gate average only the garment's own pixels. And picking the most common palette colour among the sampled pixels, rather than the mean of them, would make "dominant" mean dominant. Both change the shipped app as well as the port, since `dominant-color.jsonl` holds the two together, so both need the fixture regenerating.
+- **URL import only fetches public addresses.** A product page reaches the app two ways: a `wardrobapp://…?importUrl=…` deep link, which any web page, message or QR code can open, and the share sheet from a browser. Neither is necessarily an address you chose. Import therefore asks before fetching anything, and refuses addresses on the device or its local network — a phone sits *inside* a home network, and without that the app would be a way to reach a router or a printer that the page could not reach itself. The check is re-applied after redirects and to the image URLs the page supplies, and page reads are capped and given a deadline. One residual, in the React Native app only: a redirect to a private address is refused *after* the request has been made, since its fetch cannot be told to stop at a redirect — nothing is read back from it. The Kotlin port does not have it, because `HttpURLConnection` can be told not to follow, so every hop goes through the same check before the request is made.
 
 ## Contributing
 
