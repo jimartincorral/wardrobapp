@@ -201,8 +201,12 @@ and where a file lands, which is the part of this app no pure module can answer 
 so CI needs an SDK but no emulator:
 
 ```bash
-cd native && ./gradlew :app:test
+cd native && ./gradlew :app:testDebugUnitTest
 ```
+
+The debug variant by name, not `:app:test`: `ui-test-manifest` supplies the
+activity the Compose tests compose into, and it is a debug-only artifact by
+design, so running them against release fails every one of them.
 
 `typecheck`, `test`, the Kotlin tests and the Android build all run in CI on every
 pull request.

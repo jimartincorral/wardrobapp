@@ -122,8 +122,15 @@ jobs:
 
       # The only tests that need Android, which is why they run here rather than
       # in the Kotlin tests job -- that one blanks the SDK on purpose.
+      #
+      # The debug variant specifically, not `:app:test`, which would also run them
+      # against release. The Compose tests cannot run there: `ui-test-manifest`
+      # supplies the activity they compose into and Google ships it as a
+      # debug-only artifact, on purpose -- so in release there is no activity to
+      # launch and all of them fail at once. Nothing in these tests is
+      # variant-dependent, so debug is the whole story.
       - name: Test
-        run: ./gradlew :app:test --console=plain
+        run: ./gradlew :app:testDebugUnitTest --console=plain
         working-directory: native
 
       # The Android-only half of the localization checks. StringResourceParityTest

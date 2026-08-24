@@ -266,6 +266,15 @@ dependencies {
     testImplementation("androidx.compose.ui:ui-test-junit4")
     // Supplies the activity `createComposeRule` starts the composition in. On the
     // debug manifest, which is the one Robolectric merges.
+    //
+    // Debug-only because that is how it is published -- it exists to add an
+    // activity to a manifest, and no release build should carry one. The
+    // consequence is that `:app:test` fails: it runs the unit tests against both
+    // variants, and in release there is no activity for these to launch. So the
+    // test task is named by variant in CI and in the README. Disabling the release
+    // unit-test variant outright (`androidComponents { beforeVariants ... }`) would
+    // say it once instead of twice, and is worth doing by whoever next has an SDK
+    // in front of them to verify it against.
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
