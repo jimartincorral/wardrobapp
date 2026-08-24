@@ -9,6 +9,10 @@ repositories {
 }
 
 dependencies {
+    // JSON-LD. A product page describes itself in JSON, so parsing it is a
+    // production concern here rather than a test one -- the same reason :data
+    // depends on this. No new weight in the APK: :data already ships it.
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     testImplementation(kotlin("test"))
     testImplementation(project(":parity-testing"))
 }

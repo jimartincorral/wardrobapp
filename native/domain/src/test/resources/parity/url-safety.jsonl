@@ -1,0 +1,180 @@
+{"kind":"host","input":"example.com","result":true}
+{"kind":"host","input":"www.zara.com","result":true}
+{"kind":"host","input":"shop.example.co.uk","result":true}
+{"kind":"host","input":"a.b.c.d.example.com","result":true}
+{"kind":"host","input":"xn--80ak6aa92e.com","result":true}
+{"kind":"host","input":"EXAMPLE.COM","result":true}
+{"kind":"host","input":"example.com.","result":true}
+{"kind":"host","input":" example.com ","result":true}
+{"kind":"host","input":"","result":false}
+{"kind":"host","input":"8.8.8.8","result":true}
+{"kind":"host","input":"1.1.1.1","result":true}
+{"kind":"host","input":"203.0.113.10","result":true}
+{"kind":"host","input":"172.15.255.255","result":true}
+{"kind":"host","input":"172.32.0.1","result":true}
+{"kind":"host","input":"192.167.1.1","result":true}
+{"kind":"host","input":"192.169.1.1","result":true}
+{"kind":"host","input":"100.63.255.255","result":true}
+{"kind":"host","input":"100.128.0.1","result":true}
+{"kind":"host","input":"11.0.0.1","result":true}
+{"kind":"host","input":"126.255.255.255","result":true}
+{"kind":"host","input":"128.0.0.1","result":true}
+{"kind":"host","input":"169.253.255.255","result":true}
+{"kind":"host","input":"169.255.0.1","result":true}
+{"kind":"host","input":"198.17.0.1","result":true}
+{"kind":"host","input":"198.20.0.1","result":true}
+{"kind":"host","input":"223.255.255.255","result":true}
+{"kind":"host","input":"127.0.0.1","result":false}
+{"kind":"host","input":"127.1.1.1","result":false}
+{"kind":"host","input":"0.0.0.0","result":false}
+{"kind":"host","input":"0.1.2.3","result":false}
+{"kind":"host","input":"10.0.0.1","result":false}
+{"kind":"host","input":"10.255.255.255","result":false}
+{"kind":"host","input":"169.254.169.254","result":false}
+{"kind":"host","input":"172.16.0.1","result":false}
+{"kind":"host","input":"172.20.10.5","result":false}
+{"kind":"host","input":"172.31.255.255","result":false}
+{"kind":"host","input":"192.168.0.1","result":false}
+{"kind":"host","input":"192.168.1.1","result":false}
+{"kind":"host","input":"100.64.0.1","result":false}
+{"kind":"host","input":"100.127.255.255","result":false}
+{"kind":"host","input":"192.0.0.1","result":false}
+{"kind":"host","input":"192.0.2.1","result":false}
+{"kind":"host","input":"198.18.0.1","result":false}
+{"kind":"host","input":"198.19.255.255","result":false}
+{"kind":"host","input":"224.0.0.1","result":false}
+{"kind":"host","input":"239.255.255.255","result":false}
+{"kind":"host","input":"240.0.0.1","result":false}
+{"kind":"host","input":"255.255.255.255","result":false}
+{"kind":"host","input":"256.1.1.1","result":false}
+{"kind":"host","input":"1.2.3.4.5","result":false}
+{"kind":"host","input":"1.2.3","result":false}
+{"kind":"host","input":"999.999.999.999","result":false}
+{"kind":"host","input":"-1.0.0.1","result":true}
+{"kind":"host","input":"0x7f.0.0.1","result":false}
+{"kind":"host","input":"0177.0.0.1","result":false}
+{"kind":"host","input":"127.1","result":false}
+{"kind":"host","input":"2130706433","result":false}
+{"kind":"host","input":"0x7f000001","result":false}
+{"kind":"host","input":"face.be","result":true}
+{"kind":"host","input":"dead.beef.cafe","result":true}
+{"kind":"host","input":"abc.def","result":true}
+{"kind":"host","input":"[::1]","result":false}
+{"kind":"host","input":"[::]","result":false}
+{"kind":"host","input":"[fc00::1]","result":false}
+{"kind":"host","input":"[fd12:3456::1]","result":false}
+{"kind":"host","input":"[fe80::1]","result":false}
+{"kind":"host","input":"[feab::1]","result":false}
+{"kind":"host","input":"[fec0::1]","result":true}
+{"kind":"host","input":"[2606:2800:220:1:248:1893:25c8:1946]","result":true}
+{"kind":"host","input":"[2001:db8::1]","result":true}
+{"kind":"host","input":"[::ffff:127.0.0.1]","result":false}
+{"kind":"host","input":"[::ffff:192.168.1.1]","result":false}
+{"kind":"host","input":"[::ffff:8.8.8.8]","result":true}
+{"kind":"host","input":"[::ffff:999.1.1.1]","result":false}
+{"kind":"host","input":"printer.local","result":false}
+{"kind":"host","input":"router.home.arpa","result":false}
+{"kind":"host","input":"nas.lan","result":false}
+{"kind":"host","input":"thing.internal","result":false}
+{"kind":"host","input":"app.localhost","result":false}
+{"kind":"host","input":"localhost","result":false}
+{"kind":"host","input":"router","result":false}
+{"kind":"host","input":"nas","result":false}
+{"kind":"host","input":"wpad","result":false}
+{"kind":"normalize","input":"https://example.com/p","result":{"ok":true,"url":"https://example.com/p"}}
+{"kind":"normalize","input":"http://example.com/p","result":{"ok":true,"url":"http://example.com/p"}}
+{"kind":"normalize","input":"example.com/p","result":{"ok":true,"url":"https://example.com/p"}}
+{"kind":"normalize","input":"zara.com/uk/shirt-p123.html","result":{"ok":true,"url":"https://zara.com/uk/shirt-p123.html"}}
+{"kind":"normalize","input":"https://example.com","result":{"ok":true,"url":"https://example.com/"}}
+{"kind":"normalize","input":"https://example.com/","result":{"ok":true,"url":"https://example.com/"}}
+{"kind":"normalize","input":"https://EXAMPLE.com/P","result":{"ok":true,"url":"https://example.com/P"}}
+{"kind":"normalize","input":"https://example.com:443/p","result":{"ok":true,"url":"https://example.com/p"}}
+{"kind":"normalize","input":"http://example.com:80/p","result":{"ok":true,"url":"http://example.com/p"}}
+{"kind":"normalize","input":"https://example.com:8443/p","result":{"ok":true,"url":"https://example.com:8443/p"}}
+{"kind":"normalize","input":"https://example.com/p?id=7#reviews","result":{"ok":true,"url":"https://example.com/p?id=7"}}
+{"kind":"normalize","input":"https://example.com/p#","result":{"ok":true,"url":"https://example.com/p"}}
+{"kind":"normalize","input":"https://example.com/a/../b","result":{"ok":true,"url":"https://example.com/b"}}
+{"kind":"normalize","input":"https://example.com//a//b","result":{"ok":true,"url":"https://example.com//a//b"}}
+{"kind":"normalize","input":"https://example.com/p?a=1&b=%20","result":{"ok":true,"url":"https://example.com/p?a=1&b=%20"}}
+{"kind":"normalize","input":"https://example.com/caf%C3%A9","result":{"ok":true,"url":"https://example.com/caf%C3%A9"}}
+{"kind":"normalize","input":"https://example.com/a b","result":{"ok":true,"url":"https://example.com/a%20b"}}
+{"kind":"normalize","input":"  https://example.com/p  ","result":{"ok":true,"url":"https://example.com/p"}}
+{"kind":"normalize","input":"https://example.com.","result":{"ok":true,"url":"https://example.com./"}}
+{"kind":"normalize","input":"https://[2606:2800:220:1:248:1893:25c8:1946]/p","result":{"ok":true,"url":"https://[2606:2800:220:1:248:1893:25c8:1946]/p"}}
+{"kind":"normalize","input":"https://example.com/p?q=a+b","result":{"ok":true,"url":"https://example.com/p?q=a+b"}}
+{"kind":"normalize","input":"http://0x7f.0.0.1/","result":{"ok":false,"message":"127.0.0.1 is on this device or its local network, so it was not opened."}}
+{"kind":"normalize","input":"http://0177.0.0.1/","result":{"ok":false,"message":"127.0.0.1 is on this device or its local network, so it was not opened."}}
+{"kind":"normalize","input":"http://127.1/","result":{"ok":false,"message":"127.0.0.1 is on this device or its local network, so it was not opened."}}
+{"kind":"normalize","input":"http://2130706433/","result":{"ok":false,"message":"127.0.0.1 is on this device or its local network, so it was not opened."}}
+{"kind":"normalize","input":"http://0x7f000001/","result":{"ok":false,"message":"127.0.0.1 is on this device or its local network, so it was not opened."}}
+{"kind":"normalize","input":"http://8.8.8.8/","result":{"ok":true,"url":"http://8.8.8.8/"}}
+{"kind":"normalize","input":"http://0x08080808/","result":{"ok":true,"url":"http://8.8.8.8/"}}
+{"kind":"normalize","input":"http://134744072/","result":{"ok":true,"url":"http://8.8.8.8/"}}
+{"kind":"normalize","input":"http://1.2.3.4.5/","result":{"ok":false,"message":"That does not look like a web address."}}
+{"kind":"normalize","input":"http://256.1.1.1/","result":{"ok":false,"message":"That does not look like a web address."}}
+{"kind":"normalize","input":"http://8.8.8.8.:80/","result":{"ok":true,"url":"http://8.8.8.8/"}}
+{"kind":"normalize","input":"https://example.com/a\"b","result":{"ok":true,"url":"https://example.com/a%22b"}}
+{"kind":"normalize","input":"https://example.com/a<b>c","result":{"ok":true,"url":"https://example.com/a%3Cb%3Ec"}}
+{"kind":"normalize","input":"https://example.com/a`b","result":{"ok":true,"url":"https://example.com/a%60b"}}
+{"kind":"normalize","input":"https://example.com/a{b}c","result":{"ok":true,"url":"https://example.com/a%7Bb%7Dc"}}
+{"kind":"normalize","input":"https://example.com/a'b","result":{"ok":true,"url":"https://example.com/a'b"}}
+{"kind":"normalize","input":"https://example.com/p?a\"b","result":{"ok":true,"url":"https://example.com/p?a%22b"}}
+{"kind":"normalize","input":"https://example.com/p?a<b>c","result":{"ok":true,"url":"https://example.com/p?a%3Cb%3Ec"}}
+{"kind":"normalize","input":"https://example.com/p?a`b","result":{"ok":true,"url":"https://example.com/p?a`b"}}
+{"kind":"normalize","input":"https://example.com/p?a'b","result":{"ok":true,"url":"https://example.com/p?a%27b"}}
+{"kind":"normalize","input":"https://example.com/p?a{b}c","result":{"ok":true,"url":"https://example.com/p?a{b}c"}}
+{"kind":"normalize","input":"https://example.com/café","result":{"ok":true,"url":"https://example.com/caf%C3%A9"}}
+{"kind":"normalize","input":"https://example.com/p?q=café","result":{"ok":true,"url":"https://example.com/p?q=caf%C3%A9"}}
+{"kind":"normalize","input":"https://example.com/a%2fb","result":{"ok":true,"url":"https://example.com/a%2fb"}}
+{"kind":"normalize","input":"https://example.com/a%zz","result":{"ok":true,"url":"https://example.com/a%zz"}}
+{"kind":"normalize","input":"https://example.com/../..","result":{"ok":true,"url":"https://example.com/"}}
+{"kind":"normalize","input":"https://example.com/a/./b/","result":{"ok":true,"url":"https://example.com/a/b/"}}
+{"kind":"normalize","input":"https://example.com/a/b/..","result":{"ok":true,"url":"https://example.com/a/"}}
+{"kind":"normalize","input":"https://example.com?q=1","result":{"ok":true,"url":"https://example.com/?q=1"}}
+{"kind":"normalize","input":"https://example.com#f","result":{"ok":true,"url":"https://example.com/"}}
+{"kind":"normalize","input":"https://example.com/p?","result":{"ok":true,"url":"https://example.com/p?"}}
+{"kind":"normalize","input":"https://example.com:/p","result":{"ok":true,"url":"https://example.com/p"}}
+{"kind":"normalize","input":"https://example.com/p\\q","result":{"ok":true,"url":"https://example.com/p/q"}}
+{"kind":"normalize","input":" https://example.com/p ","result":{"ok":true,"url":"https://example.com/p"}}
+{"kind":"normalize","input":"﻿https://example.com/p","result":{"ok":true,"url":"https://example.com/p"}}
+{"kind":"normalize","input":"https://example.com/p\t","result":{"ok":true,"url":"https://example.com/p"}}
+{"kind":"normalize","input":"https://exam\tple.com/p","result":{"ok":true,"url":"https://example.com/p"}}
+{"kind":"normalize","input":"https://café.com/p","result":{"ok":true,"url":"https://xn--caf-dma.com/p"}}
+{"kind":"normalize","input":"https://über.example.com/p","result":{"ok":true,"url":"https://xn--ber-goa.example.com/p"}}
+{"kind":"normalize","input":"https://ZARA.COM/P","result":{"ok":true,"url":"https://zara.com/P"}}
+{"kind":"normalize","input":"","result":{"ok":false,"message":"A URL is required."}}
+{"kind":"normalize","input":"   ","result":{"ok":false,"message":"A URL is required."}}
+{"kind":"normalize","input":"not a url","result":{"ok":false,"message":"That does not look like a web address."}}
+{"kind":"normalize","input":"https://","result":{"ok":false,"message":"That does not look like a web address."}}
+{"kind":"normalize","input":"http://","result":{"ok":false,"message":"That does not look like a web address."}}
+{"kind":"normalize","input":"://example.com","result":{"ok":false,"message":"That does not look like a web address."}}
+{"kind":"normalize","input":"ftp://example.com/p","result":{"ok":false,"message":"Only http and https addresses can be imported."}}
+{"kind":"normalize","input":"file:///etc/hosts","result":{"ok":false,"message":"Only http and https addresses can be imported."}}
+{"kind":"normalize","input":"javascript:alert(1)","result":{"ok":false,"message":"That does not look like a web address."}}
+{"kind":"normalize","input":"data:text/html,hi","result":{"ok":false,"message":"That does not look like a web address."}}
+{"kind":"normalize","input":"wardrobapp://import","result":{"ok":false,"message":"Only http and https addresses can be imported."}}
+{"kind":"normalize","input":"mailto:a@b.com","result":{"ok":false,"message":"That address carries a username or password, so it was not opened."}}
+{"kind":"normalize","input":"https://user:pass@example.com/p","result":{"ok":false,"message":"That address carries a username or password, so it was not opened."}}
+{"kind":"normalize","input":"https://zara.com@evil.test/p","result":{"ok":false,"message":"That address carries a username or password, so it was not opened."}}
+{"kind":"normalize","input":"https://user@example.com/p","result":{"ok":false,"message":"That address carries a username or password, so it was not opened."}}
+{"kind":"normalize","input":"http://127.0.0.1/","result":{"ok":false,"message":"127.0.0.1 is on this device or its local network, so it was not opened."}}
+{"kind":"normalize","input":"http://localhost:9000/","result":{"ok":false,"message":"localhost is on this device or its local network, so it was not opened."}}
+{"kind":"normalize","input":"http://192.168.1.1/","result":{"ok":false,"message":"192.168.1.1 is on this device or its local network, so it was not opened."}}
+{"kind":"normalize","input":"http://169.254.169.254/latest/meta-data/","result":{"ok":false,"message":"169.254.169.254 is on this device or its local network, so it was not opened."}}
+{"kind":"normalize","input":"http://[::1]:8080/","result":{"ok":false,"message":"[::1] is on this device or its local network, so it was not opened."}}
+{"kind":"normalize","input":"http://printer.local/print","result":{"ok":false,"message":"printer.local is on this device or its local network, so it was not opened."}}
+{"kind":"normalize","input":"http://router/admin","result":{"ok":false,"message":"router is on this device or its local network, so it was not opened."}}
+{"kind":"normalize","input":"https://10.0.0.1/","result":{"ok":false,"message":"10.0.0.1 is on this device or its local network, so it was not opened."}}
+{"kind":"redirect","input":{"finalUrl":null,"requested":"https://example.com/p"},"result":{"ok":true}}
+{"kind":"redirect","input":{"finalUrl":"","requested":"https://example.com/p"},"result":{"ok":true}}
+{"kind":"redirect","input":{"finalUrl":"https://example.com/p","requested":"https://example.com/p"},"result":{"ok":true}}
+{"kind":"redirect","input":{"finalUrl":"https://example.com/other","requested":"https://example.com/p"},"result":{"ok":true}}
+{"kind":"redirect","input":{"finalUrl":"https://cdn.example.net/p","requested":"https://example.com/p"},"result":{"ok":true}}
+{"kind":"redirect","input":{"finalUrl":"http://192.168.1.1/admin","requested":"https://example.com/p"},"result":{"ok":false,"message":"That address redirected to 192.168.1.1, on this device or its local network."}}
+{"kind":"redirect","input":{"finalUrl":"http://localhost:9000/","requested":"https://example.com/p"},"result":{"ok":false,"message":"That address redirected to localhost, on this device or its local network."}}
+{"kind":"redirect","input":{"finalUrl":"http://169.254.169.254/","requested":"https://example.com/p"},"result":{"ok":false,"message":"That address redirected to 169.254.169.254, on this device or its local network."}}
+{"kind":"redirect","input":{"finalUrl":"file:///etc/hosts","requested":"https://example.com/p"},"result":{"ok":false,"message":"That address redirected to , on this device or its local network."}}
+{"kind":"redirect","input":{"finalUrl":"ftp://example.com/p","requested":"https://example.com/p"},"result":{"ok":false,"message":"That address redirected to example.com, on this device or its local network."}}
+{"kind":"redirect","input":{"finalUrl":"not a url","requested":"https://example.com/p"},"result":{"ok":false,"message":"That address redirected somewhere unreadable."}}
+{"kind":"redirect","input":{"finalUrl":"http://printer.local/","requested":"https://example.com/p"},"result":{"ok":false,"message":"That address redirected to printer.local, on this device or its local network."}}
+{"kind":"redirect","input":{"finalUrl":"http://[::1]/","requested":"https://example.com/p"},"result":{"ok":false,"message":"That address redirected to [::1], on this device or its local network."}}

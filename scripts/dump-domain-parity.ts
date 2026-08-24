@@ -56,6 +56,12 @@ import {
   toStoredImageRef,
 } from '../src/utils/image-paths';
 import { normalizeGarmentRow } from '../src/utils/garment-fields';
+import {
+  checkFetchedUrl,
+  isPubliclyRoutableHost,
+  safeImportUrl,
+} from '../src/utils/url-safety';
+import { extractGarmentImportDataFromHtml } from '../src/services/url-import-service';
 import { ALTER_STATEMENTS, CREATE_TABLES_SQL, INDEX_STATEMENTS } from '../src/db/schema';
 import {
   checkArchiveCompleteness,
@@ -1010,6 +1016,312 @@ function attempt(operation: () => void): { ok: true } | { ok: false; message: st
   }
 }
 
+/**
+ * Which addresses the importer will fetch.
+ *
+ * The corpus is deliberately wider than the TypeScript's own tests: this is the
+ * check that decides whether a link somebody else sent can reach the phone's own
+ * network, so every range is enumerated on both sides of its edge rather than
+ * sampled. Normalization is dumped alongside it because the port has to agree
+ * about the URL it returns, not only about accepting it -- and WHATWG `URL` and
+ * `java.net.URI` disagree by default about trailing slashes, default ports and
+ * case.
+ */
+function dumpUrlSafety() {
+  const hosts = [
+    // Ordinary domains.
+    'example.com', 'www.zara.com', 'shop.example.co.uk', 'a.b.c.d.example.com',
+    'xn--80ak6aa92e.com', 'EXAMPLE.COM', 'example.com.', ' example.com ', '',
+    // Public addresses.
+    '8.8.8.8', '1.1.1.1', '203.0.113.10', '172.15.255.255', '172.32.0.1',
+    '192.167.1.1', '192.169.1.1', '100.63.255.255', '100.128.0.1', '11.0.0.1',
+    '126.255.255.255', '128.0.0.1', '169.253.255.255', '169.255.0.1',
+    '198.17.0.1', '198.20.0.1', '223.255.255.255',
+    // This device and the local network, range by range.
+    '127.0.0.1', '127.1.1.1', '0.0.0.0', '0.1.2.3', '10.0.0.1', '10.255.255.255',
+    '169.254.169.254', '172.16.0.1', '172.20.10.5', '172.31.255.255',
+    '192.168.0.1', '192.168.1.1', '100.64.0.1', '100.127.255.255',
+    '192.0.0.1', '192.0.2.1', '198.18.0.1', '198.19.255.255',
+    '224.0.0.1', '239.255.255.255', '240.0.0.1', '255.255.255.255',
+    // Four numbers that are not an address.
+    '256.1.1.1', '1.2.3.4.5', '1.2.3', '999.999.999.999', '-1.0.0.1',
+    // Written to look like something else.
+    '0x7f.0.0.1', '0177.0.0.1', '127.1', '2130706433', '0x7f000001',
+    // A domain spelled out of hex digits is still a domain.
+    'face.be', 'dead.beef.cafe', 'abc.def',
+    // IPv6.
+    '[::1]', '[::]', '[fc00::1]', '[fd12:3456::1]', '[fe80::1]', '[feab::1]',
+    '[fec0::1]', '[2606:2800:220:1:248:1893:25c8:1946]', '[2001:db8::1]',
+    '[::ffff:127.0.0.1]', '[::ffff:192.168.1.1]', '[::ffff:8.8.8.8]',
+    '[::ffff:999.1.1.1]',
+    // Names a local network gives itself.
+    'printer.local', 'router.home.arpa', 'nas.lan', 'thing.internal',
+    'app.localhost', 'localhost', 'router', 'nas', 'wpad',
+  ];
+
+  const lines: string[] = [];
+
+  for (const host of hosts) {
+    lines.push(JSON.stringify({
+      kind: 'host',
+      input: host,
+      result: isPubliclyRoutableHost(host),
+    }));
+  }
+
+  const inputs = [
+    // Accepted, and what they normalize to.
+    'https://example.com/p', 'http://example.com/p', 'example.com/p',
+    'zara.com/uk/shirt-p123.html', 'https://example.com', 'https://example.com/',
+    'https://EXAMPLE.com/P', 'https://example.com:443/p', 'http://example.com:80/p',
+    'https://example.com:8443/p', 'https://example.com/p?id=7#reviews',
+    'https://example.com/p#', 'https://example.com/a/../b', 'https://example.com//a//b',
+    'https://example.com/p?a=1&b=%20', 'https://example.com/caf%C3%A9',
+    'https://example.com/a b', '  https://example.com/p  ',
+    'https://example.com.', 'https://[2606:2800:220:1:248:1893:25c8:1946]/p',
+    'https://example.com/p?q=a+b',
+    // Numeric hosts, which WHATWG normalizes before any check sees them --
+    // 0177.0.0.1 becomes 127.0.0.1, which is what the refusal then names.
+    'http://0x7f.0.0.1/', 'http://0177.0.0.1/', 'http://127.1/', 'http://2130706433/',
+    'http://0x7f000001/', 'http://8.8.8.8/', 'http://0x08080808/', 'http://134744072/',
+    'http://1.2.3.4.5/', 'http://256.1.1.1/', 'http://8.8.8.8.:80/',
+    // The percent-encode sets, which decide the string the fetch is given.
+    'https://example.com/a"b', 'https://example.com/a<b>c', 'https://example.com/a`b',
+    'https://example.com/a{b}c', "https://example.com/a'b",
+    'https://example.com/p?a"b', 'https://example.com/p?a<b>c', 'https://example.com/p?a`b',
+    "https://example.com/p?a'b", 'https://example.com/p?a{b}c',
+    'https://example.com/caf\u00e9', 'https://example.com/p?q=caf\u00e9',
+    'https://example.com/a%2fb', 'https://example.com/a%zz',
+    'https://example.com/../..', 'https://example.com/a/./b/', 'https://example.com/a/b/..',
+    'https://example.com?q=1', 'https://example.com#f', 'https://example.com/p?',
+    'https://example.com:/p', 'https://example.com/p\\q',
+    // Trimming and the characters JS calls whitespace but Java does not: a
+    // no-break space and a byte-order mark both come back from a share sheet.
+    '\u00a0https://example.com/p\u00a0', '\ufeffhttps://example.com/p',
+    'https://example.com/p\u0009', 'https://exam\u0009ple.com/p',
+    // An internationalized domain, which has to be punycode before it is fetched.
+    'https://caf\u00e9.com/p', 'https://\u00fcber.example.com/p', 'https://ZARA.COM/P',
+    // Refused.
+    '', '   ', 'not a url', 'https://', 'http://', '://example.com',
+    'ftp://example.com/p', 'file:///etc/hosts', 'javascript:alert(1)',
+    'data:text/html,hi', 'wardrobapp://import', 'mailto:a@b.com',
+    'https://user:pass@example.com/p', 'https://zara.com@evil.test/p',
+    'https://user@example.com/p',
+    'http://127.0.0.1/', 'http://localhost:9000/', 'http://192.168.1.1/',
+    'http://169.254.169.254/latest/meta-data/', 'http://[::1]:8080/',
+    'http://printer.local/print', 'http://router/admin', 'https://10.0.0.1/',
+  ];
+
+  for (const input of inputs) {
+    let result: unknown;
+    try {
+      result = { ok: true, url: safeImportUrl(input) };
+    } catch (error) {
+      result = { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
+    lines.push(JSON.stringify({ kind: 'normalize', input, result }));
+  }
+
+  const redirects: [string | null, string][] = [
+    [null, 'https://example.com/p'],
+    ['', 'https://example.com/p'],
+    ['https://example.com/p', 'https://example.com/p'],
+    ['https://example.com/other', 'https://example.com/p'],
+    ['https://cdn.example.net/p', 'https://example.com/p'],
+    ['http://192.168.1.1/admin', 'https://example.com/p'],
+    ['http://localhost:9000/', 'https://example.com/p'],
+    ['http://169.254.169.254/', 'https://example.com/p'],
+    ['file:///etc/hosts', 'https://example.com/p'],
+    ['ftp://example.com/p', 'https://example.com/p'],
+    ['not a url', 'https://example.com/p'],
+    ['http://printer.local/', 'https://example.com/p'],
+    ['http://[::1]/', 'https://example.com/p'],
+  ];
+
+  for (const [finalUrl, requested] of redirects) {
+    lines.push(JSON.stringify({
+      kind: 'redirect',
+      input: { finalUrl, requested },
+      result: attempt(() => checkFetchedUrl(finalUrl, requested)),
+    }));
+  }
+
+  return lines;
+}
+
+/**
+ * What a product page yields.
+ *
+ * Every branch of the extractor gets a page here: Open Graph, Twitter's tags,
+ * JSON-LD in its several shapes (a bare node, an array, an `@graph`, a brand that
+ * is a string or an object or a list, an image that is a URL or an object), plain
+ * `<img>` tags with their lazy-loading attributes, and a `srcset` to pick the
+ * widest from. The refusals matter as much: a logo, a favicon, a `data:` URI, an
+ * extension that is not an image, and a URL pointing at the local network.
+ *
+ * Recorded as the whole extracted record rather than just the images, because the
+ * title and brand fall through several sources in a fixed order and the parser
+ * label is derived from which of them produced anything.
+ */
+function dumpGarmentImport() {
+  const page = (body: string) => `<!DOCTYPE html><html><head>${body}</head><body></body></html>`;
+
+  const cases: { name: string; html: string; url: string }[] = [
+    {
+      name: 'open graph',
+      url: 'https://shop.example.com/product/shirt',
+      html: page(`
+        <title>A Shirt | Example Shop</title>
+        <meta property="og:title" content="Oxford Shirt" />
+        <meta property="og:image" content="https://cdn.example.com/shirt-1.jpg" />
+        <meta property="og:image:secure_url" content="https://cdn.example.com/shirt-2.jpg" />
+        <meta property="product:brand" content="example-brand" />
+      `),
+    },
+    {
+      name: 'twitter tags only',
+      url: 'https://shop.example.com/p',
+      html: page(`
+        <meta name="twitter:title" content="Linen Trousers" />
+        <meta name="twitter:image" content="/img/trousers.jpg" />
+        <meta name="twitter:image:src" content="//cdn.example.com/trousers-2.png" />
+      `),
+    },
+    {
+      name: 'json-ld product',
+      url: 'https://www.zara.com/uk/shirt-p123.html',
+      html: page(`
+        <script type="application/ld+json">
+        {"@type":"Product","name":"Poplin Shirt","brand":{"name":"Zara"},
+         "image":["https://static.zara.com/a.jpg","https://static.zara.com/b.jpg"]}
+        </script>
+      `),
+    },
+    {
+      name: 'json-ld graph, brand as string, image as object',
+      url: 'https://example.com/p',
+      html: page(`
+        <script type="application/ld+json">
+        {"@context":"https://schema.org","@graph":[
+          {"@type":"WebPage","name":"not a product"},
+          {"@type":["Thing","Product"],"name":"Wool Coat","brand":"Uniqlo",
+           "image":{"url":"https://im.example.com/coat.jpg","contentUrl":"https://im.example.com/coat-2.jpg"}}
+        ]}
+        </script>
+      `),
+    },
+    {
+      name: 'json-ld array, brand as list, entities in the json',
+      url: 'https://example.com/p',
+      html: page(`
+        <script type='application/ld+json'>
+        [{"@type":"Product","name":"Caf&amp;eacute; Jacket","brand":[{"@id":"https://example.com/b"},{"name":"Acne"}],
+          "image":"https://im.example.com/j.jpg"}]
+        </script>
+      `),
+    },
+    {
+      name: 'json-ld that will not parse',
+      url: 'https://example.com/p',
+      html: page(`
+        <script type="application/ld+json">{ not json </script>
+        <meta property="og:image" content="https://cdn.example.com/x.jpg" />
+      `),
+    },
+    {
+      name: 'img tags, lazy attributes and srcset',
+      url: 'https://example.com/shop/p',
+      html: `<html><body>
+        <img src="hero.jpg" />
+        <img data-src="/lazy.jpeg" />
+        <img data-original="../up.png" data-zoom="zoomed.webp" />
+        <img srcset="small.jpg 200w, big.jpg 1200w, mid.jpg 600w" />
+        <img data-srcset="a.jpg 100w, b.jpg 900w" />
+        <img src="/logo/brand.svg" />
+        <img src="/img/logo-header.png" />
+        <img src="/favicon.ico" />
+        <img src="/sprite.png" />
+        <img src="/avatars/user.jpg" />
+        <img src="/placeholder.png" />
+        <img src="data:image/png;base64,AAA" />
+        <img src="/notes.pdf" />
+        <img src="http://192.168.1.1/cam.jpg" />
+        <img src="/spaced%20name.jpg" />
+        <img src="/no-extension" />
+      </body></html>`,
+    },
+    {
+      name: 'everything at once, so the parser is mixed',
+      url: 'https://example.co.uk/p?variant=3',
+      html: page(`
+        <meta property="og:image" content="https://cdn.example.co.uk/og.jpg" />
+        <script type="application/ld+json">
+        {"@type":"Product","image":"https://cdn.example.co.uk/ld.jpg"}
+        </script>
+      `) + '<body><img src="/inline.jpg" /></body>',
+    },
+    {
+      name: 'nothing at all',
+      url: 'https://example.com/empty',
+      html: page('<title></title>'),
+    },
+    {
+      name: 'title fallbacks and og:site_name',
+      url: 'https://www.marks-and-spencer.com/p',
+      html: page(`
+        <title>  A Padded Coat &amp; Scarf  </title>
+        <meta property="og:site_name" content="marks_and spencer" />
+        <meta property="og:image" content="https://cdn.example.com/c.jpg" />
+      `),
+    },
+    {
+      name: 'brand from the hostname alone',
+      url: 'https://www.cos.com/en/product',
+      html: page('<meta property="og:image" content="https://cdn.cos.com/a.jpg" />'),
+    },
+    {
+      name: 'a single-label host, for the brand fallback',
+      url: 'https://example/p',
+      html: page('<meta property="og:image" content="https://cdn.example.com/a.jpg" />'),
+    },
+    {
+      name: 'duplicate images across parsers keep their first source',
+      url: 'https://example.com/p',
+      html: page(`
+        <meta property="og:image" content="https://cdn.example.com/same.jpg" />
+        <script type="application/ld+json">
+        {"@type":"Product","image":"https://cdn.example.com/same.jpg"}
+        </script>
+      `),
+    },
+    {
+      name: 'attributes unquoted and oddly cased',
+      url: 'https://example.com/p',
+      html: `<HTML><HEAD><META PROPERTY=og:image CONTENT=https://cdn.example.com/upper.jpg>
+        <Meta Property='og:title' Content='Mixed Case'></HEAD></HTML>`,
+    },
+  ];
+
+  const lines: string[] = [];
+
+  for (const testCase of cases) {
+    let result: unknown;
+    try {
+      result = { ok: true, data: extractGarmentImportDataFromHtml(testCase.html, testCase.url) };
+    } catch (error) {
+      result = { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
+    lines.push(JSON.stringify({
+      name: testCase.name,
+      html: testCase.html,
+      url: testCase.url,
+      result,
+    }));
+  }
+
+  return lines;
+}
+
 function dumpArchiveValidation() {
   const manifests = [
     // Valid.
@@ -1735,6 +2047,14 @@ console.log(`presentation/form-normalization.jsonl: ${normalization.length} case
 const brands = dumpBrandSuggestions();
 writeFileSync(join(PRESENTATION_OUT_DIR, 'brand-suggestions.jsonl'), brands.join('\n') + '\n');
 console.log(`presentation/brand-suggestions.jsonl: ${brands.length} cases`);
+
+const garmentImport = dumpGarmentImport();
+writeFileSync(join(OUT_DIR, 'garment-import.jsonl'), garmentImport.join('\n') + '\n');
+console.log(`garment-import.jsonl: ${garmentImport.length} cases`);
+
+const urlSafety = dumpUrlSafety();
+writeFileSync(join(OUT_DIR, 'url-safety.jsonl'), urlSafety.join('\n') + '\n');
+console.log(`url-safety.jsonl: ${urlSafety.length} cases`);
 
 const archiveValidation = dumpArchiveValidation();
 writeFileSync(
