@@ -106,7 +106,14 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable(ANALYTICS) {
-                            Analytics(container)
+                            Analytics(
+                                container = container,
+                                onStatisticsRequested = { navigator.navigate(STATISTICS) },
+                            )
+                        }
+
+                        composable(STATISTICS) {
+                            Statistics(container, navigator = navigator)
                         }
 
                         composable(GARMENT_ADD) {
@@ -351,7 +358,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun Analytics(container: AppContainer) {
+    private fun Analytics(container: AppContainer, onStatisticsRequested: () -> Unit) {
         val model: AnalyticsViewModel = viewModel(
             factory = viewModelFactory { initializer { AnalyticsViewModel(container) } }
         )
@@ -359,7 +366,27 @@ class MainActivity : ComponentActivity() {
 
         RefreshOnReturn(model::refresh)
 
-        AnalyticsScreen(state = state, onRetry = model::refresh)
+        AnalyticsScreen(
+            state = state,
+            onStatisticsRequested = onStatisticsRequested,
+            onRetry = model::refresh,
+        )
+    }
+
+    @Composable
+    private fun Statistics(container: AppContainer, navigator: NavHostController) {
+        val model: StatisticsViewModel = viewModel(
+            factory = viewModelFactory { initializer { StatisticsViewModel(container) } }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        StatisticsScreen(
+            state = state,
+            onBack = { navigator.popBackStack() },
+            onCategoryTapped = model::onCategoryTapped,
+            onBrandSortChanged = model::onBrandSortChanged,
+            onRetry = model::refresh,
+        )
     }
 
     @Composable
@@ -462,6 +489,7 @@ class MainActivity : ComponentActivity() {
         const val WARDROBE = "wardrobe"
         const val OUTFITS = "outfits"
         const val ANALYTICS = "analytics"
+        const val STATISTICS = "statistics"
         const val SETTINGS = "settings"
         const val GARMENT = "garment"
         const val OUTFIT = "outfit"
