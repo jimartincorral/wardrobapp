@@ -1,6 +1,5 @@
 package com.wardrobapp.app
 
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -60,6 +59,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import com.wardrobapp.data.DuplicateGarment
 import com.wardrobapp.domain.COMMON_SIZES
@@ -801,7 +801,7 @@ private fun ImportProblemDialog(
  * reaches this.
  */
 private fun hostOf(url: String): String =
-    Uri.parse(url).host ?: url
+    url.toUri().host ?: url
 
 /**
  * Read the selected photo's colour, on request.

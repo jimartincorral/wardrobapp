@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Nothing leaves the app by itself.
+
+    android:allowBackup="false" said this once, but from Android 12 it only
+    covers cloud backups; device-to-device transfer is configured here or not at
+    all. Both exclude everything, and for the same reason: a wardrobe is photos
+    plus a database that names them, and a transfer that copied one without the
+    other would restore a wardrobe of missing images. The app writes its own
+    archives, which carry both.
+
+    `root` is the app's whole data directory, so the databases, the preferences
+    and the stored photos are all inside it.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="external" path="." />
+    </device-transfer>
+</data-extraction-rules>

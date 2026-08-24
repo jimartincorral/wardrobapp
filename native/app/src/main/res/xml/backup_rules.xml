@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The same "nothing leaves by itself" as data_extraction_rules.xml, for Android
+    11 and below, where that file is not read.
+
+    Strictly it is redundant: android:allowBackup="false" already disables backup
+    outright before Android 12. It is here because a manifest that names
+    dataExtractionRules and not this one is a manifest that only says what it
+    means on new phones, and lint refuses it while minSdk is 24.
+-->
+<full-backup-content>
+    <exclude domain="root" path="." />
+    <exclude domain="external" path="." />
+</full-backup-content>

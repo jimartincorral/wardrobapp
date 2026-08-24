@@ -83,61 +83,33 @@ android {
     }
 
     lint {
-        // A chosen set, not the whole of lint. A full run on a codebase that has
-        // never had one would fail CI on a backlog of unrelated findings, which
-        // would mean turning abortOnError off -- and a lint that cannot fail is a
-        // report nobody opens.
+        // Every check lint runs by default, and a warning fails the build.
         //
-        // Getting to a full pass needs a baseline recorded first
-        // (`lint { baseline = file("lint-baseline.xml") }`, then one
-        // `./gradlew :app:lintDebug` on a machine with an SDK to write it), so that
-        // the backlog is frozen and anything new fails. That is worth doing and
-        // cannot be done from here -- generating a baseline means running lint.
-        //
-        // Until then, this list grows a check at a time, and every one of these
-        // stops the build at its normal error severity.
-        checkOnly += setOf(
-            // -- Localization ------------------------------------------------
-            // A name in values/ with no values-es/ counterpart, and the reverse.
-            "MissingTranslation",
-            "ExtraTranslation",
-            // A translation whose format arguments do not match the original --
-            // the one class of localization bug that crashes rather than reads
-            // oddly.
-            "StringFormatInvalid",
-            "StringFormatMatches",
+        // The usual way to get here is a baseline file that freezes the existing
+        // findings, and it turned out not to be needed: the full run found 0
+        // errors and 34 warnings, and all 34 were worth fixing or worth saying
+        // why not -- ten missing Spanish plural quantities, five launcher icons
+        // that filled their square, five KTX extensions, a redundant label, the
+        // backup rules Android 12 wants, and two strings with two counts in them
+        // that no <plurals> can inflect (told so where they are written). So
+        // there is no baseline: the backlog is empty rather than frozen, and
+        // there is nowhere for a new finding to hide.
+        warningsAsErrors = true
 
-            // -- The things URL import made relevant --------------------------
-            // This app now fetches pages an outside link named, so the checks that
-            // catch a client which trusts anything are no longer theoretical.
-            "TrustAllX509TrustManager",
-            "BadHostnameVerifier",
-            "AllowAllHostnameVerifier",
-            "InsecureBaseConfiguration",
-            "UnsafeImplicitIntentLaunch",
-            "UnsafeIntentLaunch",
-
-            // -- The things the camera made relevant --------------------------
-            // A FileProvider handing out more than it means to, and the file-URI
-            // exposure it exists to avoid.
-            "GrantAllUris",
-            "ExportedContentProvider",
-            "FileEndsWithExt",
-
-            // -- Ordinary correctness ----------------------------------------
-            // A resource or an API used on a version that does not have it, which
-            // is the one class of finding that crashes on exactly the phones least
-            // likely to be tested on.
-            "NewApi",
-            "InlinedApi",
-            "ObsoleteSdkInt",
-            // A stream or a bitmap left open. Both apply: this decodes photos and
-            // reads network responses.
-            "Recycle",
-            // A release build that ships debuggable, which is the mistake that is
-            // invisible until someone attaches a debugger to a phone.
-            "HardcodedDebugMode",
+        // Except the checks that go off when somebody else publishes a release.
+        // A newer AndroidX or AGP is worth knowing about and is not a defect in
+        // this commit; leaving them as errors would turn CI red on a morning
+        // nobody touched the code, which is how a red build stops meaning
+        // anything. Still reported, just not fatal.
+        informational += setOf(
+            "GradleDependency",
+            "AndroidGradlePluginVersion",
+            "NewerVersionAvailable",
         )
+
+        // So CI can print the findings into the build log. The HTML report is no
+        // use to anyone reading a workflow run.
+        textReport = true
     }
 
     signingConfigs {

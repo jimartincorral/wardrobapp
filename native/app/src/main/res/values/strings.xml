@@ -14,7 +14,7 @@
     and diverges from the React Native wording in places where that wording was
     wrong or misleading — each divergence is noted where it is used.
 -->
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Not translated: a name, and suffixed while this installs
          alongside the React Native app so the two are distinguishable
          in the launcher. -->
@@ -239,7 +239,13 @@
     <string name="archive_database_missing">Invalid backup: %1$s is missing from the archive. Nothing was changed.</string>
     <string name="archive_database_empty">Invalid backup: %1$s is empty. Nothing was changed.</string>
     <string name="archive_no_database">Invalid backup: it contains no database. Nothing was changed.</string>
-    <string name="archive_archive_truncated">Incomplete backup: the manifest lists %1$d photo(s) but only %2$d are present, so the archive is truncated. Nothing was changed.</string>
+    <!--
+        Two counts in one sentence, which no <plurals> can inflect: Android
+        chooses a quantity from one number, and this reads its noun off the first
+        while the verb agrees with the second. So "photo(s)", and lint's
+        PluralsCandidate is told as much rather than left to fire on every build.
+    -->
+    <string name="archive_archive_truncated" tools:ignore="PluralsCandidate">Incomplete backup: the manifest lists %1$d photo(s) but only %2$d are present, so the archive is truncated. Nothing was changed.</string>
     <string name="archive_not_base64">Invalid backup: its contents are not valid base64. Nothing was changed.</string>
     <string name="archive_entry_outside_archive">Invalid backup: the archive contains an entry outside itself (%1$s). Nothing was changed.</string>
     <string name="archive_integrity_check_failed">it failed SQLite\'s integrity check (%1$s)</string>
@@ -319,7 +325,9 @@
 
     <!-- What an import wants to mention. Mirrors ImportWarning in :domain. -->
     <string name="import_warning_structured_data_unreadable">Some structured product data could not be parsed.</string>
-    <string name="import_warning_images_capped">That page listed %1$d images; the first %2$d were used.</string>
+    <!-- Two counts again; see archive_archive_truncated. Both are always plural
+         here: the warning only exists when more images were listed than used. -->
+    <string name="import_warning_images_capped" tools:ignore="PluralsCandidate">That page listed %1$d images; the first %2$d were used.</string>
     <plurals name="import_warning_images_blocked">
         <item quantity="one">%1$d image pointed somewhere this app will not fetch.</item>
         <item quantity="other">%1$d images pointed somewhere this app will not fetch.</item>
@@ -460,7 +468,12 @@
     <string name="occasion_sport">Sport</string>
     <string name="occasion_lounge">Lounge</string>
 
-    <!-- Counts. English and Spanish share the one/other rule. -->
+    <!--
+        Counts. English has one/other; Spanish also has `many`, which CLDR uses
+        for the compact forms ("1 millón de fotos"). Every Spanish plural
+        therefore carries a third item, and lint's MissingQuantity is what said
+        so.
+    -->
     <plurals name="garment_count">
         <item quantity="one">%d garment</item>
         <item quantity="other">%d garments</item>

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
+import androidx.core.graphics.scale
 import androidx.exifinterface.media.ExifInterface
 import com.wardrobapp.data.GARMENT_IMAGE_DIRNAME
 import com.wardrobapp.data.MaintenanceSummary
@@ -264,7 +265,7 @@ class AndroidPhotoStore(private val context: Context) {
         if (target.width <= 0 || target.height <= 0) return bitmap
 
         return replacing(bitmap) {
-            Bitmap.createScaledBitmap(bitmap, target.width, target.height, true)
+            bitmap.scale(target.width, target.height)
         }
     }
 

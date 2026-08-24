@@ -128,8 +128,15 @@ def fill_polygon(target: bytearray, width: int, polygon: list[tuple[float, float
                 target[row + x] = 1
 
 
-def render(size: int, round_mask: bool) -> bytes:
-    """One icon, as RGBA rows."""
+# How much of the square's half-width the corner radius takes on the plain icon.
+# Enough that the corners are visibly transparent: a launcher icon that fills
+# every pixel of its square reads as a coloured tile, and lint says so
+# (IconLauncherShape).
+CORNER_RADIUS = 0.18
+
+
+def render(size: int, mask: str) -> bytes:
+    """One icon, as RGBA rows. `mask` is 'rounded' or 'circle'."""
     scale = size * SUPERSAMPLE / VIEWPORT
     big = size * SUPERSAMPLE
 
@@ -145,6 +152,13 @@ def render(size: int, round_mask: bool) -> bytes:
     mask_radius = big / 2.0
     mask_radius_squared = mask_radius * mask_radius
 
+    # And a rounded square for the plain one. `straight` is how far from the
+    # centre the sides run flat; past that in both axes is a corner, measured
+    # from the centre of the arc that turns it.
+    corner = mask_radius * CORNER_RADIUS
+    straight = mask_radius - corner
+    corner_squared = corner * corner
+
     rows = bytearray()
     block = SUPERSAMPLE * SUPERSAMPLE
     for y in range(size):
@@ -159,11 +173,16 @@ def render(size: int, round_mask: bool) -> bytes:
                 for sub_x in range(SUPERSAMPLE):
                     big_x = x * SUPERSAMPLE + sub_x
                     glyph_hits += glyph[row + big_x]
-                    if not round_mask:
-                        inside_hits += 1
-                    else:
-                        dx = big_x + 0.5 - mask_radius
+                    dx = big_x + 0.5 - mask_radius
+                    if mask == 'circle':
                         if dx * dx + dy * dy <= mask_radius_squared:
+                            inside_hits += 1
+                    else:
+                        over_x = abs(dx) - straight
+                        over_y = abs(dy) - straight
+                        if over_x <= 0 or over_y <= 0:
+                            inside_hits += 1
+                        elif over_x * over_x + over_y * over_y <= corner_squared:
                             inside_hits += 1
 
             if inside_hits == 0:
@@ -203,9 +222,9 @@ def write_png(path: Path, size: int, rows: bytes) -> None:
 
 def main() -> None:
     for folder, size in DENSITIES.items():
-        for name, round_mask in (('ic_launcher', False), ('ic_launcher_round', True)):
+        for name, mask in (('ic_launcher', 'rounded'), ('ic_launcher_round', 'circle')):
             path = RES / folder / f'{name}.png'
-            write_png(path, size, render(size, round_mask))
+            write_png(path, size, render(size, mask))
             print(f'{path.relative_to(RES.parent.parent.parent.parent)}: {size}x{size}')
 
 

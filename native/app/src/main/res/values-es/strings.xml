@@ -254,11 +254,13 @@
     <string name="tidy_nothing_title">Nada que optimizar</string>
     <plurals name="tidy_nothing_body">
         <item quantity="one">%1$d foto recortada, ya tan pequeña como esta aplicación las hace.</item>
+        <item quantity="many">%1$d fotos recortadas, ya tan pequeñas como esta aplicación las hace.</item>
         <item quantity="other">%1$d fotos recortadas, ya tan pequeñas como esta aplicación las hace.</item>
     </plurals>
     <string name="tidy_done_title">Almacenamiento optimizado</string>
     <plurals name="tidy_done_body">
         <item quantity="one">%1$d foto reducida; se han ahorrado %2$s MB.</item>
+        <item quantity="many">%1$d fotos reducidas; se han ahorrado %2$s MB.</item>
         <item quantity="other">%1$d fotos reducidas; se han ahorrado %2$s MB.</item>
     </plurals>
     <string name="tidy_failed_title">No se ha podido optimizar</string>
@@ -280,6 +282,7 @@
     <string name="import_notes">Notas de importación: %1$s</string>
     <plurals name="import_success">
         <item quantity="one">Se importó %1$d imagen de la página del producto.</item>
+        <item quantity="many">Se importaron %1$d imágenes de la página del producto.</item>
         <item quantity="other">Se importaron %1$d imágenes de la página del producto.</item>
     </plurals>
     <string name="import_failed_title">Importación por URL</string>
@@ -314,10 +317,12 @@
     <string name="import_warning_images_capped">Esa página listaba %1$d imágenes; se han usado las %2$d primeras.</string>
     <plurals name="import_warning_images_blocked">
         <item quantity="one">%1$d imagen apuntaba a un sitio que esta app no descarga.</item>
+        <item quantity="many">%1$d imágenes apuntaban a un sitio que esta app no descarga.</item>
         <item quantity="other">%1$d imágenes apuntaban a un sitio que esta app no descarga.</item>
     </plurals>
     <plurals name="import_warning_images_failed">
         <item quantity="one">No se ha podido descargar %1$d imagen.</item>
+        <item quantity="many">No se han podido descargar %1$d imágenes.</item>
         <item quantity="other">No se han podido descargar %1$d imágenes.</item>
     </plurals>
 
@@ -452,25 +457,35 @@
     <string name="occasion_sport">Deporte</string>
     <string name="occasion_lounge">Descanso</string>
 
-    <!-- Counts. English and Spanish share the one/other rule. -->
+    <!--
+        Counts. Spanish has one/many/other: `many` is CLDR's category for the
+        compact forms ("1 millón de fotos"), and lint fails without it. Its
+        wording matches `other` (the noun does not change) but it has to
+        exist.
+    -->
     <plurals name="garment_count">
         <item quantity="one">%d prenda</item>
+        <item quantity="many">%d prendas</item>
         <item quantity="other">%d prendas</item>
     </plurals>
     <plurals name="photo_count">
         <item quantity="one">%d foto</item>
+        <item quantity="many">%d fotos</item>
         <item quantity="other">%d fotos</item>
     </plurals>
     <plurals name="backup_photos_skipped">
         <item quantity="one">No se pudo leer %d foto y se dejó fuera.</item>
+        <item quantity="many">No se pudieron leer %d fotos y se dejaron fuera.</item>
         <item quantity="other">No se pudieron leer %d fotos y se dejaron fuera.</item>
     </plurals>
     <plurals name="restore_done_garments">
         <item quantity="one">Se restauró la copia: %d prenda.</item>
+        <item quantity="many">Se restauró la copia: %d prendas.</item>
         <item quantity="other">Se restauró la copia: %d prendas.</item>
     </plurals>
     <plurals name="outfit_missing_garments">
         <item quantity="one">%d prenda de este atuendo ya no está en tu armario.</item>
+        <item quantity="many">%d prendas de este atuendo ya no están en tu armario.</item>
         <item quantity="other">%d prendas de este atuendo ya no están en tu armario.</item>
     </plurals>
 </resources>

@@ -111,8 +111,17 @@ class StringResourceParityTest {
         )
     }
 
+    /**
+     * Quantities Spanish has and English does not.
+     *
+     * CLDR gives Spanish one/many/other. `many` is the compact-form category --
+     * "1 millon de fotos" -- and lint requires it; English has no equivalent, so
+     * adding it there would only earn an UnusedQuantity warning back.
+     */
+    private val SPANISH_ONLY_QUANTITIES = setOf("many")
+
     @Test
-    fun `both languages define the same plurals, with the same quantities`() {
+    fun `both languages define the same plurals, with the quantities each needs`() {
         // Read separately because <plurals> is not <string>: the checks above walk
         // string elements only, so a plural could have gone missing, lost a
         // quantity, or dropped its %d without any of them noticing.
@@ -122,16 +131,31 @@ class StringResourceParityTest {
         assertEquals(here.keys, there.keys, "the set of plurals differs")
 
         for (name in here.keys) {
+            // Not the same set: the quantities a language needs are the
+            // language's, not the resource's. English has one/other; Spanish also
+            // has `many`, CLDR's category for the compact forms ("1 millon de
+            // fotos"), and lint's MissingQuantity fails a Spanish plural without
+            // it. So English's quantities have to be there, and anything extra
+            // has to be a quantity Spanish actually has.
+            assertTrue(
+                there.getValue(name).keys.containsAll(here.getValue(name).keys),
+                "$name is missing ${here.getValue(name).keys - there.getValue(name).keys} in Spanish",
+            )
             assertEquals(
-                here.getValue(name).keys,
-                there.getValue(name).keys,
-                "quantities for $name",
+                emptySet(),
+                there.getValue(name).keys - here.getValue(name).keys - SPANISH_ONLY_QUANTITIES,
+                "$name has a quantity Spanish does not use",
             )
 
-            for ((quantity, value) in here.getValue(name)) {
+            for ((quantity, value) in there.getValue(name)) {
+                // An extra Spanish quantity is compared against the English form
+                // it stands in for, which is `other` -- otherwise `many` could
+                // substitute anything at all.
+                val english = here.getValue(name)[quantity] ?: here.getValue(name).getValue("other")
+
                 assertEquals(
+                    formatArguments(english),
                     formatArguments(value),
-                    formatArguments(there.getValue(name).getValue(quantity)),
                     "what $name/$quantity substitutes",
                 )
             }
