@@ -69,6 +69,39 @@ android {
         versionName = "0.1-port"
     }
 
+    // Per-app language, the way Google documents it: the locale list is
+    // generated from the `values-*` directories rather than hand-written, so
+    // adding a language is adding a directory and nothing else. Needs AGP 8.1
+    // and compileSdk 33; this is on 8.9.1 and 36.
+    //
+    // It also needs res/resources.properties naming the locale that the
+    // unqualified `values/` directory holds -- without it the build fails
+    // rather than assuming, which is the right way round for a question with no
+    // safe default.
+    androidResources {
+        generateLocaleConfig = true
+    }
+
+    lint {
+        // Only the localization checks, deliberately. A full lint run on a
+        // codebase that has never had one would fail CI on a backlog of unrelated
+        // findings, which would mean turning abortOnError off -- and a lint that
+        // cannot fail is a report nobody opens. Scoped like this, these four stop
+        // the build at their normal error severity and nothing else can.
+        //
+        // A full lint pass is worth doing; it is its own piece of work.
+        checkOnly += setOf(
+            // A name in values/ with no values-es/ counterpart, and the reverse.
+            "MissingTranslation",
+            "ExtraTranslation",
+            // A translation whose format arguments do not match the original --
+            // the one class of localization bug that crashes rather than reads
+            // oddly.
+            "StringFormatInvalid",
+            "StringFormatMatches",
+        )
+    }
+
     signingConfigs {
         // Declared unconditionally -- Gradle needs the name to exist for the
         // reference below to resolve -- but only populated when a keystore was
@@ -141,6 +174,12 @@ dependencies {
     // relied on transitively through lifecycle-viewmodel-ktx.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("androidx.activity:activity-compose:1.9.3")
+    // Only for per-app language. The platform API arrived in Android 13 and this
+    // app supports 24, so the choice goes through AppCompatDelegate, which
+    // backports it -- and which is why MainActivity is an AppCompatActivity and
+    // the manifest holds a locales service. Compose needs no other part of this
+    // library.
+    implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     // The back stack, so system back behaves the way it does everywhere else on
     // the phone rather than being reimplemented per screen.

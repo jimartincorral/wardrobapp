@@ -17,6 +17,28 @@
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="subject_segment" />
 
+        <!--
+            How the language choice survives a restart on Android 12 and lower.
+
+            AppCompat reads this service's metadata to decide whether it owns
+            locale storage; with autoStoreLocales true it persists the choice
+            itself, so nothing here has to. On Android 13 and up the platform
+            stores it instead, and the two stay in step -- which is why the
+            in-app picker and the system's own per-app language screen agree
+            rather than being two settings for one thing.
+
+            Disabled and unexported deliberately: it is a metadata holder that is
+            never started.
+        -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

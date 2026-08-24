@@ -2,12 +2,14 @@ package com.wardrobapp.app
 
 import android.net.Uri
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -25,7 +27,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.pm.PackageInfoCompat
+import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -37,9 +41,20 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.wardrobapp.data.backupFilename
+import com.wardrobapp.presentation.languageChoiceFor
+import com.wardrobapp.presentation.languageTag
 import java.io.FileNotFoundException
 
-class MainActivity : ComponentActivity() {
+/**
+ * The one activity.
+ *
+ * An AppCompatActivity rather than a ComponentActivity for exactly one reason:
+ * `AppCompatDelegate.setApplicationLocales` is how the language choice reaches
+ * Android 12 and lower, and Google's own note is that with Compose it does not
+ * work otherwise. Nothing else here uses AppCompat -- there is no action bar and
+ * no AppCompat view in the tree.
+ */
+class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,7 +80,7 @@ class MainActivity : ComponentActivity() {
                                         selected = route == tab.route,
                                         onClick = { navigator.switchTo(tab.route) },
                                         icon = { Icon(tab.icon, contentDescription = null) },
-                                        label = { Text(tab.label) },
+                                        label = { Text(stringResource(tab.labelRes)) },
                                     )
                                 }
                             }
@@ -267,6 +282,25 @@ class MainActivity : ComponentActivity() {
 
         SettingsScreen(
             state = state,
+            // Read from AppCompat rather than held in this app's own state, so
+            // the picker cannot disagree with Android's per-app language screen
+            // when the choice is changed there instead of here.
+            language = languageChoiceFor(
+                AppCompatDelegate.getApplicationLocales().toLanguageTags()
+            ),
+            onLanguageSelected = { choice ->
+                // AppCompat persists this itself -- that is what the manifest's
+                // locales service with autoStoreLocales is for -- and on Android
+                // 12 and lower it recreates the activity, which is what makes the
+                // screen come back in the new language. Nothing is written to
+                // user_preferences: two records of one setting is how they end up
+                // disagreeing.
+                AppCompatDelegate.setApplicationLocales(
+                    choice.languageTag
+                        ?.let { LocaleListCompat.forLanguageTags(it) }
+                        ?: LocaleListCompat.getEmptyLocaleList()
+                )
+            },
             // Remembered: it is a PackageManager query, and asking again on every
             // recomposition is an IPC round trip for a string that cannot change
             // while the app is running.
@@ -525,7 +559,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private data class Tab(val route: String, val label: String, val icon: ImageVector)
+    // The label is a resource id rather than a string because this list is built
+    // once, outside any composition, and a string would freeze the language it was
+    // built in.
+    private data class Tab(
+        val route: String,
+        @StringRes val labelRes: Int,
+        val icon: ImageVector,
+    )
 
     private companion object {
         const val HOME = "home"
@@ -546,10 +587,10 @@ class MainActivity : ComponentActivity() {
         const val GARMENT_ID = "garmentId"
 
         val TABS = listOf(
-            Tab(HOME, "Home", Icons.Filled.Home),
-            Tab(WARDROBE, "Wardrobe", Icons.Filled.List),
-            Tab(OUTFITS, "Outfits", Icons.Filled.Star),
-            Tab(ANALYTICS, "Analytics", Icons.Filled.Info),
+            Tab(HOME, R.string.tab_home, Icons.Filled.Home),
+            Tab(WARDROBE, R.string.tab_wardrobe, Icons.Filled.List),
+            Tab(OUTFITS, R.string.tab_outfits, Icons.Filled.Star),
+            Tab(ANALYTICS, R.string.tab_analytics, Icons.Filled.Info),
         )
     }
 }

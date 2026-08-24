@@ -126,6 +126,14 @@ jobs:
         run: ./gradlew :app:test --console=plain
         working-directory: native
 
+      # The Android-only half of the localization checks. StringResourceParityTest
+      # in :presentation covers what lint does not -- placeholders, and a Spanish
+      # string left as its English twin -- but MissingTranslation, ExtraTranslation
+      # and StringFormatInvalid need aapt, so they can only run where the SDK is.
+      - name: Lint
+        run: ./gradlew :app:lintDebug --console=plain
+        working-directory: native
+
       - name: Assemble
         run: ./gradlew :app:assembleDebug --console=plain
         working-directory: native
