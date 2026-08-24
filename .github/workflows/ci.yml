@@ -15,34 +15,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Fast gate: runs on every pull request and every push to main. Deliberately
-  # free of the Android toolchain so contributors get feedback in ~1 minute.
-  verify:
-    name: Typecheck & test
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test
-        run: npm test
-
-  # The Kotlin modules of the native port: the algorithms and the mapping layer.
-  # Plain Kotlin/JVM by design, so this job needs a JDK and nothing else -- no
-  # Android SDK, no emulator, and it finishes in about the time verify does.
-  domain:
+  # The three pure Kotlin modules: the algorithms, the mapping layer and the view
+  # logic. Deliberately with no SDK on the path -- settings.gradle.kts then
+  # excludes :app, so this job tests only the modules that need nothing but a
+  # JDK, and in doing so proves they genuinely need nothing but a JDK. That
+  # property is what keeps most of this codebase testable in seconds.
+  kotlin:
     name: Kotlin tests
     runs-on: ubuntu-latest
 
@@ -58,66 +36,20 @@ jobs:
       - name: Cache Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      # The parity fixtures record what the TypeScript answers for a fixed
-      # corpus, and the Kotlin tests assert the port agrees. That only means
-      # anything if the fixtures still match the TypeScript they came from, so
-      # regenerate them and fail if they moved: changing a TS algorithm without
-      # regenerating would otherwise leave the port silently pinned to the old
-      # behaviour.
-      - name: Check parity fixtures are current
-        run: |
-          npm run parity:dump
-          # --porcelain rather than `git diff`, which says nothing about files
-          # that are untracked: a fixture dropped from the repo (or accidentally
-          # ignored) would otherwise regenerate and pass in silence.
-          #
-          # Filtered with grep rather than a `native/**/...parity` pathspec:
-          # git does not expand `**` that way without :(glob) magic, so that
-          # pathspec matches nothing at all and the check passes regardless.
-          # This also picks up new modules without needing to be updated.
-          STALE=$(git status --porcelain -- native | grep 'src/test/resources/parity/' || true)
-          if [ -n "$STALE" ]; then
-            echo "::error::Parity fixtures are stale. Run 'npm run parity:dump' and commit the result."
-            echo "$STALE"
-            exit 1
-          fi
-
-      # Deliberately with no SDK on the path. settings.gradle.kts then excludes
-      # :app, so this job tests only the pure modules -- and in doing so proves
-      # they genuinely need no Android SDK, which is the property the whole
-      # layering rests on. An Android failure also cannot be reported here as
-      # "Kotlin tests failed"; that is the job below.
       - name: Test
         run: ./gradlew test --console=plain
-        working-directory: native
         env:
           ANDROID_HOME: ""
           ANDROID_SDK_ROOT: ""
 
-
-  # The Compose app. Separate from the Kotlin tests above so a broken Android
-  # build is reported as one, and so the fast gate does not wait on the Android
-  # toolchain.
-  #
-  # Debug only, and published as a prerelease so the port can actually be
-  # installed and used on a phone. A release build here would still buy nothing:
-  # it needs the keystore that does not exist yet, and until cutover the port is
-  # something to try rather than something to run.
+  # The app itself. Everything that needs the Android SDK happens here, and
+  # nothing here needs an emulator: the Compose tests are Robolectric ones.
   android:
-    name: Build the port's APK
+    name: Build the app
     runs-on: ubuntu-latest
 
-    # Needed to publish the preview release below. The repository default is
-    # read-only; a workflow may request more for itself, as the release job does.
+    # Needed to publish the release below. The repository default is read-only;
+    # a workflow may request more for itself.
     permissions:
       contents: write
 
@@ -133,153 +65,39 @@ jobs:
       - name: Cache Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # The only tests that need Android, which is why they run here rather than
-      # in the Kotlin tests job -- that one blanks the SDK on purpose.
-      #
-      # The debug variant specifically, not `:app:test`, which would also run them
-      # against release. The Compose tests cannot run there: `ui-test-manifest`
-      # supplies the activity they compose into and Google ships it as a
+      # The debug variant by name, not `:app:test`, which would also run these
+      # against release. They cannot run there: `ui-test-manifest` supplies the
+      # activity the Compose tests compose into and Google ships it as a
       # debug-only artifact, on purpose -- so in release there is no activity to
       # launch and all of them fail at once. Nothing in these tests is
       # variant-dependent, so debug is the whole story.
       - name: Test
         run: ./gradlew :app:testDebugUnitTest --console=plain
-        working-directory: native
 
-      # The Android-only half of the localization checks. StringResourceParityTest
-      # in :presentation covers what lint does not -- placeholders, and a Spanish
-      # string left as its English twin -- but MissingTranslation, ExtraTranslation
-      # and StringFormatInvalid need aapt, so they can only run where the SDK is.
+      # Every check lint has, with warnings failing the build. There is no
+      # baseline file: the backlog was cleared rather than frozen.
       - name: Lint
         run: ./gradlew :app:lintDebug --console=plain
-        working-directory: native
 
       # Every finding on one line each, since a warning now fails the build and
-      # the full report is mostly the explanations. Information too: the version
+      # the full report is mostly explanation. Information too: the version
       # checks are downgraded to it rather than switched off, and this is where
-      # they get read. Runs even when lint failed -- especially then.
+      # they get read. `if: always()`, because the run that matters most is the
+      # one where lint failed.
       - name: Show the lint findings
         if: always()
         run: |
-          report=native/app/build/reports/lint-results-debug.txt
+          report=app/build/reports/lint-results-debug.txt
           [ -f "$report" ] || exit 0
           grep -E '^/.*(Warning|Error|Information):' "$report" \
-            | sed 's|.*/native/|native/|' || true
+            | sed "s|$PWD/||" || true
           tail -1 "$report"
 
-
-      - name: Assemble
-        run: ./gradlew :app:assembleDebug --console=plain
-        working-directory: native
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: wardrobapp-port-${{ github.run_number }}-${{ github.sha }}
-          path: native/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 14
-
-      # And the same APK as a release asset, because an artifact cannot be
-      # installed from a phone: it is a zip behind a GitHub login, which means
-      # downloading, extracting and finding the file before anything can be
-      # installed. A release asset is one tap.
-      #
-      # A rolling `port-preview` tag, recreated each time so the download URL never
-      # changes and always holds the newest build -- the same shape as the `nightly`
-      # release for the app that ships, and for the same reason.
-      #
-      # Marked prerelease, and the notes say what it is: debug-signed, installing
-      # alongside the real app under its own application id, for testing the port
-      # rather than for using. It is not what `nightly` is; that stays the shipped
-      # app's release build, published only from main.
-      - name: Publish the port's APK for testing
-        env:
-          GH_TOKEN: ${{ github.token }}
-          # The branch head, not `github.sha`: on a pull_request event that is the
-          # merge commit, which is not a commit on anybody's branch and a strange
-          # thing to hang a tag on.
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
-        run: |
-          cp native/app/build/outputs/apk/debug/app-debug.apk wardrobapp-port.apk
-
-          {
-            echo "The Kotlin port, built from \`$BRANCH\` — run #${GITHUB_RUN_NUMBER}, commit ${HEAD_SHA}."
-            echo
-            echo "**A test build, not a release.**"
-            echo
-            echo "- Signed with the public Android debug key, so installing it needs"
-            echo "  \"install unknown apps\" allowed for whatever opens it."
-            echo "- Installs *alongside* the app that ships, under its own application"
-            echo "  id (\`com.anonymous.wardrobapp.dev\`). It cannot see or touch that"
-            echo "  app's wardrobe."
-            echo "- A wardrobe gets into it by restoring a backup written from the"
-            echo "  shipped app, and back out by writing one from here — both apps read"
-            echo "  and write the same archive format."
-            echo
-            echo "Replaced by the next build of the port. For the app that ships, see"
-            echo "the [nightly release](https://github.com/jimartincorral/wardrobapp/releases/tag/nightly)."
-          } > port-notes.md
-
-          gh release delete port-preview --yes --cleanup-tag || true
-          gh release create port-preview wardrobapp-port.apk \
-            --target "$HEAD_SHA" \
-            --title "Port preview" \
-            --prerelease \
-            --notes-file port-notes.md
-
-  build:
-    name: Build release APK
-    needs: verify
-    # The APK is only worth building for something we might publish. That used to
-    # mean "not a pull request", which stopped being the same thing when pushes to
-    # development branches started running this workflow: prebuild plus an NDK
-    # build of Reanimated is a quarter of an hour, and a branch push has nothing
-    # to publish -- the release step below is main-only anyway.
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-
-    # Needed to publish the APK to a release. The repository default is
-    # read-only; a workflow may request more for itself.
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      # React Native 0.83 pins this NDK (node_modules/react-native/gradle/libs.versions.toml).
-      # Reanimated/Worklets compile C++ from source, so the exact version must be present.
-      # No-op when the runner image already ships it.
-      - name: Install pinned Android NDK
-        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.1.12297006"
-
-      - name: Cache Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Install dependencies
-        run: npm ci
-
-      # android/ is gitignored, so the native project is generated from app.config.js on every run.
-      - name: Generate native Android project
-        run: npx expo prebuild --platform android --no-install
-
-      # Signing is opt-in on the secret. With no keystore configured the release
-      # build falls back to the debug key exactly as it always has, so a fork or
-      # a contributor without the secret still gets a working APK -- and the
-      # release notes below say which key was used rather than guessing.
+      # Signing is opt-in on the secret. Without it the release build is signed
+      # with the committed `app/debug.keystore` -- the key every published build
+      # of this app has carried, which is what keeps a release an upgrade of the
+      # app people have installed rather than a collision with it. See the
+      # `signingConfigs` block in app/build.gradle.kts.
       - name: Decode the release keystore
         id: signing
         env:
@@ -290,16 +108,15 @@ jobs:
         run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
             echo 'signed=false' >> "$GITHUB_OUTPUT"
-            echo '::notice::No ANDROID_KEYSTORE_BASE64 secret is set, so this release APK will be signed with the public Android debug key.'
+            echo '::notice::No ANDROID_KEYSTORE_BASE64 secret is set, so this build is signed with the committed public key -- which is what the installed app is signed with.'
             exit 0
           fi
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > app/release.keystore
           # Gradle turns ORG_GRADLE_PROJECT_<name> into project property <name>.
           #
           # Set only when a keystore is actually present: an empty value still
-          # makes project.hasProperty('WARDROBAPP_STORE_FILE') true, which would
-          # select the release signing config and then fail on a keystore path
-          # of "" -- or, worse in a future edit, produce something unsigned.
+          # makes the property readable, which would select the release signing
+          # config and then fail on a keystore path of "".
           {
             echo "ORG_GRADLE_PROJECT_WARDROBAPP_STORE_FILE=release.keystore"
             echo "ORG_GRADLE_PROJECT_WARDROBAPP_STORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD"
@@ -308,42 +125,56 @@ jobs:
           } >> "$GITHUB_ENV"
           echo 'signed=true' >> "$GITHUB_OUTPUT"
 
-      - name: Build release APK
-        env:
-          NODE_ENV: production
-        run: ./gradlew assembleRelease --console=plain --no-daemon
-        working-directory: android
+      - name: Assemble
+        run: ./gradlew :app:assembleRelease --console=plain
 
-      # The guard on the whole point of this: a misconfigured signing config
-      # produces a "release" APK quietly signed with the debug key, which looks
-      # entirely fine until a phone refuses to upgrade it. Cheap to check, and
-      # skipped entirely while there is no keystore -- the debug key is expected
-      # then, and saying so in the release notes is the honest answer.
-      - name: Check the APK is not debug-signed
-        if: steps.signing.outputs.signed == 'true'
+      # The check the upgrade path rests on. An app can only be replaced by a
+      # build signed with the same key, so a release signed with something else
+      # is not an update of the installed app -- it is a build that every phone
+      # refuses, discovered at install time by whoever tried.
+      #
+      # With no keystore configured the APK must carry the committed key, and
+      # the expected fingerprint is read out of that keystore rather than
+      # written down here, so the two cannot drift. With one configured the
+      # requirement inverts: it must *not* be the public key any more.
+      - name: Check the APK is signed with the expected key
         run: |
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
           if [ -z "$APKSIGNER" ]; then
             echo '::warning::apksigner was not found on the runner, so the signing certificate could not be checked.'
             exit 0
           fi
+
           "$APKSIGNER" verify --print-certs \
-            android/app/build/outputs/apk/release/app-release.apk > certs.txt
+            app/build/outputs/apk/release/app-release.apk > certs.txt
           cat certs.txt
-          # The debug keystore's certificate, which every Android SDK ships and
-          # anyone can therefore sign with.
-          if grep -q 'CN=Android Debug' certs.txt; then
-            echo '::error::A keystore was configured but the APK is signed with the Android debug key.'
-            exit 1
+
+          actual=$(grep -io 'SHA-256 digest: [0-9a-f]*' certs.txt | head -1 | awk '{print $NF}')
+
+          if [ '${{ steps.signing.outputs.signed }}' = 'true' ]; then
+            if grep -q 'CN=Android Debug' certs.txt; then
+              echo '::error::A keystore was configured but the APK carries the public debug key.'
+              exit 1
+            fi
+            exit 0
           fi
 
-      # Kept alongside the release below: artifacts give a per-run history,
-      # the release gives one permanent link to the newest build.
+          expected=$(keytool -list -v -keystore app/debug.keystore -storepass android \
+            | grep -m1 'SHA256:' | awk '{print $NF}' | tr -d ':' | tr 'A-F' 'a-f')
+
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::The APK is signed with $actual, not with the key the installed app trusts ($expected)."
+            exit 1
+          fi
+          echo "Signed with the installed base's key ($expected)."
+
+      # Kept alongside the release below: artifacts give a per-run history, the
+      # release gives one permanent link to the newest build.
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: wardrobapp-${{ github.run_number }}-${{ github.sha }}
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -356,16 +187,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SIGNED: ${{ steps.signing.outputs.signed }}
         run: |
-          cp android/app/build/outputs/apk/release/app-release.apk wardrobapp.apk
+          cp app/build/outputs/apk/release/app-release.apk wardrobapp.apk
 
           {
             echo "Automatic build of main — run #${GITHUB_RUN_NUMBER}, commit ${GITHUB_SHA}."
             echo
+            echo "Installs over the version already on the phone, keeping the wardrobe."
+            echo
             if [ "$SIGNED" = 'true' ]; then
-              echo "Signed with the project's release key."
+              echo "Signed with the project's own release key. If the install is refused,"
+              echo "the phone is holding a build signed with the older public key: back up"
+              echo "from inside the app, uninstall, install this, restore."
             else
-              echo "**Signed with the public Android debug key**, so this is a build for"
-              echo "testing, not one to distribute."
+              echo "**Signed with a public key** — the one every build of this app has"
+              echo "carried. It is what makes the upgrade work, and it means anybody could"
+              echo "sign a build claiming to be this one, so trust the source rather than"
+              echo "the signature."
             fi
           } > release-notes.md
 
