@@ -220,12 +220,12 @@ private fun GarmentBody(
                 view.size?.let { Property(stringResource(R.string.property_size)) { Value(it) } }
                 if (view.seasons.isNotEmpty()) {
                     Property(stringResource(R.string.property_seasons)) {
-                        Value(view.seasons.joinToString(", ") { stringResource(it.labelRes) })
+                        Value(view.seasons.map { stringResource(it.labelRes) }.joinToString(", "))
                     }
                 }
                 if (view.occasions.isNotEmpty()) {
                     Property(stringResource(R.string.property_occasions)) {
-                        Value(view.occasions.joinToString(", ") { stringResource(it.labelRes) })
+                        Value(view.occasions.map { stringResource(it.labelRes) }.joinToString(", "))
                     }
                 }
                 view.purchaseDate?.let { Property(stringResource(R.string.property_added)) { Value(displayDate(it)) } }
@@ -497,7 +497,7 @@ private fun Palette(palette: List<PaletteEntry>) {
             }
         }
         Text(
-            palette.joinToString(", ") { it.label() },
+            palette.map { it.label() }.joinToString(", "),
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(start = 12.dp),
@@ -540,7 +540,7 @@ private fun headingOf(view: GarmentDetailView): String {
     val category = categoryLabel(view.category)
     if (view.subcategories.isEmpty()) return category
 
-    val types = view.subcategories.joinToString(", ") { garmentTypeLabel(it) }
+    val types = view.subcategories.map { garmentTypeLabel(it) }.joinToString(", ")
     return "$category \u2022 $types"
 }
 

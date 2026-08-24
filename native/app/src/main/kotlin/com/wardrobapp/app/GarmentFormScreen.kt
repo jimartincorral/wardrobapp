@@ -313,7 +313,9 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 private fun <T> Chips(
     options: List<T>,
     selected: Set<T>,
-    label: (T) -> String,
+    // Composable because the label comes out of resources now, and a plain
+    // function type cannot hold a lookup that reads the reader's language.
+    label: @Composable (T) -> String,
     onTap: (T) -> Unit,
 ) {
     FlowRow(
@@ -553,7 +555,7 @@ private fun DuplicateWarning(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    match.reasons.joinToString(", ") { it.label() },
+                                    match.reasons.map { it.label() }.joinToString(", "),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
