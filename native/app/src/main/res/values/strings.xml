@@ -75,6 +75,34 @@
     <string name="filter_section_occasion">Occasion</string>
     <string name="filter_section_colour">Colour</string>
 
+    <!-- Outfits -->
+    <string name="outfits_title">Outfits</string>
+    <string name="outfits_subtitle">Suggestions are built from what you own, and learn from what you rate.</string>
+    <string name="outfits_filter_any">Any</string>
+    <string name="outfits_suggest">Suggest outfits</string>
+    <string name="outfits_suggesting">Building outfits…</string>
+    <string name="outfits_none_possible">No outfits could be built from what\'s available. Try fewer filters, or add a few more garments.</string>
+    <string name="outfits_prompt">Tap suggest to see what goes together.</string>
+    <string name="outfits_saved_section">Saved</string>
+    <string name="outfit_saved_badge">Saved</string>
+    <string name="action_save">Save</string>
+    <string name="action_pin">Pin</string>
+    <string name="action_unpin">Unpin</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_keep">Keep it</string>
+    <string name="action_close">Close</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="outfit_delete">Delete this outfit</string>
+    <string name="outfit_delete_confirm">Delete this outfit?</string>
+    <string name="outfit_delete_named_body">"%1$s" and its rating are deleted. The garments in it stay in your wardrobe.</string>
+    <string name="outfit_delete_body">The outfit and its rating are deleted. The garments in it stay in your wardrobe.</string>
+    <string name="outfit_missing">That outfit is no longer saved.</string>
+    <string name="outfit_unreadable">Couldn\'t read this outfit</string>
+    <string name="outfit_rate">How was it?</string>
+    <string name="error_rating_not_saved">That rating could not be saved.</string>
+    <string name="error_outfit_not_deleted">That outfit could not be deleted.</string>
+    <string name="outfit_untitled">Outfit</string>
+
     <!-- Language, in Settings -->
     <string name="settings_language">Language</string>
     <string name="settings_language_hint">Applies to this app only. Android remembers it, so it survives a restart and can also be changed from the system settings.</string>
@@ -210,5 +238,9 @@
     <plurals name="garment_count">
         <item quantity="one">%d garment</item>
         <item quantity="other">%d garments</item>
+    </plurals>
+    <plurals name="outfit_missing_garments">
+        <item quantity="one">%d garment in this outfit is no longer in your wardrobe.</item>
+        <item quantity="other">%d garments in this outfit are no longer in your wardrobe.</item>
     </plurals>
 </resources>

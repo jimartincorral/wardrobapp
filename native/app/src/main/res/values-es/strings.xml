@@ -67,6 +67,34 @@
     <string name="filter_section_occasion">Ocasión</string>
     <string name="filter_section_colour">Color</string>
 
+    <!-- Outfits -->
+    <string name="outfits_title">Atuendos</string>
+    <string name="outfits_subtitle">Las sugerencias se construyen con lo que tienes y aprenden de lo que valoras.</string>
+    <string name="outfits_filter_any">Cualquiera</string>
+    <string name="outfits_suggest">Sugerir atuendos</string>
+    <string name="outfits_suggesting">Creando atuendos…</string>
+    <string name="outfits_none_possible">No se pudo crear ningún atuendo con lo disponible. Prueba con menos filtros o agrega algunas prendas más.</string>
+    <string name="outfits_prompt">Toca sugerir para ver qué combina.</string>
+    <string name="outfits_saved_section">Guardados</string>
+    <string name="outfit_saved_badge">Guardado</string>
+    <string name="action_save">Guardar</string>
+    <string name="action_pin">Fijar</string>
+    <string name="action_unpin">No fijar</string>
+    <string name="action_delete">Eliminar</string>
+    <string name="action_keep">Conservar</string>
+    <string name="action_close">Cerrar</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="outfit_delete">Eliminar este atuendo</string>
+    <string name="outfit_delete_confirm">¿Eliminar este atuendo?</string>
+    <string name="outfit_delete_named_body">Se eliminan «%1$s» y su valoración. Las prendas que lo componen se quedan en tu armario.</string>
+    <string name="outfit_delete_body">Se eliminan el atuendo y su valoración. Las prendas que lo componen se quedan en tu armario.</string>
+    <string name="outfit_missing">Ese atuendo ya no está guardado.</string>
+    <string name="outfit_unreadable">No se pudo leer este atuendo</string>
+    <string name="outfit_rate">¿Qué tal quedó?</string>
+    <string name="error_rating_not_saved">No se pudo guardar esa valoración.</string>
+    <string name="error_outfit_not_deleted">No se pudo eliminar ese atuendo.</string>
+    <string name="outfit_untitled">Atuendo</string>
+
     <!-- Language, in Settings -->
     <string name="settings_language">Idioma</string>
     <string name="settings_language_hint">Solo afecta a esta aplicación. Android lo recuerda, así que se mantiene al reiniciar y también se puede cambiar desde los ajustes del sistema.</string>
@@ -202,5 +230,9 @@
     <plurals name="garment_count">
         <item quantity="one">%d prenda</item>
         <item quantity="other">%d prendas</item>
+    </plurals>
+    <plurals name="outfit_missing_garments">
+        <item quantity="one">%d prenda de este atuendo ya no está en tu armario.</item>
+        <item quantity="other">%d prendas de este atuendo ya no están en tu armario.</item>
     </plurals>
 </resources>

@@ -39,9 +39,6 @@ class HardcodedStringTest {
         "GarmentDetailViewModel.kt",
         "GarmentFormScreen.kt",
         "GarmentFormViewModel.kt",
-        "OutfitDetailScreen.kt",
-        "OutfitDetailViewModel.kt",
-        "OutfitsScreen.kt",
         "SettingsScreen.kt",
         "StatisticsScreen.kt",
     )
