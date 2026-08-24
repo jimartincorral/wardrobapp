@@ -75,7 +75,7 @@ import {
   withSeasonToggled,
   type OutfitFilters,
 } from '../src/domain/outfit-filters';
-import { CATEGORIES, COMMON_SIZES } from '../src/constants/categories';
+import { CATEGORIES, COMMON_SIZES, SUBCATEGORY_KEY_MAP } from '../src/constants/categories';
 import type { Garment } from '../src/types';
 
 const OUT_DIR = join(__dirname, '..', 'native', 'domain', 'src', 'test', 'resources', 'parity');
@@ -1662,6 +1662,12 @@ function dumpCatalogue() {
     id,
     label: entry.label,
     subcategories: [...entry.subcategories],
+    // The i18n key each stored label translates through, parallel to the labels
+    // above. Not derivable from the label -- 'T-Shirt' is 'tshirt' but 'Tank Top'
+    // is 'tank_top' -- so the port cannot work it out and has to be handed it.
+    subcategoryKeys: entry.subcategories.map(
+      (subcategory: string) => SUBCATEGORY_KEY_MAP[subcategory] ?? null
+    ),
     sizes: id === 'tops' ? COMMON_SIZES : undefined,
   }));
 }
