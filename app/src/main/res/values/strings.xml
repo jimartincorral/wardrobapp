@@ -227,7 +227,6 @@
     <!-- What the photo and background work can go wrong with -->
     <string name="error_background_busy">A background is already being removed.</string>
     <string name="error_photo_unreadable">That photo could not be read.</string>
-    <string name="error_photo_unopenable">That photo could not be opened.</string>
     <string name="error_no_subject">No subject was found in that photo, so there was no background to remove.</string>
     <string name="error_background_downloading">Background removal is still downloading what it needs. Try again in a moment.</string>
     <string name="error_background_timed_out">Background removal took too long and was stopped. If this is the first time, the model may still be downloading.</string>

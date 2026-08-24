@@ -214,7 +214,6 @@
     <!-- What the photo and background work can go wrong with -->
     <string name="error_background_busy">Ya se está quitando un fondo.</string>
     <string name="error_photo_unreadable">No se pudo leer esa foto.</string>
-    <string name="error_photo_unopenable">No se pudo abrir esa foto.</string>
     <string name="error_no_subject">No se encontró ninguna prenda en esa foto, así que no había fondo que quitar.</string>
     <string name="error_background_downloading">La función de quitar el fondo aún está descargando lo que necesita. Inténtalo de nuevo en un momento.</string>
     <string name="error_background_timed_out">Quitar el fondo tardó demasiado y se detuvo. Si es la primera vez, puede que el modelo aún se esté descargando.</string>
