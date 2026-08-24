@@ -15,10 +15,8 @@
     wrong or misleading — each divergence is noted where it is used.
 -->
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Not translated: a name, and suffixed while this installs
-         alongside the React Native app so the two are distinguishable
-         in the launcher. -->
-    <string name="app_name">Wardrobapp (port)</string>
+    <!-- Not translated: it is a name. -->
+    <string name="app_name">Wardrobapp</string>
 
     <!-- Tab bar -->
     <string name="tab_home">Home</string>

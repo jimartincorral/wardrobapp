@@ -7,10 +7,8 @@
     entries are corrections rather than copies — see StringResourceParityTest.
 -->
 <resources>
-    <!-- Not translated: a name, and suffixed while this installs
-         alongside the React Native app so the two are distinguishable
-         in the launcher. -->
-    <string name="app_name">Wardrobapp (port)</string>
+    <!-- Not translated: it is a name. -->
+    <string name="app_name">Wardrobapp</string>
 
     <!-- Tab bar -->
     <string name="tab_home">Inicio</string>

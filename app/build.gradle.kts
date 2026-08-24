@@ -44,30 +44,27 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        // Deliberately NOT com.anonymous.wardrobapp. Sharing that id would
-        // replace the installed app, handing a real wardrobe to an unfinished
-        // one. Until parity, this installs alongside and is loaded by restoring
-        // a backup. One line changes at cutover.
+        // The id the installed app has. This build replaces it, in place: same
+        // id, same signing key, a higher version code, and the wardrobe already
+        // in `files/SQLite/` and `files/garment-images/` is where this app looks
+        // for it (`wardrobeFilesIn` in :data). Nobody uninstalls anything and
+        // nobody restores a backup to move.
         //
-        // A comment here used to add that sharing the id would also let this read
-        // an existing wardrobe, "same data directory". Same directory, yes --
-        // but that was not enough, because this app looked for its database in
-        // `databases/` and the React Native app keeps one in `files/SQLite/`.
-        // Both now agree, via `wardrobeFilesIn` in :data, so the claim is true;
-        // it was not when it was written.
-        applicationId = "com.anonymous.wardrobapp.dev"
+        // Not renamed to something tidier than `com.anonymous.*` -- Expo's
+        // default, and an odd name for an app. An application id is an identity
+        // rather than a label: changing it makes this a different app that
+        // cannot upgrade the installed one, which is exactly the cost this
+        // commit exists to avoid.
+        applicationId = "com.anonymous.wardrobapp"
         minSdk = 24
         targetSdk = 36
-        // The same formula app.config.js uses for the React Native app, so
-        // that at cutover -- when this takes over that applicationId -- the
-        // port is an upgrade of what is installed rather than a build Android
-        // refuses as a downgrade. A hardcoded 1 was exactly that trap.
-        //
-        // The offset is duplicated rather than shared because the two builds
-        // have no common configuration language; if it is ever bumped in
-        // app.config.js it has to be bumped here too.
+        // Continues the sequence the published builds were numbered with --
+        // 1000 + the CI run number -- because a version code that goes
+        // backwards makes every phone refuse the build as a downgrade. The run
+        // number keeps climbing in the same workflow, so the next release is
+        // above the last one published by the app this replaces.
         versionCode = versionCodeOffset + ciRunNumber
-        versionName = "0.1-port"
+        versionName = "1.1.0"
     }
 
     // Per-app language, the way Google documents it: the locale list is
@@ -168,6 +165,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            // So a development build sits beside the real app instead of
+            // fighting it for the same id -- which, with the same signing key,
+            // would mean overwriting somebody's actual wardrobe with a debug
+            // build. `android:authorities` is `${applicationId}.camera`, so the
+            // FileProvider follows the suffix on its own.
+            applicationIdSuffix = ".debug"
+        }
+
         release {
             isMinifyEnabled = false
             // A real keystore when one is configured; otherwise the committed
