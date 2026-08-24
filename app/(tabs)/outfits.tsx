@@ -181,7 +181,7 @@ export default function OutfitsScreen() {
           {savedOutfits.slice(0, 10).map(outfit => (
             <View key={outfit.id} style={styles.savedOutfit}>
               <Pressable style={styles.savedOutfitMain} onPress={() => router.push(`/outfit/${outfit.id}`)}>
-                <Text style={styles.savedOutfitName}>{outfit.is_pinned ? `Pinned: ${outfit.name}` : outfit.name}</Text>
+                <Text style={styles.savedOutfitName}>{outfit.is_pinned ? t('outfits.pinnedName', { name: outfit.name }) : outfit.name}</Text>
                 <Text style={styles.savedOutfitMeta}>{t('outfits.itemsCount', { count: outfit.garment_ids.length })}</Text>
               </Pressable>
               <Pressable style={styles.pinButton} onPress={() => handleTogglePin(outfit)}>

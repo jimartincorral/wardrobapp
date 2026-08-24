@@ -87,6 +87,7 @@ const es = {
     emptyNudge: 'Agrega etiquetas de temporada para mejorar las sugerencias.',
     savedTitle: 'Atuendos Guardados',
     itemsCount: '%{count} prendas',
+    pinnedName: 'Fijado: %{name}',
     pin: 'Fijar',
     unpin: 'Quitar',
     saved: '¡Guardado!',
