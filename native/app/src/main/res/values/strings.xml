@@ -254,6 +254,57 @@
     <string name="language_english">English</string>
     <string name="language_spanish">Español</string>
 
+    <!-- URL import, in the garment form -->
+    <string name="import_section">Import from a link</string>
+    <string name="import_hint">Paste a product link to pull in its images</string>
+    <string name="import_url_label">Product link</string>
+    <string name="import_action">Import URL</string>
+    <string name="import_running">Importing images from link…</string>
+    <string name="import_source">Imported from %1$s</string>
+    <string name="import_notes">Import notes: %1$s</string>
+    <plurals name="import_success">
+        <item quantity="one">%1$d image imported from the product page.</item>
+        <item quantity="other">%1$d images imported from the product page.</item>
+    </plurals>
+    <string name="import_failed_title">URL Import</string>
+    <string name="import_invalid_url">Enter a valid product URL.</string>
+
+    <!-- Being handed a link by something else: a share, or a deep link -->
+    <string name="shared_link_title">Import from a link?</string>
+    <string name="shared_link_body">Something asked this app to load a garment from %1$s. Nothing has been fetched yet.</string>
+    <string name="shared_link_confirm">Load it</string>
+    <string name="shared_link_cancel">Not now</string>
+
+    <!-- Why a link was refused. Mirrors UnsafeUrlReason in :domain. -->
+    <string name="unsafe_url_required">A URL is required.</string>
+    <string name="unsafe_not_a_web_address">That does not look like a web address.</string>
+    <string name="unsafe_scheme_not_allowed">Only http and https addresses can be imported.</string>
+    <string name="unsafe_credentials_in_url">That address carries a username or password, so it was not opened.</string>
+    <string name="unsafe_host_is_local">%1$s is on this device or its local network, so it was not opened.</string>
+    <string name="unsafe_redirect_unreadable">That address redirected somewhere unreadable.</string>
+    <string name="unsafe_redirected_to_local_host">That address redirected to %1$s, on this device or its local network.</string>
+
+    <!-- Why an import produced nothing. Mirrors ImportFailureReason in :domain. -->
+    <string name="import_page_timed_out">That page took too long to answer.</string>
+    <string name="import_page_too_large">That page is too large to read.</string>
+    <string name="import_page_not_loaded">Could not load page (%1$d).</string>
+    <string name="import_not_a_web_page">That address is not a web page.</string>
+    <string name="import_no_images_found">No garment images were found on that page.</string>
+    <string name="import_no_fetchable_images">The images on that page are not ones this app will download.</string>
+    <string name="import_no_images_downloaded">Images were found, but none could be downloaded.</string>
+
+    <!-- What an import wants to mention. Mirrors ImportWarning in :domain. -->
+    <string name="import_warning_structured_data_unreadable">Some structured product data could not be parsed.</string>
+    <string name="import_warning_images_capped">That page listed %1$d images; the first %2$d were used.</string>
+    <plurals name="import_warning_images_blocked">
+        <item quantity="one">%1$d image pointed somewhere this app will not fetch.</item>
+        <item quantity="other">%1$d images pointed somewhere this app will not fetch.</item>
+    </plurals>
+    <plurals name="import_warning_images_failed">
+        <item quantity="one">%1$d image could not be downloaded.</item>
+        <item quantity="other">%1$d images could not be downloaded.</item>
+    </plurals>
+
     <!-- Theme, in Settings -->
     <string name="settings_theme">Theme</string>
     <string name="settings_theme_hint">Automatic follows whether the device is set to light or dark.</string>

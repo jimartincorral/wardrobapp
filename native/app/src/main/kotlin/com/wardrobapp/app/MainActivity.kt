@@ -1,5 +1,6 @@
 package com.wardrobapp.app
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -24,6 +25,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +65,15 @@ import java.io.FileNotFoundException
  */
 class MainActivity : AppCompatActivity() {
 
+    /**
+     * An address something outside the app asked it to import.
+     *
+     * Held here rather than in a ViewModel because it arrives as an intent, which
+     * is the activity's business, and it is consumed by the garment form -- which
+     * may not exist yet when it arrives.
+     */
+    private val pendingLink = mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -73,6 +84,11 @@ class MainActivity : AppCompatActivity() {
         // to be right on the first frame, and a choice arriving afterwards is a
         // visible repaint of the whole app.
         val appearance = ThemePreference(this)
+
+        // An address handed over from outside: a `wardrobapp://` link, or text
+        // shared from a browser. A field rather than a local, because a second
+        // link can arrive through onNewIntent while the app is already open.
+        pendingLink.value = importUrlFrom(intent)
 
         setContent {
             // The one piece of app state held here rather than in a ViewModel.
@@ -111,6 +127,16 @@ class MainActivity : AppCompatActivity() {
                         }
                     },
                 ) { insets ->
+                    // Routed once, when it arrives. Not consumed here -- the form
+                    // is what asks about it, and it has to exist first.
+                    LaunchedEffect(pendingLink.value) {
+                        // Single top: a link tapped while the form is already open
+                        // should not stack a second copy of it.
+                        if (pendingLink.value != null) {
+                            navigator.navigate(GARMENT_ADD) { launchSingleTop = true }
+                        }
+                    }
+
                     NavHost(
                         navController = navigator,
                         startDestination = HOME,
@@ -184,7 +210,16 @@ class MainActivity : AppCompatActivity() {
                         }
 
                         composable(GARMENT_ADD) {
-                            GarmentForm(container, garmentId = null, navigator = navigator)
+                            GarmentForm(
+                                container = container,
+                                garmentId = null,
+                                navigator = navigator,
+                                // Taken rather than read: an address is offered
+                                // once, and a second visit to this screen should
+                                // not re-open the confirmation for a link that has
+                                // already been answered.
+                                sharedLink = pendingLink,
+                            )
                         }
 
                         composable("$GARMENT_EDIT/{$GARMENT_ID}") { backStackEntry ->
@@ -402,6 +437,8 @@ class MainActivity : AppCompatActivity() {
         container: AppContainer,
         garmentId: String?,
         navigator: NavHostController,
+        /** An address from outside, waiting to be offered. Null when adding normally. */
+        sharedLink: MutableState<String?>? = null,
     ) {
         val model: GarmentFormViewModel = viewModel(
             factory = viewModelFactory {
@@ -418,6 +455,18 @@ class MainActivity : AppCompatActivity() {
         // that it saved, and this is what that means for the back stack.
         LaunchedEffect(state.saved) {
             if (state.saved) navigator.popBackStack()
+        }
+
+        // Handed to the model once and then cleared, so rotating the phone or
+        // coming back to this screen does not ask about the same link again.
+        val pending = sharedLink?.value
+        LaunchedEffect(pending) {
+            if (pending != null) {
+                model.onSharedLinkReceived(pending)
+                // Safe-call assignment: `pending` being non-null implies the
+                // state is there, but only to a reader.
+                sharedLink?.value = null
+            }
         }
 
         GarmentFormScreen(
@@ -445,6 +494,11 @@ class MainActivity : AppCompatActivity() {
             onSaveAnyway = { model.onSaveRequested(force = true) },
             onDuplicatesDismissed = model::onDuplicateWarningDismissed,
             onErrorDismissed = model::onErrorDismissed,
+            onImportUrlChanged = model::onImportUrlChanged,
+            onImportRequested = model::onImportRequested,
+            onSharedLinkConfirmed = model::onSharedLinkConfirmed,
+            onSharedLinkDismissed = model::onSharedLinkDismissed,
+            onImportProblemDismissed = model::onImportProblemDismissed,
         )
     }
 
@@ -593,6 +647,49 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * A second link, while the app is already open.
+     *
+     * Without this the activity keeps the intent it was created with and a link
+     * tapped now does nothing -- the launcher brings the existing task forward
+     * rather than starting a new activity. Setting the intent is what makes the
+     * value read in `onCreate` see it, since that read happens again on
+     * recreation.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        importUrlFrom(intent)?.let { pendingLink.value = it }
+    }
+
+    /**
+     * The address an intent is asking to import, if any.
+     *
+     * Two shapes, because there are two ways in. A `wardrobapp://...?importUrl=`
+     * link is what the app that ships handles, and keeping it means a QR code or a
+     * link that works there works here. A plain `ACTION_SEND` of text is the one
+     * people actually use: the share sheet from a browser, which the manifest also
+     * declares.
+     *
+     * Nothing is validated here -- that is the form's job, and it has to be, since
+     * a refusal is something to show a person rather than to swallow at the door.
+     */
+    private fun importUrlFrom(intent: Intent?): String? {
+        if (intent == null) return null
+
+        val fromDeepLink = intent.data
+            ?.takeIf { it.scheme == APP_SCHEME }
+            ?.getQueryParameter(IMPORT_URL)
+        if (!fromDeepLink.isNullOrBlank()) return fromDeepLink
+
+        if (intent.action == Intent.ACTION_SEND) {
+            val shared = intent.getStringExtra(Intent.EXTRA_TEXT)
+            if (!shared.isNullOrBlank()) return shared
+        }
+
+        return null
+    }
+
     /** What the installed package says this build is. */
     private fun appVersion(): AppVersion {
         val info = packageManager.getPackageInfo(packageName, 0)
@@ -655,6 +752,16 @@ class MainActivity : AppCompatActivity() {
         const val GARMENT_ADD = "add-garment"
         const val GARMENT_EDIT = "edit-garment"
         const val GARMENT_ID = "garmentId"
+
+        /**
+         * The scheme and parameter the app that ships already answers to.
+         *
+         * Kept identical on purpose: a QR code or a saved link that opens the
+         * React Native app opens this one the same way, so nothing anyone has
+         * lying around stops working at cutover.
+         */
+        const val APP_SCHEME = "wardrobapp"
+        const val IMPORT_URL = "importUrl"
 
         val TABS = listOf(
             Tab(HOME, R.string.tab_home, Icons.Filled.Home),

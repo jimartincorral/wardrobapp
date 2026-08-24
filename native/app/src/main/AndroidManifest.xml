@@ -48,6 +48,35 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!--
+                URL import, the way the app that ships is reached: a
+                `wardrobapp://...?importUrl=...` link. Kept identical so a QR code
+                or a saved link that opens that app opens this one.
+
+                Nothing is fetched on arrival. The address is shown with its host
+                and waits for a tap, because a link can be opened by any web page,
+                message or code — so it is not necessarily one the user chose, and
+                a phone sits inside a home network.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="wardrobapp" />
+            </intent-filter>
+
+            <!--
+                The share sheet, which is how this is actually used: a product page
+                open in a browser, shared to the app. `text/*` as well as
+                `text/plain` because browsers disagree about which they send.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/*" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>

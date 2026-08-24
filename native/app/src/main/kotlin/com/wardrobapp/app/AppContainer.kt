@@ -13,6 +13,7 @@ import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.ReopeningDriver
 import com.wardrobapp.data.Suggestions
 import com.wardrobapp.data.WardrobeSchema
+import com.wardrobapp.domain.ImageFetcher
 import com.wardrobapp.data.storedImageBytes
 import com.wardrobapp.data.wardrobeFilesIn
 import java.io.InputStream
@@ -72,6 +73,17 @@ class AppContainer(context: Context) {
 
     /** Cutting a garment out of its background, on device. */
     val backgrounds = AndroidBackgroundRemover(context, photos)
+
+    /**
+     * Downloading a product page's images into the wardrobe.
+     *
+     * Held here because it is stateless; the page fetcher below is not -- it owns
+     * one connection at a time -- so that one is handed out fresh per import.
+     */
+    val importImages: ImageFetcher = AndroidImageFetcher(context, photos, imageDirectory)
+
+    /** A fetcher for one page. Closed by the caller. */
+    fun importPages(): AndroidPageFetcher = AndroidPageFetcher()
 
     private val restore = ArchiveRestore(
         files = files,
