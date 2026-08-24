@@ -73,6 +73,16 @@ class GarmentFormViewModel(
          * screen is where the reader's language is known.
          */
         @StringRes val errorFallback: Int? = null,
+        /**
+         * What the dialog is titled.
+         *
+         * Defaults to "Couldn't save", which is what every error on this screen
+         * used to be called -- including a failed background removal, a colour
+         * that could not be read and a missing camera, none of which are saves.
+         * A bug reported as "Couldn't save. That photo could not be opened" is a
+         * bug report about the wrong thing, so the ones that are not saves say so.
+         */
+        @StringRes val errorTitle: Int = R.string.form_error_title,
         /** Set when the garment being edited is not there any more. */
         val missing: Boolean = false,
         /**
@@ -250,7 +260,12 @@ class GarmentFormViewModel(
                 }
             } catch (e: Exception) {
                 _state.update {
-                    it.copy(saving = false, error = e.message, errorFallback = R.string.error_photo_not_imported)
+                    it.copy(
+                        saving = false,
+                        error = e.message,
+                        errorFallback = R.string.error_photo_not_imported,
+                        errorTitle = R.string.error_title_photo,
+                    )
                 }
             }
         }
@@ -368,7 +383,11 @@ class GarmentFormViewModel(
      * something only the activity can know, and it finds out by the launch throwing.
      */
     fun onCameraUnavailable() = _state.update {
-        it.copy(error = null, errorFallback = R.string.error_no_camera)
+        it.copy(
+            error = null,
+            errorFallback = R.string.error_no_camera,
+            errorTitle = R.string.error_title_photo,
+        )
     }
 
     // ---- reading a colour off a photo -----------------------------------------
@@ -410,6 +429,7 @@ class GarmentFormViewModel(
                         detectingColor = false,
                         error = e.message,
                         errorFallback = R.string.error_colors_not_read,
+                        errorTitle = R.string.error_title_colors,
                     )
                 }
             }
@@ -461,6 +481,7 @@ class GarmentFormViewModel(
                         removingBackground = false,
                         error = e.message,
                         errorFallback = R.string.error_background_not_removed,
+                        errorTitle = R.string.error_title_background,
                     )
                 }
             }

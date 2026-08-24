@@ -130,6 +130,9 @@
     <string name="form_save_edit">Guardar cambios</string>
     <string name="form_saving">Guardando…</string>
     <string name="form_error_title">No se pudo guardar</string>
+    <string name="error_title_photo">No se pudo usar esa foto</string>
+    <string name="error_title_colors">No se pudieron leer los colores</string>
+    <string name="error_title_background">No se pudo quitar el fondo</string>
     <string name="form_section_photos">Fotos</string>
     <string name="form_section_tags">Etiquetas</string>
     <string name="form_size_custom">O escribe una talla</string>
@@ -214,6 +217,7 @@
     <string name="error_photo_unopenable">No se pudo abrir esa foto.</string>
     <string name="error_no_subject">No se encontró ninguna prenda en esa foto, así que no había fondo que quitar.</string>
     <string name="error_background_downloading">La función de quitar el fondo aún está descargando lo que necesita. Inténtalo de nuevo en un momento.</string>
+    <string name="error_background_timed_out">Quitar el fondo tardó demasiado y se detuvo. Si es la primera vez, puede que el modelo aún se esté descargando.</string>
     <string name="error_background_failed">No se pudo quitar el fondo: %1$s</string>
     <string name="error_image_unreadable">No se pudo leer esa imagen.</string>
     <string name="error_image_unsaveable">No se pudo guardar esa imagen.</string>

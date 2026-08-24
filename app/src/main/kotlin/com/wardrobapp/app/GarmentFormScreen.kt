@@ -130,7 +130,7 @@ fun GarmentFormScreen(
     state.errorText()?.let { error ->
         AlertDialog(
             onDismissRequest = onErrorDismissed,
-            title = { Text(stringResource(R.string.form_error_title)) },
+            title = { Text(stringResource(state.errorTitle)) },
             text = { Text(error) },
             confirmButton = { TextButton(onClick = onErrorDismissed) { Text(stringResource(R.string.action_close)) } },
         )
