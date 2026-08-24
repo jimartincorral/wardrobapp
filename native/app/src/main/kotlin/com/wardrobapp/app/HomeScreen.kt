@@ -19,6 +19,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -40,7 +41,7 @@ fun HomeScreen(
     onSettingsRequested: () -> Unit,
     onRetry: () -> Unit,
 ) {
-    Scaffold(topBar = { TopAppBar(title = { Text("My Wardrobe") }) }) { insets ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.home_title)) }) }) { insets ->
         LazyColumn(
             modifier = Modifier.padding(insets),
             contentPadding = PaddingValues(16.dp),
@@ -48,7 +49,7 @@ fun HomeScreen(
         ) {
             item {
                 Text(
-                    "Keep track of everything you wear.",
+                    stringResource(R.string.home_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -60,8 +61,8 @@ fun HomeScreen(
                     // zero here is a real answer, and "your wardrobe is empty" is
                     // the wrong thing to say about a read that has not finished
                     // or has failed.
-                    Count("Items", state.countText(state.items), Modifier.weight(1f))
-                    Count("Archived", state.countText(state.archived), Modifier.weight(1f))
+                    Count(stringResource(R.string.home_items), state.countText(state.items), Modifier.weight(1f))
+                    Count(stringResource(R.string.home_archived), state.countText(state.archived), Modifier.weight(1f))
                 }
             }
 
@@ -70,7 +71,7 @@ fun HomeScreen(
                     Card {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                "Couldn't read the wardrobe",
+                                stringResource(R.string.error_wardrobe_unreadable),
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
@@ -79,7 +80,7 @@ fun HomeScreen(
                                 color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(top = 4.dp),
                             )
-                            TextButton(onClick = onRetry) { Text("Try again") }
+                            TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
                         }
                     }
                 }
@@ -89,41 +90,41 @@ fun HomeScreen(
                 Button(
                     onClick = onAddRequested,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                ) { Text("Add a garment") }
+                ) { Text(stringResource(R.string.home_add_garment)) }
             }
 
             item {
                 Action(
-                    title = "Outfit ideas",
+                    title = stringResource(R.string.home_outfits_title),
                     // Not "AI-powered", which is what the app that ships calls
                     // it: the suggestions come from the pair scores it learns
                     // from your own ratings, which is a better thing to say
                     // about them and is what both apps actually do.
-                    detail = "Put together from what you own",
+                    detail = stringResource(R.string.home_outfits_detail),
                     onClick = onOutfitsRequested,
                 )
             }
 
             item {
                 Action(
-                    title = "Analytics",
-                    detail = "How much you own, and how long things last",
+                    title = stringResource(R.string.home_analytics_title),
+                    detail = stringResource(R.string.home_analytics_detail),
                     onClick = onAnalyticsRequested,
                 )
             }
 
             item {
                 Action(
-                    title = "Statistics",
-                    detail = "Counts by category, colour and brand",
+                    title = stringResource(R.string.home_statistics_title),
+                    detail = stringResource(R.string.home_statistics_detail),
                     onClick = onStatisticsRequested,
                 )
             }
 
             item {
                 Action(
-                    title = "Settings",
-                    detail = "Back up your wardrobe, or restore one",
+                    title = stringResource(R.string.home_settings_title),
+                    detail = stringResource(R.string.home_settings_detail),
                     onClick = onSettingsRequested,
                 )
             }
@@ -174,6 +175,13 @@ private fun Action(title: String, detail: String, onClick: () -> Unit) {
     }
 }
 
-/** A count once it is known, and a dash until then. */
+/**
+ * A count once it is known, and a dash until then.
+ *
+ * Composable now that the dash is a resource: it is language-neutral today, but
+ * leaving one literal behind would mean "no literals remain" stops being a thing
+ * anyone can check by grepping.
+ */
+@Composable
 private fun HomeViewModel.State.countText(value: Long): String =
-    if (loading || error != null) "—" else "$value"
+    if (loading || error != null) stringResource(R.string.count_unknown) else "$value"

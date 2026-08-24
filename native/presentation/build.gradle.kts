@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.PathSensitivity
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // What the screens show, as pure functions over records.
@@ -18,6 +19,25 @@ dependencies {
     api(project(":data"))
     testImplementation(kotlin("test"))
     testImplementation(project(":parity-testing"))
+}
+
+// Where :app keeps its string resources, for StringResourceParityTest.
+//
+// That test lives here, in a module that builds without the Android SDK, because
+// :app does not -- so `MissingTranslation` and everything else in `:app:lint`
+// only run in CI. Passing the path rather than letting the test walk up out of
+// its own directory keeps the coupling visible.
+tasks.withType<Test>().configureEach {
+    val appResources = rootProject.file("app/src/main/res")
+    systemProperty("appResDir", appResources.absolutePath)
+    // Declared as an input, not just handed over as a path. Without this Gradle
+    // sees nothing in this module change when a string does, calls the test task
+    // UP-TO-DATE and skips it -- so the check would pass once and then quietly
+    // stop running. A mutation sweep found exactly that: six injected faults all
+    // "passed".
+    inputs.dir(appResources)
+        .withPropertyName("appStringResources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 java {

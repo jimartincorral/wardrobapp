@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Spanish. See values/strings.xml for how these two files are kept in step.
+
+    The vocabulary is the React Native app's own Spanish, reused verbatim rather
+    than retranslated: it is what the person using this app already reads. Three
+    entries are corrections rather than copies — see StringResourceParityTest.
+-->
+<resources>
+    <!-- Not translated: a name, and suffixed while this installs
+         alongside the React Native app so the two are distinguishable
+         in the launcher. -->
+    <string name="app_name">Wardrobapp (port)</string>
+
+    <!-- Tab bar -->
+    <string name="tab_home">Inicio</string>
+    <string name="tab_wardrobe">Armario</string>
+    <string name="tab_outfits">Atuendos</string>
+    <string name="tab_analytics">Estadísticas</string>
+
+    <!-- Shared -->
+    <string name="error_wardrobe_unreadable">No se pudo leer el armario</string>
+    <string name="action_retry">Reintentar</string>
+    <string name="action_back">Atrás</string>
+    <string name="count_unknown">—</string>
+
+    <!-- Home -->
+    <string name="home_title">Mi Armario</string>
+    <string name="home_subtitle">Lleva el control de todo lo que vistes.</string>
+    <string name="home_items">Prendas</string>
+    <string name="home_archived">Archivadas</string>
+    <string name="home_add_garment">Agregar una prenda</string>
+    <string name="home_outfits_title">Ideas de atuendos</string>
+    <string name="home_outfits_detail">Combinaciones con lo que ya tienes</string>
+    <string name="home_analytics_title">Estadísticas</string>
+    <string name="home_analytics_detail">Cuánto tienes y cuánto te duran las prendas</string>
+    <string name="home_statistics_title">Estadísticas detalladas</string>
+    <string name="home_statistics_detail">Recuentos por categoría, color y marca</string>
+    <string name="home_settings_title">Configuración</string>
+    <string name="home_settings_detail">Crea una copia de seguridad o restaura una</string>
+
+    <!-- Language, in Settings -->
+    <string name="settings_language">Idioma</string>
+    <string name="settings_language_hint">Solo afecta a esta aplicación. Android lo recuerda, así que se mantiene al reiniciar y también se puede cambiar desde los ajustes del sistema.</string>
+    <string name="language_automatic">Automático</string>
+    <string name="language_english">English</string>
+    <string name="language_spanish">Español</string>
+
+    <!-- Categories -->
+    <string name="category_tops">Parte Superior</string>
+    <string name="category_bottoms">Parte Inferior</string>
+    <string name="category_dresses">Vestidos</string>
+    <string name="category_midlayer">Capa Intermedia</string>
+    <string name="category_outerwear">Prendas de Abrigo</string>
+    <string name="category_shoes">Zapatos</string>
+    <string name="category_accessories">Accesorios</string>
+    <string name="category_activewear">Ropa Deportiva</string>
+    <string name="category_underwear">Ropa Interior</string>
+    <string name="category_loungewear">Ropa de casa/Pijamas</string>
+
+    <!-- Garment types. Keyed on the value stored in the database, which stays English. -->
+    <string name="subcategory_tshirt">Camiseta</string>
+    <string name="subcategory_blouse">Blusa</string>
+    <string name="subcategory_shirt">Camisa</string>
+    <string name="subcategory_tank_top">Top de tirantes</string>
+    <string name="subcategory_sweater">Sueter</string>
+    <string name="subcategory_hoodie">Sudadera</string>
+    <string name="subcategory_crop_top">Top corto</string>
+    <string name="subcategory_polo">Polo</string>
+    <string name="subcategory_jeans">Jeans</string>
+    <string name="subcategory_pants">Pantalones</string>
+    <string name="subcategory_shorts">Pantalones cortos</string>
+    <string name="subcategory_skirt">Falda</string>
+    <string name="subcategory_leggings">Leggings</string>
+    <string name="subcategory_sweatpants">Pantalon deportivo</string>
+    <string name="subcategory_chinos">Chinos</string>
+    <string name="subcategory_mini">Mini</string>
+    <string name="subcategory_midi">Midi</string>
+    <string name="subcategory_maxi">Maxi</string>
+    <string name="subcategory_cocktail">Coctel</string>
+    <string name="subcategory_sundress">Vestido de verano</string>
+    <string name="subcategory_jumpsuit">Enterizo</string>
+    <string name="subcategory_romper">Mono corto</string>
+    <string name="subcategory_jacket">Chaqueta</string>
+    <string name="subcategory_coat">Abrigo</string>
+    <string name="subcategory_blazer">Blazer</string>
+    <string name="subcategory_overshirt">Sobrecamisa</string>
+    <string name="subcategory_cardigan">Cardigan</string>
+    <string name="subcategory_vest">Chaleco</string>
+    <string name="subcategory_poncho">Poncho</string>
+    <string name="subcategory_cape">Capa</string>
+    <string name="subcategory_windbreaker">Rompevientos</string>
+    <string name="subcategory_parka">Parka</string>
+    <string name="subcategory_sneakers">Tenis</string>
+    <string name="subcategory_boots">Botas</string>
+    <string name="subcategory_sandals">Sandalias</string>
+    <string name="subcategory_heels">Tacones</string>
+    <string name="subcategory_flats">Bailarinas</string>
+    <string name="subcategory_loafers">Mocasines</string>
+    <string name="subcategory_athletic">Deportivo</string>
+    <string name="subcategory_hat">Sombrero</string>
+    <string name="subcategory_scarf">Bufanda</string>
+    <string name="subcategory_foulard">Fular</string>
+    <string name="subcategory_belt">Cinturon</string>
+    <string name="subcategory_bag">Bolso</string>
+    <string name="subcategory_wallet">Cartera</string>
+    <string name="subcategory_gloves">Guantes</string>
+    <string name="subcategory_jewelry">Joyeria</string>
+    <string name="subcategory_watch">Reloj</string>
+    <string name="subcategory_sunglasses">Gafas de sol</string>
+    <string name="subcategory_tie">Corbata</string>
+    <string name="subcategory_sports_bra">Bra deportivo</string>
+    <string name="subcategory_workout_top">Top deportivo</string>
+    <string name="subcategory_workout_shorts">Short deportivo</string>
+    <string name="subcategory_yoga_pants">Pantalon de yoga</string>
+    <string name="subcategory_track_suit">Conjunto deportivo</string>
+    <string name="subcategory_bra">Sujetador</string>
+    <string name="subcategory_briefs">Calzones</string>
+    <string name="subcategory_boxers">Boxers</string>
+    <string name="subcategory_bodysuit">Body</string>
+    <string name="subcategory_shapewear">Faja</string>
+    <string name="subcategory_socks">Calcetines</string>
+    <string name="subcategory_tights">Medias</string>
+    <string name="subcategory_thermal">Termico</string>
+    <string name="subcategory_pajama_set">Pijama completo</string>
+    <string name="subcategory_pajama_top">Parte de arriba de pijama</string>
+    <string name="subcategory_pajama_bottoms">Parte de abajo de pijama</string>
+    <string name="subcategory_nightgown">Camison</string>
+    <string name="subcategory_robe">Bata</string>
+    <string name="subcategory_lounge_set">Conjunto comodo</string>
+
+    <!-- Colours -->
+    <string name="color_black">Negro</string>
+    <string name="color_white">Blanco</string>
+    <string name="color_gray">Gris</string>
+    <string name="color_navy">Azul marino</string>
+    <string name="color_blue">Azul</string>
+    <string name="color_light_blue">Celeste</string>
+    <string name="color_red">Rojo</string>
+    <string name="color_burgundy">Borgona</string>
+    <string name="color_pink">Rosa</string>
+    <string name="color_green">Verde</string>
+    <string name="color_olive">Oliva</string>
+    <string name="color_khaki">Caqui</string>
+    <string name="color_brown">Marrón</string>
+    <string name="color_tan">Canela</string>
+    <string name="color_beige">Beige</string>
+    <string name="color_cream">Crema</string>
+    <string name="color_yellow">Amarillo</string>
+    <string name="color_orange">Naranja</string>
+    <string name="color_purple">Morado</string>
+    <string name="color_lavender">Lavanda</string>
+    <string name="color_coral">Coral</string>
+    <string name="color_teal">Verde azulado</string>
+    <string name="color_gold">Dorado</string>
+    <string name="color_silver">Plateado</string>
+    <string name="color_multi">Multicolor</string>
+
+    <!-- Seasons -->
+    <string name="season_spring">Primavera</string>
+    <string name="season_summer">Verano</string>
+    <string name="season_fall">Otoño</string>
+    <string name="season_winter">Invierno</string>
+    <string name="season_all_season">Todo el Año</string>
+
+    <!-- Occasions -->
+    <string name="occasion_casual">Casual</string>
+    <string name="occasion_work">Trabajo</string>
+    <string name="occasion_formal">Formal</string>
+    <string name="occasion_sport">Deporte</string>
+    <string name="occasion_lounge">Descanso</string>
+</resources>

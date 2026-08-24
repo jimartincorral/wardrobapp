@@ -130,3 +130,88 @@ val COMMON_SIZES: List<String> = listOf(
 
 /** How many size chips the form has room for. */
 const val SIZE_CHIPS = 12
+
+/**
+ * The translation key each garment type is looked up under.
+ *
+ * Keyed on the label, because the label is what a garment row stores -- and the
+ * key cannot be worked out from it: "T-Shirt" is `tshirt` but "Tank Top" is
+ * `tank_top`, so the hyphen disappears where the space does not. A transcription
+ * of `SUBCATEGORY_KEY_MAP` in src/constants/categories.ts, compared against it by
+ * `garment-catalogue.jsonl` rather than trusted.
+ *
+ * Here rather than in :app because it is the same kind of thing as the labels
+ * above -- vocabulary the rest of the app keys on -- and because a test in a
+ * module that builds without the Android SDK has to be able to see it.
+ */
+val SUBCATEGORY_KEYS: Map<String, String> = mapOf(
+    "T-Shirt" to "tshirt",
+    "Blouse" to "blouse",
+    "Shirt" to "shirt",
+    "Tank Top" to "tank_top",
+    "Sweater" to "sweater",
+    "Hoodie" to "hoodie",
+    "Crop Top" to "crop_top",
+    "Polo" to "polo",
+    "Jeans" to "jeans",
+    "Pants" to "pants",
+    "Shorts" to "shorts",
+    "Skirt" to "skirt",
+    "Leggings" to "leggings",
+    "Sweatpants" to "sweatpants",
+    "Chinos" to "chinos",
+    "Mini" to "mini",
+    "Midi" to "midi",
+    "Maxi" to "maxi",
+    "Cocktail" to "cocktail",
+    "Sundress" to "sundress",
+    "Jumpsuit" to "jumpsuit",
+    "Romper" to "romper",
+    "Blazer" to "blazer",
+    "Overshirt" to "overshirt",
+    "Vest" to "vest",
+    "Poncho" to "poncho",
+    "Cape" to "cape",
+    "Jacket" to "jacket",
+    "Coat" to "coat",
+    "Cardigan" to "cardigan",
+    "Windbreaker" to "windbreaker",
+    "Parka" to "parka",
+    "Sneakers" to "sneakers",
+    "Boots" to "boots",
+    "Sandals" to "sandals",
+    "Heels" to "heels",
+    "Flats" to "flats",
+    "Loafers" to "loafers",
+    "Athletic" to "athletic",
+    "Hat" to "hat",
+    "Scarf" to "scarf",
+    "Foulard" to "foulard",
+    "Belt" to "belt",
+    "Bag" to "bag",
+    "Wallet" to "wallet",
+    "Gloves" to "gloves",
+    "Jewelry" to "jewelry",
+    "Watch" to "watch",
+    "Sunglasses" to "sunglasses",
+    "Tie" to "tie",
+    "Sports Bra" to "sports_bra",
+    "Workout Top" to "workout_top",
+    "Workout Shorts" to "workout_shorts",
+    "Yoga Pants" to "yoga_pants",
+    "Track Suit" to "track_suit",
+    "Bra" to "bra",
+    "Briefs" to "briefs",
+    "Boxers" to "boxers",
+    "Bodysuit" to "bodysuit",
+    "Shapewear" to "shapewear",
+    "Socks" to "socks",
+    "Tights" to "tights",
+    "Thermal" to "thermal",
+    "Pajama Set" to "pajama_set",
+    "Pajama Top" to "pajama_top",
+    "Pajama Bottoms" to "pajama_bottoms",
+    "Nightgown" to "nightgown",
+    "Robe" to "robe",
+    "Lounge Set" to "lounge_set",
+)

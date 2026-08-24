@@ -1,10 +1,10 @@
-{"id":"tops","label":"Tops","subcategories":["T-Shirt","Blouse","Shirt","Tank Top","Sweater","Hoodie","Crop Top","Polo"],"sizes":["XXS","XS","S","M","L","XL","XXL","XXXL","0","2","4","6","8","10","12","14","16","28","29","30","31","32","33","34","36","38","40","5","5.5","6","6.5","7","7.5","8","8.5","9","9.5","10","10.5","11","12","13","One Size"]}
-{"id":"bottoms","label":"Bottoms","subcategories":["Jeans","Pants","Shorts","Skirt","Leggings","Sweatpants","Chinos"]}
-{"id":"dresses","label":"Dresses","subcategories":["Mini","Midi","Maxi","Cocktail","Sundress","Jumpsuit","Romper"]}
-{"id":"midlayer","label":"Mid-Layer","subcategories":["Blazer","Overshirt","Vest","Poncho","Cape"]}
-{"id":"outerwear","label":"Outerwear","subcategories":["Jacket","Coat","Cardigan","Windbreaker","Parka"]}
-{"id":"shoes","label":"Shoes","subcategories":["Sneakers","Boots","Sandals","Heels","Flats","Loafers","Athletic"]}
-{"id":"accessories","label":"Accessories","subcategories":["Hat","Scarf","Foulard","Belt","Bag","Wallet","Gloves","Jewelry","Watch","Sunglasses","Tie"]}
-{"id":"activewear","label":"Activewear","subcategories":["Sports Bra","Workout Top","Workout Shorts","Yoga Pants","Track Suit"]}
-{"id":"underwear","label":"Underwear","subcategories":["Bra","Briefs","Boxers","Bodysuit","Shapewear","Socks","Tights","Thermal"]}
-{"id":"loungewear","label":"Loungewear/Pajamas","subcategories":["Pajama Set","Pajama Top","Pajama Bottoms","Nightgown","Robe","Lounge Set"]}
+{"id":"tops","label":"Tops","subcategories":["T-Shirt","Blouse","Shirt","Tank Top","Sweater","Hoodie","Crop Top","Polo"],"subcategoryKeys":["tshirt","blouse","shirt","tank_top","sweater","hoodie","crop_top","polo"],"sizes":["XXS","XS","S","M","L","XL","XXL","XXXL","0","2","4","6","8","10","12","14","16","28","29","30","31","32","33","34","36","38","40","5","5.5","6","6.5","7","7.5","8","8.5","9","9.5","10","10.5","11","12","13","One Size"]}
+{"id":"bottoms","label":"Bottoms","subcategories":["Jeans","Pants","Shorts","Skirt","Leggings","Sweatpants","Chinos"],"subcategoryKeys":["jeans","pants","shorts","skirt","leggings","sweatpants","chinos"]}
+{"id":"dresses","label":"Dresses","subcategories":["Mini","Midi","Maxi","Cocktail","Sundress","Jumpsuit","Romper"],"subcategoryKeys":["mini","midi","maxi","cocktail","sundress","jumpsuit","romper"]}
+{"id":"midlayer","label":"Mid-Layer","subcategories":["Blazer","Overshirt","Vest","Poncho","Cape"],"subcategoryKeys":["blazer","overshirt","vest","poncho","cape"]}
+{"id":"outerwear","label":"Outerwear","subcategories":["Jacket","Coat","Cardigan","Windbreaker","Parka"],"subcategoryKeys":["jacket","coat","cardigan","windbreaker","parka"]}
+{"id":"shoes","label":"Shoes","subcategories":["Sneakers","Boots","Sandals","Heels","Flats","Loafers","Athletic"],"subcategoryKeys":["sneakers","boots","sandals","heels","flats","loafers","athletic"]}
+{"id":"accessories","label":"Accessories","subcategories":["Hat","Scarf","Foulard","Belt","Bag","Wallet","Gloves","Jewelry","Watch","Sunglasses","Tie"],"subcategoryKeys":["hat","scarf","foulard","belt","bag","wallet","gloves","jewelry","watch","sunglasses","tie"]}
+{"id":"activewear","label":"Activewear","subcategories":["Sports Bra","Workout Top","Workout Shorts","Yoga Pants","Track Suit"],"subcategoryKeys":["sports_bra","workout_top","workout_shorts","yoga_pants","track_suit"]}
+{"id":"underwear","label":"Underwear","subcategories":["Bra","Briefs","Boxers","Bodysuit","Shapewear","Socks","Tights","Thermal"],"subcategoryKeys":["bra","briefs","boxers","bodysuit","shapewear","socks","tights","thermal"]}
+{"id":"loungewear","label":"Loungewear/Pajamas","subcategories":["Pajama Set","Pajama Top","Pajama Bottoms","Nightgown","Robe","Lounge Set"],"subcategoryKeys":["pajama_set","pajama_top","pajama_bottoms","nightgown","robe","lounge_set"]}

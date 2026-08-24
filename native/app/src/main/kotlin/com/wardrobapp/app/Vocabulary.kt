@@ -1,0 +1,217 @@
+package com.wardrobapp.app
+
+import androidx.annotation.StringRes
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.wardrobapp.domain.Occasion
+import com.wardrobapp.domain.Season
+import com.wardrobapp.presentation.LanguageChoice
+
+/**
+ * The wardrobe's vocabulary, in the reader's language.
+ *
+ * Android resources have no dynamic keys: the React Native app writes
+ * `t("categories." + id)` and gets a translation for whatever id it holds, and
+ * `R.string` cannot do that. So the mapping is written out -- and the risk that
+ * comes with writing it out, a category, type or colour that quietly has no entry
+ * and renders as its raw stored value, is covered by `StringResourceParityTest`,
+ * which walks the same source lists these were generated from and fails if any
+ * key is missing.
+ *
+ * The stored values themselves stay English. A garment's type is written to the
+ * database as "T-Shirt" whichever language added it, because the domain keys its
+ * occasion derivation on that exact string -- so this translates for display
+ * only, exactly as `localizeSubcategory` does in the app that ships.
+ *
+ * Anything absent falls back to the stored value rather than to a placeholder: a
+ * colour someone typed by hand is better shown as they typed it than as a crash.
+ */
+
+@get:StringRes
+val Season.labelRes: Int
+    get() = when (this) {
+        Season.SPRING -> R.string.season_spring
+        Season.SUMMER -> R.string.season_summer
+        Season.FALL -> R.string.season_fall
+        Season.WINTER -> R.string.season_winter
+        Season.ALL_SEASON -> R.string.season_all_season
+    }
+
+@get:StringRes
+val Occasion.labelRes: Int
+    get() = when (this) {
+        Occasion.CASUAL -> R.string.occasion_casual
+        Occasion.WORK -> R.string.occasion_work
+        Occasion.FORMAL -> R.string.occasion_formal
+        Occasion.SPORT -> R.string.occasion_sport
+        Occasion.LOUNGE -> R.string.occasion_lounge
+    }
+
+/** Category ids, as `GARMENT_CATEGORIES` and every garment row hold them. */
+internal val CATEGORY_LABELS: Map<String, Int> = mapOf(
+    "tops" to R.string.category_tops,
+    "bottoms" to R.string.category_bottoms,
+    "dresses" to R.string.category_dresses,
+    "midlayer" to R.string.category_midlayer,
+    "outerwear" to R.string.category_outerwear,
+    "shoes" to R.string.category_shoes,
+    "accessories" to R.string.category_accessories,
+    "activewear" to R.string.category_activewear,
+    "underwear" to R.string.category_underwear,
+    "loungewear" to R.string.category_loungewear,
+)
+
+/**
+ * Garment types, keyed on the label stored in the database.
+ *
+ * Keyed on the label rather than a slug because the label *is* what is stored --
+ * the same reason the React Native app's `SUBCATEGORY_KEY_MAP` is keyed that way.
+ */
+internal val SUBCATEGORY_LABELS: Map<String, Int> = mapOf(
+    "T-Shirt" to R.string.subcategory_tshirt,
+    "Blouse" to R.string.subcategory_blouse,
+    "Shirt" to R.string.subcategory_shirt,
+    "Tank Top" to R.string.subcategory_tank_top,
+    "Sweater" to R.string.subcategory_sweater,
+    "Hoodie" to R.string.subcategory_hoodie,
+    "Crop Top" to R.string.subcategory_crop_top,
+    "Polo" to R.string.subcategory_polo,
+    "Jeans" to R.string.subcategory_jeans,
+    "Pants" to R.string.subcategory_pants,
+    "Shorts" to R.string.subcategory_shorts,
+    "Skirt" to R.string.subcategory_skirt,
+    "Leggings" to R.string.subcategory_leggings,
+    "Sweatpants" to R.string.subcategory_sweatpants,
+    "Chinos" to R.string.subcategory_chinos,
+    "Mini" to R.string.subcategory_mini,
+    "Midi" to R.string.subcategory_midi,
+    "Maxi" to R.string.subcategory_maxi,
+    "Cocktail" to R.string.subcategory_cocktail,
+    "Sundress" to R.string.subcategory_sundress,
+    "Jumpsuit" to R.string.subcategory_jumpsuit,
+    "Romper" to R.string.subcategory_romper,
+    "Jacket" to R.string.subcategory_jacket,
+    "Coat" to R.string.subcategory_coat,
+    "Blazer" to R.string.subcategory_blazer,
+    "Overshirt" to R.string.subcategory_overshirt,
+    "Cardigan" to R.string.subcategory_cardigan,
+    "Vest" to R.string.subcategory_vest,
+    "Poncho" to R.string.subcategory_poncho,
+    "Cape" to R.string.subcategory_cape,
+    "Windbreaker" to R.string.subcategory_windbreaker,
+    "Parka" to R.string.subcategory_parka,
+    "Sneakers" to R.string.subcategory_sneakers,
+    "Boots" to R.string.subcategory_boots,
+    "Sandals" to R.string.subcategory_sandals,
+    "Heels" to R.string.subcategory_heels,
+    "Flats" to R.string.subcategory_flats,
+    "Loafers" to R.string.subcategory_loafers,
+    "Athletic" to R.string.subcategory_athletic,
+    "Hat" to R.string.subcategory_hat,
+    "Scarf" to R.string.subcategory_scarf,
+    "Foulard" to R.string.subcategory_foulard,
+    "Belt" to R.string.subcategory_belt,
+    "Bag" to R.string.subcategory_bag,
+    "Wallet" to R.string.subcategory_wallet,
+    "Gloves" to R.string.subcategory_gloves,
+    "Jewelry" to R.string.subcategory_jewelry,
+    "Watch" to R.string.subcategory_watch,
+    "Sunglasses" to R.string.subcategory_sunglasses,
+    "Tie" to R.string.subcategory_tie,
+    "Sports Bra" to R.string.subcategory_sports_bra,
+    "Workout Top" to R.string.subcategory_workout_top,
+    "Workout Shorts" to R.string.subcategory_workout_shorts,
+    "Yoga Pants" to R.string.subcategory_yoga_pants,
+    "Track Suit" to R.string.subcategory_track_suit,
+    "Bra" to R.string.subcategory_bra,
+    "Briefs" to R.string.subcategory_briefs,
+    "Boxers" to R.string.subcategory_boxers,
+    "Bodysuit" to R.string.subcategory_bodysuit,
+    "Shapewear" to R.string.subcategory_shapewear,
+    "Socks" to R.string.subcategory_socks,
+    "Tights" to R.string.subcategory_tights,
+    "Thermal" to R.string.subcategory_thermal,
+    "Pajama Set" to R.string.subcategory_pajama_set,
+    "Pajama Top" to R.string.subcategory_pajama_top,
+    "Pajama Bottoms" to R.string.subcategory_pajama_bottoms,
+    "Nightgown" to R.string.subcategory_nightgown,
+    "Robe" to R.string.subcategory_robe,
+    "Lounge Set" to R.string.subcategory_lounge_set,
+)
+
+/** Palette keys, as `GARMENT_COLORS` holds them. */
+internal val COLOR_LABELS: Map<String, Int> = mapOf(
+    "black" to R.string.color_black,
+    "white" to R.string.color_white,
+    "gray" to R.string.color_gray,
+    "navy" to R.string.color_navy,
+    "blue" to R.string.color_blue,
+    "lightBlue" to R.string.color_light_blue,
+    "red" to R.string.color_red,
+    "burgundy" to R.string.color_burgundy,
+    "pink" to R.string.color_pink,
+    "green" to R.string.color_green,
+    "olive" to R.string.color_olive,
+    "khaki" to R.string.color_khaki,
+    "brown" to R.string.color_brown,
+    "tan" to R.string.color_tan,
+    "beige" to R.string.color_beige,
+    "cream" to R.string.color_cream,
+    "yellow" to R.string.color_yellow,
+    "orange" to R.string.color_orange,
+    "purple" to R.string.color_purple,
+    "lavender" to R.string.color_lavender,
+    "coral" to R.string.color_coral,
+    "teal" to R.string.color_teal,
+    "gold" to R.string.color_gold,
+    "silver" to R.string.color_silver,
+    "multi" to R.string.color_multi,
+)
+
+/**
+ * A category id as words.
+ *
+ * The fallback is the id itself rather than a blank or a crash: a row holding a
+ * category this build does not know about -- from a restored backup written by a
+ * later version -- should still name itself.
+ */
+@Composable
+internal fun categoryLabel(id: String): String =
+    CATEGORY_LABELS[id]?.let { stringResource(it) } ?: id.humanised()
+
+/** A garment type as words, from the English label stored in its row. */
+@Composable
+internal fun garmentTypeLabel(stored: String): String =
+    SUBCATEGORY_LABELS[stored]?.let { stringResource(it) } ?: stored
+
+/**
+ * A palette key as words.
+ *
+ * Unknown keys are shown as stored, which is what a hand-entered colour is: a
+ * hex, and the honest thing to show for it.
+ */
+@Composable
+internal fun paletteLabel(key: String): String =
+    COLOR_LABELS[key]?.let { stringResource(it) } ?: key.humanised()
+
+/** "loungewear" as "Loungewear", "lightBlue" as "Light blue". */
+private fun String.humanised(): String =
+    replace(Regex("([a-z])([A-Z])"), "$1 $2")
+        .replace('-', ' ')
+        .replaceFirstChar { it.uppercase() }
+
+/**
+ * What to call each language option.
+ *
+ * English and Español are each named in their own language, as the app that ships
+ * names them: a language you cannot read is not worth offering in a language you
+ * cannot read. "Automatic" is the exception, since it is the only one whose
+ * meaning depends on the reader's current language.
+ */
+@get:StringRes
+val LanguageChoice.labelRes: Int
+    get() = when (this) {
+        LanguageChoice.SYSTEM -> R.string.language_automatic
+        LanguageChoice.ENGLISH -> R.string.language_english
+        LanguageChoice.SPANISH -> R.string.language_spanish
+    }

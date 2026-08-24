@@ -17,6 +17,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,7 +31,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.wardrobapp.presentation.LanguageChoice
 
 /**
  * Settings.
@@ -43,6 +46,13 @@ import androidx.compose.ui.unit.dp
 fun SettingsScreen(
     state: SettingsViewModel.State,
     version: AppVersion,
+    /**
+     * The language in force, read from the platform rather than from this app's
+     * own state: AppCompat owns the choice, and a copy of it here could disagree
+     * with what Android's per-app language screen shows.
+     */
+    language: LanguageChoice,
+    onLanguageSelected: (LanguageChoice) -> Unit,
     onBack: () -> Unit,
     onBackupRequested: () -> Unit,
     onBackupDismissed: () -> Unit,
@@ -138,6 +148,27 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
                 Text("Restore from a backup")
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            Section(stringResource(R.string.settings_language))
+            Text(
+                stringResource(R.string.settings_language_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 12.dp),
+            ) {
+                for (choice in LanguageChoice.entries) {
+                    FilterChip(
+                        selected = choice == language,
+                        onClick = { onLanguageSelected(choice) },
+                        label = { Text(stringResource(choice.labelRes)) },
+                    )
+                }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

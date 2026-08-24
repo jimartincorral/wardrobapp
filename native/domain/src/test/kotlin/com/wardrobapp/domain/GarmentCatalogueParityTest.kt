@@ -39,6 +39,37 @@ class GarmentCatalogueParityTest {
     }
 
     @Test
+    fun `translates each garment type under the key the TypeScript uses`() {
+        val expected = Parity.load("garment-catalogue.jsonl")
+
+        for (entry in expected) {
+            val labels = entry.strings("subcategories")
+            val keys = entry.strings("subcategoryKeys")
+
+            for ((label, key) in labels.zip(keys)) {
+                assertEquals(
+                    key,
+                    SUBCATEGORY_KEYS[label],
+                    "translation key for \"$label\" under ${entry.string("id")}",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `every garment type on offer has a translation key`() {
+        // The map and the catalogue are two lists that have to stay in step, so
+        // this is the invariant a type would have carried if a subcategory were a
+        // label and a key together rather than a bare string. Without it, adding a
+        // type here and forgetting the map shows it untranslated -- which reads as
+        // a translation gap rather than a missing entry.
+        val offered = GARMENT_CATEGORIES.flatMap { it.subcategories }.toSet()
+
+        assertEquals(emptySet(), offered - SUBCATEGORY_KEYS.keys, "no translation key for")
+        assertEquals(emptySet(), SUBCATEGORY_KEYS.keys - offered, "keyed but not offered")
+    }
+
+    @Test
     fun `offers exactly the sizes the TypeScript does`() {
         val expected = Parity.load("garment-catalogue.jsonl")
             .first { it["sizes"] != null }
