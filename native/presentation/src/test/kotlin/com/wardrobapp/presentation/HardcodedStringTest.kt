@@ -35,10 +35,6 @@ class HardcodedStringTest {
         "AndroidBackgroundRemover.kt",
         "AndroidPhotoStore.kt",
         "AnalyticsScreen.kt",
-        "GarmentDetailScreen.kt",
-        "GarmentDetailViewModel.kt",
-        "GarmentFormScreen.kt",
-        "GarmentFormViewModel.kt",
         "SettingsScreen.kt",
         "StatisticsScreen.kt",
     )

@@ -1,6 +1,7 @@
 package com.wardrobapp.app
 
 import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.DuplicateGarment
@@ -54,7 +55,15 @@ class GarmentFormViewModel(
          * when adding: editing a garment cannot make it a duplicate of itself.
          */
         val duplicates: List<DuplicateGarment> = emptyList(),
+        /** What the exception said, which is not translated and may be null. */
         val error: String? = null,
+        /**
+         * What the app was doing, for when the exception says nothing useful.
+         *
+         * A resource id rather than a sentence: the model has no Context, and the
+         * screen is where the reader's language is known.
+         */
+        @StringRes val errorFallback: Int? = null,
         /** Set when the garment being edited is not there any more. */
         val missing: Boolean = false,
         /**
@@ -180,7 +189,7 @@ class GarmentFormViewModel(
                 }
             } catch (e: Exception) {
                 _state.update {
-                    it.copy(saving = false, error = e.message ?: "That photo could not be imported.")
+                    it.copy(saving = false, error = e.message, errorFallback = R.string.error_photo_not_imported)
                 }
             }
         }
@@ -229,7 +238,8 @@ class GarmentFormViewModel(
                 _state.update {
                     it.copy(
                         removingBackground = false,
-                        error = e.message ?: "The background could not be removed.",
+                        error = e.message,
+                        errorFallback = R.string.error_background_not_removed,
                     )
                 }
             }
@@ -266,7 +276,7 @@ class GarmentFormViewModel(
         val form = _state.value.form
 
         if (form.imageUris.isEmpty()) {
-            _state.update { it.copy(error = "A garment needs at least one photo.") }
+            _state.update { it.copy(error = null, errorFallback = R.string.error_photo_required) }
             return
         }
 

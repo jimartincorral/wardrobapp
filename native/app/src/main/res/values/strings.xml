@@ -103,6 +103,63 @@
     <string name="error_outfit_not_deleted">That outfit could not be deleted.</string>
     <string name="outfit_untitled">Outfit</string>
 
+    <!-- A garment -->
+    <string name="garment_untitled">Garment</string>
+    <string name="garment_missing">That garment is no longer in your wardrobe.</string>
+    <string name="garment_unreadable">Couldn\'t read this garment</string>
+    <string name="garment_no_photo">No photo</string>
+    <string name="action_edit">Edit</string>
+    <string name="property_colours">Colours</string>
+    <string name="property_size">Size</string>
+    <string name="property_seasons">Seasons</string>
+    <string name="property_occasions">Occasions</string>
+    <string name="property_added">Added</string>
+    <string name="property_tags">Tags</string>
+    <string name="garment_retired">Not in use</string>
+    <string name="garment_retired_since">Not in use since %1$s</string>
+    <string name="garment_retire">No longer wearing this</string>
+    <string name="garment_unretire">Wearing this again</string>
+    <string name="garment_delete">Delete this garment</string>
+    <string name="garment_retire_confirm">Stop wearing this?</string>
+    <string name="garment_retire_body">It leaves your wardrobe and stops appearing in outfits, but it is kept — with its photos — and counts towards how long things last. You can put it back at any time.</string>
+    <string name="garment_retire_action">Stop wearing it</string>
+    <string name="garment_delete_confirm">Delete this garment?</string>
+    <string name="garment_delete_body">Its photos go too, along with what the app has learned about which garments it goes with. Any saved outfit using it loses it, and an outfit left with nothing is deleted. This cannot be undone.</string>
+    <string name="background_removing">Working on the photo…</string>
+    <string name="background_remove">Remove background</string>
+    <string name="background_undo">Undo background removal</string>
+    <string name="error_action_failed">That didn\'t work</string>
+    <string name="error_garment_not_deleted">That garment could not be deleted.</string>
+    <string name="error_background_not_removed">The background could not be removed.</string>
+    <string name="error_not_undone">That could not be undone.</string>
+
+    <!-- Adding and editing a garment -->
+    <string name="form_title_add">Add garment</string>
+    <string name="form_title_edit">Edit garment</string>
+    <string name="form_save_add">Add to wardrobe</string>
+    <string name="form_save_edit">Save changes</string>
+    <string name="form_saving">Saving…</string>
+    <string name="form_error_title">Couldn\'t save</string>
+    <string name="form_section_photos">Photos</string>
+    <string name="form_section_tags">Tags</string>
+    <string name="form_size_custom">Or type a size</string>
+    <string name="form_tag_hint">Add a tag, then a comma</string>
+    <string name="form_add_photo">Add a photo</string>
+    <string name="form_remove_photo">Remove photo</string>
+    <string name="form_remove_tag">Remove tag</string>
+    <string name="background_cutting">Cutting out the garment…</string>
+    <string name="error_photo_required">A garment needs at least one photo.</string>
+    <string name="error_photo_not_imported">That photo could not be imported.</string>
+
+    <!-- The duplicate warning -->
+    <string name="duplicate_title">You may already own this</string>
+    <string name="duplicate_add_anyway">Add it anyway</string>
+    <string name="duplicate_review">Let me look</string>
+    <string name="duplicate_reason_tags">similar tags</string>
+    <string name="duplicate_reason_colour">similar colour</string>
+    <string name="duplicate_reason_size">same size</string>
+    <string name="duplicate_reason_overall">overall similarity</string>
+
     <!-- Language, in Settings -->
     <string name="settings_language">Language</string>
     <string name="settings_language_hint">Applies to this app only. Android remembers it, so it survives a restart and can also be changed from the system settings.</string>

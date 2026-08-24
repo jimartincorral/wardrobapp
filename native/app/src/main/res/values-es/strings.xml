@@ -95,6 +95,63 @@
     <string name="error_outfit_not_deleted">No se pudo eliminar ese atuendo.</string>
     <string name="outfit_untitled">Atuendo</string>
 
+    <!-- A garment -->
+    <string name="garment_untitled">Prenda</string>
+    <string name="garment_missing">Esa prenda ya no está en tu armario.</string>
+    <string name="garment_unreadable">No se pudo leer esta prenda</string>
+    <string name="garment_no_photo">Sin foto</string>
+    <string name="action_edit">Editar</string>
+    <string name="property_colours">Colores</string>
+    <string name="property_size">Talla</string>
+    <string name="property_seasons">Temporadas</string>
+    <string name="property_occasions">Ocasiones</string>
+    <string name="property_added">Agregada</string>
+    <string name="property_tags">Etiquetas</string>
+    <string name="garment_retired">Sin usar</string>
+    <string name="garment_retired_since">Sin usar desde %1$s</string>
+    <string name="garment_retire">Ya no uso esta prenda</string>
+    <string name="garment_unretire">Vuelvo a usar esta prenda</string>
+    <string name="garment_delete">Eliminar esta prenda</string>
+    <string name="garment_retire_confirm">¿Dejar de usarla?</string>
+    <string name="garment_retire_body">Sale de tu armario y deja de aparecer en atuendos, pero se conserva — con sus fotos — y cuenta para saber cuánto duran las prendas. Puedes recuperarla cuando quieras.</string>
+    <string name="garment_retire_action">Dejar de usarla</string>
+    <string name="garment_delete_confirm">¿Eliminar esta prenda?</string>
+    <string name="garment_delete_body">También se eliminan sus fotos y lo que la aplicación ha aprendido sobre con qué prendas combina. Los atuendos guardados que la usen la pierden, y un atuendo que se quede sin nada se elimina. Esto no se puede deshacer.</string>
+    <string name="background_removing">Trabajando en la foto…</string>
+    <string name="background_remove">Quitar el fondo</string>
+    <string name="background_undo">Deshacer el quitado de fondo</string>
+    <string name="error_action_failed">Eso no funcionó</string>
+    <string name="error_garment_not_deleted">No se pudo eliminar esa prenda.</string>
+    <string name="error_background_not_removed">No se pudo quitar el fondo.</string>
+    <string name="error_not_undone">No se pudo deshacer.</string>
+
+    <!-- Adding and editing a garment -->
+    <string name="form_title_add">Agregar prenda</string>
+    <string name="form_title_edit">Editar prenda</string>
+    <string name="form_save_add">Agregar al armario</string>
+    <string name="form_save_edit">Guardar cambios</string>
+    <string name="form_saving">Guardando…</string>
+    <string name="form_error_title">No se pudo guardar</string>
+    <string name="form_section_photos">Fotos</string>
+    <string name="form_section_tags">Etiquetas</string>
+    <string name="form_size_custom">O escribe una talla</string>
+    <string name="form_tag_hint">Escribe una etiqueta y una coma</string>
+    <string name="form_add_photo">Agregar una foto</string>
+    <string name="form_remove_photo">Quitar la foto</string>
+    <string name="form_remove_tag">Quitar la etiqueta</string>
+    <string name="background_cutting">Recortando la prenda…</string>
+    <string name="error_photo_required">Una prenda necesita al menos una foto.</string>
+    <string name="error_photo_not_imported">No se pudo importar esa foto.</string>
+
+    <!-- The duplicate warning -->
+    <string name="duplicate_title">Puede que ya tengas esta prenda</string>
+    <string name="duplicate_add_anyway">Agregar de todas formas</string>
+    <string name="duplicate_review">Déjame verla</string>
+    <string name="duplicate_reason_tags">etiquetas parecidas</string>
+    <string name="duplicate_reason_colour">color parecido</string>
+    <string name="duplicate_reason_size">misma talla</string>
+    <string name="duplicate_reason_overall">parecido general</string>
+
     <!-- Language, in Settings -->
     <string name="settings_language">Idioma</string>
     <string name="settings_language_hint">Solo afecta a esta aplicación. Android lo recuerda, así que se mantiene al reiniciar y también se puede cambiar desde los ajustes del sistema.</string>

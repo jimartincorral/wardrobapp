@@ -44,14 +44,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.wardrobapp.domain.Occasion
-import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.GalleryEntry
 import com.wardrobapp.presentation.BackgroundAction
 import com.wardrobapp.presentation.GarmentDetailView
@@ -87,13 +86,13 @@ fun GarmentDetailScreen(
     state.confirming?.let { confirming ->
         ConfirmationDialog(confirming, onConfirmed, onConfirmationDismissed)
     }
-    state.actionError?.let { message ->
+    state.actionErrorText()?.let { message ->
         AlertDialog(
             onDismissRequest = onActionErrorDismissed,
-            title = { Text("That didn't work") },
+            title = { Text(stringResource(R.string.error_action_failed)) },
             text = { Text(message) },
             confirmButton = {
-                TextButton(onClick = onActionErrorDismissed) { Text("Close") }
+                TextButton(onClick = onActionErrorDismissed) { Text(stringResource(R.string.action_close)) }
             },
         )
     }
@@ -101,17 +100,17 @@ fun GarmentDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(state.view?.let { titleOf(it) } ?: "Garment") },
+                title = { Text(state.view?.let { titleOf(it) } ?: stringResource(R.string.garment_untitled)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
                 actions = {
                     // Only once there is something to edit: a garment that failed
                     // to load or is not there has nothing to open.
                     if (state.view != null) {
-                        TextButton(onClick = onEdit) { Text("Edit") }
+                        TextButton(onClick = onEdit) { Text(stringResource(R.string.action_edit)) }
                     }
                 },
             )
@@ -124,14 +123,14 @@ fun GarmentDetailScreen(
 
             // Nothing to retry: the garment is not there.
             state.missing -> Centered(insets) {
-                Text("That garment is no longer in your wardrobe.")
+                Text(stringResource(R.string.garment_missing))
             }
 
             // A read that failed is not an empty garment, and must not look like
             // one. Same rule as the wardrobe list.
             view == null -> Centered(insets) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Couldn't read this garment", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.garment_unreadable), style = MaterialTheme.typography.titleMedium)
                     state.error?.let {
                         Text(
                             it,
@@ -140,7 +139,7 @@ fun GarmentDetailScreen(
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
-                    TextButton(onClick = onRetry) { Text("Try again") }
+                    TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
                 }
             }
 
@@ -216,21 +215,25 @@ private fun GarmentBody(
 
             Column(modifier = Modifier.padding(top = 16.dp)) {
                 if (view.palette.isNotEmpty()) {
-                    Property("Colours") { Palette(view.palette) }
+                    Property(stringResource(R.string.property_colours)) { Palette(view.palette) }
                 }
-                view.size?.let { Property("Size") { Value(it) } }
+                view.size?.let { Property(stringResource(R.string.property_size)) { Value(it) } }
                 if (view.seasons.isNotEmpty()) {
-                    Property("Seasons") { Value(view.seasons.joinToString(", ") { it.label() }) }
+                    Property(stringResource(R.string.property_seasons)) {
+                        Value(view.seasons.joinToString(", ") { stringResource(it.labelRes) })
+                    }
                 }
                 if (view.occasions.isNotEmpty()) {
-                    Property("Occasions") { Value(view.occasions.joinToString(", ") { it.label() }) }
+                    Property(stringResource(R.string.property_occasions)) {
+                        Value(view.occasions.joinToString(", ") { stringResource(it.labelRes) })
+                    }
                 }
-                view.purchaseDate?.let { Property("Added") { Value(displayDate(it)) } }
+                view.purchaseDate?.let { Property(stringResource(R.string.property_added)) { Value(displayDate(it)) } }
             }
 
             if (view.tags.isNotEmpty()) {
                 Text(
-                    "Tags",
+                    stringResource(R.string.property_tags),
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
                 )
@@ -277,7 +280,7 @@ private fun BackgroundControl(
         if (working) {
             CircularProgressIndicator(modifier = Modifier.size(20.dp))
             Text(
-                "Working on the photo…",
+                stringResource(R.string.background_removing),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(start = 12.dp),
             )
@@ -285,8 +288,8 @@ private fun BackgroundControl(
             TextButton(onClick = if (action == BackgroundAction.REMOVE) onRemove else onUndo) {
                 Text(
                     when (action) {
-                        BackgroundAction.REMOVE -> "Remove background"
-                        BackgroundAction.UNDO -> "Undo background removal"
+                        BackgroundAction.REMOVE -> stringResource(R.string.background_remove)
+                        BackgroundAction.UNDO -> stringResource(R.string.background_undo)
                     }
                 )
             }
@@ -319,7 +322,11 @@ private fun Actions(
             enabled = !working,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(if (isAvailable) "No longer wearing this" else "Wearing this again")
+            Text(
+                stringResource(
+                    if (isAvailable) R.string.garment_retire else R.string.garment_unretire
+                )
+            )
         }
 
         TextButton(
@@ -330,7 +337,7 @@ private fun Actions(
             ),
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         ) {
-            Text("Delete this garment")
+            Text(stringResource(R.string.garment_delete))
         }
 
         // Room to scroll clear of the gesture area.
@@ -354,30 +361,26 @@ private fun ConfirmationDialog(
 ) = when (confirming) {
     GarmentDetailViewModel.Confirm.RETIRE -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Stop wearing this?") },
+        title = { Text(stringResource(R.string.garment_retire_confirm)) },
         text = {
             Text(
-                "It leaves your wardrobe and stops appearing in outfits, but it is " +
-                    "kept -- with its photos -- and counts towards how long things last. " +
-                    "You can put it back at any time."
+                stringResource(R.string.garment_retire_body)
             )
         },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Stop wearing it") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.garment_retire_action)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 
     GarmentDetailViewModel.Confirm.DELETE -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete this garment?") },
+        title = { Text(stringResource(R.string.garment_delete_confirm)) },
         text = {
             Text(
-                "Its photos go too, along with what the app has learned about which " +
-                    "garments it goes with. Any saved outfit using it loses it, and an " +
-                    "outfit left with nothing is deleted. This cannot be undone."
+                stringResource(R.string.garment_delete_body)
             )
         },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Delete") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Keep it") } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.action_delete)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_keep)) } },
     )
 }
 
@@ -396,7 +399,7 @@ private fun Photo(uri: String?) {
         contentAlignment = Alignment.Center,
     ) {
         if (uri == null) {
-            Text("No photo", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.garment_no_photo), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             AsyncImage(
                 model = uri,
@@ -440,9 +443,9 @@ private fun UnavailableBanner(since: String?) {
     ) {
         Text(
             if (since == null) {
-                "Not in use"
+                stringResource(R.string.garment_retired)
             } else {
-                "Not in use since ${displayDate(since)}"
+                stringResource(R.string.garment_retired_since, displayDate(since))
             },
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onErrorContainer,
@@ -526,16 +529,20 @@ private fun Centered(insets: PaddingValues, content: @Composable () -> Unit) {
 }
 
 /** The bar title: the type if the garment has one, else its category. */
+@Composable
 private fun titleOf(view: GarmentDetailView): String =
-    view.subcategories.firstOrNull() ?: view.category.sentenceCase()
+    view.subcategories.firstOrNull()?.let { garmentTypeLabel(it) }
+        ?: categoryLabel(view.category)
 
 /** The heading on the page itself, which has room for both. */
-private fun headingOf(view: GarmentDetailView): String =
-    if (view.subcategories.isEmpty()) {
-        view.category.sentenceCase()
-    } else {
-        "${view.category.sentenceCase()} \u2022 ${view.subcategories.joinToString(", ")}"
-    }
+@Composable
+private fun headingOf(view: GarmentDetailView): String {
+    val category = categoryLabel(view.category)
+    if (view.subcategories.isEmpty()) return category
+
+    val types = view.subcategories.joinToString(", ") { garmentTypeLabel(it) }
+    return "$category \u2022 $types"
+}
 
 /**
  * A stored date in the device's own language and format.
@@ -549,19 +556,18 @@ private fun displayDate(value: String): String =
 /**
  * A colour's name, or its hex if it was not picked from the palette.
  *
- * The keys are camelCase identifiers rather than text meant for reading, so
- * `lightBlue` becomes "Light blue". A real translation table is what this
- * becomes once the port has one; until then it is better than showing an
- * identifier.
+ * This used to turn `lightBlue` into "Light blue" by hand, with a note saying a
+ * real translation table was what it should become. It now is one.
  */
-private fun PaletteEntry.label(): String = colorKey?.humanised() ?: hex
+@Composable
+private fun PaletteEntry.label(): String = colorKey?.let { paletteLabel(it) } ?: hex
 
-private fun String.humanised(): String =
-    replace(Regex("([a-z])([A-Z])"), "$1 $2").lowercase().sentenceCase()
-
-private fun String.sentenceCase(): String =
-    replaceFirstChar { it.titlecase(Locale.getDefault()) }
-
-private fun Season.label(): String = tag.replace('-', ' ').sentenceCase()
-
-private fun Occasion.label(): String = id.sentenceCase()
+/**
+ * What to show when an action on this garment failed.
+ *
+ * The exception's own words if it had any, and otherwise what the app was doing.
+ * The same rule every screen here follows.
+ */
+@Composable
+private fun GarmentDetailViewModel.State.actionErrorText(): String? =
+    actionError ?: actionErrorFallback?.let { stringResource(it) }
