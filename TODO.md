@@ -59,6 +59,17 @@ So the first decision is the wear log itself, not the features on top of it:
   - [ ] View upcoming planned outfits
 - [ ] Restore preview: show what an archive contains before replacing anything.
       The validation it would read from already exists.
+- [ ] Translate what goes wrong. Both apps are shipped in two languages, and the
+      React Native one still answers a failure in English: 27 of the sentences it
+      throws from `src/services` are literals, and the screens put them straight
+      in front of the reader — `Alert.alert(t('...importTitle'), error.message)`
+      on the add screen, `${t('...backupFailedMsg')}${getErrorMessage(error)}` on
+      settings. The backup progress bar is the same, seven phase messages long.
+      The Kotlin port already solved this by throwing a reason rather than a
+      sentence (`ImportFailureReason`, `UnsafeUrlReason`), so there is a shape to
+      copy. `src/i18n/hardcoded-strings.test.ts` guards the screens against this
+      and deliberately does not cover the services, so this is not a check anyone
+      is waiting on — it is a decision about whose job the wording is.
 - [ ] Recommendation engine v2:
   - [ ] Better personalization signals
   - [ ] Context-aware constraints — the "recent wear" half needs the wear log
