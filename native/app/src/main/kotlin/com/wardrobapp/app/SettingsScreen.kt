@@ -1,5 +1,6 @@
 package com.wardrobapp.app
 
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,8 +33,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.wardrobapp.data.ArchiveDetail
+import com.wardrobapp.data.UnrestorableReason
 import com.wardrobapp.presentation.LanguageChoice
 
 /**
@@ -331,9 +335,95 @@ private fun RestoreDialog(
     is SettingsViewModel.Restore.Failed -> AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.restore_failed_title)) },
-        // The message is the whole point: it says whether to update the app,
-        // find a different file, or that nothing was lost.
-        text = { Text(restore.message) },
+        // The message is the whole point: it says whether to update the app, find
+        // a different file, or that nothing was lost. So it is the one place a
+        // Spanish reader was still handed English, and now is not -- except for
+        // the part of a sentence that was somebody else's words to begin with.
+        text = {
+            val context = LocalContext.current
+            Text(
+                restore.reason?.let { context.archiveFailureText(it) } ?: restore.message
+            )
+        },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
+}
+
+/**
+ * Why a backup would not restore, in the reader's language.
+ *
+ * A plain function taking a Context rather than a composable, deliberately. The
+ * reasons nest -- a staged database that fails its integrity check produces a
+ * fragment that the wrapping reason folds in -- and recursion through
+ * `stringResource` would mean a composable call per level, which is the shape that
+ * broke the build last time. One `getString` per level, one call site, no
+ * composable context needed below it.
+ *
+ * The resource names match the case names by convention, which
+ * `ArchiveMessageParityTest` relies on to hold each of these to the sentence
+ * :data produces.
+ */
+private fun Context.archiveFailureText(reason: UnrestorableReason): String = when (reason) {
+    is UnrestorableReason.ManifestUnreadable ->
+        getString(R.string.archive_manifest_unreadable, reason.name)
+
+    is UnrestorableReason.ManifestNotABackup ->
+        getString(R.string.archive_manifest_not_a_backup, reason.name)
+
+    is UnrestorableReason.ManifestVersionMissing ->
+        getString(R.string.archive_manifest_version_missing, reason.name)
+
+    is UnrestorableReason.ManifestNotFound ->
+        getString(R.string.archive_manifest_not_found, reason.name)
+
+    is UnrestorableReason.BackupFromNewerApp ->
+        getString(R.string.archive_backup_from_newer_app, reason.found, reason.supported)
+
+    is UnrestorableReason.UnsupportedVersion ->
+        getString(R.string.archive_unsupported_version, reason.found, reason.readable)
+
+    is UnrestorableReason.DatabaseMissing ->
+        getString(R.string.archive_database_missing, reason.name)
+
+    is UnrestorableReason.DatabaseEmpty ->
+        getString(R.string.archive_database_empty, reason.name)
+
+    UnrestorableReason.NoDatabase -> getString(R.string.archive_no_database)
+
+    is UnrestorableReason.ArchiveTruncated ->
+        getString(R.string.archive_archive_truncated, reason.expected, reason.present)
+
+    UnrestorableReason.NotBase64 -> getString(R.string.archive_not_base64)
+
+    is UnrestorableReason.EntryOutsideArchive ->
+        getString(R.string.archive_entry_outside_archive, reason.entry)
+
+    is UnrestorableReason.IntegrityCheckFailed ->
+        getString(R.string.archive_integrity_check_failed, reason.result)
+
+    is UnrestorableReason.InvalidBackup ->
+        getString(R.string.archive_invalid_backup, detailText(reason.detail))
+
+    is UnrestorableReason.RestoreFailed ->
+        getString(R.string.archive_restore_failed, detailText(reason.detail))
+
+    is UnrestorableReason.RollbackFailed -> getString(
+        R.string.archive_rollback_failed,
+        detailText(reason.detail),
+        detailText(reason.rollbackDetail),
+        reason.databaseName,
+        reason.imagesName,
+    )
+}
+
+/**
+ * What a wrapping failure was caused by.
+ *
+ * [ArchiveDetail.Foreign] is returned as it came: SQLite's words, or the JDK's.
+ * This app did not write them and cannot translate them, and dropping them would
+ * leave a sentence with a hole where its only diagnostic was.
+ */
+private fun Context.detailText(detail: ArchiveDetail): String = when (detail) {
+    is ArchiveDetail.Known -> archiveFailureText(detail.reason)
+    is ArchiveDetail.Foreign -> detail.text
 }
