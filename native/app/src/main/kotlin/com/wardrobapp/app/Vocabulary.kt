@@ -6,6 +6,7 @@ import androidx.compose.ui.res.stringResource
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.LanguageChoice
+import com.wardrobapp.presentation.ThemeChoice
 
 /**
  * The wardrobe's vocabulary, in the reader's language.
@@ -214,4 +215,19 @@ val LanguageChoice.labelRes: Int
         LanguageChoice.SYSTEM -> R.string.language_automatic
         LanguageChoice.ENGLISH -> R.string.language_english
         LanguageChoice.SPANISH -> R.string.language_spanish
+    }
+
+/**
+ * What to call each theme option.
+ *
+ * "Automatic" rather than "System", which is what the app that ships calls it: the
+ * word matches the language picker's own first option, and two settings offering
+ * the same idea under two different names is how a screen reads as two screens.
+ */
+@get:StringRes
+val ThemeChoice.labelRes: Int
+    get() = when (this) {
+        ThemeChoice.SYSTEM -> R.string.theme_automatic
+        ThemeChoice.LIGHT -> R.string.theme_light
+        ThemeChoice.DARK -> R.string.theme_dark
     }

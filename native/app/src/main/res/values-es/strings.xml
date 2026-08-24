@@ -246,6 +246,13 @@
     <string name="language_english">English</string>
     <string name="language_spanish">Español</string>
 
+    <!-- Theme, in Settings -->
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_hint">Automático sigue el ajuste de claro u oscuro del dispositivo.</string>
+    <string name="theme_automatic">Automático</string>
+    <string name="theme_light">Claro</string>
+    <string name="theme_dark">Oscuro</string>
+
     <!-- Categories -->
     <string name="category_tops">Parte Superior</string>
     <string name="category_bottoms">Parte Inferior</string>

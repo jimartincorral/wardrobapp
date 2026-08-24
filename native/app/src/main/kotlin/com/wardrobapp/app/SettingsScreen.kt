@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.wardrobapp.data.ArchiveDetail
 import com.wardrobapp.data.UnrestorableReason
 import com.wardrobapp.presentation.LanguageChoice
+import com.wardrobapp.presentation.ThemeChoice
 
 /**
  * Settings.
@@ -58,6 +59,12 @@ fun SettingsScreen(
      */
     language: LanguageChoice,
     onLanguageSelected: (LanguageChoice) -> Unit,
+    /**
+     * The colours in force. Unlike the language this app stores it itself, since
+     * Android has no per-app equivalent of the language screen to defer to.
+     */
+    theme: ThemeChoice,
+    onThemeSelected: (ThemeChoice) -> Unit,
     onBack: () -> Unit,
     onBackupRequested: () -> Unit,
     onBackupDismissed: () -> Unit,
@@ -172,6 +179,27 @@ fun SettingsScreen(
                     FilterChip(
                         selected = choice == language,
                         onClick = { onLanguageSelected(choice) },
+                        label = { Text(stringResource(choice.labelRes)) },
+                    )
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            Section(stringResource(R.string.settings_theme))
+            Text(
+                stringResource(R.string.settings_theme_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 12.dp),
+            ) {
+                for (choice in ThemeChoice.entries) {
+                    FilterChip(
+                        selected = choice == theme,
+                        onClick = { onThemeSelected(choice) },
                         label = { Text(stringResource(choice.labelRes)) },
                     )
                 }

@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -23,13 +24,17 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.os.LocaleListCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -41,8 +46,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.wardrobapp.data.backupFilename
+import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.languageChoiceFor
 import com.wardrobapp.presentation.languageTag
+import com.wardrobapp.presentation.usesDarkColors
 import java.io.FileNotFoundException
 
 /**
@@ -62,8 +69,25 @@ class MainActivity : AppCompatActivity() {
 
         val container = AppContainer.get(applicationContext)
 
+        // Read before the first composition, not from within it: the colours have
+        // to be right on the first frame, and a choice arriving afterwards is a
+        // visible repaint of the whole app.
+        val appearance = ThemePreference(this)
+
         setContent {
-            WardrobappTheme {
+            // The one piece of app state held here rather than in a ViewModel.
+            // It has to wrap the theme, and the theme wraps every screen -- so
+            // there is nothing below it for a model to belong to.
+            var theme by remember { mutableStateOf(appearance.choice) }
+
+            WardrobappTheme(theme) {
+                // The status and navigation bar icons, which are drawn by the
+                // system and so are not covered by the colour scheme above.
+                // `enableEdgeToEdge()` decides their appearance from the device's
+                // dark mode setting, which is the wrong answer as soon as this app
+                // is told to override it: dark icons on a dark app, unreadable.
+                SystemBarIcons(dark = theme.usesDarkColors(isSystemInDarkTheme()))
+
                 val navigator = rememberNavController()
                 val entry by navigator.currentBackStackEntryAsState()
                 val route = entry?.destination?.route
@@ -116,7 +140,20 @@ class MainActivity : AppCompatActivity() {
                         }
 
                         composable(SETTINGS) {
-                            Settings(container, navigator = navigator)
+                            Settings(
+                                container = container,
+                                navigator = navigator,
+                                theme = theme,
+                                onThemeSelected = { choice ->
+                                    // Stored and applied. Both, because the
+                                    // preference is what the next launch reads and
+                                    // the state is what this composition draws
+                                    // from -- and unlike the language, nothing
+                                    // recreates the activity to bridge them.
+                                    appearance.choice = choice
+                                    theme = choice
+                                },
+                            )
                         }
 
                         composable(OUTFITS) {
@@ -238,7 +275,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     @Composable
-    private fun Settings(container: AppContainer, navigator: NavHostController) {
+    private fun Settings(
+        container: AppContainer,
+        navigator: NavHostController,
+        theme: ThemeChoice,
+        onThemeSelected: (ThemeChoice) -> Unit,
+    ) {
         val model: SettingsViewModel = viewModel(
             factory = viewModelFactory { initializer { SettingsViewModel(container) } }
         )
@@ -290,6 +332,8 @@ class MainActivity : AppCompatActivity() {
             language = languageChoiceFor(
                 AppCompatDelegate.getApplicationLocales().toLanguageTags()
             ),
+            theme = theme,
+            onThemeSelected = onThemeSelected,
             onLanguageSelected = { choice ->
                 // AppCompat persists this itself -- that is what the manifest's
                 // locales service with autoStoreLocales is for -- and on Android
@@ -522,6 +566,30 @@ class MainActivity : AppCompatActivity() {
         LifecycleResumeEffect(Unit) {
             refresh()
             onPauseOrDispose { }
+        }
+    }
+
+    /**
+     * Light or dark icons in the system bars.
+     *
+     * The bars themselves are transparent -- that is what `enableEdgeToEdge` did --
+     * so what is left to decide is whether the clock and the back gesture hint are
+     * drawn dark (for a light app) or light (for a dark one). That call is made
+     * from the app's own resolved theme rather than the device's, which is the
+     * whole point: a phone in light mode showing this app in dark would otherwise
+     * put dark icons on a dark background.
+     *
+     * A SideEffect because it mutates the window, which is not Compose state: it
+     * has to run after a successful composition and re-run whenever the answer
+     * changes.
+     */
+    @Composable
+    private fun SystemBarIcons(dark: Boolean) {
+        SideEffect {
+            WindowInsetsControllerCompat(window, window.decorView).run {
+                isAppearanceLightStatusBars = !dark
+                isAppearanceLightNavigationBars = !dark
+            }
         }
     }
 
