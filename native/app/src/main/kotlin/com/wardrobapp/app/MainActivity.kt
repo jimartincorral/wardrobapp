@@ -10,6 +10,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Star
@@ -73,9 +74,23 @@ class MainActivity : ComponentActivity() {
                 ) { insets ->
                     NavHost(
                         navController = navigator,
-                        startDestination = WARDROBE,
+                        startDestination = HOME,
                         modifier = Modifier.padding(insets),
                     ) {
+                        composable(HOME) {
+                            Home(
+                                container = container,
+                                onAddRequested = { navigator.navigate(GARMENT_ADD) },
+                                // Tabs are switched to, not pushed: pushing one
+                                // would stack a second copy of a screen the bar
+                                // is already showing as selected.
+                                onOutfitsRequested = { navigator.switchTo(OUTFITS) },
+                                onAnalyticsRequested = { navigator.switchTo(ANALYTICS) },
+                                onStatisticsRequested = { navigator.navigate(STATISTICS) },
+                                onSettingsRequested = { navigator.navigate(SETTINGS) },
+                            )
+                        }
+
                         composable(WARDROBE) {
                             Wardrobe(
                                 container = container,
@@ -143,6 +158,33 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    @Composable
+    private fun Home(
+        container: AppContainer,
+        onAddRequested: () -> Unit,
+        onOutfitsRequested: () -> Unit,
+        onAnalyticsRequested: () -> Unit,
+        onStatisticsRequested: () -> Unit,
+        onSettingsRequested: () -> Unit,
+    ) {
+        val model: HomeViewModel = viewModel(
+            factory = viewModelFactory { initializer { HomeViewModel(container) } }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        RefreshOnReturn(model::refresh)
+
+        HomeScreen(
+            state = state,
+            onAddRequested = onAddRequested,
+            onOutfitsRequested = onOutfitsRequested,
+            onAnalyticsRequested = onAnalyticsRequested,
+            onStatisticsRequested = onStatisticsRequested,
+            onSettingsRequested = onSettingsRequested,
+            onRetry = model::refresh,
+        )
     }
 
     @Composable
@@ -486,6 +528,7 @@ class MainActivity : ComponentActivity() {
     private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
     private companion object {
+        const val HOME = "home"
         const val WARDROBE = "wardrobe"
         const val OUTFITS = "outfits"
         const val ANALYTICS = "analytics"
@@ -503,6 +546,7 @@ class MainActivity : ComponentActivity() {
         const val GARMENT_ID = "garmentId"
 
         val TABS = listOf(
+            Tab(HOME, "Home", Icons.Filled.Home),
             Tab(WARDROBE, "Wardrobe", Icons.Filled.List),
             Tab(OUTFITS, "Outfits", Icons.Filled.Star),
             Tab(ANALYTICS, "Analytics", Icons.Filled.Info),
