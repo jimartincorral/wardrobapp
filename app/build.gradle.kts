@@ -28,9 +28,10 @@ val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0
 // them as ORG_GRADLE_PROJECT_* environment variables, without any of them ever
 // being written to a file in the repo.
 //
-// Absent locally and in the port's CI job, which is why the release build type
-// below falls back to the debug key rather than failing: a contributor with no
-// keystore must still be able to build.
+// Absent by default, which is why the release build type below falls back to
+// `app/debug.keystore` rather than failing: a contributor with no keystore must
+// still be able to build, and until a real key exists that file is what every
+// published APK has been signed with.
 val releaseStoreFile: String? = providers.gradleProperty("WARDROBAPP_STORE_FILE").orNull
 val releaseStorePassword: String? = providers.gradleProperty("WARDROBAPP_STORE_PASSWORD").orNull
 val releaseKeyAlias: String? = providers.gradleProperty("WARDROBAPP_KEY_ALIAS").orNull
@@ -113,6 +114,40 @@ android {
     }
 
     signingConfigs {
+        /*
+         * The key every published build of this app has carried.
+         *
+         * It is the public debug keystore that ships inside
+         * `expo-template-bare-minimum`, and it signed every APK the React
+         * Native app ever published -- verified rather than assumed: the
+         * certificate in the `nightly` APK and the certificate in this file are
+         * the same one, SHA-256
+         * FA:C6:17:45:DC:09:03:78:6F:B9:ED:E6:2A:96:2B:39:9F:73:48:F0:BB:6F:89:9B:83:32:66:75:91:03:3B:9C,
+         * CN=Android Debug, valid to 2052.
+         *
+         * That is why it is committed, `.gitignore`'s rule about keystores
+         * notwithstanding. Android will only replace an installed app with one
+         * signed by the same key, so signing with this is what makes the Kotlin
+         * app an upgrade of the app people have rather than a second app they
+         * have to install after uninstalling the first and restoring a backup
+         * into it. Nothing is leaked by committing it: the file is inside a
+         * public npm package, and it has been the app's signing identity all
+         * along -- this makes that explicit rather than incidental.
+         *
+         * What it costs is real and unchanged: anybody can sign an APK with this
+         * key, so a build claiming to be an update of this app cannot be
+         * distinguished from one. The fix is a keystore only its owner holds,
+         * which the `release` config below already accepts -- and which costs
+         * one back-up, uninstall and restore per device, whenever somebody
+         * decides to pay it.
+         */
+        create("installedBase") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+
         // Declared unconditionally -- Gradle needs the name to exist for the
         // reference below to resolve -- but only populated when a keystore was
         // supplied. An unpopulated config is never selected.
@@ -135,15 +170,13 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Falls back to the debug key when no keystore is configured, which
-            // matches what plugins/withReleaseSigning.js does to the React
-            // Native app's build.gradle. Both apps are then signed by the same
-            // key once the secrets exist, which is what makes cutover an
-            // in-place upgrade instead of a second uninstall.
+            // A real keystore when one is configured; otherwise the committed
+            // one, whose whole purpose is that it is the key the installed base
+            // already trusts. See `signingConfigs` above.
             signingConfig = if (releaseStoreFile != null) {
                 signingConfigs.getByName("release")
             } else {
-                signingConfigs.getByName("debug")
+                signingConfigs.getByName("installedBase")
             }
         }
     }

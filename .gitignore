@@ -17,12 +17,16 @@ local.properties
 # ──────────────────────────────────────────────────────────────
 # Signing material
 # ──────────────────────────────────────────────────────────────
-# A real signing key never belongs in the repository. The one exception is
-# added where it lives, with the reason next to it.
+# A real signing key never belongs in the repository.
 *.keystore
 *.jks
 *.p12
 *.p8
+# The exception, and the only one: the public debug keystore that ships inside
+# expo-template-bare-minimum, which is the key every published build of this app
+# has been signed with. Committed so releases keep upgrading the installed app
+# rather than colliding with it. app/build.gradle.kts explains it at length.
+!app/debug.keystore
 
 # Android SDK / tooling sometimes downloaded into the repo
 cmdline-toolslatest/
