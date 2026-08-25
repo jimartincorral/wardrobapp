@@ -155,8 +155,7 @@ class MainActivity : AppCompatActivity() {
                                 // would stack a second copy of a screen the bar
                                 // is already showing as selected.
                                 onOutfitsRequested = { navigator.switchTo(OUTFITS) },
-                                onAnalyticsRequested = { navigator.switchTo(ANALYTICS) },
-                                onStatisticsRequested = { navigator.navigate(STATISTICS) },
+                                onStatisticsRequested = { navigator.switchTo(STATISTICS) },
                                 onSettingsRequested = { navigator.navigate(SETTINGS) },
                             )
                         }
@@ -203,15 +202,8 @@ class MainActivity : AppCompatActivity() {
                             )
                         }
 
-                        composable(ANALYTICS) {
-                            Analytics(
-                                container = container,
-                                onStatisticsRequested = { navigator.navigate(STATISTICS) },
-                            )
-                        }
-
                         composable(STATISTICS) {
-                            Statistics(container, navigator = navigator)
+                            Statistics(container)
                         }
 
                         composable(GARMENT_ADD) {
@@ -257,7 +249,6 @@ class MainActivity : AppCompatActivity() {
         container: AppContainer,
         onAddRequested: () -> Unit,
         onOutfitsRequested: () -> Unit,
-        onAnalyticsRequested: () -> Unit,
         onStatisticsRequested: () -> Unit,
         onSettingsRequested: () -> Unit,
     ) {
@@ -272,7 +263,6 @@ class MainActivity : AppCompatActivity() {
             state = state,
             onAddRequested = onAddRequested,
             onOutfitsRequested = onOutfitsRequested,
-            onAnalyticsRequested = onAnalyticsRequested,
             onStatisticsRequested = onStatisticsRequested,
             onSettingsRequested = onSettingsRequested,
             onRetry = model::refresh,
@@ -582,33 +572,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     @Composable
-    private fun Analytics(container: AppContainer, onStatisticsRequested: () -> Unit) {
-        val model: AnalyticsViewModel = viewModel(
-            factory = viewModelFactory { initializer { AnalyticsViewModel(container) } }
-        )
-        val state by model.state.collectAsStateWithLifecycle()
-
-        RefreshOnReturn(model::refresh)
-
-        AnalyticsScreen(
-            state = state,
-            onStatisticsRequested = onStatisticsRequested,
-            onRetry = model::refresh,
-        )
-    }
-
-    @Composable
-    private fun Statistics(container: AppContainer, navigator: NavHostController) {
+    private fun Statistics(container: AppContainer) {
         val model: StatisticsViewModel = viewModel(
             factory = viewModelFactory { initializer { StatisticsViewModel(container) } }
         )
         val state by model.state.collectAsStateWithLifecycle()
 
+        // Re-read on the way back, as the analytics tab did: retiring a garment
+        // from its detail screen moves two of these tiles, and a stale page would
+        // disagree with the wardrobe you just came from.
+        RefreshOnReturn(model::refresh)
+
         StatisticsScreen(
             state = state,
-            onBack = { navigator.popBackStack() },
             onCategoryTapped = model::onCategoryTapped,
             onBrandSortChanged = model::onBrandSortChanged,
+            onSectionTapped = model::onSectionTapped,
             onRetry = model::refresh,
         )
     }
@@ -819,7 +798,6 @@ class MainActivity : AppCompatActivity() {
         const val HOME = "home"
         const val WARDROBE = "wardrobe"
         const val OUTFITS = "outfits"
-        const val ANALYTICS = "analytics"
         const val STATISTICS = "statistics"
         const val SETTINGS = "settings"
         const val GARMENT = "garment"
@@ -847,7 +825,7 @@ class MainActivity : AppCompatActivity() {
             Tab(HOME, R.string.tab_home, Icons.Filled.Home),
             Tab(WARDROBE, R.string.tab_wardrobe, Icons.Filled.List),
             Tab(OUTFITS, R.string.tab_outfits, Icons.Filled.Star),
-            Tab(ANALYTICS, R.string.tab_analytics, Icons.Filled.Info),
+            Tab(STATISTICS, R.string.tab_statistics, Icons.Filled.Info),
         )
     }
 }

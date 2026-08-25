@@ -2,6 +2,7 @@ package com.wardrobapp.presentation
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -17,13 +18,24 @@ import kotlin.test.assertTrue
 class StatisticsViewTest {
 
     private fun view(
-        total: Long = 6,
+        inUse: Long = 6,
         categories: List<Distribution> = listOf(Distribution("tops", 3), Distribution("shoes", 1)),
         colors: List<Distribution> = emptyList(),
         brands: List<Distribution> = emptyList(),
         subcategories: Map<String, List<Distribution>> = emptyMap(),
         brandSort: BrandSort = BrandSort.COUNT,
-    ) = statisticsView(total, categories, colors, brands, subcategories, brandSort)
+        retired: Long = 0,
+        lifespans: List<LifespanEntry> = emptyList(),
+    ) = statisticsView(
+        inUse = inUse,
+        categories = categories,
+        colors = colors,
+        brands = brands,
+        subcategories = subcategories,
+        brandSort = brandSort,
+        retired = retired,
+        lifespans = lifespans,
+    )
 
     @Test
     fun `a bar is its share of the largest bar, not of the wardrobe`() {
@@ -37,11 +49,49 @@ class StatisticsViewTest {
 
     @Test
     fun `an empty wardrobe says so and draws nothing`() {
-        val empty = view(total = 0, categories = emptyList())
+        val empty = view(inUse = 0, categories = emptyList())
 
         assertTrue(empty.isEmpty)
         assertEquals(emptyList(), empty.categories)
         assertEquals(0, empty.distinctCategories)
+    }
+
+    @Test
+    fun `the wardrobe is what is worn plus what was put away`() {
+        val view = view(inUse = 4, retired = 3)
+
+        assertEquals(4L, view.inUse)
+        assertEquals(3L, view.retired)
+        assertEquals(7L, view.items)
+    }
+
+    @Test
+    fun `a wardrobe of nothing but retired garments is not nothing to measure`() {
+        // It used to be: emptiness was measured on what is in use, so a page with
+        // three filled lifespan bars would have said "nothing to measure yet" over
+        // the top of them.
+        val view = view(
+            inUse = 0,
+            categories = emptyList(),
+            retired = 2,
+            lifespans = listOf(LifespanEntry("g1", "tops", listOf("Coat"), days = 400)),
+        )
+
+        assertFalse(view.isEmpty)
+        assertEquals(1, view.lifespans.size)
+    }
+
+    @Test
+    fun `lifespans arrive scaled, and only as many as the chart holds`() {
+        // The scale itself is `LifespansTest`; what matters here is that asking for
+        // the page's numbers is one call rather than two models to keep in step.
+        val view = view(
+            retired = 9,
+            lifespans = (1..9).map { LifespanEntry("g$it", "tops", listOf("Coat"), days = 400L) },
+        )
+
+        assertEquals(LIFESPAN_BARS, view.lifespans.size)
+        assertEquals(listOf(1.0, 1.0, 1.0), view.lifespans.map { it.fraction })
     }
 
     @Test

@@ -12,7 +12,7 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 - **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged by a weighted average of tag overlap (Jaccard, 0.6), colour similarity (0.3) and size match (0.1). Signals with nothing to compare abstain rather than scoring zero, so an untagged garment can still be recognised as a duplicate.
 - **Outfit suggestions** — an epsilon-greedy engine combining category templates, colour harmony judged by hue, season and occasion fit, and pair scores learned from your ratings.
 - **Import from a link** — paste or share a product page and the garment is filled in from it: photos, title, brand. Only public addresses are fetched, and the app asks before going anywhere a link it did not choose points at.
-- **Wardrobe analytics** — breakdowns by category, subcategory, colour and brand, plus garment lifespan for items you've marked unavailable.
+- **Statistics** — one page: six counts at a glance, then breakdowns by category (with subcategories), colour and brand, and how long the garments you retire lasted. Each breakdown is a section you open, so the page starts with the numbers rather than six charts.
 - **Backup and restore** — a single `.zip` containing the SQLite database and every photo, written to a folder you pick. Restore stages and verifies the archive before replacing anything, and rolls back if it can't finish.
 - **English and Spanish** — full UI localization, following the per-app language setting or overridden in Settings.
 
@@ -124,12 +124,12 @@ Two things it left behind, both deliberate. Comments across this codebase explai
 
 ```bash
 ./gradlew test                    # 487 tests, no Android SDK, seconds
-./gradlew :app:testDebugUnitTest  # 53 more, needs the SDK — no emulator
+./gradlew :app:testDebugUnitTest  # 58 more, needs the SDK — no emulator
 ```
 
 The 487 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
 
-The 53 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
+The 58 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 
 ```bash
 ./gradlew :app:testDebugUnitTest

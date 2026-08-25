@@ -22,7 +22,7 @@
     <string name="tab_home">Home</string>
     <string name="tab_wardrobe">Wardrobe</string>
     <string name="tab_outfits">Outfits</string>
-    <string name="tab_analytics">Analytics</string>
+    <string name="tab_statistics">Statistics</string>
 
     <!-- Shared -->
     <string name="error_wardrobe_unreadable">Couldn\'t read the wardrobe</string>
@@ -38,10 +38,8 @@
     <string name="home_add_garment">Add a garment</string>
     <string name="home_outfits_title">Outfit ideas</string>
     <string name="home_outfits_detail">Put together from what you own</string>
-    <string name="home_analytics_title">Analytics</string>
-    <string name="home_analytics_detail">How much you own, and how long things last</string>
     <string name="home_statistics_title">Statistics</string>
-    <string name="home_statistics_detail">Counts by category, colour and brand</string>
+    <string name="home_statistics_detail">How much you own, what it is made of, and how long things last</string>
     <string name="home_settings_title">Settings</string>
     <string name="home_settings_detail">Back up your wardrobe, or restore one</string>
 
@@ -171,27 +169,21 @@
     <string name="duplicate_reason_size">same size</string>
     <string name="duplicate_reason_overall">overall similarity</string>
 
-    <!-- Analytics -->
-    <string name="analytics_title">Analytics</string>
-    <string name="analytics_in_use">In use</string>
-    <string name="analytics_retired">Retired</string>
-    <string name="analytics_empty_title">Nothing to measure yet</string>
-    <string name="analytics_empty_body">Add a few garments and this fills in: what your wardrobe is made of, and how long the things you retire tend to last.</string>
-    <string name="analytics_open_statistics">View detailed statistics</string>
-    <string name="analytics_by_category">By category</string>
-    <string name="analytics_no_garments">Nothing in the wardrobe yet.</string>
-    <string name="analytics_lifespan">How long things lasted</string>
-    <string name="analytics_no_lifespan">Nothing retired yet. Mark a garment as no longer in use and it appears here.</string>
-    <string name="analytics_days">%1$dd</string>
-
-    <!-- Statistics -->
+    <!-- Statistics: one page, where an Analytics tab and a Statistics screen
+         used to say the same things twice. -->
     <string name="statistics_title">Statistics</string>
     <string name="statistics_subtitle">A breakdown of what you own.</string>
     <string name="statistics_items">Items</string>
+    <string name="statistics_in_use">In use</string>
+    <string name="statistics_retired">Retired</string>
     <string name="statistics_categories">Categories</string>
     <string name="statistics_colours">Colours</string>
     <string name="statistics_brands">Brands</string>
-    <string name="statistics_empty_body">Add a few garments and this fills in: what your wardrobe is made of, which colours you actually wear, and who made it all.</string>
+    <string name="statistics_empty_title">Nothing to measure yet</string>
+    <string name="statistics_empty_body">Add a few garments and this fills in: what your wardrobe is made of, which colours you actually wear, who made it all, and how long the things you retire tend to last.</string>
+    <string name="statistics_section_expand">Show this section</string>
+    <string name="statistics_section_collapse">Hide this section</string>
+    <string name="statistics_by_category">By category</string>
     <string name="statistics_expand_hint">Tap a category to see what\'s in it</string>
     <string name="statistics_expand">Show subcategories</string>
     <string name="statistics_collapse">Hide subcategories</string>
@@ -200,6 +192,9 @@
     <string name="statistics_sort_count">Most</string>
     <string name="statistics_sort_name">A-Z</string>
     <string name="statistics_no_subcategory">Not specified</string>
+    <string name="statistics_lifespan">How long things lasted</string>
+    <string name="statistics_no_lifespan">Nothing retired yet. Mark a garment as no longer in use and it appears here.</string>
+    <string name="statistics_days">%1$dd</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

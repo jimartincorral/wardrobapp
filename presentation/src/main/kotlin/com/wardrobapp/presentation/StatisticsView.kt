@@ -2,7 +2,7 @@ package com.wardrobapp.presentation
 
 
 /**
- * What the statistics screen shows.
+ * What the statistics page shows.
  *
  * Ported from `src/domain/statistics-view.ts` in the app this replaced. Counts
  * in, bars out: every bar's width is a division,
@@ -49,9 +49,10 @@ const val NO_SUBCATEGORY = "__none__"
 const val MULTI_SWATCH = "multi"
 
 data class StatisticsView(
-    val total: Long,
-    /** True when there is nothing to measure, so the screen can say so instead. */
-    val isEmpty: Boolean,
+    /** Garments still worn, which is what every bar below counts. */
+    val inUse: Long,
+    /** Garments marked as no longer worn. Counted, never charted. */
+    val retired: Long,
     val distinctCategories: Int,
     val distinctColors: Int,
     val distinctBrands: Int,
@@ -66,21 +67,39 @@ data class StatisticsView(
      * of four slivers.
      */
     val subcategories: Map<String, List<StatBar>>,
-)
+    /** The longest-lived of the retired garments, already scaled. */
+    val lifespans: List<LifespanBar>,
+) {
+
+    /** The whole wardrobe: what is worn and what has been put away. */
+    val items: Long get() = inUse + retired
+
+    /**
+     * True when there is nothing to measure at all.
+     *
+     * Over the whole wardrobe rather than what is in use, which is what it used to
+     * be: a wardrobe of nothing but retired garments has lifespans to show and a
+     * page that said "nothing to measure yet" over three filled bars would be
+     * arguing with itself.
+     */
+    val isEmpty: Boolean get() = items <= 0L
+}
 
 fun statisticsView(
-    total: Long,
+    inUse: Long,
     categories: List<Distribution>,
     colors: List<Distribution>,
     brands: List<Distribution>,
     subcategories: Map<String, List<Distribution>>,
     brandSort: BrandSort = BrandSort.COUNT,
+    retired: Long = 0L,
+    lifespans: List<LifespanEntry> = emptyList(),
 ): StatisticsView {
     val brandBars = bars(brands)
 
     return StatisticsView(
-        total = total,
-        isEmpty = total <= 0,
+        inUse = inUse,
+        retired = retired,
         distinctCategories = categories.size,
         distinctColors = colors.size,
         distinctBrands = brands.size,
@@ -99,6 +118,9 @@ fun statisticsView(
             // one category and a list keyed on the bare name would collapse them.
             bars(subs).map { it.copy(key = "$category:${it.key}") }
         },
+        // Scaled against a year rather than against these counts, so this one is
+        // built where that scale is written down.
+        lifespans = lifespanBars(lifespans),
     )
 }
 

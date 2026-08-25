@@ -7,8 +7,10 @@ One app now: the Kotlin one. Anything below is built once.
 - Advanced wardrobe filters — `season`, `occasion`, `size`, `brand`, and sorting.
 - Favourite/pin outfits — the `is_pinned` column, `ORDER BY is_pinned DESC`, and
   pin/unpin in the UI.
-- Empty states for the wardrobe, outfits, analytics and statistics screens.
-- Garment lifespan, surfaced on the analytics screen.
+- Empty states for the wardrobe, outfits and statistics screens.
+- Garment lifespan, surfaced on the statistics page.
+- One statistics page: the Analytics tab and the Statistics screen were the same
+  question asked twice, and are now one tab with its breakdowns as sections.
 - Versioned backups with validation and migration safety: the format carries a
   version, a restore refuses an archive it cannot read and says why, and it stages,
   verifies and rolls back rather than overwriting in place.
