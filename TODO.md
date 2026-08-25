@@ -11,6 +11,8 @@ One app now: the Kotlin one. Anything below is built once.
 - Garment lifespan, surfaced on the statistics page.
 - One statistics page: the Analytics tab and the Statistics screen were the same
   question asked twice, and are now one tab with its breakdowns as sections.
+- Telling the phone that a newer build exists, with its changelog, and installing
+  it — the part an app outside a store has to do for itself.
 - Reclaiming photos nothing points at, folded into Optimize storage — a save has
   always deleted the original a cut-out replaced, but files left by older builds
   and half-finished saves were never swept.

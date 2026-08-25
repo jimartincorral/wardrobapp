@@ -132,6 +132,31 @@ class MainActivity : AppCompatActivity() {
                         }
                     },
                 ) { insets ->
+                    // Asked once per launch, above every screen, because a newer
+                    // build is not about the screen you happen to be on. The model
+                    // does the asking when it is created; until it has an answer
+                    // this composes nothing.
+                    val updates: UpdateViewModel = viewModel(
+                        factory = viewModelFactory {
+                            initializer {
+                                UpdateViewModel(
+                                    updates = AndroidAppUpdates(applicationContext),
+                                    skipped = SkippedUpdate(applicationContext),
+                                    installedVersionCode = appVersion().code,
+                                )
+                            }
+                        },
+                    )
+                    val updateState by updates.state.collectAsStateWithLifecycle()
+
+                    UpdateNotice(
+                        state = updateState,
+                        onInstall = updates::onInstallRequested,
+                        onSkip = updates::onSkipRequested,
+                        onDismiss = updates::onDismissed,
+                        onFailureDismissed = updates::onFailureDismissed,
+                    )
+
                     // Routed once, when it arrives. Not consumed here -- the form
                     // is what asks about it, and it has to exist first.
                     LaunchedEffect(pendingLink.value) {

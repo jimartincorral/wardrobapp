@@ -119,6 +119,7 @@ internal val SUBCATEGORY_LABELS: Map<String, Int> = mapOf(
     "Bag" to R.string.subcategory_bag,
     "Wallet" to R.string.subcategory_wallet,
     "Gloves" to R.string.subcategory_gloves,
+    "Earrings" to R.string.subcategory_earrings,
     "Jewelry" to R.string.subcategory_jewelry,
     "Watch" to R.string.subcategory_watch,
     "Sunglasses" to R.string.subcategory_sunglasses,

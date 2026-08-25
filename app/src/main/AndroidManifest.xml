@@ -2,6 +2,32 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+        Reaching the network at all. Two features need it and nothing else does:
+        importing a garment from a product page, and asking the rolling release
+        whether a newer build exists. Declared here rather than inherited from a
+        dependency's manifest, which is where it was coming from: a permission this
+        app relies on should be in this app's manifest.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+        Handing a downloaded build to Android's installer.
+
+        This app is not on an app store: it is published as an APK on a GitHub
+        release, so the only way it can update itself is to download that APK and
+        ask the system to install it. The system asks the user, naming this app as
+        the source, and on Android 8 and up will not proceed until "allow from this
+        source" has been granted, so this permission is the ability to *offer* an
+        install rather than to perform one.
+
+        The download address is fixed and every redirect is checked against the
+        hosts this project's releases come from (`AndroidAppUpdates`), because a
+        package about to reach the installer is the one download where "wherever
+        that pointed" is not good enough.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"

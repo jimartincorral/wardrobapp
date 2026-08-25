@@ -73,6 +73,9 @@ private val SUBCATEGORY_OCCASIONS: Map<String, List<Occasion>> = mapOf(
     "Bag" to listOf(Occasion.CASUAL, Occasion.WORK),
     "Wallet" to listOf(Occasion.CASUAL),
     "Gloves" to listOf(Occasion.CASUAL),
+    // Formal like the rest of the jewellery, and casual too: a small pair is
+    // everyday wear in a way a necklace is not.
+    "Earrings" to listOf(Occasion.FORMAL, Occasion.CASUAL),
     "Jewelry" to listOf(Occasion.FORMAL),
     "Watch" to listOf(Occasion.WORK, Occasion.CASUAL),
     "Sunglasses" to listOf(Occasion.CASUAL),
