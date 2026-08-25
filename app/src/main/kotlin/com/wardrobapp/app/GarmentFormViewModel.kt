@@ -579,7 +579,15 @@ class GarmentFormViewModel(
         size = size.ifBlank { null },
     )
 
-    private fun write(form: GarmentFormState) {
+    /**
+     * Write the row, then delete what the save orphaned.
+     *
+     * Internal rather than private so a test can call it with a real database and
+     * real files. What it does to the filesystem is the half of this that
+     * :presentation cannot see: the collapse rule is tested there, and until this
+     * was reachable nothing anywhere proved the original actually left the disk.
+     */
+    internal fun write(form: GarmentFormState) {
         val now = isoTimestamp(System.currentTimeMillis())
         val tags = mergeStructuredTags(form.tags, form.seasons)
 

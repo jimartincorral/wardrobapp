@@ -18,6 +18,7 @@ import com.wardrobapp.data.cutoutsToShrink
 import com.wardrobapp.data.decodeSampleSize
 import com.wardrobapp.data.isCutoutFilename
 import com.wardrobapp.data.maintenanceSummary
+import com.wardrobapp.data.unreferencedPhotos
 import com.wardrobapp.data.orientedSize
 import com.wardrobapp.data.photoFilename
 import com.wardrobapp.data.photoOrientation
@@ -25,6 +26,15 @@ import com.wardrobapp.data.storedPhotoSize
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+
+/**
+ * How long a photo is left alone before a sweep may take it.
+ *
+ * An hour, and the number matters: a cut-out is written the moment the background
+ * comes off, and nothing references it until the form is saved. Somebody filling
+ * in a garment while the sweep runs must not watch its photo vanish.
+ */
+private const val SWEEP_GRACE_MILLIS = 60L * 60L * 1000L
 
 /**
  * Getting a picked photo onto disk.
@@ -163,6 +173,54 @@ class AndroidPhotoStore(private val context: Context) {
         }
 
         return maintenanceSummary(examined = cutouts.size, savings = savings)
+    }
+
+    /**
+     * Delete the photos no garment points at any more.
+     *
+     * Which files those are is :data's call ([unreferencedPhotos]); what is decided
+     * here is the one thing it cannot know, which is whether a file is old enough
+     * to be safe. A cut-out written for a form that has not been saved yet is
+     * referenced by nothing but is not rubbish, so anything touched in the last
+     * [SWEEP_GRACE_MILLIS] is left alone -- the pass is safe to run again in an
+     * hour, and the alternative is deleting the photo somebody is looking at.
+     *
+     * [referenced] must come from *every* garment, retired ones included. A
+     * retired garment is still a garment and its photos are the point of being able
+     * to un-retire it.
+     */
+    fun deleteUnreferenced(
+        referenced: List<String>,
+        now: Long = System.currentTimeMillis(),
+        onProgress: (Int, Int) -> Unit = { _, _ -> },
+    ): MaintenanceSummary {
+        val files = directory.listFiles()?.filter { it.isFile } ?: return MaintenanceSummary(0, 0, 0)
+
+        val settled = files.filter { now - it.lastModified() >= SWEEP_GRACE_MILLIS }
+        val condemned = unreferencedPhotos(settled.map { it.name }, referenced).toSet()
+
+        var freed = 0L
+        var deleted = 0
+
+        for ((done, file) in files.filter { it.name in condemned }.withIndex()) {
+            val bytes = file.length()
+
+            // A file that will not delete -- gone already, or held open -- is not a
+            // failure worth stopping for, and it is not counted as reclaimed.
+            if (file.delete()) {
+                freed += bytes
+                deleted++
+            }
+
+            onProgress(done + 1, condemned.size)
+        }
+
+        return MaintenanceSummary(
+            examined = files.size,
+            shrunk = 0,
+            bytesSaved = freed,
+            deleted = deleted,
+        )
     }
 
     /** Remove a stored photo. A file already gone is not a failure. */

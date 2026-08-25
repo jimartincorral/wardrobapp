@@ -158,15 +158,36 @@ class SettingsScreenTest {
     fun `nothing to optimize is a different answer from nothing saved`() {
         show(loaded().copy(tidy = SettingsViewModel.Tidy.NothingToDo(examined = 4)))
 
-        compose.onNodeWithText("4 cut-out photos", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("4 photos checked", substring = true).assertIsDisplayed()
     }
 
     @Test
     fun `an optimize pass reports what it saved`() {
-        show(loaded().copy(tidy = SettingsViewModel.Tidy.Done(shrunk = 3, megabytes = "1.4")))
+        show(
+            loaded().copy(
+                tidy = SettingsViewModel.Tidy.Done(tidied = 3, reclaimed = 0, megabytes = "1.4")
+            )
+        )
 
-        compose.onNodeWithText("3 photos shrunk", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("3 photos tidied", substring = true).assertIsDisplayed()
         compose.onNodeWithText("1.4 MB", substring = true).assertIsDisplayed()
+        // Nothing was deleted, so nothing says anything was.
+        compose.onNodeWithText("deleted", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a pass that deleted photos says so, rather than calling it optimizing`() {
+        // Files leaving the phone is a different fact from files getting smaller,
+        // and the one worth being told about.
+        show(
+            loaded().copy(
+                tidy = SettingsViewModel.Tidy.Done(tidied = 5, reclaimed = 2, megabytes = "3.0")
+            )
+        )
+
+        compose.onNodeWithText("5 photos tidied", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("2 of them were photos nothing pointed at", substring = true)
+            .assertIsDisplayed()
     }
 
     @Test

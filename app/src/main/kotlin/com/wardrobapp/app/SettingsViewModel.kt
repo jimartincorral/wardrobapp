@@ -55,7 +55,15 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     sealed interface Tidy {
         data class Running(val done: Int, val total: Int) : Tidy
         data class NothingToDo(val examined: Int) : Tidy
-        data class Done(val shrunk: Int, val megabytes: String) : Tidy
+        /**
+         * What a pass came to.
+         *
+         * [tidied] is both passes together, because a reader pressed one button and
+         * a dialog reporting two numbers for one press reads as two things having
+         * happened. [reclaimed] is carried separately only so the dialog can say
+         * that files were deleted, which is the part worth knowing.
+         */
+        data class Done(val tidied: Int, val reclaimed: Int, val megabytes: String) : Tidy
         data class Failed(val message: String) : Tidy
     }
 
@@ -105,11 +113,13 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     /**
-     * Shrink cut-outs an older build stored at full resolution.
+     * Shrink what is oversized, delete what nothing points at.
      *
-     * Safe to run whenever: a file already small enough is skipped, so a second run
-     * over the same wardrobe finds nothing to do and says so. Nothing is renamed,
-     * so no row is touched and the wardrobe is readable throughout.
+     * Safe to run whenever: a file already small enough is skipped, a file something
+     * references is never touched, and anything written in the last hour is left
+     * alone -- so a second run over the same wardrobe finds nothing to do and says
+     * so. No file is renamed, so no row is touched and the wardrobe is readable
+     * throughout.
      */
     fun onTidyRequested() {
         if (_state.value.tidy is Tidy.Running) return
@@ -126,10 +136,14 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
                 _state.update {
                     it.copy(
-                        tidy = if (summary.shrunk == 0) {
+                        tidy = if (!summary.changedAnything) {
                             Tidy.NothingToDo(summary.examined)
                         } else {
-                            Tidy.Done(summary.shrunk, formatMegabytes(summary.bytesSaved))
+                            Tidy.Done(
+                                tidied = summary.shrunk + summary.deleted,
+                                reclaimed = summary.deleted,
+                                megabytes = formatMegabytes(summary.bytesSaved),
+                            )
                         },
                     )
                 }

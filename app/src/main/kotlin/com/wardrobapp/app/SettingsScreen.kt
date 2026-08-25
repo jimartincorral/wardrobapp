@@ -521,14 +521,29 @@ private fun TidyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.tidy_done_title)) },
         text = {
-            Text(
-                pluralStringResource(
-                    R.plurals.tidy_done_body,
-                    tidy.shrunk,
-                    tidy.shrunk,
-                    tidy.megabytes,
+            Column {
+                Text(
+                    pluralStringResource(
+                        R.plurals.tidy_done_body,
+                        tidy.tidied,
+                        tidy.tidied,
+                        tidy.megabytes,
+                    )
                 )
-            )
+
+                // Only when files were deleted, and said plainly: a pass that took
+                // photos off the phone should not report it as "optimized".
+                if (tidy.reclaimed > 0) {
+                    Text(
+                        pluralStringResource(
+                            R.plurals.tidy_reclaimed_body,
+                            tidy.reclaimed,
+                            tidy.reclaimed,
+                        ),
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
     )

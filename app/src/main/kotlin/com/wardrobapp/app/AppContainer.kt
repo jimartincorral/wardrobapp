@@ -9,6 +9,7 @@ import com.wardrobapp.data.Duplicates
 import com.wardrobapp.data.GarmentQueries
 import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.MaintenanceSummary
+import com.wardrobapp.data.and
 import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.ReopeningDriver
@@ -108,13 +109,30 @@ class AppContainer(context: Context) {
     fun photoStorageBytes(): Long = storedImageBytes(files.imagesDir)
 
     /**
-     * Shrink cut-outs an older build stored at full resolution.
+     * Tidy the photo directory: shrink what is oversized, delete what is orphaned.
      *
-     * On the photo store rather than here: it is photo work, and the connection is
-     * not involved -- the filenames do not change, so no row needs touching.
+     * Two passes, because two different things accumulate. Cut-outs written at full
+     * resolution by an older build are shrunk in place, which touches no row. Files
+     * nothing points at are deleted -- an original whose cut-out replaced it under a
+     * build that kept both, a photo left behind by a save that died between writing
+     * the row and deleting the file.
+     *
+     * The second pass is the one that needs the database, and it is why this lives
+     * here rather than on the store: what is referenced is a question only the
+     * wardrobe can answer. Every garment is asked, retired ones included --
+     * `availableOnly = false` rather than the default, which means available only.
+     * Sweeping a retired garment's photos would take away exactly the thing that
+     * makes retiring reversible.
      */
-    fun tidyPhotos(onProgress: (Int, Int) -> Unit): MaintenanceSummary =
-        photos.shrinkOversizedCutouts(onProgress)
+    fun tidyPhotos(onProgress: (Int, Int) -> Unit): MaintenanceSummary {
+        val shrunk = photos.shrinkOversizedCutouts(onProgress)
+
+        val referenced = garments
+            .allGarments(GarmentQueries.Filters(availableOnly = false))
+            .flatMap { it.displayImageUris + it.displayNoBgImageUris }
+
+        return shrunk.and(photos.deleteUnreferenced(referenced, onProgress = onProgress))
+    }
 
     /**
      * Replace the wardrobe with the contents of a backup archive.
