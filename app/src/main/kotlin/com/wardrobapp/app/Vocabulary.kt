@@ -7,6 +7,7 @@ import androidx.compose.ui.res.stringResource
 import com.wardrobapp.domain.ImportFailureReason
 import com.wardrobapp.domain.ImportWarning
 import com.wardrobapp.domain.Occasion
+import com.wardrobapp.domain.OutfitReason
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.UnsafeUrlReason
 import com.wardrobapp.presentation.LanguageChoice
@@ -40,6 +41,23 @@ val Season.labelRes: Int
         Season.FALL -> R.string.season_fall
         Season.WINTER -> R.string.season_winter
         Season.ALL_SEASON -> R.string.season_all_season
+    }
+
+/**
+ * Why an outfit came up, in words.
+ *
+ * The engine decides which reasons apply and this decides how they read, for the
+ * usual reason: :domain has no resources and no business holding a sentence in
+ * one language.
+ */
+@get:StringRes
+val OutfitReason.labelRes: Int
+    get() = when (this) {
+        OutfitReason.LEARNED -> R.string.reason_learned
+        OutfitReason.COLOURS -> R.string.reason_colours
+        OutfitReason.OCCASION -> R.string.reason_occasion
+        OutfitReason.SEASON -> R.string.reason_season
+        OutfitReason.COHERENT -> R.string.reason_coherent
     }
 
 @get:StringRes

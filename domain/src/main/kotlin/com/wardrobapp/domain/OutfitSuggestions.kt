@@ -2,7 +2,6 @@ package com.wardrobapp.domain
 
 import kotlin.math.abs
 import kotlin.math.exp
-import kotlin.math.min
 
 /**
  * Outfit suggestion algorithm.
@@ -91,6 +90,8 @@ data class ScoredOutfit(
     val garments: List<Garment>,
     val score: Double,
     val name: String,
+    /** Why it came up, most telling first. Empty when nothing stood out. */
+    val reasons: List<OutfitReason> = emptyList(),
 )
 
 /** Looks up the learned score for a garment pair, in either order. */
@@ -152,6 +153,19 @@ data class GenerateSuggestionsOptions(
     val count: Int = 3,
     val preferences: SuggestionPreferences? = null,
     val seedGarments: List<Garment> = emptyList(),
+    /**
+     * Outfits already shown, as their garment ids, to be offered last.
+     *
+     * Nothing remembered what it had just suggested, so tapping the button twice
+     * could hand back the same three outfits and read as a broken button. Passed
+     * in rather than remembered here, because the engine is pure and "what was on
+     * screen a moment ago" is the screen's business.
+     *
+     * Last rather than never: a wardrobe with four wearable combinations in it
+     * would otherwise run out of things to say, and showing a repeat beats showing
+     * nothing.
+     */
+    val alreadySeen: List<List<String>> = emptyList(),
 )
 
 /** Whether a garment's tags match the season in play. */
@@ -255,22 +269,39 @@ private fun contextScore(
 ): Double = seasonFit(garment, currentSeason, preferences) + occasionFit(garment, preferences)
 
 /**
+ * What an outfit scored, and what each part of the judgement contributed.
+ *
+ * The parts are kept rather than summed away because the screen has a use for
+ * them -- "you rated these together" is worth saying, and "it scored 0.81" is
+ * not -- and because a term that is computed and never added to the total is a
+ * change that alters nothing while looking like it does. Both readings come off
+ * the same object.
+ *
+ * Every field is already weighted, so they sum to [total].
+ */
+data class OutfitScore(
+    val total: Double,
+    val learnedPairs: Double,
+    val season: Double,
+    val occasion: Double,
+    val coherence: Double,
+    val harmony: Double,
+    /** Negative or zero: the only part of the judgement that takes away. */
+    val loudColours: Double,
+)
+
+/**
  * Score a candidate outfit.
  *
- * Internal rather than private so a test can score two outfits and compare them.
- * The weights below are the whole judgement of the engine, and a term that is
- * computed and then not added to the total is a change that alters nothing while
- * looking like it does -- which is not something the end-to-end output can be
- * relied on to show, since the draw decides what it ever gets to score.
+ * Internal rather than private so a test can score two outfits and compare them,
+ * and so a test can check that each part reaches the total.
  */
 internal fun scoreOutfit(
     garments: List<Garment>,
     getPairScore: PairScoreLookup,
     currentSeason: Season,
     preferences: SuggestionPreferences?,
-): Double {
-    var score = 0.0
-
+): OutfitScore {
     // Pair scores from learning
     var pairTotal = 0.0
     var pairCount = 0
@@ -280,22 +311,20 @@ internal fun scoreOutfit(
             pairCount++
         }
     }
-    if (pairCount > 0) score += (pairTotal / pairCount) * 3 // Weight learned preferences heavily
+    // Weight learned preferences heavily.
+    val learned = if (pairCount > 0) (pairTotal / pairCount) * 3 else 0.0
 
     // Season and occasion, each counted exactly once. Season used to be added
     // here at weight 1.0 and again inside contextScore at weight 1.2, giving it
     // an effective weight of 2.2 -- more than colour harmony, and more than
     // intended.
-    val seasonTotal = garments.sumOf { seasonFit(it, currentSeason, preferences) }
-    score += (seasonTotal / garments.size) * 1.0
-
-    val occasionTotal = garments.sumOf { occasionFit(it, preferences) }
-    score += (occasionTotal / garments.size) * 1.2
+    val season = (garments.sumOf { seasonFit(it, currentSeason, preferences) } / garments.size) * 1.0
+    val occasion = (garments.sumOf { occasionFit(it, preferences) } / garments.size) * 1.2
 
     // Whether the garments agree with *each other* about what kind of day this
     // is, which is a different question from whether they suit the day that was
     // asked for -- and the only one that has an answer when nothing was asked.
-    score += occasionCoherence(garments) * 1.0
+    val coherence = occasionCoherence(garments) * 1.0
 
     // Colour harmony
     var harmonyTotal = 0.0
@@ -306,10 +335,110 @@ internal fun scoreOutfit(
             harmonyCount++
         }
     }
-    if (harmonyCount > 0) score += (harmonyTotal / harmonyCount) * 1.5
+    val harmony = if (harmonyCount > 0) (harmonyTotal / harmonyCount) * 1.5 else 0.0
 
-    return score
+    // The one term that subtracts. Harmony is an average over pairs and cannot
+    // see how many loud colours there are in total, only how each pair of them
+    // gets on -- so this is counted over the outfit rather than over its pairs.
+    val loud = -excessLoudColours(garments) * LOUD_COLOUR_PENALTY
+
+    return OutfitScore(
+        total = learned + season + occasion + coherence + harmony + loud,
+        learnedPairs = learned,
+        season = season,
+        occasion = occasion,
+        coherence = coherence,
+        harmony = harmony,
+        loudColours = loud,
+    )
 }
+
+/**
+ * Why an outfit was suggested, in terms worth reading.
+ *
+ * An enum rather than a sentence because the words belong in :app, where the
+ * reader's language is known -- and because "the colours work" is a claim this
+ * module is entitled to make while the wording of it is not its business.
+ */
+enum class OutfitReason {
+    /** These garments have been rated well together before. */
+    LEARNED,
+    /** The colours go together. */
+    COLOURS,
+    /** It suits the occasion that was asked for. */
+    OCCASION,
+    /** It suits the season. */
+    SEASON,
+    /** The garments are dressed for the same kind of day. */
+    COHERENT,
+}
+
+/** Above this share of its own possible value, a term is worth mentioning. */
+private const val REASON_THRESHOLD = 0.6
+
+/**
+ * The two or three things most worth saying about why this outfit came up.
+ *
+ * Ordered by how much each contributed rather than by a fixed precedence, so the
+ * reason given is the reason it won -- a learned pair beating colour is worth
+ * saying, and so is the reverse. Capped, because a list of five reasons is a
+ * paragraph nobody reads and every outfit would show most of them.
+ *
+ * A term has to clear [REASON_THRESHOLD] of what it could have contributed to be
+ * named at all: an outfit scraping half marks on colour has not earned "the
+ * colours work", and saying so of everything would make the words worthless.
+ */
+fun outfitReasons(score: OutfitScore, limit: Int = 2): List<OutfitReason> = listOf(
+    // Learned pairs have no ceiling -- a rating folds into a running average that
+    // sits within about 0.5 either way, so 3x that is around 1.5 -- and being
+    // rated well at all is the strongest thing that can be said about an outfit.
+    OutfitReason.LEARNED to score.learnedPairs.takeIf { it > 0.3 },
+    OutfitReason.COLOURS to score.harmony.takeIf { it >= 1.5 * REASON_THRESHOLD },
+    OutfitReason.OCCASION to score.occasion.takeIf { it >= 1.2 * REASON_THRESHOLD },
+    OutfitReason.SEASON to score.season.takeIf { it >= 1.0 * REASON_THRESHOLD },
+    OutfitReason.COHERENT to score.coherence.takeIf { it >= 1.0 * REASON_THRESHOLD },
+)
+    .mapNotNull { (reason, value) -> value?.let { reason to it } }
+    .sortedByDescending { it.second }
+    .take(limit)
+    .map { it.first }
+
+/**
+ * How many garments may shout their colour before an outfit reads as a costume.
+ *
+ * Two. One statement colour against neutrals is a considered outfit and two that
+ * contrast is a deliberate one; the third is where it stops looking chosen.
+ *
+ * This exists because harmony is scored pairwise and every pair of it was happy:
+ * a contrast scores 0.7, so red with green with gold with blue scored 0.7 across
+ * all six pairs -- better than one bold colour with neutrals, which scores 0.5 for
+ * every pair it appears in. The arithmetic was right about each pair and wrong
+ * about the outfit, which is exactly what a pairwise average cannot see.
+ */
+private const val LOUD_COLOUR_ALLOWANCE = 2
+
+/** What a loud colour past the allowance costs. */
+private const val LOUD_COLOUR_PENALTY = 0.8
+
+/** How many colours past the allowance an outfit shouts in. */
+private fun excessLoudColours(garments: List<Garment>): Int =
+    (garments.count { isLoudColor(it.primaryColor) } - LOUD_COLOUR_ALLOWANCE).coerceAtLeast(0)
+
+/**
+ * How many draws to take before ranking them.
+ *
+ * The old rule was `min(count * 5, 20)`, which is twenty samples of a wardrobe
+ * whatever size it is -- a thin search of two hundred garments, and the reason a
+ * large wardrobe kept showing the same corner of itself. There is no I/O in a
+ * draw, so the wardrobe's own size is affordable as a term.
+ *
+ * Bounded at both ends. Twenty is the floor because a small wardrobe still needs
+ * enough attempts to find distinct outfits after the duplicates are dropped, and
+ * a ceiling exists because this runs while somebody waits: the returns from
+ * sampling fall away long before the cost does.
+ */
+internal fun suggestionAttempts(count: Int, wardrobeSize: Int): Int =
+    (count * 5 + wardrobeSize).coerceIn(20, 150)
 
 /** Scores within this of the best count as tied rather than beaten. */
 private const val SCORE_TIE_EPSILON = 1e-9
@@ -352,7 +481,14 @@ private fun pickBestFit(
             sharesAnOccasion(candidateOccasions, it) == true
         }.toDouble()
 
-        val total = pairScoreSum + harmony + coherence +
+        // Steered here as well as scored at the end, or the engine would keep
+        // assembling four-colour outfits and then ranking them down -- twenty
+        // draws spent on candidates it was always going to reject.
+        val wouldShout = excessLoudColours(selected + candidate) -
+            excessLoudColours(selected)
+
+        val total = pairScoreSum + harmony + coherence -
+            wouldShout * LOUD_COLOUR_PENALTY +
             contextScore(candidate, currentSeason, preferences) * 1.5
 
         if (total > bestScore + SCORE_TIE_EPSILON) {
@@ -469,7 +605,7 @@ fun buildSuggestions(
     if (viableTemplates.isEmpty()) return emptyList()
 
     val candidates = mutableListOf<ScoredOutfit>()
-    val attempts = min(count * 5, 20)
+    val attempts = suggestionAttempts(count, garments.size)
 
     for (i in 0 until attempts) {
         val template = pickTemplate(viableTemplates, random)
@@ -507,19 +643,37 @@ fun buildSuggestions(
         val name = selected.joinToString(" + ") { g ->
             g.subcategory?.takeIf { it.isNotEmpty() } ?: g.category
         }
-        candidates.add(ScoredOutfit(garments = selected, score = score, name = name))
+        candidates.add(
+            ScoredOutfit(
+                garments = selected,
+                score = score.total,
+                name = name,
+                reasons = outfitReasons(score),
+            )
+        )
     }
 
     // Sort by score and return the top N, avoiding duplicate combinations.
     val ranked = candidates.sortedByDescending { it.score }
 
+    fun key(ids: List<String>) = ids.sorted().joinToString(",")
+    val alreadySeen = options.alreadySeen.map { key(it) }.toSet()
+
     val seen = mutableSetOf<String>()
     val results = mutableListOf<ScoredOutfit>()
-    for (c in ranked) {
-        val key = c.garments.map { it.id }.sorted().joinToString(",")
-        if (seen.add(key)) {
+
+    // Two passes over the same ranking: fresh outfits first, then the ones already
+    // shown if there were not enough. A single pass that skipped what was seen
+    // would answer a small wardrobe with fewer outfits every time the button was
+    // pressed, which is a worse failure than a repeat.
+    for (allowRepeats in listOf(false, true)) {
+        for (c in ranked) {
+            val key = key(c.garments.map { it.id })
+            if (!allowRepeats && key in alreadySeen) continue
+            if (!seen.add(key)) continue
+
             results.add(c.copy(score = normalizeOutfitScore(c.score)))
-            if (results.size >= count) break
+            if (results.size >= count) return results
         }
     }
 

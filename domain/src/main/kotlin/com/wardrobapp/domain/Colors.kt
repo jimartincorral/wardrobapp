@@ -201,6 +201,26 @@ fun colorRelationship(hex1: String, hex2: String): ColorRelationship {
  * apart, which meant it actively pushed the suggestion engine away from
  * navy-and-red and blue-and-orange.
  */
+/**
+ * Whether a colour shouts.
+ *
+ * The same chroma line [colorRelationship] uses to decide what counts as a
+ * neutral, asked about one colour instead of two: above it a colour has a hue
+ * worth reckoning with, below it the colour goes with anything.
+ *
+ * A multi-coloured garment counts as loud. It is several colours by definition,
+ * and whatever they are, it is not quietly beige.
+ *
+ * Named and public because an outfit is judged on how many of these it contains,
+ * which is a different question from how any two of them get on.
+ */
+fun isLoudColor(hex: String): Boolean {
+    if (hex.trim().uppercase() == MULTI_COLOR) return true
+
+    val lab = labOf(hex) ?: return false
+    return hypot(lab.a, lab.b) >= NEUTRAL_CHROMA
+}
+
 fun colorHarmonyScore(hex1: String, hex2: String): Double = when (colorRelationship(hex1, hex2)) {
     ColorRelationship.SAME -> 0.3 // Works, but reads as unconsidered.
     ColorRelationship.NEUTRAL -> 0.5

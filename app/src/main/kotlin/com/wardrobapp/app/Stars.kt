@@ -7,8 +7,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.presentation.MAX_RATING
+
+/**
+ * One star, by the rating it gives.
+ *
+ * Five identical glyphs otherwise: a test asking for "☆" matches all of them and
+ * can only pick one by position, which is the kind of assertion that passes on a
+ * row drawn backwards.
+ */
+fun starTag(rating: Int) = "star-$rating"
 
 /**
  * A row of stars, tappable.
@@ -36,6 +46,7 @@ internal fun Stars(rating: Int?, onRate: (Int) -> Unit) {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
                 modifier = Modifier
+                    .testTag(starTag(star))
                     .clickable { onRate(star) }
                     .padding(horizontal = 2.dp),
             )

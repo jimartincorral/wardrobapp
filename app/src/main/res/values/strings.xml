@@ -88,6 +88,11 @@
     <string name="outfits_suggesting">Building outfits…</string>
     <string name="outfits_none_possible">No outfits could be built from what\'s available. Try fewer filters, or add a few more garments.</string>
     <string name="outfits_prompt">Tap suggest to see what goes together.</string>
+    <string name="reason_learned">You rated these together</string>
+    <string name="reason_colours">The colours work</string>
+    <string name="reason_occasion">Suits the occasion</string>
+    <string name="reason_season">Right for the season</string>
+    <string name="reason_coherent">Dressed for the same day</string>
     <string name="outfits_saved_section">Saved</string>
     <string name="outfit_keep_title">Keep this outfit?</string>
     <string name="outfit_keep_body">Your rating is saved either way, and the app has already learned from it. Keeping \u201c%1$s\u201d also puts it in your saved outfits.</string>

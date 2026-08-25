@@ -83,11 +83,18 @@ class OutfitSuggestionsTest {
      * left in the total is colour harmony and whether the garments agree with each
      * other about the occasion.
      */
-    private fun scoreOf(garments: List<Garment>): Double = scoreOutfit(
+    private fun scoreOf(garments: List<Garment>): Double = breakdownOf(garments).total
+
+    /** The same, kept whole, for the tests that are about one part of it. */
+    private fun breakdownOf(
+        garments: List<Garment>,
+        pairScores: Map<String, Double> = emptyMap(),
+        preferences: SuggestionPreferences? = null,
+    ): OutfitScore = scoreOutfit(
         garments = garments,
-        getPairScore = PairScoreLookup { _, _ -> 0.0 },
+        getPairScore = PairScoreLookup { a, b -> pairScores[pairKey(a, b)] ?: 0.0 },
         currentSeason = Season.SPRING,
-        preferences = null,
+        preferences = preferences,
     )
 
     @Test
@@ -309,6 +316,175 @@ class OutfitSuggestionsTest {
         )
 
         assertTrue(suggestions.isNotEmpty(), "a wardrobe without shoes suggested nothing")
+    }
+
+    @Test
+    fun `a fourth loud colour costs more than its harmony earns`() {
+        // Harmony is an average over pairs and every pair of this is happy: four
+        // contrasting colours score 0.7 across all six pairings, which beat one
+        // statement colour against neutrals scoring 0.5 for every pair it is in.
+        // The arithmetic was right about each pair and wrong about the outfit.
+        val shouting = listOf(
+            garment("red", "tops", "Shirt", color = "#C0392B"),
+            garment("green", "bottoms", "Chinos", color = "#27AE60"),
+            garment("gold", "shoes", "Loafers", color = "#DAA520"),
+            garment("blue", "outerwear", "Coat", color = "#1F3A93"),
+        )
+        val oneStatement = listOf(
+            garment("red2", "tops", "Shirt", color = "#C0392B"),
+            garment("grey", "bottoms", "Chinos", color = "#7F8C8D"),
+            garment("white", "shoes", "Loafers", color = "#FFFFFF"),
+            garment("black", "outerwear", "Coat", color = "#111111"),
+        )
+
+        assertTrue(
+            scoreOf(oneStatement) > scoreOf(shouting),
+            "four loud colours scored better: ${scoreOf(shouting)} vs ${scoreOf(oneStatement)}",
+        )
+    }
+
+    @Test
+    fun `two loud colours are not penalised`() {
+        // The allowance is the point: one statement colour is a considered outfit
+        // and two that contrast is a deliberate one. Only the third costs.
+        val two = listOf(
+            garment("navy", "tops", "Shirt", color = "#1F3A93"),
+            garment("red", "bottoms", "Chinos", color = "#C0392B"),
+            garment("white", "shoes", "Sneakers", color = "#FFFFFF"),
+        )
+
+        assertEquals(0.0, breakdownOf(two).loudColours, absoluteTolerance = 1e-9)
+    }
+
+    @Test
+    fun `the draw count grows with the wardrobe, within bounds`() {
+        // Twenty samples of two hundred garments was a thin search, and the reason
+        // a large wardrobe kept showing the same corner of itself.
+        assertTrue(
+            suggestionAttempts(count = 3, wardrobeSize = 200) >
+                suggestionAttempts(count = 3, wardrobeSize = 10),
+            "a bigger wardrobe did not earn more draws",
+        )
+
+        // Bounded at both ends: a floor so a small wardrobe still finds distinct
+        // outfits after duplicates are dropped, a ceiling because somebody waits.
+        assertEquals(20, suggestionAttempts(count = 1, wardrobeSize = 1))
+        assertEquals(150, suggestionAttempts(count = 3, wardrobeSize = 5000))
+    }
+
+    @Test
+    fun `an outfit already shown is offered last`() {
+        // Tapping the button twice used to be able to hand back the same outfits,
+        // which reads as a broken button.
+        val first = buildSuggestions(context(seed = 5), GenerateSuggestionsOptions(count = 3))
+        val firstIds = first.map { outfit -> outfit.garments.map { it.id } }
+
+        val second = buildSuggestions(
+            context(seed = 5),
+            GenerateSuggestionsOptions(count = 3, alreadySeen = firstIds),
+        )
+
+        assertTrue(second.isNotEmpty(), "avoiding repeats produced nothing")
+        assertEquals(
+            emptyList(),
+            second.map { outfit -> outfit.garments.map { it.id } }.filter { it in firstIds },
+            "the same draw offered an outfit it had already shown",
+        )
+    }
+
+    @Test
+    fun `a wardrobe with one outfit in it repeats rather than saying nothing`() {
+        // Last, not never. A wardrobe with a single wearable combination would
+        // otherwise run out of things to say, and a repeat beats a blank screen.
+        val minimal = listOf(
+            garment("only-top", "tops", "T-Shirt"),
+            garment("only-bottom", "bottoms", "Jeans"),
+        )
+        val onlyOutfit = listOf(listOf("only-top", "only-bottom"))
+
+        val again = buildSuggestions(
+            context(garments = minimal),
+            GenerateSuggestionsOptions(count = 3, alreadySeen = onlyOutfit),
+        )
+
+        assertEquals(1, again.size, "the only outfit there is was withheld")
+    }
+
+    @Test
+    fun `every part of the judgement reaches the total`() {
+        // The reason the breakdown is returned rather than summed away: a term
+        // computed and not added is a change that alters nothing while looking
+        // like it does, and the end-to-end output cannot show that because the
+        // draw decides what ever gets scored.
+        // Every term non-zero, including the one that subtracts: a fixture with no
+        // excess loud colours would let the penalty be dropped from the total
+        // without this noticing, which is the mistake this test is here to catch.
+        val outfit = listOf(
+            garment("shirt", "tops", "Shirt", tags = listOf("spring"), color = "#1F3A93"),
+            garment("chinos", "bottoms", "Chinos", tags = listOf("spring"), color = "#C0392B"),
+            garment("shoes", "shoes", "Loafers", tags = listOf("spring"), color = "#DAA520"),
+        )
+        val score = breakdownOf(
+            outfit,
+            pairScores = mapOf(pairKey("shirt", "chinos") to 1.0),
+            preferences = SuggestionPreferences(occasion = Occasion.WORK),
+        )
+
+        assertEquals(
+            score.learnedPairs + score.season + score.occasion +
+                score.coherence + score.harmony + score.loudColours,
+            score.total,
+            absoluteTolerance = 1e-9,
+            message = "the parts do not sum to the total",
+        )
+
+        // Each of them actually carrying something, or the sum above is a sum of
+        // zeroes agreeing with itself.
+        assertTrue(score.learnedPairs > 0, "a rated pair contributed nothing")
+        assertTrue(score.season > 0, "a seasonal outfit contributed nothing")
+        assertTrue(score.occasion > 0, "an occasion that was asked for contributed nothing")
+        assertTrue(score.coherence > 0, "agreeing garments contributed nothing")
+        assertTrue(score.harmony > 0, "colour contributed nothing")
+        assertTrue(score.loudColours < 0, "three loud colours cost nothing")
+    }
+
+    @Test
+    fun `an outfit says why it came up, strongest reason first`() {
+        val rated = listOf(
+            garment("shirt", "tops", "Shirt", color = "#1F3A93"),
+            garment("chinos", "bottoms", "Chinos", color = "#BDC3C7"),
+        )
+
+        // A well-rated pair is the strongest thing that can be said about an
+        // outfit, so it leads even where the colours also work.
+        val learned = outfitReasons(
+            breakdownOf(rated, pairScores = mapOf(pairKey("shirt", "chinos") to 5.0))
+        )
+        assertEquals(OutfitReason.LEARNED, learned.first())
+
+        // And without a rating it is not claimed. Saying "you rated these" about
+        // an outfit nobody has rated is the one reason that would be a lie.
+        assertTrue(
+            OutfitReason.LEARNED !in outfitReasons(breakdownOf(rated)),
+            "an unrated outfit claimed a learned pair",
+        )
+    }
+
+    @Test
+    fun `no more reasons are given than can be read`() {
+        // Every term at once, which is a paragraph rather than a reason.
+        val everything = listOf(
+            garment("shirt", "tops", "Shirt", tags = listOf("spring"), color = "#1F3A93"),
+            garment("chinos", "bottoms", "Chinos", tags = listOf("spring"), color = "#BDC3C7"),
+        )
+        val score = breakdownOf(
+            everything,
+            pairScores = mapOf(pairKey("shirt", "chinos") to 5.0),
+            preferences = SuggestionPreferences(occasion = Occasion.WORK),
+        )
+
+        assertTrue(outfitReasons(score).size <= 2, "too many reasons to read")
+        assertEquals(3, outfitReasons(score, limit = 3).size)
     }
 
     @Test

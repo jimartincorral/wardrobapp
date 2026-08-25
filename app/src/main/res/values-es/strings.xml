@@ -79,6 +79,11 @@
     <string name="outfits_suggesting">Creando atuendos…</string>
     <string name="outfits_none_possible">No se pudo crear ningún atuendo con lo disponible. Prueba con menos filtros o agrega algunas prendas más.</string>
     <string name="outfits_prompt">Toca sugerir para ver qué combina.</string>
+    <string name="reason_learned">Ya valoraste esta combinación</string>
+    <string name="reason_colours">Los colores combinan</string>
+    <string name="reason_occasion">Encaja con la ocasión</string>
+    <string name="reason_season">Apropiado para la temporada</string>
+    <string name="reason_coherent">Del mismo estilo</string>
     <string name="outfits_saved_section">Guardados</string>
     <string name="outfit_keep_title">¿Guardar este atuendo?</string>
     <string name="outfit_keep_body">Tu valoración se guarda igualmente y la aplicación ya ha aprendido de ella. Guardar «%1$s» lo añade además a tus atuendos guardados.</string>
