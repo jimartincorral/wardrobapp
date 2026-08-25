@@ -184,6 +184,16 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
     fun onFiltersCleared() = narrow { it.cleared() }
 
     /**
+     * Show what another screen asked for, and only that.
+     *
+     * The query arrives built -- [WardrobeQuery.showing] is where the rule about
+     * what a link may and may not carry lives -- so this is only the re-read. It
+     * replaces the query rather than adding to it, which is what makes the list
+     * agree with the number that was tapped.
+     */
+    fun onQueryRequested(query: WardrobeQuery) = narrow { query }
+
+    /**
      * A tap: change the query and re-read at once.
      *
      * Nothing to wait for -- a chip cannot be half-tapped the way a word can be

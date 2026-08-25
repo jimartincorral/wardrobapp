@@ -188,4 +188,35 @@ class WardrobeQueryTest {
         assertEquals(GarmentSort.OLDEST, once.sort)
         assertEquals(GarmentSort.NEWEST, once.withSortToggled().sort)
     }
+
+    @Test
+    fun `arriving from another screen shows that one thing and nothing else`() {
+        // A tap on "Tops" in the statistics chart means "show me those garments".
+        // If a size or a season from the last visit survived, the list would be
+        // shorter than the number that was tapped, with nothing on screen to say
+        // why -- which makes the chart look wrong rather than the filter.
+        val arrived = WardrobeQuery.showing(category = "tops")
+
+        assertEquals("tops", arrived.category)
+        assertEquals(1, arrived.activeFilterCount, "a link brought more than it was asked for")
+        assertEquals(WardrobeQuery(category = "tops"), arrived)
+    }
+
+    @Test
+    fun `a link may ask for retired garments, which nothing else shows`() {
+        // The one filter a link sets deliberately: the archived count on the home
+        // screen counts exactly the garments the plain wardrobe hides, so opening
+        // the plain wardrobe from it would show none of them.
+        val arrived = WardrobeQuery.showing(includeRetired = true)
+
+        assertTrue(arrived.includeRetired)
+        assertNull(arrived.category)
+        assertEquals(1, arrived.activeFilterCount)
+    }
+
+    @Test
+    fun `a link with nothing to say is the plain wardrobe`() {
+        assertEquals(WardrobeQuery(), WardrobeQuery.showing())
+        assertEquals(0, WardrobeQuery.showing().activeFilterCount)
+    }
 }

@@ -53,6 +53,7 @@ class StatisticsScreenTest {
     )
 
     private var tapped: StatisticsSection? = null
+    private var filtered: String? = null
 
     private fun show(
         state: StatisticsViewModel.State = StatisticsViewModel.State(loading = false, view = view()),
@@ -61,6 +62,7 @@ class StatisticsScreenTest {
             StatisticsScreen(
                 state = state,
                 onCategoryTapped = {},
+                onCategoryFilterRequested = { filtered = it },
                 onBrandSortChanged = {},
                 onSectionTapped = { tapped = it },
                 onRetry = {},
@@ -133,6 +135,35 @@ class StatisticsScreenTest {
         // heading that is now a button.
         scrollTo("A-Z")
         compose.onNodeWithText("A-Z").assertIsDisplayed()
+    }
+
+    @Test
+    fun `each category offers to show itself in the wardrobe`() {
+        // The join this feature is: the button has to report the category *key*,
+        // because that is what the wardrobe filters on. Reporting the label -- the
+        // translated word next to the bar -- would filter by "Tops" and match
+        // nothing, and on a Spanish phone it would match nothing differently.
+        show(
+            StatisticsViewModel.State(
+                loading = false,
+                view = view(),
+                openSections = setOf(StatisticsSection.CATEGORY),
+            )
+        )
+
+        scrollTo("Tops")
+        compose.onNodeWithTag(categoryFilterTag("tops")).performClick()
+
+        assertEquals("tops", filtered)
+    }
+
+    @Test
+    fun `a shut category section offers nothing to filter by`() {
+        // The buttons live on the rows, so a section nobody has opened has none of
+        // them -- which is also what stops the page from being a column of icons.
+        show()
+
+        compose.onNodeWithTag(categoryFilterTag("tops")).assertDoesNotExist()
     }
 
     @Test

@@ -85,6 +85,28 @@ data class WardrobeQuery(
     fun cleared(): WardrobeQuery = WardrobeQuery()
 
     /**
+     * What the wardrobe should be showing when it is opened from somewhere else.
+     *
+     * Built from nothing rather than from the query in force, and that is the
+     * point: a tap on "Tops" in the statistics chart means "show me those 14
+     * garments", and a size or a season left over from the last visit would show
+     * some of them and no explanation of where the rest went. The chart's number
+     * and the list's length have to agree, or the link is a lie about the chart.
+     *
+     * [includeRetired] carries the one filter a link may deliberately set: the
+     * archived count on the home screen counts exactly the garments the plain
+     * wardrobe hides, so a link from it that did not ask for them would open on
+     * a list without a single one of the things it was counting.
+     *
+     * The screen still says it is narrowed -- the header shows the count and the
+     * clear button -- so arriving filtered is visible and one tap from undone.
+     */
+    companion object {
+        fun showing(category: String? = null, includeRetired: Boolean = false): WardrobeQuery =
+            WardrobeQuery(category = category, includeRetired = includeRetired)
+    }
+
+    /**
      * Pick a category, or tap the current one again to drop it.
      *
      * Either way the subcategory goes: it only means anything inside a category,

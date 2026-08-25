@@ -1,6 +1,8 @@
 package com.wardrobapp.app
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +26,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -52,6 +56,9 @@ import com.wardrobapp.presentation.NO_SUBCATEGORY
 import com.wardrobapp.presentation.StatBar
 import com.wardrobapp.presentation.StatisticsView
 import com.wardrobapp.presentation.paletteColorFor
+
+/** The "show these in the wardrobe" button on one category's row. */
+fun categoryFilterTag(category: String) = "statistics-filter-$category"
 
 /** The parts of the page that open and shut, all shut to begin with. */
 enum class StatisticsSection { CATEGORY, COLOUR, BRAND, LIFESPAN }
@@ -87,6 +94,7 @@ const val STATISTICS_PAGE = "statistics-page"
 fun StatisticsScreen(
     state: StatisticsViewModel.State,
     onCategoryTapped: (String) -> Unit,
+    onCategoryFilterRequested: (String) -> Unit,
     onBrandSortChanged: (BrandSort) -> Unit,
     onSectionTapped: (StatisticsSection) -> Unit,
     onRetry: () -> Unit,
@@ -125,6 +133,7 @@ fun StatisticsScreen(
                 brandSort = state.brandSort,
                 insets = insets,
                 onCategoryTapped = onCategoryTapped,
+                onCategoryFilterRequested = onCategoryFilterRequested,
                 onBrandSortChanged = onBrandSortChanged,
                 onSectionTapped = onSectionTapped,
             )
@@ -140,6 +149,7 @@ private fun Body(
     brandSort: BrandSort,
     insets: PaddingValues,
     onCategoryTapped: (String) -> Unit,
+    onCategoryFilterRequested: (String) -> Unit,
     onBrandSortChanged: (BrandSort) -> Unit,
     onSectionTapped: (StatisticsSection) -> Unit,
 ) {
@@ -244,6 +254,16 @@ private fun Body(
                                 clickLabel = stringResource(
                                     if (isOpen) R.string.statistics_collapse else R.string.statistics_expand
                                 ),
+                                // Beside the row rather than being the row: tapping
+                                // the row opens the types underneath, which is worth
+                                // keeping, so leaving the chart needs its own target.
+                                action = {
+                                    ShowInWardrobe(
+                                        label = categoryLabel(bar.key),
+                                        tag = categoryFilterTag(bar.key),
+                                        onClick = { onCategoryFilterRequested(bar.key) },
+                                    )
+                                },
                             )
 
                             if (isOpen) {
@@ -512,6 +532,8 @@ private fun BarRow(
     chevron: String? = null,
     onClick: (() -> Unit)? = null,
     clickLabel: String? = null,
+    /** A control at the end of the row, outside whatever [onClick] does. */
+    action: (@Composable () -> Unit)? = null,
     labelWidth: Dp = 104.dp,
     valueWidth: Dp = 32.dp,
     fill: Color = MaterialTheme.colorScheme.primary,
@@ -587,6 +609,32 @@ private fun BarRow(
                 modifier = Modifier.width(20.dp),
             )
         }
+
+        action?.invoke()
+    }
+}
+
+/**
+ * "Show me these in the wardrobe."
+ *
+ * Small, because it sits at the end of every row in a chart and a chart of eight
+ * categories should not read as a column of buttons. The wardrobe tab's own glyph,
+ * so what it opens is recognisable before it is tapped, and it names its category
+ * for a screen reader -- eight buttons all called "show in wardrobe" would be
+ * eight identical announcements.
+ */
+@Composable
+private fun ShowInWardrobe(label: String, tag: String, onClick: () -> Unit) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.size(28.dp).testTag(tag),
+    ) {
+        Icon(
+            Icons.AutoMirrored.Filled.List,
+            contentDescription = stringResource(R.string.statistics_show_in_wardrobe, label),
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 
