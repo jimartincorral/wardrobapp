@@ -147,9 +147,7 @@
         the save path when the fault was in reading a photo.
     -->
     <string name="error_title_photo">Couldn\'t use that photo</string>
-    <string name="error_title_colors">Couldn\'t read the colours</string>
     <string name="error_title_background">Couldn\'t remove the background</string>
-    <string name="error_title_type">Couldn\'t read the garment type</string>
     <string name="form_section_photos">Photos</string>
     <string name="form_section_tags">Tags</string>
     <string name="form_size_custom">Or type a size</string>
@@ -290,21 +288,9 @@
 
     <!-- Taking a photo, and reading a colour off one -->
     <string name="form_take_photo">Take Photo</string>
-    <string name="form_detect_colors">Detect Colors</string>
     <string name="form_detecting_colors">Reading colors from photo…</string>
-    <string name="error_colors_not_read">The colors could not be read from that photo.</string>
     <string name="error_no_camera">No camera app answered, so no photo was taken.</string>
     <string name="error_crop_failed">That photo could not be cropped, so it was not added.</string>
-
-    <!-- Reading what garment a photo is -->
-    <string name="form_suggest_type">Suggest Type</string>
-    <string name="form_suggesting_type">Looking at the photo…</string>
-    <string name="form_type_not_recognized">Nothing recognizable in that photo. Pick the type below.</string>
-    <string name="error_type_not_read">The garment type could not be read from that photo.</string>
-    <string name="error_labels_busy">That photo is already being looked at.</string>
-    <string name="error_labels_downloading">Type suggestions are still downloading what they need. Try again in a moment.</string>
-    <string name="error_labels_timed_out">Reading the photo took too long and was stopped. If this is the first time, the model may still be downloading.</string>
-    <string name="error_labels_failed">The photo could not be read: %1$s</string>
 
     <!-- URL import, in the garment form -->
     <string name="import_section">Import from a link</string>

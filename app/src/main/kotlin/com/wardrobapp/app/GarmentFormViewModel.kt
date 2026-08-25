@@ -24,8 +24,7 @@ import com.wardrobapp.domain.seasonsForSubcategories
 import com.wardrobapp.domain.splitStructuredTags
 import com.wardrobapp.presentation.GarmentFormState
 import com.wardrobapp.presentation.brandSuggestions
-import com.wardrobapp.presentation.dominantGarmentColor
-import com.wardrobapp.presentation.suggestGarmentType
+import com.wardrobapp.presentation.dominantGarmentColors
 import com.wardrobapp.presentation.toggled
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -101,21 +100,6 @@ class GarmentFormViewModel(
          * reason: it is its own wait with its own thing to say about it.
          */
         val detectingColor: Boolean = false,
-        /**
-         * True while a photo is being read for what garment it is.
-         *
-         * Its own flag beside [detectingColor] for the same reason that one is its
-         * own: another model, another wait, another thing to say about it.
-         */
-        val suggestingType: Boolean = false,
-        /**
-         * Set when the model ran and nothing it saw was a garment this app files.
-         *
-         * Not an error -- nothing failed and nothing was lost -- so it is a line
-         * under the button rather than a dialog. Cleared by the next edit to the
-         * form and by the next attempt, so it never outlives what it describes.
-         */
-        val typeNotRecognized: Boolean = false,
     )
 
     /**
@@ -189,12 +173,7 @@ class GarmentFormViewModel(
     // ---- the form itself ----------------------------------------------------
 
     private fun edit(transform: (GarmentFormState) -> GarmentFormState) {
-        // Any edit clears "nothing recognised": whatever the model failed to name,
-        // the person is now naming it themselves, and a line saying otherwise under
-        // the button is stale the moment they do.
-        _state.update {
-            it.copy(form = transform(it.form), duplicates = emptyList(), typeNotRecognized = false)
-        }
+        _state.update { it.copy(form = transform(it.form), duplicates = emptyList()) }
     }
 
     fun onCategorySelected(category: String) = edit {
@@ -279,6 +258,7 @@ class GarmentFormViewModel(
                 _state.update {
                     it.copy(saving = false, form = it.form.withImage(uri), duplicates = emptyList())
                 }
+                detectColors()
             } catch (e: Exception) {
                 _state.update {
                     it.copy(
@@ -380,6 +360,8 @@ class GarmentFormViewModel(
                         ),
                     )
                 }
+                // An import brings photos of the garment like any other route in.
+                detectColors()
             } catch (error: UnsafeUrlException) {
                 failImport(ImportProblem.Unsafe(error.reason))
             } catch (error: GarmentImportException) {
@@ -426,106 +408,62 @@ class GarmentFormViewModel(
         )
     }
 
-    // ---- reading a colour off a photo -----------------------------------------
+    // ---- reading the colours off a photo ---------------------------------------
 
     /**
-     * Suggest a colour from the selected photo.
+     * Read the selected photo's colours into the form.
      *
-     * A suggestion, not a correction: the detected colour goes to the front of the
-     * palette and anything already chosen stays, which is what `withDetectedColor`
-     * does. That is why this is a button rather than something that fires on every
-     * photo -- the app this replaced offers it the same way.
+     * Not a button. It runs when a photo arrives and again when its background is
+     * removed, because those are the two moments when there is something new to
+     * read and nothing has been said about the colours yet. A button was the React
+     * Native app's arrangement and it made the common case -- add a photo, accept
+     * what it is -- a tap that nobody should have to know about.
      *
      * Read off whatever the preview is showing, which is the cut-out where the
      * background has been removed. That matters: the count is over the pixels of
      * the image handed in, so on an original photo a large pale background can hold
      * more of the frame than the garment does and win outright. A cut-out's
      * background is transparent and the alpha gate drops it, leaving only the
-     * garment to vote.
+     * garment to vote. It is also why removing a background reads again: the same
+     * garment, a better photo of it.
+     *
+     * Silent about failure, deliberately. Nobody asked for this, so a photo that
+     * will not decode leaves the palette exactly as it was rather than raising a
+     * dialog about a job the user did not start.
      */
-    fun onDetectColorRequested() {
+    private fun detectColors() {
         val form = _state.value.form
         val photo = form.displayedPreviewUri()
-        if (photo.isNullOrEmpty() || _state.value.detectingColor) return
 
-        _state.update { it.copy(detectingColor = true, error = null) }
+        // Chosen colours are not detected over, so there is nothing to read for.
+        if (photo.isNullOrEmpty() || form.colorsChosen || _state.value.detectingColor) return
+
+        _state.update { it.copy(detectingColor = true) }
 
         viewModelScope.launch {
-            try {
-                val detected = withContext(Dispatchers.IO) {
+            val detected = try {
+                withContext(Dispatchers.IO) {
                     container.photos
                         .pixelsFor(photo.toUri(), COLOR_SAMPLE_WIDTH)
-                        ?.let { dominantGarmentColor(it) }
+                        ?.let { dominantGarmentColors(it) }
                 }
-
-                _state.update { state ->
-                    state.copy(
-                        detectingColor = false,
-                        // A photo that would not decode is not an error worth a
-                        // dialog: nothing was lost and nothing was changed.
-                        form = detected?.let { state.form.withDetectedColor(it) } ?: state.form,
-                    )
-                }
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        detectingColor = false,
-                        error = e.message,
-                        errorFallback = R.string.error_colors_not_read,
-                        errorTitle = R.string.error_title_colors,
-                    )
-                }
+            } catch (_: Exception) {
+                null
             }
-        }
-    }
 
-    // ---- reading a garment type off a photo -----------------------------------
-
-    /**
-     * Suggest a category and type from the selected photo.
-     *
-     * The same shape as detecting a colour, and for the same reasons: the cut-out
-     * where there is one, because a model shown a garment on a duvet is being shown
-     * a duvet; a button rather than something that fires on every photo, because
-     * filling in a type somebody already picked is a correction nobody asked for;
-     * and a suggestion at the end rather than an answer, which is
-     * `withSuggestedType`'s business.
-     *
-     * The interesting outcome is the third one. Labelling can succeed and mean
-     * nothing -- a photo of a garment this model has no word for, or of a floor --
-     * and that is neither an error nor a suggestion. It says so and changes nothing.
-     */
-    fun onSuggestTypeRequested() {
-        val form = _state.value.form
-        val photo = form.displayedPreviewUri()
-        if (photo.isNullOrEmpty() || _state.value.suggestingType) return
-
-        _state.update { it.copy(suggestingType = true, typeNotRecognized = false, error = null) }
-
-        viewModelScope.launch {
-            try {
-                val suggestion = withContext(Dispatchers.IO) {
-                    suggestGarmentType(container.labels.labelsFor(photo.toUri()))
-                }
-
-                _state.update { state ->
-                    state.copy(
-                        suggestingType = false,
-                        typeNotRecognized = suggestion == null,
-                        form = suggestion?.let {
-                            state.form.withSuggestedType(it.category, it.subcategory, ::seasonsForSubcategories)
-                        } ?: state.form,
-                    )
-                }
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        suggestingType = false,
-                        error = e.message,
-                        errorFallback = R.string.error_type_not_read,
-                        errorTitle = R.string.error_title_type,
-                    )
-                }
+            _state.update { state ->
+                state.copy(
+                    detectingColor = false,
+                    // Only if the form is still showing the photo that was read: a
+                    // photo can be added, or a background removed, while this was
+                    // working, and colours from the previous image are worse than
+                    // none. `withDetectedColors` checks the rest.
+                    form = if (detected != null && state.form.displayedPreviewUri() == photo) {
+                        state.form.withDetectedColors(detected)
+                    } else {
+                        state.form
+                    },
+                )
             }
         }
     }
@@ -569,6 +507,10 @@ class GarmentFormViewModel(
                         duplicates = emptyList(),
                     )
                 }
+                // The cut-out is a better photo of the same garment: only the
+                // garment's own pixels are left in it, so its colours are worth
+                // reading again.
+                detectColors()
             } catch (e: Exception) {
                 _state.update {
                     it.copy(
@@ -755,6 +697,10 @@ class GarmentFormViewModel(
                             seasons = seasons,
                             brand = record.brand ?: "",
                             colorPalette = record.palette,
+                            // The garment's saved colours are a choice already made,
+                            // so nothing detects over them -- including a background
+                            // removed on a garment being edited.
+                            colorsChosen = true,
                             size = record.size ?: "",
                         ).normalized(),
                     )

@@ -7,34 +7,39 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Which colour a garment's pixels come to.
+ * Which colours a garment's pixels come to.
  *
  * The interesting cases are the two that were reported from a phone, because both
  * of them the old mean got wrong by inventing a colour: a striped garment averaged
  * to a shade appearing nowhere in it, and a garment photographed on a pale
  * background averaged towards the background. A mode cannot invent -- whatever it
  * returns, that many pixels really are that colour -- so what is left to test is
- * the counting, the tie, and the pixels that must not be counted at all.
+ * the counting, the tie, the pixels that must not be counted at all, and where the
+ * line between "the garment's second colour" and "the shadows in its folds" falls.
  */
 class DominantColorTest {
 
     @Test
-    fun `the colour most of the garment is wins, not the average of it`() {
+    fun `the colour most of the garment is comes first, not the average of it`() {
         // The striped shirt. Two thirds white, one third black: the mean is a grey
-        // that neither stripe is, and the answer is white.
+        // that neither stripe is, and the answer is white -- then black, because a
+        // third of the garment being black is the garment being two colours.
         val striped = sampled(
             Pixel(255, 255, 255, 255),
             Pixel(255, 255, 255, 255),
             Pixel(0, 0, 0, 255),
         )
 
-        assertEquals("#FFFFFF", dominantGarmentColor(striped))
+        assertEquals(listOf("#FFFFFF", "#000000"), dominantGarmentColors(striped))
     }
 
     @Test
     fun `a majority of one colour is not diluted by a spread of others`() {
         // Four navy pixels against one each of four other colours. A mean would be
-        // dragged somewhere between all five; a mode counts navy four times.
+        // dragged somewhere between all five; a mode counts navy four times. And
+        // none of the other four is a fifth of the garment, so navy is all of the
+        // answer -- which is the case that matters, because this is what a plain
+        // garment photographed in a real room looks like.
         val navy = sampled(
             Pixel(0, 0, 128, 255),
             Pixel(0, 0, 128, 255),
@@ -46,17 +51,60 @@ class DominantColorTest {
             Pixel(34, 139, 34, 255),
         )
 
-        assertEquals("#000080", dominantGarmentColor(navy))
+        assertEquals(listOf("#000080"), dominantGarmentColors(navy))
+    }
+
+    @Test
+    fun `a second colour has to be a fifth of the garment to be one`() {
+        // Either side of the line, with the same two colours. One white pixel in
+        // six is a sixth and is not the garment's colour; one in five is.
+        val speck = sampled(
+            Pixel(0, 0, 128, 255),
+            Pixel(0, 0, 128, 255),
+            Pixel(0, 0, 128, 255),
+            Pixel(0, 0, 128, 255),
+            Pixel(0, 0, 128, 255),
+            Pixel(255, 255, 255, 255),
+        )
+        assertEquals(listOf("#000080"), dominantGarmentColors(speck))
+
+        val panel = sampled(
+            Pixel(0, 0, 128, 255),
+            Pixel(0, 0, 128, 255),
+            Pixel(0, 0, 128, 255),
+            Pixel(0, 0, 128, 255),
+            Pixel(255, 255, 255, 255),
+        )
+        assertEquals(listOf("#000080", "#FFFFFF"), dominantGarmentColors(panel))
+    }
+
+    @Test
+    fun `only two colours are ever reported, however many the garment has`() {
+        // A print has more than two and there is no useful answer past the second:
+        // a palette pre-filled with five colours is a palette to empty out.
+        val print = sampled(
+            Pixel(255, 0, 0, 255),
+            Pixel(255, 0, 0, 255),
+            Pixel(255, 255, 255, 255),
+            Pixel(0, 0, 0, 255),
+            Pixel(255, 215, 0, 255),
+        )
+
+        assertEquals(2, dominantGarmentColors(print).size)
     }
 
     @Test
     fun `two colours in equal measure go to the palette's order`() {
         // Black is the palette's first entry and white its second, so an even split
-        // is black -- not whichever pixel the loop happened to reach first.
+        // is black then white -- not whichever pixel the loop happened to reach
+        // first.
         val even = sampled(Pixel(255, 255, 255, 255), Pixel(0, 0, 0, 255))
 
-        assertEquals("#000000", dominantGarmentColor(even))
-        assertEquals("#000000", dominantGarmentColor(sampled(Pixel(0, 0, 0, 255), Pixel(255, 255, 255, 255))))
+        assertEquals(listOf("#000000", "#FFFFFF"), dominantGarmentColors(even))
+        assertEquals(
+            listOf("#000000", "#FFFFFF"),
+            dominantGarmentColors(sampled(Pixel(0, 0, 0, 255), Pixel(255, 255, 255, 255))),
+        )
     }
 
     @Test
@@ -71,28 +119,34 @@ class DominantColorTest {
             Pixel(0, 0, 0, 0),
         )
 
-        assertEquals("#FFFFFF", dominantGarmentColor(transparentWhite))
+        assertEquals(listOf("#FFFFFF"), dominantGarmentColors(transparentWhite))
     }
 
     @Test
     fun `a barely-opaque pixel is still ignored`() {
         // The edge of a cut-out is antialiased, so the pixels just outside the
         // garment carry a trace of it. 15 is under the gate and 16 is not.
-        assertEquals("#000000", dominantGarmentColor(pixels(Pixel(255, 255, 255, 15))))
-        assertEquals("#FFFFFF", dominantGarmentColor(pixels(Pixel(255, 255, 255, 16))))
+        assertEquals(emptyList(), dominantGarmentColors(pixels(Pixel(255, 255, 255, 15))))
+        assertEquals(listOf("#FFFFFF"), dominantGarmentColors(pixels(Pixel(255, 255, 255, 16))))
     }
 
     @Test
-    fun `an image with nothing in it comes out black rather than nothing`() {
-        assertEquals("#000000", dominantGarmentColor(pixels(Pixel(9, 9, 9, 0))))
-        assertEquals("#000000", dominantGarmentColor(ByteArray(0)))
+    fun `an image with nothing in it reads as no colours rather than as black`() {
+        // Which is the distinction the form needs: "nothing was read" leaves the
+        // palette alone, and "the garment is black" replaces it. Returning black
+        // for an unreadable photo would paint garments black.
+        assertEquals(emptyList(), dominantGarmentColors(pixels(Pixel(9, 9, 9, 0))))
+        assertEquals(emptyList(), dominantGarmentColors(ByteArray(0)))
     }
 
     @Test
     fun `a byte array that ends mid-pixel is not read past`() {
         // A decoder handing back an odd length is a bug somewhere else; it should
         // not become an exception here.
-        assertEquals("#FFFFFF", dominantGarmentColor(pixels(Pixel(255, 255, 255, 255)) + byteArrayOf(1, 2)))
+        assertEquals(
+            listOf("#FFFFFF"),
+            dominantGarmentColors(pixels(Pixel(255, 255, 255, 255)) + byteArrayOf(1, 2)),
+        )
     }
 
     @Test
@@ -106,63 +160,7 @@ class DominantColorTest {
             Pixel(250, 252, 249, 255),
         )
 
-        assertEquals("#000000", dominantGarmentColor(nearlyBlack))
-    }
-
-    @Test
-    fun `multi cannot win, which is why the guard is a guard`() {
-        // `nearestGarmentColor` filters "multi" out of the palette. That filter
-        // changes no answer today, and this is the reason: `colorDistance` reports
-        // a fixed distance for multi, and no colour in the whole cube is further
-        // than that from a real palette entry. So the filter is a guard, not a
-        // decision.
-        //
-        // Asserted rather than assumed, because it stops being true the moment
-        // either the constant shrinks or the palette thins out -- at which point
-        // the guard is suddenly load-bearing and whoever changed the constant
-        // should be told, not surprised.
-        val multiDistance = colorDistance("#000000", MULTI_COLOR)
-            ?: error("multi has no distance, so the guard is doing something else now")
-
-        var furthest = -1.0
-        for (red in 0..255 step 16) {
-            for (green in 0..255 step 16) {
-                for (blue in 0..255 step 16) {
-                    val hex = "#%02X%02X%02X".format(red, green, blue)
-                    val nearest = GARMENT_COLORS
-                        .filter { it.second != MULTI_COLOR }
-                        .mapNotNull { colorDistance(hex, it.second) }
-                        .min()
-                    if (nearest > furthest) furthest = nearest
-                }
-            }
-        }
-
-        assertTrue(
-            furthest < multiDistance,
-            "a colour is $furthest from the palette but only $multiDistance from multi, " +
-                "so multi can now win and the filter in nearestGarmentColor is load-bearing",
-        )
-        assertTrue(GARMENT_COLORS.any { it.second == MULTI_COLOR }, "multi is not in the palette")
-    }
-
-    @Test
-    fun `only every fourth pixel is looked at`() {
-        // The stride is a performance decision and also an observable one: six blue
-        // pixels lose to two red ones, because only the red ones are on the stride.
-        // Worth pinning, because changing it silently changes every answer above.
-        val sampledRed = pixels(
-            Pixel(255, 0, 0, 255),   // sampled
-            Pixel(0, 0, 255, 255),
-            Pixel(0, 0, 255, 255),
-            Pixel(0, 0, 255, 255),
-            Pixel(255, 0, 0, 255),   // sampled
-            Pixel(0, 0, 255, 255),
-            Pixel(0, 0, 255, 255),
-            Pixel(0, 0, 255, 255),
-        )
-
-        assertEquals("#CC0000", dominantGarmentColor(sampledRed))
+        assertEquals(listOf("#000000", "#FFFFFF"), dominantGarmentColors(nearlyBlack))
     }
 
     /**

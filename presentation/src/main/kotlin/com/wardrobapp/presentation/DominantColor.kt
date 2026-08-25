@@ -11,18 +11,19 @@ import com.wardrobapp.domain.colorDistance
  * and a palette entry out is arithmetic -- the kind that is wrong by a shade and
  * looks fine, so it is worth being able to ask it questions without a device.
  *
- * The form is prefilled from this when a photo arrives, exactly as
- * `useGarmentForm` does it: a suggestion that goes to the front of the palette
- * rather than a replacement for a choice already made. `GarmentFormState.
- * withDetectedColor` is the transition, and it was already ported.
+ * The form is prefilled from this when a photo arrives, and again when its
+ * background is removed. `GarmentFormState.withDetectedColors` is the transition,
+ * and it is where the rule about not overwriting a chosen palette lives -- so what
+ * this function owes is an honest reading of the pixels, nothing more.
  *
  * This is where the port stops matching the app it came from, deliberately. That
  * app averaged the pixels and snapped the average; the average of a red-and-white
  * striped shirt is pink, a colour appearing nowhere in it, and the average of a
  * navy shirt on a white duvet is pale blue. Both were reported from a phone. So
  * the rule is now "snap first, then count": the palette colour covering the most
- * of the garment wins. The fixture that held the two apps to the same answers went
- * with the corpus, and this would have broken it on purpose.
+ * of the garment wins, and a runner-up covering enough of it is the garment's
+ * second colour. The fixture that held the two apps to the same answers went with
+ * the corpus, and this would have broken it on purpose.
  */
 
 /**
@@ -49,31 +50,41 @@ private const val SAMPLE_STRIDE = 16
 private const val MINIMUM_ALPHA = 16
 
 /**
- * The answer when there was nothing to count.
+ * How much of the garment a second colour has to cover to be one.
  *
- * Black, which is also the palette's first entry, so a caller never has to handle a
- * colour the palette does not contain.
+ * A fifth. Every photograph of a plain garment has a tail of other palette
+ * entries in it -- a fold in shadow snaps to black, a lit edge to white -- and
+ * listing those as the garment's colours would make every garment two-coloured.
+ * A pattern is not shy: the pale half of a striped shirt is a third of it, a
+ * contrast panel or a print's ground is a quarter. A fifth sits between the two.
  */
-private const val NO_COLOUR = "#000000"
+private const val SECONDARY_SHARE = 0.2
 
 /**
- * The palette colour the most pixels of a garment are.
+ * The palette colours a garment's pixels are, most of it first.
  *
  * Every sampled pixel is snapped to its nearest palette entry and the entry
  * holding the most pixels wins. That is the whole difference from the mean this
  * replaces: a mean invents a colour that is in none of the pixels, and a mode
  * cannot -- whatever it returns, that much of the garment really is that colour.
  *
+ * One or two entries. The second is the runner-up, and only when it covers at
+ * least [SECONDARY_SHARE] of what was counted: a striped shirt and a garment with
+ * a contrast panel really are two colours, and saying so saves a tap; a plain
+ * navy shirt whose folds snap to black is one colour, and listing black would be
+ * a correction to undo.
+ *
  * Ties go to the palette's own order rather than to whichever pixel was read
  * first, so the same photo always gives the same answer.
  *
- * Black when nothing was worth counting, which is what a fully transparent image
- * comes to: a colour rather than null, because black is the honest answer for an
- * image with nothing in it and the caller has a palette entry to show either way.
+ * Empty when nothing was worth counting, which is what a fully transparent image
+ * comes to. Empty rather than black: "no colours were read" and "the garment is
+ * black" are different answers, and the caller is the one that knows what to do
+ * with the first.
  *
  * [pixels] is RGBA, four bytes per pixel, as every decoder produces.
  */
-fun dominantGarmentColor(pixels: ByteArray): String {
+fun dominantGarmentColors(pixels: ByteArray): List<String> {
     val counts = HashMap<String, Int>()
 
     // Snapping is 24 distance comparisons over parsed hex, and a photograph repeats
@@ -82,6 +93,7 @@ fun dominantGarmentColor(pixels: ByteArray): String {
     val snapped = HashMap<Int, String>()
 
     var index = 0
+    var counted = 0
     // `+ 3` so a trailing partial pixel is skipped rather than read past: an odd
     // byte count is a decoder bug, not something to crash on.
     while (index + 3 < pixels.size) {
@@ -94,13 +106,23 @@ fun dominantGarmentColor(pixels: ByteArray): String {
                 nearestGarmentColor(rgbToHex(red, green, blue))
             }
             counts[colour] = (counts[colour] ?: 0) + 1
+            counted++
         }
         index += SAMPLE_STRIDE
     }
 
-    val most = counts.values.maxOrNull() ?: return NO_COLOUR
+    if (counted == 0) return emptyList()
 
-    return GARMENT_COLORS.firstOrNull { counts[it.second] == most }?.second ?: NO_COLOUR
+    // Palette order, then count: `sortedByDescending` is stable, so what is left
+    // after it is the palette's order among equal counts rather than a hash map's.
+    val ranked = GARMENT_COLORS
+        .mapNotNull { entry -> counts[entry.second]?.let { entry.second to it } }
+        .sortedByDescending { it.second }
+
+    val primary = ranked.firstOrNull() ?: return emptyList()
+    val secondary = ranked.drop(1).firstOrNull { it.second >= counted * SECONDARY_SHARE }
+
+    return listOfNotNull(primary.first, secondary?.first)
 }
 
 /**
