@@ -199,6 +199,20 @@ class WardrobeScreenTest {
     }
 
     @Test
+    fun `a colour swatch carries the palette's name for it`() {
+        // A circle in a shade nobody can name from memory used to be the whole
+        // chip. Every other filter here -- brand, size, season -- reads as a
+        // word; a colour is now the same, or it is the one filter you cannot use
+        // without already knowing what you are looking for.
+        show(wardrobe(filtersExpanded = true, garments = listOf(garment(1, palette = "#000080"))))
+
+        compose.onNodeWithTag(WARDROBE_LIST)
+            .performScrollToNode(hasTestTag(colorSwatchTag("#000080")))
+        compose.onNodeWithTag(colorSwatchTag("#000080")).assertIsDisplayed()
+        compose.onNodeWithText("Navy").assertIsDisplayed()
+    }
+
+    @Test
     @Config(qualifiers = "w411dp-h2000dp")
     fun `a colour no garment wears is not offered`() {
         // The whole wardrobe is navy, so the panel is one swatch rather than the
