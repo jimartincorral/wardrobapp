@@ -349,7 +349,8 @@ private fun SuggestionCard(
             // than something to take on faith.
             if (suggestion.outfit.reasons.isNotEmpty()) {
                 Text(
-                    suggestion.outfit.reasons.joinToString(" \u00b7 ") { stringResource(it.labelRes) },
+                    suggestion.outfit.reasons.map { stringResource(it.labelRes) }
+                        .joinToString(" \u00b7 "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp).testTag(OUTFIT_REASONS),
