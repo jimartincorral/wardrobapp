@@ -253,6 +253,14 @@ dependencies {
     // the defensible choice.
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
 
+    // On-device garment-type suggestions, from the same place and on the same
+    // terms: the model is not in the APK, Play Services fetches it the first time
+    // it is asked for, and nothing about a photo leaves the phone. A general
+    // labelling model rather than a clothing one -- it knows "Footwear" where a
+    // specialist would know "Chelsea boot" -- which is why what it says goes through
+    // a table in :presentation rather than into the form.
+    implementation("com.google.android.gms:play-services-mlkit-image-labeling:16.0.8")
+
     // Photos are files on disk; Coil loads them without hand-rolled decoding.
     implementation("io.coil-kt:coil-compose:2.7.0")
 

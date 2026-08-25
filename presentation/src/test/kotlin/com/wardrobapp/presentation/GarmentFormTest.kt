@@ -198,6 +198,52 @@ class GarmentFormTest {
     }
 
     @Test
+    fun `a suggested type joins the ones already picked in the same category`() {
+        val state = form().copy(category = "tops", subcategories = listOf("Shirt"))
+            .withSuggestedType("tops", "Polo", ::seasonsForSubcategories)
+
+        assertEquals(listOf("Polo", "Shirt"), state.subcategories)
+        assertEquals("tops", state.category)
+
+        // And suggesting one that is already picked moves it up rather than
+        // listing it twice, exactly as a detected colour does.
+        val again = state.withSuggestedType("tops", "Shirt", ::seasonsForSubcategories)
+        assertEquals(listOf("Shirt", "Polo"), again.subcategories)
+    }
+
+    @Test
+    fun `a suggestion in another category replaces the types rather than mixing them`() {
+        // "Sneakers, Shirt" is not a garment. The types belonged to a category this
+        // one is not, which is why tapping a category chip clears them too.
+        val state = form().copy(category = "tops", subcategories = listOf("Shirt"))
+            .withSuggestedType("shoes", "Sneakers", ::seasonsForSubcategories)
+
+        assertEquals("shoes", state.category)
+        assertEquals(listOf("Sneakers"), state.subcategories)
+    }
+
+    @Test
+    fun `a suggestion with no type still moves the form to the category`() {
+        // What the labeller reported was "Footwear", and narrowing the chips from
+        // seventy types to seven is the whole value of that.
+        val state = form().copy(category = "tops", subcategories = listOf("Shirt"))
+            .withSuggestedType("shoes", null, ::seasonsForSubcategories)
+
+        assertEquals("shoes", state.category)
+        assertEquals(emptyList(), state.subcategories)
+    }
+
+    @Test
+    fun `a suggested type fills the seasons in, but never over a choice`() {
+        val implied = form().withSuggestedType("shoes", "Sandals", ::seasonsForSubcategories)
+        assertEquals(listOf(Season.SUMMER), implied.seasons)
+
+        val chosen = form().copy(seasons = listOf(Season.WINTER))
+            .withSuggestedType("shoes", "Sandals", ::seasonsForSubcategories)
+        assertEquals(listOf(Season.WINTER), chosen.seasons, "an explicit choice was overwritten")
+    }
+
+    @Test
     fun `an import fills an empty brand and leaves a typed one alone`() {
         val empty = form().withImportedPreview(listOf("i1.jpg", "i2.jpg"), "Imported")
         assertEquals(listOf("i1.jpg", "i2.jpg"), empty.imageUris)

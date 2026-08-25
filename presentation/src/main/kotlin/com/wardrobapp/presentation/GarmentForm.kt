@@ -190,6 +190,37 @@ data class GarmentFormState(
     )
 
     /**
+     * Apply a type read off the photo.
+     *
+     * A suggestion, like a detected colour, so a type already chosen in the same
+     * category is kept and the suggested one joins it at the front. A suggestion in
+     * a *different* category cannot be additive: the types already picked belong to
+     * a category this garment is not, so changing the category clears them -- which
+     * is what tapping a category chip does too.
+     *
+     * [suggested] null means the labels named a category and no type within it, and
+     * that is an answer: the category narrows the chips and the person picks from
+     * seven rather than seventy.
+     *
+     * Seasons follow the same rule they do when a type is tapped: filled in only
+     * while nobody has chosen any.
+     */
+    fun withSuggestedType(
+        category: String,
+        suggested: String?,
+        seasonsFor: (List<String>) -> List<Season>,
+    ): GarmentFormState {
+        val kept = if (category == this.category) subcategories else emptyList()
+        val next = if (suggested == null) kept else listOf(suggested) + kept.filterNot { it == suggested }
+
+        return copy(
+            category = category,
+            subcategories = next,
+            seasons = seasons.ifEmpty { seasonsFor(next) },
+        )
+    }
+
+    /**
      * Apply an imported preview, keeping a brand already typed. An import is a
      * starting point, so it must not overwrite work in progress.
      */

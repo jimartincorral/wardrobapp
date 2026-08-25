@@ -83,10 +83,10 @@ class AndroidPhotoStore(private val context: Context) {
     /**
      * A photo's pixels, small, as RGBA for [com.wardrobapp.presentation.dominantGarmentColor].
      *
-     * Downscaled hard first, the way `detectDominantColor` does before it averages:
-     * a thumbnail is faster to average and less swayed by a pattern's detail than
-     * the full image. Not turned upright, because averaging every fourth pixel does
-     * not care which way up they are.
+     * Downscaled hard first, the way `detectDominantColor` did: a thumbnail is
+     * faster to count and less swayed by a pattern's detail than the full image.
+     * Not turned upright, because counting every fourth pixel does not care which
+     * way up they are.
      *
      * Null when the photo cannot be decoded -- a missing file, or something that is
      * not an image. The caller says nothing rather than guessing a colour.
@@ -101,11 +101,12 @@ class AndroidPhotoStore(private val context: Context) {
             val packed = IntArray(bitmap.width * bitmap.height)
             bitmap.getPixels(packed, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
 
-            // ARGB ints into RGBA bytes, which is the layout every decoder on the
-            // TypeScript side produces and what the fixture is recorded in.
+            // ARGB ints into RGBA bytes, which is the layout `dominantGarmentColor`
+            // reads and what every decoder on the TypeScript side produced.
             // `getPixels` hands back non-premultiplied values, so a cut-out's
             // transparent pixels arrive as alpha 0 and are skipped rather than
-            // averaged in as black.
+            // counted as black -- which is what lets detection run on a cut-out and
+            // see only the garment.
             val bytes = ByteArray(packed.size * 4)
             for ((index, colour) in packed.withIndex()) {
                 bytes[index * 4] = (colour shr 16 and 0xff).toByte()

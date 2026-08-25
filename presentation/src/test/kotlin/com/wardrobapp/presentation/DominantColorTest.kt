@@ -2,84 +2,111 @@ package com.wardrobapp.presentation
 
 import com.wardrobapp.domain.MULTI_COLOR
 import com.wardrobapp.domain.colorDistance
-import java.util.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The port reads the same colour out of the same pixels.
+ * Which colour a garment's pixels come to.
  *
- * The fixture carries real JPEG output -- each case was encoded and decoded again
- * on the TypeScript side -- so the artefacts are the ones a photograph actually
- * picks up, not a clean synthetic ramp. What it deliberately does *not* compare is
- * the decoding: the app this replaced averages a 64px JPEG thumbnail and this decodes
- * the original, so the two never see identical pixels for one photograph. Feeding
- * both the same bytes is what isolates the part that can be compared.
- *
- * The alpha gate has no fixture because it cannot have one: JPEG has no alpha
- * channel, so the TypeScript never exercises it. It is tested directly below, and
- * it is live here -- this app averages PNG cut-outs as well.
+ * The interesting cases are the two that were reported from a phone, because both
+ * of them the old mean got wrong by inventing a colour: a striped garment averaged
+ * to a shade appearing nowhere in it, and a garment photographed on a pale
+ * background averaged towards the background. A mode cannot invent -- whatever it
+ * returns, that many pixels really are that colour -- so what is left to test is
+ * the counting, the tie, and the pixels that must not be counted at all.
  */
 class DominantColorTest {
 
     @Test
-    fun `transparent pixels do not count towards the average`() {
-        // The case the TypeScript cannot reach. A white garment on a transparent
-        // background has to read as white; counting the background would drag it
-        // to grey and then snap it somewhere else entirely.
-        val transparentWhite = pixels(
+    fun `the colour most of the garment is wins, not the average of it`() {
+        // The striped shirt. Two thirds white, one third black: the mean is a grey
+        // that neither stripe is, and the answer is white.
+        val striped = sampled(
+            Pixel(255, 255, 255, 255),
+            Pixel(255, 255, 255, 255),
+            Pixel(0, 0, 0, 255),
+        )
+
+        assertEquals("#FFFFFF", dominantGarmentColor(striped))
+    }
+
+    @Test
+    fun `a majority of one colour is not diluted by a spread of others`() {
+        // Four navy pixels against one each of four other colours. A mean would be
+        // dragged somewhere between all five; a mode counts navy four times.
+        val navy = sampled(
+            Pixel(0, 0, 128, 255),
+            Pixel(0, 0, 128, 255),
+            Pixel(0, 0, 128, 255),
+            Pixel(0, 0, 128, 255),
+            Pixel(255, 255, 255, 255),
+            Pixel(255, 0, 0, 255),
+            Pixel(255, 215, 0, 255),
+            Pixel(34, 139, 34, 255),
+        )
+
+        assertEquals("#000080", dominantGarmentColor(navy))
+    }
+
+    @Test
+    fun `two colours in equal measure go to the palette's order`() {
+        // Black is the palette's first entry and white its second, so an even split
+        // is black -- not whichever pixel the loop happened to reach first.
+        val even = sampled(Pixel(255, 255, 255, 255), Pixel(0, 0, 0, 255))
+
+        assertEquals("#000000", dominantGarmentColor(even))
+        assertEquals("#000000", dominantGarmentColor(sampled(Pixel(0, 0, 0, 255), Pixel(255, 255, 255, 255))))
+    }
+
+    @Test
+    fun `transparent pixels do not count`() {
+        // A white garment on a transparent background reads as white. Counting the
+        // background would make the background the majority and win it outright,
+        // which is worse than the mean ever was.
+        val transparentWhite = sampled(
             Pixel(255, 255, 255, 255),
             Pixel(0, 0, 0, 0),
-            Pixel(255, 255, 255, 255),
+            Pixel(0, 0, 0, 0),
             Pixel(0, 0, 0, 0),
         )
 
-        assertEquals("#FFFFFF", averageOpaqueColor(transparentWhite))
+        assertEquals("#FFFFFF", dominantGarmentColor(transparentWhite))
     }
 
     @Test
     fun `a barely-opaque pixel is still ignored`() {
         // The edge of a cut-out is antialiased, so the pixels just outside the
         // garment carry a trace of it. 15 is under the gate and 16 is not.
-        assertEquals("#000000", averageOpaqueColor(pixels(Pixel(255, 255, 255, 15))))
-        assertEquals("#FFFFFF", averageOpaqueColor(pixels(Pixel(255, 255, 255, 16))))
+        assertEquals("#000000", dominantGarmentColor(pixels(Pixel(255, 255, 255, 15))))
+        assertEquals("#FFFFFF", dominantGarmentColor(pixels(Pixel(255, 255, 255, 16))))
     }
 
     @Test
     fun `an image with nothing in it comes out black rather than nothing`() {
-        assertEquals("#000000", averageOpaqueColor(pixels(Pixel(9, 9, 9, 0))))
-        assertEquals("#000000", averageOpaqueColor(ByteArray(0)))
+        assertEquals("#000000", dominantGarmentColor(pixels(Pixel(9, 9, 9, 0))))
+        assertEquals("#000000", dominantGarmentColor(ByteArray(0)))
     }
 
     @Test
     fun `a byte array that ends mid-pixel is not read past`() {
         // A decoder handing back an odd length is a bug somewhere else; it should
         // not become an exception here.
-        assertEquals("#FFFFFF", averageOpaqueColor(pixels(Pixel(255, 255, 255, 255)) + byteArrayOf(1, 2)))
+        assertEquals("#FFFFFF", dominantGarmentColor(pixels(Pixel(255, 255, 255, 255)) + byteArrayOf(1, 2)))
     }
 
     @Test
-    fun `an average is rounded, not truncated`() {
-        // Only visible before the snap: the palette is 25 colours, so a shade out
-        // by one lands on the same entry and no fixture case can tell the two
-        // apart. It still has to be right -- this is the number the snap is fed --
-        // so it is pinned where it is observable.
-        // Both halves have to land *on* the stride to be counted -- the filler
-        // between them is skipped, which is the whole point of the stride.
-        val halfway = pixels(
-            Pixel(0, 0, 0, 255),
-            Pixel(99, 99, 99, 255),
-            Pixel(99, 99, 99, 255),
-            Pixel(99, 99, 99, 255),
-            Pixel(255, 255, 255, 255),
-            Pixel(99, 99, 99, 255),
-            Pixel(99, 99, 99, 255),
-            Pixel(99, 99, 99, 255),
+    fun `a shade off the palette is counted as the entry it snaps to`() {
+        // Nothing in a photograph is exactly a palette hex. Two near-blacks and one
+        // near-white are two votes for black and one for white, not three colours
+        // with one vote each.
+        val nearlyBlack = sampled(
+            Pixel(4, 4, 6, 255),
+            Pixel(7, 5, 3, 255),
+            Pixel(250, 252, 249, 255),
         )
 
-        // 127.5 each way. Rounded is 128; truncated would be 127, which is #7F7F7F.
-        assertEquals("#808080", averageOpaqueColor(halfway))
+        assertEquals("#000000", dominantGarmentColor(nearlyBlack))
     }
 
     @Test
@@ -121,10 +148,9 @@ class DominantColorTest {
 
     @Test
     fun `only every fourth pixel is looked at`() {
-        // The stride is a performance decision, but it is also observable: an
-        // image whose sampled pixels differ from its unsampled ones averages to
-        // the sampled ones. Worth pinning, because changing the stride silently
-        // changes every answer above.
+        // The stride is a performance decision and also an observable one: six blue
+        // pixels lose to two red ones, because only the red ones are on the stride.
+        // Worth pinning, because changing it silently changes every answer above.
         val sampledRed = pixels(
             Pixel(255, 0, 0, 255),   // sampled
             Pixel(0, 0, 255, 255),
@@ -136,10 +162,25 @@ class DominantColorTest {
             Pixel(0, 0, 255, 255),
         )
 
-        assertEquals("#FF0000", averageOpaqueColor(sampledRed))
+        assertEquals("#CC0000", dominantGarmentColor(sampledRed))
+    }
+
+    /**
+     * Pixels that all land on the stride.
+     *
+     * Every fourth pixel is looked at, so a case about *counting* has to space its
+     * pixels out or three of them are one vote. The filler is a colour no palette
+     * entry is near enough to matter, and it is never counted anyway.
+     */
+    private fun sampled(vararg values: Pixel): ByteArray {
+        val spaced = values.flatMap { listOf(it, FILLER, FILLER, FILLER) }
+        return pixels(*spaced.toTypedArray())
     }
 
     private data class Pixel(val red: Int, val green: Int, val blue: Int, val alpha: Int)
+
+    /** Transparent, so it is skipped even if the stride ever changes under this. */
+    private val FILLER = Pixel(0, 0, 0, 0)
 
     private fun pixels(vararg values: Pixel): ByteArray {
         val bytes = ByteArray(values.size * 4)
