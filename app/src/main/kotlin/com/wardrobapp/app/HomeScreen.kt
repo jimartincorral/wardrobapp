@@ -26,9 +26,7 @@ import androidx.compose.ui.unit.dp
 /**
  * Where the app opens: what you own, and the way to everywhere else.
  *
- * The fourth tab, which brings the bar to the four the app this replaced has. Worth
- * having for one reason: Statistics is reached from here and from
- * the Analytics tab, and before this screen existed there was one route to it.
+ * The fourth tab, which brings the bar to the four the app this replaced has.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,7 +34,6 @@ fun HomeScreen(
     state: HomeViewModel.State,
     onAddRequested: () -> Unit,
     onOutfitsRequested: () -> Unit,
-    onAnalyticsRequested: () -> Unit,
     onStatisticsRequested: () -> Unit,
     onSettingsRequested: () -> Unit,
     onRetry: () -> Unit,
@@ -105,14 +102,8 @@ fun HomeScreen(
                 )
             }
 
-            item {
-                Action(
-                    title = stringResource(R.string.home_analytics_title),
-                    detail = stringResource(R.string.home_analytics_detail),
-                    onClick = onAnalyticsRequested,
-                )
-            }
-
+            // One card where there were two. "Analytics" and "Statistics" were
+            // the same question asked twice, and they are one page now.
             item {
                 Action(
                     title = stringResource(R.string.home_statistics_title),

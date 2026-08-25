@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.AnalyticsQueries
 import com.wardrobapp.presentation.BrandSort
 import com.wardrobapp.presentation.Distribution
+import com.wardrobapp.presentation.LifespanEntry
 import com.wardrobapp.presentation.StatisticsView
 import com.wardrobapp.presentation.statisticsView
 import kotlinx.coroutines.Dispatchers
@@ -16,13 +17,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * What the wardrobe is made of.
+ * What the wardrobe is made of, and how long the things you stop wearing lasted.
  *
- * The four distinct-count tiles and every bar's length come from
- * [statisticsView]; this reads the counts, holds what the reader has opened, and
- * decides nothing about the arithmetic. It is the screen the colour, brand and
- * subcategory queries were written for -- all three have been tested and
- * unrendered since :data was written.
+ * Every tile and every bar's length comes from [statisticsView]; this reads the
+ * counts, holds what the reader has opened, and decides nothing about the
+ * arithmetic.
+ *
+ * It reads seven things where it used to read five, because `AnalyticsViewModel`
+ * is gone: the retired count and the lifespans were the only numbers that screen
+ * had of its own, and they are two more reads on the same trip rather than a
+ * second model on a second page.
  */
 class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
 
@@ -39,16 +43,27 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
          * module stays a function of the wardrobe alone.
          */
         val expanded: Set<String> = emptySet(),
+        /**
+         * Which sections are showing their bars.
+         *
+         * Empty to begin with, which is the page shut: tiles, then four headings.
+         * Not persisted -- unlike the wardrobe's layout, this is where you are in
+         * a page rather than how you like it drawn, and it survives a tab switch
+         * for the same reason [expanded] does.
+         */
+        val openSections: Set<StatisticsSection> = emptySet(),
         val brandSort: BrandSort = BrandSort.COUNT,
     )
 
     /** The counts as read, so re-sorting brands does not re-query for them. */
     private data class Counts(
-        val total: Long,
+        val inUse: Long,
+        val retired: Long,
         val categories: List<Distribution>,
         val colors: List<Distribution>,
         val brands: List<Distribution>,
         val subcategories: Map<String, List<Distribution>>,
+        val lifespans: List<LifespanEntry>,
     )
 
     private var counts: Counts? = null
@@ -67,12 +82,22 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
             try {
                 val read = withContext(Dispatchers.IO) {
                     Counts(
-                        total = container.garments.availableCount(),
+                        inUse = container.garments.availableCount(),
+                        retired = container.garments.unavailableCount(),
                         categories = container.analytics.byCategory().asDistributions(),
                         colors = container.analytics.byColor().asDistributions(),
                         brands = container.analytics.byBrand().asDistributions(),
                         subcategories = container.analytics.bySubcategory()
                             .mapValues { (_, subs) -> subs.asDistributions() },
+                        lifespans = container.analytics.lifespans(container.imageDirectory)
+                            .map { lifespan ->
+                                LifespanEntry(
+                                    garmentId = lifespan.garment.id,
+                                    category = lifespan.garment.category,
+                                    subcategories = lifespan.garment.effectiveSubcategories,
+                                    days = lifespan.days,
+                                )
+                            },
                     )
                 }
 
@@ -83,6 +108,19 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
                     it.copy(loading = false, error = e.message ?: e.javaClass.simpleName)
                 }
             }
+        }
+    }
+
+    /** Open or close one section of the page. */
+    fun onSectionTapped(section: StatisticsSection) {
+        _state.update {
+            it.copy(
+                openSections = if (section in it.openSections) {
+                    it.openSections - section
+                } else {
+                    it.openSections + section
+                }
+            )
         }
     }
 
@@ -106,12 +144,14 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     private fun Counts.viewSortedBy(sort: BrandSort): StatisticsView = statisticsView(
-        total = total,
+        inUse = inUse,
         categories = categories,
         colors = colors,
         brands = brands,
         subcategories = subcategories,
         brandSort = sort,
+        retired = retired,
+        lifespans = lifespans,
     )
 
     /**

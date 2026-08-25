@@ -14,7 +14,7 @@
     <string name="tab_home">Inicio</string>
     <string name="tab_wardrobe">Armario</string>
     <string name="tab_outfits">Atuendos</string>
-    <string name="tab_analytics">Estadísticas</string>
+    <string name="tab_statistics">Estadísticas</string>
 
     <!-- Shared -->
     <string name="error_wardrobe_unreadable">No se pudo leer el armario</string>
@@ -30,10 +30,8 @@
     <string name="home_add_garment">Agregar una prenda</string>
     <string name="home_outfits_title">Ideas de atuendos</string>
     <string name="home_outfits_detail">Combinaciones con lo que ya tienes</string>
-    <string name="home_analytics_title">Estadísticas</string>
-    <string name="home_analytics_detail">Cuánto tienes y cuánto te duran las prendas</string>
-    <string name="home_statistics_title">Estadísticas detalladas</string>
-    <string name="home_statistics_detail">Recuentos por categoría, color y marca</string>
+    <string name="home_statistics_title">Estadísticas</string>
+    <string name="home_statistics_detail">Cuánto tienes, de qué está hecho y cuánto te duran las prendas</string>
     <string name="home_settings_title">Configuración</string>
     <string name="home_settings_detail">Crea una copia de seguridad o restaura una</string>
 
@@ -157,27 +155,20 @@
     <string name="duplicate_reason_size">misma talla</string>
     <string name="duplicate_reason_overall">parecido general</string>
 
-    <!-- Analytics -->
-    <string name="analytics_title">Estadísticas</string>
-    <string name="analytics_in_use">En uso</string>
-    <string name="analytics_retired">Retiradas</string>
-    <string name="analytics_empty_title">Aún no hay nada que medir</string>
-    <string name="analytics_empty_body">Agrega algunas prendas y esto se rellena: de qué está hecho tu armario y cuánto suelen durar las prendas que retiras.</string>
-    <string name="analytics_open_statistics">Ver estadísticas detalladas</string>
-    <string name="analytics_by_category">Por categoría</string>
-    <string name="analytics_no_garments">Aún no hay nada en el armario.</string>
-    <string name="analytics_lifespan">Cuánto duraron las prendas</string>
-    <string name="analytics_no_lifespan">Aún no has retirado nada. Marca una prenda como que ya no la usas y aparecerá aquí.</string>
-    <string name="analytics_days">%1$d d</string>
-
     <!-- Statistics -->
-    <string name="statistics_title">Estadísticas detalladas</string>
+    <string name="statistics_title">Estadísticas</string>
     <string name="statistics_subtitle">Un desglose de lo que tienes.</string>
     <string name="statistics_items">Prendas</string>
+    <string name="statistics_in_use">En uso</string>
+    <string name="statistics_retired">Retiradas</string>
     <string name="statistics_categories">Categorías</string>
     <string name="statistics_colours">Colores</string>
     <string name="statistics_brands">Marcas</string>
-    <string name="statistics_empty_body">Agrega algunas prendas y esto se rellena: de qué está hecho tu armario, qué colores usas de verdad y quién lo fabricó.</string>
+    <string name="statistics_empty_title">Aún no hay nada que medir</string>
+    <string name="statistics_empty_body">Agrega algunas prendas y esto se rellena: de qué está hecho tu armario, qué colores usas de verdad, quién lo fabricó y cuánto suelen durar las prendas que retiras.</string>
+    <string name="statistics_section_expand">Mostrar esta sección</string>
+    <string name="statistics_section_collapse">Ocultar esta sección</string>
+    <string name="statistics_by_category">Por categoría</string>
     <string name="statistics_expand_hint">Toca una categoría para ver qué contiene</string>
     <string name="statistics_expand">Mostrar subcategorías</string>
     <string name="statistics_collapse">Ocultar subcategorías</string>
@@ -186,6 +177,9 @@
     <string name="statistics_sort_count">Más</string>
     <string name="statistics_sort_name">A-Z</string>
     <string name="statistics_no_subcategory">Sin especificar</string>
+    <string name="statistics_lifespan">Cuánto duraron las prendas</string>
+    <string name="statistics_no_lifespan">Aún no has retirado nada. Marca una prenda como que ya no la usas y aparecerá aquí.</string>
+    <string name="statistics_days">%1$d d</string>
 
     <!-- Settings -->
     <string name="settings_title">Configuración</string>

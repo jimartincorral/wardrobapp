@@ -20,14 +20,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -49,45 +45,44 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.presentation.BrandSort
 import com.wardrobapp.presentation.ColorBar
+import com.wardrobapp.presentation.LifespanBar
 import com.wardrobapp.presentation.MULTI_SWATCH
 import com.wardrobapp.presentation.NO_SUBCATEGORY
 import com.wardrobapp.presentation.StatBar
 import com.wardrobapp.presentation.StatisticsView
 import com.wardrobapp.presentation.paletteColorFor
 
+/** The parts of the page that open and shut, all shut to begin with. */
+enum class StatisticsSection { CATEGORY, COLOUR, BRAND, LIFESPAN }
+
 /**
- * What the wardrobe is made of.
+ * What the wardrobe is made of, and how long the things you stop wearing lasted.
+ *
+ * One page where there were two. An "Analytics" tab held the counts of what is in
+ * use and retired, a category chart and the lifespan bars, with a link to a
+ * "Statistics" screen that held the same category counts again plus colours,
+ * brands and subcategories. Two names for one question, and the same numbers
+ * drawn twice.
+ *
+ * So: six tiles, then every breakdown as a section you open. Shut to begin with,
+ * because six charts unrolled is a page nobody reads to the bottom of -- and the
+ * tiles are the answer most visits are looking for.
  *
  * Layout and words only: every bar arrives with its length already decided by
- * :presentation, which is held to the React Native screen's answers by
- * `statistics-view.jsonl`. What is left here is what that module deliberately
- * does not own -- turning keys into text, and drawing a swatch.
- *
- * This is also the screen `AnalyticsQueries.byColor`, `byBrand` and
- * `bySubcategory` were written for. All three have been tested and unrendered
- * since :data was written, because the analytics tab shows neither.
+ * :presentation. What is left here is what that module deliberately does not own
+ * -- turning keys into text, and drawing a swatch.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatisticsScreen(
     state: StatisticsViewModel.State,
-    onBack: () -> Unit,
     onCategoryTapped: (String) -> Unit,
     onBrandSortChanged: (BrandSort) -> Unit,
+    onSectionTapped: (StatisticsSection) -> Unit,
     onRetry: () -> Unit,
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.statistics_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                    }
-                },
-            )
-        },
-    ) { insets ->
+    // No back arrow: this is a tab now, not a screen reached from one.
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.statistics_title)) }) }) { insets ->
         val view = state.view
 
         when {
@@ -116,10 +111,12 @@ fun StatisticsScreen(
             else -> Body(
                 view = view,
                 expanded = state.expanded,
+                openSections = state.openSections,
                 brandSort = state.brandSort,
                 insets = insets,
                 onCategoryTapped = onCategoryTapped,
                 onBrandSortChanged = onBrandSortChanged,
+                onSectionTapped = onSectionTapped,
             )
         }
     }
@@ -129,10 +126,12 @@ fun StatisticsScreen(
 private fun Body(
     view: StatisticsView,
     expanded: Set<String>,
+    openSections: Set<StatisticsSection>,
     brandSort: BrandSort,
     insets: PaddingValues,
     onCategoryTapped: (String) -> Unit,
     onBrandSortChanged: (BrandSort) -> Unit,
+    onSectionTapped: (StatisticsSection) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.padding(insets),
@@ -147,27 +146,48 @@ private fun Body(
             )
         }
 
+        // Six numbers, two rows: what the wardrobe holds, then how varied it is.
+        // Items is everything, in use and retired together -- the two tiles beside
+        // it are the split, and a tile that repeated one of them would be a number
+        // with nothing to say.
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Tile(stringResource(R.string.statistics_items), view.total, Modifier.weight(1f))
-                Tile(stringResource(R.string.statistics_categories), view.distinctCategories.toLong(), Modifier.weight(1f))
+                Tile(stringResource(R.string.statistics_items), view.items, Modifier.weight(1f))
+                Tile(stringResource(R.string.statistics_in_use), view.inUse, Modifier.weight(1f))
+                Tile(stringResource(R.string.statistics_retired), view.retired, Modifier.weight(1f))
             }
         }
 
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Tile(stringResource(R.string.statistics_colours), view.distinctColors.toLong(), Modifier.weight(1f))
-                Tile(stringResource(R.string.statistics_brands), view.distinctBrands.toLong(), Modifier.weight(1f))
+                Tile(
+                    stringResource(R.string.statistics_categories),
+                    view.distinctCategories.toLong(),
+                    Modifier.weight(1f),
+                )
+                Tile(
+                    stringResource(R.string.statistics_colours),
+                    view.distinctColors.toLong(),
+                    Modifier.weight(1f),
+                )
+                Tile(
+                    stringResource(R.string.statistics_brands),
+                    view.distinctBrands.toLong(),
+                    Modifier.weight(1f),
+                )
             }
         }
 
         if (view.isEmpty) {
-            // Every chart below would be an empty card, so on an empty wardrobe
-            // the tiles and one explanation are the whole page.
+            // Every section below would be empty, so on an empty wardrobe the tiles
+            // and one explanation are the whole page.
             item {
                 Card {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(stringResource(R.string.analytics_empty_title), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            stringResource(R.string.statistics_empty_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
                         Text(
                             stringResource(R.string.statistics_empty_body),
                             style = MaterialTheme.typography.bodyMedium,
@@ -181,41 +201,51 @@ private fun Body(
             return@LazyColumn
         }
 
+        // A breakdown with nothing in it is left out entirely rather than offered
+        // as a section that opens onto nothing. Lifespans are the exception, below.
         if (view.categories.isNotEmpty()) {
+            val open = StatisticsSection.CATEGORY in openSections
+
             item {
                 SectionHeader(
-                    stringResource(R.string.analytics_by_category),
+                    title = stringResource(R.string.statistics_by_category),
+                    open = open,
+                    // Only once it is open: a hint about tapping rows is noise
+                    // beside a section whose rows are not on screen.
                     hint = stringResource(R.string.statistics_expand_hint),
+                    onClick = { onSectionTapped(StatisticsSection.CATEGORY) },
                 )
             }
 
-            item {
-                Chart {
-                    for (bar in view.categories) {
-                        val isOpen = bar.key in expanded
+            if (open) {
+                item {
+                    Chart {
+                        for (bar in view.categories) {
+                            val isOpen = bar.key in expanded
 
-                        BarRow(
-                            label = categoryLabel(bar.key),
-                            fraction = bar.fraction,
-                            value = "${bar.count}",
-                            chevron = if (isOpen) "▾" else "▸",
-                            onClick = { onCategoryTapped(bar.key) },
-                            // What tapping does, for a screen reader, which the
-                            // chevron only says visually.
-                            clickLabel = stringResource(
-                                if (isOpen) R.string.statistics_collapse else R.string.statistics_expand
-                            ),
-                        )
-
-                        if (isOpen) {
-                            Subcategories(
-                                category = bar.key,
-                                // Absent rather than empty for a category whose
-                                // garments all predate subcategories: the query
-                                // returns no group at all, and the dash below is
-                                // what that looks like.
-                                bars = view.subcategories[bar.key].orEmpty(),
+                            BarRow(
+                                label = categoryLabel(bar.key),
+                                fraction = bar.fraction,
+                                value = "${bar.count}",
+                                chevron = if (isOpen) "▾" else "▸",
+                                onClick = { onCategoryTapped(bar.key) },
+                                // What tapping does, for a screen reader, which the
+                                // chevron only says visually.
+                                clickLabel = stringResource(
+                                    if (isOpen) R.string.statistics_collapse else R.string.statistics_expand
+                                ),
                             )
+
+                            if (isOpen) {
+                                Subcategories(
+                                    category = bar.key,
+                                    // Absent rather than empty for a category whose
+                                    // garments all predate subcategories: the query
+                                    // returns no group at all, and the dash below is
+                                    // what that looks like.
+                                    bars = view.subcategories[bar.key].orEmpty(),
+                                )
+                            }
                         }
                     }
                 }
@@ -223,31 +253,47 @@ private fun Body(
         }
 
         if (view.colors.isNotEmpty()) {
-            item { SectionHeader(stringResource(R.string.statistics_by_colour)) }
+            val open = StatisticsSection.COLOUR in openSections
 
             item {
-                Chart {
-                    for (bar in view.colors) {
-                        BarRow(
-                            label = bar.colorLabel(),
-                            fraction = bar.fraction,
-                            value = "${bar.count}",
-                            swatch = { Swatch(bar.swatch) },
-                        )
+                SectionHeader(
+                    title = stringResource(R.string.statistics_by_colour),
+                    open = open,
+                    onClick = { onSectionTapped(StatisticsSection.COLOUR) },
+                )
+            }
+
+            if (open) {
+                item {
+                    Chart {
+                        for (bar in view.colors) {
+                            BarRow(
+                                label = bar.colorLabel(),
+                                fraction = bar.fraction,
+                                value = "${bar.count}",
+                                swatch = { Swatch(bar.swatch) },
+                            )
+                        }
                     }
                 }
             }
         }
 
         if (view.brands.isNotEmpty()) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(stringResource(R.string.statistics_by_brand), style = MaterialTheme.typography.titleMedium)
+            val open = StatisticsSection.BRAND in openSections
 
+            item {
+                SectionHeader(
+                    title = stringResource(R.string.statistics_by_brand),
+                    open = open,
+                    onClick = { onSectionTapped(StatisticsSection.BRAND) },
+                )
+            }
+
+            if (open) {
+                // Inside the section rather than beside its title: the title is a
+                // button now, and a chip inside a button is two taps in one place.
+                item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = brandSort == BrandSort.COUNT,
@@ -261,14 +307,57 @@ private fun Body(
                         )
                     }
                 }
+
+                item {
+                    Chart {
+                        for (bar in view.brands) {
+                            // A brand is what the wearer typed, so it is shown as
+                            // typed rather than capitalized.
+                            BarRow(label = bar.key, fraction = bar.fraction, value = "${bar.count}")
+                        }
+                    }
+                }
             }
+        }
+
+        // Always offered, even with nothing retired: "nothing has been retired yet"
+        // is the answer to the question, and a missing section reads as the app not
+        // measuring lifespans at all -- which is what the old two-screen split made
+        // people assume.
+        run {
+            val open = StatisticsSection.LIFESPAN in openSections
 
             item {
-                Chart {
-                    for (bar in view.brands) {
-                        // A brand is what the wearer typed, so it is shown as
-                        // typed rather than capitalized.
-                        BarRow(label = bar.key, fraction = bar.fraction, value = "${bar.count}")
+                SectionHeader(
+                    title = stringResource(R.string.statistics_lifespan),
+                    open = open,
+                    onClick = { onSectionTapped(StatisticsSection.LIFESPAN) },
+                )
+            }
+
+            if (open) {
+                item {
+                    Chart {
+                        if (view.lifespans.isEmpty()) {
+                            Text(
+                                stringResource(R.string.statistics_no_lifespan),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                            )
+                        } else {
+                            for (bar in view.lifespans) {
+                                BarRow(
+                                    label = bar.label(),
+                                    fraction = bar.fraction,
+                                    value = stringResource(R.string.statistics_days, bar.days),
+                                    // Wider than a count: "365d" does not fit where
+                                    // a two-digit tally does.
+                                    valueWidth = 44.dp,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -276,19 +365,56 @@ private fun Body(
     }
 }
 
+/**
+ * One section's title, and the thing you tap to see it.
+ *
+ * The whole row is the target rather than the chevron alone, which is the only way
+ * a title is a comfortable thing to hit with a thumb.
+ */
 @Composable
-private fun SectionHeader(title: String, hint: String? = null) {
-    Column {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        if (hint != null) {
-            Text(
-                hint,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+private fun SectionHeader(
+    title: String,
+    open: Boolean,
+    onClick: () -> Unit,
+    hint: String? = null,
+) {
+    val label = stringResource(
+        if (open) R.string.statistics_section_collapse else R.string.statistics_section_expand
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClickLabel = label, onClick = onClick)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            // Only while the section is open: a hint about tapping rows is noise
+            // next to rows that are not on screen.
+            if (hint != null && open) {
+                Text(
+                    hint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
+
+        Text(
+            if (open) "▾" else "▸",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
+
+/** A garment's type if it has one, else its category -- the same rule as the list. */
+@Composable
+private fun LifespanBar.label(): String =
+    entry.subcategories.firstOrNull()?.let { garmentTypeLabel(it) }
+        ?: categoryLabel(entry.category)
 
 @Composable
 private fun Chart(bars: @Composable () -> Unit) {
@@ -377,6 +503,7 @@ private fun BarRow(
     onClick: (() -> Unit)? = null,
     clickLabel: String? = null,
     labelWidth: Dp = 104.dp,
+    valueWidth: Dp = 32.dp,
     fill: Color = MaterialTheme.colorScheme.primary,
     height: Dp = 20.dp,
 ) {
@@ -438,7 +565,7 @@ private fun BarRow(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.End,
-            modifier = Modifier.width(32.dp),
+            modifier = Modifier.width(valueWidth),
         )
 
         if (chevron != null) {
