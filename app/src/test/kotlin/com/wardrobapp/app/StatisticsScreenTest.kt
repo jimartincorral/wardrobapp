@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performScrollToNode
 import com.wardrobapp.presentation.BrandSort
 import com.wardrobapp.presentation.Distribution
 import com.wardrobapp.presentation.LifespanEntry
+import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.statisticsView
 import org.junit.Assert.assertEquals
 import org.junit.Rule
