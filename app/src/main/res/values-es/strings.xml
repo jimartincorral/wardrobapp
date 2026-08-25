@@ -80,6 +80,17 @@
     <string name="outfits_none_possible">No se pudo crear ningún atuendo con lo disponible. Prueba con menos filtros o agrega algunas prendas más.</string>
     <string name="outfits_prompt">Toca sugerir para ver qué combina.</string>
     <string name="outfits_saved_section">Guardados</string>
+    <string name="outfit_keep_title">¿Guardar este atuendo?</string>
+    <string name="outfit_keep_body">Tu valoración se guarda igualmente y la aplicación ya ha aprendido de ella. Guardar «%1$s» lo añade además a tus atuendos guardados.</string>
+    <string name="outfit_keep">Guardarlo</string>
+    <string name="outfit_just_learn">Solo aprender de él</string>
+    <string name="outfit_rated_only">%1$s \u00b7 solo valorado</string>
+    <string name="outfits_hide_rated">Ocultar los atuendos solo valorados</string>
+    <plurals name="outfits_show_rated">
+        <item quantity="one">Ver %1$d atuendo solo valorado</item>
+        <item quantity="many">Ver %1$d atuendos solo valorados</item>
+        <item quantity="other">Ver %1$d atuendos solo valorados</item>
+    </plurals>
     <string name="outfit_saved_badge">Guardado</string>
     <string name="action_save">Guardar</string>
     <string name="action_pin">Fijar</string>

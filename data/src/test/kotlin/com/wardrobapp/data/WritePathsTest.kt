@@ -386,6 +386,78 @@ class WritePathsTest {
     }
 
     @Test
+    fun `an outfit stored for what it taught is kept out of the list`() {
+        // How rating a suggestion stores it. The row and its rating stay -- the
+        // learned pair scores would otherwise have nothing behind them -- while the
+        // list of outfits to wear does not grow by one every time somebody rates
+        // something they did not want.
+        eachSchema { schema, driver, _, _ ->
+            val outfits = OutfitWrites(driver)
+            outfits.insertIfAbsent(
+                id = "rated", name = "Rated only", garmentIds = listOf("a", "b"),
+                isSuggested = true, isArchived = true, now = now,
+            )
+            outfits.rate(ratingId = "r1", outfitId = "rated", rating = 2, now = now)
+
+            val queries = OutfitQueries(driver)
+            assertEquals(emptyList(), queries.all().map { it.id }, schema)
+            assertEquals(listOf("rated"), queries.all(includeArchived = true).map { it.id }, schema)
+            assertEquals(1L, queries.archivedCount(), schema)
+            assertEquals(2, queries.rating("rated")?.rating, schema)
+        }
+    }
+
+    @Test
+    fun `keeping a rated outfit puts it back in the list`() {
+        // The answer to the prompt that follows a rating, and the same switch a
+        // deliberate save flips -- so an outfit rated first and saved afterwards
+        // ends up exactly where one saved outright does.
+        eachSchema { schema, driver, _, _ ->
+            val outfits = OutfitWrites(driver)
+            outfits.insertIfAbsent(
+                id = "rated", name = "Rated only", garmentIds = listOf("a"),
+                isArchived = true, now = now,
+            )
+
+            outfits.setArchived("rated", false)
+
+            assertEquals(listOf("rated"), OutfitQueries(driver).all().map { it.id }, schema)
+            assertEquals(0L, OutfitQueries(driver).archivedCount(), schema)
+            assertEquals(false, OutfitQueries(driver).outfit("rated")?.isArchived, schema)
+        }
+    }
+
+    @Test
+    fun `deleting a garment reaches the outfits nobody can see`() {
+        // The bug hiding archived outfits could have introduced: `removeGarment`
+        // walks the outfit list, and a list that stops at the visible ones leaves
+        // the archived ones pointing at a garment that no longer exists. Invisible,
+        // and still wrong -- the learned scores behind it would outlive the garment
+        // they were about.
+        eachSchema { schema, driver, _, _ ->
+            val outfits = OutfitWrites(driver)
+            outfits.insertIfAbsent(
+                id = "rated", name = "Rated only", garmentIds = listOf("gone", "kept"),
+                isArchived = true, now = now,
+            )
+            outfits.insertIfAbsent(
+                id = "solo", name = "Only that one", garmentIds = listOf("gone"),
+                isArchived = true, now = now,
+            )
+
+            outfits.removeGarment("gone")
+
+            val queries = OutfitQueries(driver)
+            assertEquals(
+                listOf("kept"),
+                queries.outfit("rated")?.garmentIds,
+                "an archived outfit kept a garment that was deleted: $schema",
+            )
+            assertNull(queries.outfit("solo"), "an archived outfit left with nothing survived: $schema")
+        }
+    }
+
+    @Test
     fun `deleting an outfit takes its rating with it`() {
         eachSchema { schema, driver, _, _ ->
             val outfits = OutfitWrites(driver)

@@ -15,12 +15,34 @@ class OutfitQueries(private val driver: SqlDriver) {
         createdAt = row["created_at"] as? String,
         isSuggested = jsTruthy(row["is_suggested"]),
         isPinned = jsTruthy(row["is_pinned"]),
+        isArchived = jsTruthy(row["is_archived"]),
     )
 
-    /** Pinned first, then newest. */
-    fun all(): List<OutfitRecord> = driver
-        .query("SELECT * FROM outfits ORDER BY is_pinned DESC, created_at DESC")
+    /**
+     * Pinned first, then newest.
+     *
+     * Archived outfits are left out unless asked for. They exist to keep what a
+     * rating taught, not to be worn again, and a list that mixed them in would
+     * grow by one every time somebody rated a suggestion they did not want --
+     * which is the fastest way to make rating feel like a mistake.
+     */
+    fun all(includeArchived: Boolean = false): List<OutfitRecord> = driver
+        .query(
+            if (includeArchived) {
+                "SELECT * FROM outfits ORDER BY is_pinned DESC, created_at DESC"
+            } else {
+                "SELECT * FROM outfits WHERE is_archived = 0 ORDER BY is_pinned DESC, created_at DESC"
+            }
+        )
         .map(::toRecord)
+
+    /** How many are put away, for a screen that offers to show them. */
+    fun archivedCount(): Long = driver
+        .query("SELECT COUNT(*) AS total FROM outfits WHERE is_archived = 1")
+        .firstOrNull()
+        ?.get("total")
+        ?.let { (it as Number).toLong() }
+        ?: 0L
 
     fun outfit(id: String): OutfitRecord? = driver
         .query("SELECT * FROM outfits WHERE id = ?", listOf(id))

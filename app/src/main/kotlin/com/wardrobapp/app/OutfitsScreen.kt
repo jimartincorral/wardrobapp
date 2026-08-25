@@ -53,6 +53,9 @@ import com.wardrobapp.presentation.seasonChips
 /** The "building around this garment" banner, for a test that asks whether it is there. */
 const val OUTFIT_SEED = "outfit-seed"
 
+/** The show/hide control for outfits that were rated but not kept. */
+const val OUTFIT_ARCHIVE_TOGGLE = "outfit-archive-toggle"
+
 /**
  * What every suggestion is being built around.
  *
@@ -113,6 +116,9 @@ fun OutfitsScreen(
     onOccasionTapped: (Occasion?) -> Unit,
     onGenerate: () -> Unit,
     onSeedCleared: () -> Unit,
+    onKeep: () -> Unit,
+    onKeepDismissed: () -> Unit,
+    onArchivedToggled: () -> Unit,
     onSave: (OutfitsViewModel.Suggestion) -> Unit,
     onRate: (OutfitsViewModel.Suggestion, Int) -> Unit,
     onPinToggled: (OutfitRecord) -> Unit,
@@ -136,6 +142,21 @@ fun OutfitsScreen(
             },
             confirmButton = { TextButton(onClick = onDeleteConfirmed) { Text(stringResource(R.string.action_delete)) } },
             dismissButton = { TextButton(onClick = onDeleteDismissed) { Text(stringResource(R.string.action_keep)) } },
+        )
+    }
+
+    // The rating is already recorded and already learned from by the time this is
+    // on screen, so there is no destructive answer here and no way to lose it: both
+    // buttons and a dismiss all leave the rating exactly where it is.
+    state.keeping?.let { rated ->
+        AlertDialog(
+            onDismissRequest = onKeepDismissed,
+            title = { Text(stringResource(R.string.outfit_keep_title)) },
+            text = { Text(stringResource(R.string.outfit_keep_body, rated.outfit.name)) },
+            confirmButton = { TextButton(onClick = onKeep) { Text(stringResource(R.string.outfit_keep)) } },
+            dismissButton = {
+                TextButton(onClick = onKeepDismissed) { Text(stringResource(R.string.outfit_just_learn)) }
+            },
         )
     }
 
@@ -235,13 +256,37 @@ fun OutfitsScreen(
                 }
             }
 
-            if (state.saved.isNotEmpty()) {
+            if (state.saved.isNotEmpty() || state.archivedCount > 0) {
                 item {
                     Text(
                         stringResource(R.string.outfits_saved_section),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 16.dp),
                     )
+                }
+
+                // Offered only once there is something behind it, and it says how
+                // many: a toggle that reveals nothing is a toggle that looks
+                // broken.
+                if (state.archivedCount > 0) {
+                    item {
+                        TextButton(
+                            onClick = onArchivedToggled,
+                            modifier = Modifier.testTag(OUTFIT_ARCHIVE_TOGGLE),
+                        ) {
+                            Text(
+                                if (state.showingArchived) {
+                                    stringResource(R.string.outfits_hide_rated)
+                                } else {
+                                    pluralStringResource(
+                                        R.plurals.outfits_show_rated,
+                                        state.archivedCount.toInt(),
+                                        state.archivedCount.toInt(),
+                                    )
+                                }
+                            )
+                        }
+                    }
                 }
 
                 items(state.saved, key = { "saved-${it.id}" }) { outfit ->
@@ -355,11 +400,26 @@ private fun SavedOutfitRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    pluralStringResource(
-                        R.plurals.garment_count,
-                        outfit.garmentIds.size,
-                        outfit.garmentIds.size,
-                    ),
+                    // Said on the row rather than left to the reader to infer from
+                    // the toggle above: once the archived ones are shown they sit
+                    // in the same list as the kept ones, and a row that is only
+                    // here for what it taught should say so.
+                    if (outfit.isArchived) {
+                        stringResource(
+                            R.string.outfit_rated_only,
+                            pluralStringResource(
+                                R.plurals.garment_count,
+                                outfit.garmentIds.size,
+                                outfit.garmentIds.size,
+                            ),
+                        )
+                    } else {
+                        pluralStringResource(
+                            R.plurals.garment_count,
+                            outfit.garmentIds.size,
+                            outfit.garmentIds.size,
+                        )
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
