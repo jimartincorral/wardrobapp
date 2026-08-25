@@ -74,10 +74,23 @@
     <string name="outfits_subtitle">Las sugerencias se construyen con lo que tienes y aprenden de lo que valoras.</string>
     <string name="outfits_filter_any">Cualquiera</string>
     <string name="outfits_suggest">Sugerir atuendos</string>
+    <string name="outfits_building_around">Combinando con</string>
+    <string name="outfits_use_whole_wardrobe">Todo el armario</string>
     <string name="outfits_suggesting">Creando atuendos…</string>
     <string name="outfits_none_possible">No se pudo crear ningún atuendo con lo disponible. Prueba con menos filtros o agrega algunas prendas más.</string>
     <string name="outfits_prompt">Toca sugerir para ver qué combina.</string>
     <string name="outfits_saved_section">Guardados</string>
+    <string name="outfit_keep_title">¿Guardar este atuendo?</string>
+    <string name="outfit_keep_body">Tu valoración se guarda igualmente y la aplicación ya ha aprendido de ella. Guardar «%1$s» lo añade además a tus atuendos guardados.</string>
+    <string name="outfit_keep">Guardarlo</string>
+    <string name="outfit_just_learn">Solo aprender de él</string>
+    <string name="outfit_rated_only">%1$s \u00b7 solo valorado</string>
+    <string name="outfits_hide_rated">Ocultar los atuendos solo valorados</string>
+    <plurals name="outfits_show_rated">
+        <item quantity="one">Ver %1$d atuendo solo valorado</item>
+        <item quantity="many">Ver %1$d atuendos solo valorados</item>
+        <item quantity="other">Ver %1$d atuendos solo valorados</item>
+    </plurals>
     <string name="outfit_saved_badge">Guardado</string>
     <string name="action_save">Guardar</string>
     <string name="action_pin">Fijar</string>
@@ -111,6 +124,7 @@
     <string name="property_tags">Etiquetas</string>
     <string name="garment_retired">Sin usar</string>
     <string name="garment_retired_since">Sin usar desde %1$s</string>
+    <string name="garment_build_outfit">Crear un atuendo con esta prenda</string>
     <string name="garment_retire">Ya no uso esta prenda</string>
     <string name="garment_unretire">Vuelvo a usar esta prenda</string>
     <string name="garment_delete">Eliminar esta prenda</string>

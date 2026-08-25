@@ -62,15 +62,24 @@ class OutfitWrites(private val driver: SqlDriver) {
         season: String? = null,
         isSuggested: Boolean = false,
         isPinned: Boolean = false,
+        /**
+         * Whether it goes straight into the archive.
+         *
+         * How rating a suggestion stores it: the outfit has to exist before it can
+         * carry a rating, and storing it in the list of outfits to wear would mean
+         * a rating nobody asked to keep silently filling that list up.
+         */
+        isArchived: Boolean = false,
         now: String,
     ): Boolean = driver.execute(
         """
-        INSERT OR IGNORE INTO outfits (id, name, garment_ids, occasion, season, created_at, is_suggested, is_pinned)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT OR IGNORE INTO outfits
+            (id, name, garment_ids, occasion, season, created_at, is_suggested, is_pinned, is_archived)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent(),
         listOf(
             id, name, jsonArray(garmentIds), occasion, season, now,
-            if (isSuggested) 1 else 0, if (isPinned) 1 else 0,
+            if (isSuggested) 1 else 0, if (isPinned) 1 else 0, if (isArchived) 1 else 0,
         ),
     ) > 0
 
@@ -78,6 +87,21 @@ class OutfitWrites(private val driver: SqlDriver) {
         driver.execute(
             "UPDATE outfits SET is_pinned = ? WHERE id = ?",
             listOf(if (isPinned) 1 else 0, id),
+        )
+    }
+
+    /**
+     * Put an outfit away, or bring it back.
+     *
+     * Archiving keeps the row and what its rating taught, and takes it out of the
+     * list of outfits to wear. Un-archiving is the same switch the other way, so a
+     * rated outfit somebody decides they do want is one tap from being kept rather
+     * than something to build again.
+     */
+    fun setArchived(id: String, isArchived: Boolean) {
+        driver.execute(
+            "UPDATE outfits SET is_archived = ? WHERE id = ?",
+            listOf(if (isArchived) 1 else 0, id),
         )
     }
 
@@ -100,7 +124,11 @@ class OutfitWrites(private val driver: SqlDriver) {
      * kept -- their name may read slightly stale, but the outfit is still usable.
      */
     fun removeGarment(garmentId: String) = driver.transaction {
-        for (outfit in OutfitQueries(driver).all()) {
+        // Archived ones too, explicitly: they are hidden from the screen, not from
+        // the database, and one left pointing at a garment that no longer exists
+        // is exactly the dangling reference this function exists to prevent -- it
+        // would just be invisible, which is worse.
+        for (outfit in OutfitQueries(driver).all(includeArchived = true)) {
             if (!outfit.garmentIds.contains(garmentId)) continue
 
             val remaining = outfit.garmentIds.filterNot { it == garmentId }

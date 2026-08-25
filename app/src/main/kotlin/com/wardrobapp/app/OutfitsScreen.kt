@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,14 +39,68 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.occasionChips
 import com.wardrobapp.presentation.seasonChips
+
+/** The "building around this garment" banner, for a test that asks whether it is there. */
+const val OUTFIT_SEED = "outfit-seed"
+
+/** The show/hide control for outfits that were rated but not kept. */
+const val OUTFIT_ARCHIVE_TOGGLE = "outfit-archive-toggle"
+
+/**
+ * What every suggestion is being built around.
+ *
+ * Named and shown, with a way out of it. Without this the screen would quietly
+ * keep answering a narrower question than the button appears to ask -- and
+ * "Suggest outfits" returning three outfits that all contain the same coat, with
+ * nothing saying why, reads as the engine being stuck.
+ */
+@Composable
+private fun BuildingAround(seed: GarmentRecord, onCleared: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth().testTag(OUTFIT_SEED)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // The cut-out where there is one, which is what every other screen
+            // shows a garment as.
+            seed.displayImage.takeIf { it.isNotEmpty() }?.let { uri ->
+                AsyncImage(
+                    model = uri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.outfits_building_around),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    seed.subcategory?.let { garmentTypeLabel(it) } ?: categoryLabel(seed.category),
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            TextButton(onClick = onCleared) { Text(stringResource(R.string.outfits_use_whole_wardrobe)) }
+        }
+    }
+}
 
 /**
  * Outfit suggestions, and the ones that were kept.
@@ -59,6 +115,10 @@ fun OutfitsScreen(
     onSeasonTapped: (Season?) -> Unit,
     onOccasionTapped: (Occasion?) -> Unit,
     onGenerate: () -> Unit,
+    onSeedCleared: () -> Unit,
+    onKeep: () -> Unit,
+    onKeepDismissed: () -> Unit,
+    onArchivedToggled: () -> Unit,
     onSave: (OutfitsViewModel.Suggestion) -> Unit,
     onRate: (OutfitsViewModel.Suggestion, Int) -> Unit,
     onPinToggled: (OutfitRecord) -> Unit,
@@ -82,6 +142,21 @@ fun OutfitsScreen(
             },
             confirmButton = { TextButton(onClick = onDeleteConfirmed) { Text(stringResource(R.string.action_delete)) } },
             dismissButton = { TextButton(onClick = onDeleteDismissed) { Text(stringResource(R.string.action_keep)) } },
+        )
+    }
+
+    // The rating is already recorded and already learned from by the time this is
+    // on screen, so there is no destructive answer here and no way to lose it: both
+    // buttons and a dismiss all leave the rating exactly where it is.
+    state.keeping?.let { rated ->
+        AlertDialog(
+            onDismissRequest = onKeepDismissed,
+            title = { Text(stringResource(R.string.outfit_keep_title)) },
+            text = { Text(stringResource(R.string.outfit_keep_body, rated.outfit.name)) },
+            confirmButton = { TextButton(onClick = onKeep) { Text(stringResource(R.string.outfit_keep)) } },
+            dismissButton = {
+                TextButton(onClick = onKeepDismissed) { Text(stringResource(R.string.outfit_just_learn)) }
+            },
         )
     }
 
@@ -113,6 +188,12 @@ fun OutfitsScreen(
                         ?: stringResource(R.string.outfits_filter_any)
                     Chip(label, chip.active) { onOccasionTapped(chip.value) }
                 })
+            }
+
+            // Above the button rather than below it, because it changes what the
+            // button will do.
+            state.seed?.let { seed ->
+                item { BuildingAround(seed, onSeedCleared) }
             }
 
             item {
@@ -175,13 +256,37 @@ fun OutfitsScreen(
                 }
             }
 
-            if (state.saved.isNotEmpty()) {
+            if (state.saved.isNotEmpty() || state.archivedCount > 0) {
                 item {
                     Text(
                         stringResource(R.string.outfits_saved_section),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 16.dp),
                     )
+                }
+
+                // Offered only once there is something behind it, and it says how
+                // many: a toggle that reveals nothing is a toggle that looks
+                // broken.
+                if (state.archivedCount > 0) {
+                    item {
+                        TextButton(
+                            onClick = onArchivedToggled,
+                            modifier = Modifier.testTag(OUTFIT_ARCHIVE_TOGGLE),
+                        ) {
+                            Text(
+                                if (state.showingArchived) {
+                                    stringResource(R.string.outfits_hide_rated)
+                                } else {
+                                    pluralStringResource(
+                                        R.plurals.outfits_show_rated,
+                                        state.archivedCount.toInt(),
+                                        state.archivedCount.toInt(),
+                                    )
+                                }
+                            )
+                        }
+                    }
                 }
 
                 items(state.saved, key = { "saved-${it.id}" }) { outfit ->
@@ -295,11 +400,26 @@ private fun SavedOutfitRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    pluralStringResource(
-                        R.plurals.garment_count,
-                        outfit.garmentIds.size,
-                        outfit.garmentIds.size,
-                    ),
+                    // Said on the row rather than left to the reader to infer from
+                    // the toggle above: once the archived ones are shown they sit
+                    // in the same list as the kept ones, and a row that is only
+                    // here for what it taught should say so.
+                    if (outfit.isArchived) {
+                        stringResource(
+                            R.string.outfit_rated_only,
+                            pluralStringResource(
+                                R.plurals.garment_count,
+                                outfit.garmentIds.size,
+                                outfit.garmentIds.size,
+                            ),
+                        )
+                    } else {
+                        pluralStringResource(
+                            R.plurals.garment_count,
+                            outfit.garmentIds.size,
+                            outfit.garmentIds.size,
+                        )
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

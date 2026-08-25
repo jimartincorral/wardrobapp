@@ -83,10 +83,22 @@
     <string name="outfits_subtitle">Suggestions are built from what you own, and learn from what you rate.</string>
     <string name="outfits_filter_any">Any</string>
     <string name="outfits_suggest">Suggest outfits</string>
+    <string name="outfits_building_around">Building around</string>
+    <string name="outfits_use_whole_wardrobe">Whole wardrobe</string>
     <string name="outfits_suggesting">Building outfits…</string>
     <string name="outfits_none_possible">No outfits could be built from what\'s available. Try fewer filters, or add a few more garments.</string>
     <string name="outfits_prompt">Tap suggest to see what goes together.</string>
     <string name="outfits_saved_section">Saved</string>
+    <string name="outfit_keep_title">Keep this outfit?</string>
+    <string name="outfit_keep_body">Your rating is saved either way, and the app has already learned from it. Keeping \u201c%1$s\u201d also puts it in your saved outfits.</string>
+    <string name="outfit_keep">Keep it</string>
+    <string name="outfit_just_learn">Just learn from it</string>
+    <string name="outfit_rated_only">%1$s \u00b7 rated only</string>
+    <string name="outfits_hide_rated">Hide rated-only outfits</string>
+    <plurals name="outfits_show_rated">
+        <item quantity="one">Show %1$d rated-only outfit</item>
+        <item quantity="other">Show %1$d rated-only outfits</item>
+    </plurals>
     <string name="outfit_saved_badge">Saved</string>
     <string name="action_save">Save</string>
     <string name="action_pin">Pin</string>
@@ -120,6 +132,7 @@
     <string name="property_tags">Tags</string>
     <string name="garment_retired">Not in use</string>
     <string name="garment_retired_since">Not in use since %1$s</string>
+    <string name="garment_build_outfit">Build an outfit around this</string>
     <string name="garment_retire">No longer wearing this</string>
     <string name="garment_unretire">Wearing this again</string>
     <string name="garment_delete">Delete this garment</string>

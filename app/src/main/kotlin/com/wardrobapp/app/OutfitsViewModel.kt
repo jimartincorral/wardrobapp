@@ -2,6 +2,7 @@ package com.wardrobapp.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.SuggestedOutfit
 import com.wardrobapp.data.isoTimestamp
@@ -64,6 +65,26 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
          * answer from position alone.
          */
         val deleting: OutfitRecord? = null,
+        /**
+         * The garment every suggestion is being built around, if any.
+         *
+         * The record rather than its id, so the screen can name and show the
+         * garment it is working from -- "building around something" is not an
+         * answer anybody can act on.
+         */
+        val seed: GarmentRecord? = null,
+        /**
+         * The rated outfit being asked about, if any.
+         *
+         * A rating is already recorded and already learned from by the time this
+         * appears -- what is being asked is only whether to keep the outfit in the
+         * list of things to wear.
+         */
+        val keeping: Suggestion? = null,
+        /** Whether the rated-only outfits are being shown alongside the kept ones. */
+        val showingArchived: Boolean = false,
+        /** How many are put away, so the toggle can say whether it is worth tapping. */
+        val archivedCount: Long = 0,
     )
 
     private val _state = MutableStateFlow(State())
@@ -81,8 +102,36 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
         _state.update { it.copy(filters = it.filters.withOccasionSelected(occasion)) }
     }
 
+    /**
+     * Build every suggestion around one garment.
+     *
+     * The engine has supported this from the start and nothing ever asked it to:
+     * "what goes with this?" is the question somebody holding a garment actually
+     * has, and it was reachable only from a test.
+     */
+    fun onSeedRequested(garmentId: String) {
+        viewModelScope.launch {
+            val garment = try {
+                withContext(Dispatchers.IO) { container.garments.garment(garmentId) }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: e.javaClass.simpleName) }
+                return@launch
+            }
+
+            _state.update { it.copy(seed = garment) }
+            generate()
+        }
+    }
+
+    /** Back to suggesting from the whole wardrobe. */
+    fun onSeedCleared() {
+        _state.update { it.copy(seed = null) }
+        generate()
+    }
+
     fun generate() {
         val filters = _state.value.filters
+        val seed = _state.value.seed
         _state.update { it.copy(generating = true, error = null) }
 
         viewModelScope.launch {
@@ -101,6 +150,7 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
                                 occasion = filters.occasion,
                             ),
                         ),
+                        seedGarmentId = seed?.id,
                     )
                 }
 
@@ -129,11 +179,32 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             // Marked saved only if it was: saying so after a failed write would
             // hide the outfit that is not there.
-            if (runWrite { save(suggestion) }) markSaved(suggestion.id)
+            val written = runWrite {
+                save(suggestion)
+                // And un-archived, which is not the same as inserting it: rating
+                // this suggestion already wrote the row, archived, so the insert
+                // above does nothing and without this the outfit would stay hidden
+                // while the card said "Saved". Idempotent either way.
+                container.outfitWrites.setArchived(suggestion.id, false)
+            }
+            if (written) markSaved(suggestion.id)
             loadSaved()
         }
     }
 
+    /**
+     * Record a rating, and ask whether the outfit is worth keeping.
+     *
+     * Rating used to save. That is the whole of what a rating could do, so the only
+     * way to teach the engine anything was to put an outfit you had just called
+     * two stars into the list of outfits you intend to wear -- which is a good
+     * reason never to rate anything.
+     *
+     * So a rating archives instead: stored, learned from, and out of the way. The
+     * prompt that follows offers to keep it. Written *before* the prompt rather
+     * than in answer to it, deliberately: the rating is the part that must not be
+     * lost, and a dialog dismissed by a stray tap or a rotation would lose it.
+     */
     fun onRated(suggestion: Suggestion, rating: Int) {
         // Shown immediately: the stars are the user's own input and should not
         // wait on a write to appear.
@@ -148,7 +219,7 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             val written = runWrite {
                 // A rating is a rating *of* an outfit, so it has to exist first.
-                save(suggestion)
+                save(suggestion, archived = true)
                 container.outfitWrites.rate(
                     ratingId = UUID.randomUUID().toString(),
                     outfitId = suggestion.id,
@@ -156,9 +227,40 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
                     now = now(),
                 )
             }
-            if (written) markSaved(suggestion.id)
+
+            // Only asked once the rating is safely down, and only if it is: a
+            // prompt offering to keep an outfit whose rating failed to write would
+            // be offering to keep nothing.
+            if (written) _state.update { it.copy(keeping = suggestion.copy(rating = rating)) }
             loadSaved()
         }
+    }
+
+    /** Keep the rated outfit in the list of outfits to wear. */
+    fun onKeepRequested() {
+        val suggestion = _state.value.keeping ?: return
+        _state.update { it.copy(keeping = null) }
+
+        viewModelScope.launch {
+            if (runWrite { container.outfitWrites.setArchived(suggestion.id, false) }) {
+                markSaved(suggestion.id)
+            }
+            loadSaved()
+        }
+    }
+
+    /**
+     * Leave it archived.
+     *
+     * Nothing to write: rating already put it there. Dismissing the prompt any
+     * other way means the same thing, which is why this is the safe default.
+     */
+    fun onKeepDismissed() = _state.update { it.copy(keeping = null) }
+
+    /** Show or hide the outfits that were rated but not kept. */
+    fun onArchivedToggled() {
+        _state.update { it.copy(showingArchived = !it.showingArchived) }
+        loadSaved()
     }
 
     fun onPinToggled(outfit: OutfitRecord) {
@@ -195,12 +297,13 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    private fun save(suggestion: Suggestion) {
+    private fun save(suggestion: Suggestion, archived: Boolean = false) {
         container.outfitWrites.insertIfAbsent(
             id = suggestion.id,
             name = suggestion.outfit.name,
             garmentIds = suggestion.outfit.garments.map { it.id },
             isSuggested = true,
+            isArchived = archived,
             now = now(),
         )
     }
@@ -218,8 +321,12 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
     private fun loadSaved() {
         viewModelScope.launch {
             try {
-                val outfits = withContext(Dispatchers.IO) { container.outfits.all() }
-                _state.update { it.copy(saved = outfits, error = null) }
+                val showArchived = _state.value.showingArchived
+                val (outfits, archived) = withContext(Dispatchers.IO) {
+                    container.outfits.all(includeArchived = showArchived) to
+                        container.outfits.archivedCount()
+                }
+                _state.update { it.copy(saved = outfits, archivedCount = archived, error = null) }
             } catch (e: Exception) {
                 // Reported, not swallowed: the React Native screen logged this
                 // and left the list at its previous value, so a failed read was

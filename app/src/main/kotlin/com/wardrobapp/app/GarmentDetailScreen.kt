@@ -27,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -76,6 +77,7 @@ fun GarmentDetailScreen(
     onRetry: () -> Unit,
     onRemoveBackground: () -> Unit,
     onUndoBackground: () -> Unit,
+    onBuildOutfit: () -> Unit,
     onRetire: () -> Unit,
     onReturnToWardrobe: () -> Unit,
     onDelete: () -> Unit,
@@ -150,6 +152,7 @@ fun GarmentDetailScreen(
                 onPhotoSelected = onPhotoSelected,
                 onRemoveBackground = onRemoveBackground,
                 onUndoBackground = onUndoBackground,
+                onBuildOutfit = onBuildOutfit,
                 onRetire = onRetire,
                 onReturnToWardrobe = onReturnToWardrobe,
                 onDelete = onDelete,
@@ -167,6 +170,7 @@ private fun GarmentBody(
     onPhotoSelected: (Int) -> Unit,
     onRemoveBackground: () -> Unit,
     onUndoBackground: () -> Unit,
+    onBuildOutfit: () -> Unit,
     onRetire: () -> Unit,
     onReturnToWardrobe: () -> Unit,
     onDelete: () -> Unit,
@@ -248,6 +252,7 @@ private fun GarmentBody(
             Actions(
                 isAvailable = view.isAvailable,
                 working = working,
+                onBuildOutfit = onBuildOutfit,
                 onRetire = onRetire,
                 onReturnToWardrobe = onReturnToWardrobe,
                 onDelete = onDelete,
@@ -312,11 +317,25 @@ private fun BackgroundControl(
 private fun Actions(
     isAvailable: Boolean,
     working: Boolean,
+    onBuildOutfit: () -> Unit,
     onRetire: () -> Unit,
     onReturnToWardrobe: () -> Unit,
     onDelete: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(top = 32.dp)) {
+        // Only while the garment is in use: an outfit is something to wear, and
+        // suggestions are drawn from the available wardrobe, so offering this on a
+        // retired garment would be offering a button that answers with nothing.
+        if (isAvailable) {
+            Button(
+                onClick = onBuildOutfit,
+                enabled = !working,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            ) {
+                Text(stringResource(R.string.garment_build_outfit))
+            }
+        }
+
         OutlinedButton(
             onClick = if (isAvailable) onRetire else onReturnToWardrobe,
             enabled = !working,

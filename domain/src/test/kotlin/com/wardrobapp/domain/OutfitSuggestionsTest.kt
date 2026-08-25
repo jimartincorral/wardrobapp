@@ -76,6 +76,20 @@ class OutfitSuggestionsTest {
         random = lcg(seed),
     )
 
+    /**
+     * One outfit's raw score, with nothing else to tell outfits apart.
+     *
+     * No learned pairs, no season asked for, no occasion asked for -- so what is
+     * left in the total is colour harmony and whether the garments agree with each
+     * other about the occasion.
+     */
+    private fun scoreOf(garments: List<Garment>): Double = scoreOutfit(
+        garments = garments,
+        getPairScore = PairScoreLookup { _, _ -> 0.0 },
+        currentSeason = Season.SPRING,
+        preferences = null,
+    )
+
     @Test
     fun `an empty wardrobe suggests nothing`() {
         assertEquals(emptyList(), buildSuggestions(context(garments = emptyList())))
@@ -211,6 +225,90 @@ class OutfitSuggestionsTest {
                 "${outfit.name} was built around a garment it does not contain",
             )
         }
+    }
+
+    @Test
+    fun `an outfit dressed for one kind of day beats one that is not`() {
+        // The gap this closes: with no occasion asked for, the engine used to have
+        // no opinion at all about whether the garments agreed with each other, so
+        // gym shorts under a blazer scored exactly as well as a shirt with chinos.
+        val coherent = listOf(
+            garment("shirt", "tops", "Shirt"),
+            garment("chinos", "bottoms", "Chinos"),
+            garment("loafers", "shoes", "Loafers"),
+        )
+        val mixed = listOf(
+            garment("blazer", "midlayer", "Blazer"),
+            garment("gym-shorts", "activewear", "Workout Shorts"),
+            garment("loafers", "shoes", "Loafers"),
+        )
+
+        // Everything else about these two is equal: the same shoes, no learned
+        // pairs, one colour throughout, and no season or occasion asked for. The
+        // only thing left to tell them apart is whether they agree.
+        assertTrue(
+            scoreOf(coherent) > scoreOf(mixed),
+            "an incoherent outfit scored as well: ${scoreOf(coherent)} vs ${scoreOf(mixed)}",
+        )
+    }
+
+    @Test
+    fun `a garment with no occasion at all is not treated as a clash`() {
+        // Underwear is deliberately for no occasion, so a thermal under a shirt
+        // has nothing to disagree about -- and must not be scored as if it did,
+        // or the engine would learn to avoid a layer that is simply silent.
+        val withThermal = listOf(
+            garment("shirt", "tops", "Shirt"),
+            garment("chinos", "bottoms", "Chinos"),
+            garment("thermal", "underwear", "Thermal"),
+        )
+        val shirtAndChinos = listOf(
+            garment("shirt", "tops", "Shirt"),
+            garment("chinos", "bottoms", "Chinos"),
+        )
+
+        assertEquals(
+            scoreOf(shirtAndChinos),
+            scoreOf(withThermal),
+            absoluteTolerance = 1e-9,
+            message = "a silent garment changed the score",
+        )
+    }
+
+    @Test
+    fun `most suggestions come with shoes on`() {
+        // Templates used to be drawn uniformly and only six of the fifteen include
+        // shoes, so most of what the screen showed was a top and a bottom and
+        // nothing on the feet. Counted over many draws, because any single one is
+        // allowed to be a dress on its own.
+        val outfits = (1..60).flatMap { seed ->
+            buildSuggestions(context(seed = seed.toLong()), GenerateSuggestionsOptions(count = 3))
+        }
+
+        val shod = outfits.count { outfit -> outfit.garments.any { it.category == "shoes" } }
+
+        // Measured: 160 of 180 with the weights, 110 without. The threshold sits
+        // between the two so this fails if the weighting is removed rather than
+        // passing on the uniform draw, which already clears half in this wardrobe
+        // -- four of its eight viable templates include shoes.
+        assertTrue(
+            shod * 4 > outfits.size * 3,
+            "only $shod of ${outfits.size} suggestions had shoes",
+        )
+    }
+
+    @Test
+    fun `a wardrobe with no shoes in it still suggests something`() {
+        // The weights move the odds, they do not exclude: a template that cannot
+        // be filled was never viable, and one that can must stay reachable.
+        val shoeless = wardrobe.filterNot { it.category == "shoes" }
+
+        val suggestions = buildSuggestions(
+            context(garments = shoeless),
+            GenerateSuggestionsOptions(count = 3),
+        )
+
+        assertTrue(suggestions.isNotEmpty(), "a wardrobe without shoes suggested nothing")
     }
 
     @Test

@@ -11,7 +11,8 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 - **A wardrobe you can look at your way** — the list, or a grid two, three or four garments across, chosen from the top bar and remembered between launches. A cell is the photo with the garment's brand under it, since that is the one thing a photo does not show.
 - **On-device background removal** — strips the background from a garment photo using ML Kit subject segmentation, from the add/edit form or from a garment already saved. The cut-out replaces the original rather than sitting beside it, so removing a background costs storage instead of doubling it.
 - **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged by a weighted average of tag overlap (Jaccard, 0.6), colour similarity (0.3) and size match (0.1). Signals with nothing to compare abstain rather than scoring zero, so an untagged garment can still be recognised as a duplicate.
-- **Outfit suggestions** — an epsilon-greedy engine combining category templates, colour harmony judged by hue, season and occasion fit, and pair scores learned from your ratings.
+- **Rate an outfit without keeping it** — rating a suggestion teaches the app which garments go together, and used to save the outfit as a side effect, so the only way to teach it was to file away outfits you had just called two stars. A rating now archives instead: kept for what it taught, out of the saved list, and behind a toggle that says how many are there. The prompt that follows offers to keep it properly.
+- **Outfit suggestions** — from the whole wardrobe, or built around one garment you picked ("what goes with this?", from its own screen). An epsilon-greedy engine combining category templates weighted towards complete outfits, colour harmony judged by hue, season and occasion fit, whether the garments agree with each other about the occasion, and pair scores learned from your ratings.
 - **Import from a link** — paste or share a product page and the garment is filled in from it: photos, title, brand. Only public addresses are fetched, and the app asks before going anywhere a link it did not choose points at.
 - **Filters that know your wardrobe** — every filter offers the values you actually own: your brands, your sizes, the colours your garments come in. Each row is one line you scroll sideways, and the choices narrow as you pick, so a combination that would show nothing is never offered.
 - **Statistics** — one page: six counts at a glance, then breakdowns by category (with subcategories), colour and brand, and how long the garments you retire lasted. Each breakdown is a section you open, so the page starts with the numbers rather than six charts.
@@ -127,11 +128,11 @@ Two things it left behind, both deliberate. Comments across this codebase explai
 ## Testing
 
 ```bash
-./gradlew test                    # 520 tests, no Android SDK, seconds
+./gradlew test                    # 529 tests, no Android SDK, seconds
 ./gradlew :app:testDebugUnitTest  # 83 more, needs the SDK — no emulator
 ```
 
-The 520 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
+The 529 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
 
 The 83 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 

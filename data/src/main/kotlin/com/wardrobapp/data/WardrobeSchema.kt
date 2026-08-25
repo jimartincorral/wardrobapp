@@ -49,7 +49,8 @@ object WardrobeSchema {
       season TEXT,
       created_at TEXT NOT NULL,
       is_suggested INTEGER NOT NULL DEFAULT 0,
-      is_pinned INTEGER NOT NULL DEFAULT 0
+      is_pinned INTEGER NOT NULL DEFAULT 0,
+      is_archived INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS outfit_ratings (
@@ -80,6 +81,7 @@ object WardrobeSchema {
      */
     val ALTER_STATEMENTS: List<String> = listOf(
         "ALTER TABLE outfits ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE outfits ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE garments ADD COLUMN image_uri_nobg TEXT",
         "ALTER TABLE garments ADD COLUMN image_uris TEXT NOT NULL DEFAULT '[]'",
         "ALTER TABLE garments ADD COLUMN image_uris_nobg TEXT NOT NULL DEFAULT '[]'",

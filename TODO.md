@@ -11,6 +11,11 @@ One app now: the Kotlin one. Anything below is built once.
 - Garment lifespan, surfaced on the statistics page.
 - One statistics page: the Analytics tab and the Statistics screen were the same
   question asked twice, and are now one tab with its breakdowns as sections.
+- Outfit suggestions that hang together: the engine now scores whether the
+  garments agree about the occasion, weights its templates towards complete
+  outfits, and can be pointed at one garment to build around. Rating no longer
+  forces a save -- rated-only outfits are archived, so the learning is kept
+  without the list filling up.
 - Getting from a number to the garments behind it: the home counts and the
   statistics categories open the wardrobe, filtered to what was tapped.
 - Telling the phone that a newer build exists, with its changelog, and installing
@@ -67,9 +72,18 @@ So the first decision is the wear log itself, not the features on top of it:
 - [ ] Restore preview: show what an archive contains before replacing anything.
       The validation it would read from already exists.
 - [ ] Recommendation engine v2:
-  - [ ] Better personalization signals
+  - [ ] Better personalization signals — the ratings themselves are now cheap to
+        give, since rating no longer forces a save, so this is a question of what
+        else to learn from rather than of how to collect it
   - [ ] Context-aware constraints — the "recent wear" half needs the wear log
-  - [ ] Explainable suggestion reasons in the UI
+  - [ ] Explainable suggestion reasons in the UI. `scoreOutfit` computes season,
+        occasion, coherence, harmony and pair contributions and then throws them
+        away; returning the breakdown is most of this
+  - [ ] Cap the loud colours: three mutually contrasting high-chroma garments
+        currently score better than one statement piece against neutrals
+  - [ ] Scale the number of draws to the wardrobe: 20 samples of a 200-garment
+        wardrobe is a thin search, and it is arithmetic with no I/O in it
+  - [ ] Do not repeat the last batch — nothing remembers what was just suggested
 - [ ] Notifications and routines:
   - [ ] Plan-for-tomorrow reminder
   - [ ] Unused-item prompts (90+ days) — needs the wear log

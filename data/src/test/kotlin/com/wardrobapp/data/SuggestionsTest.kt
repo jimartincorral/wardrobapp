@@ -156,6 +156,33 @@ class SuggestionsTest {
     }
 
     @Test
+    fun `builds every outfit around the garment it was given`() {
+        givenWardrobe()
+
+        val around = subject.suggest(Season.SUMMER, sequence(), seedGarmentId = "shoes-1")
+
+        assertTrue(around.isNotEmpty(), "building around a garment produced nothing")
+        assertTrue(
+            around.all { outfit -> outfit.garments.any { it.id == "shoes-1" } },
+            "an outfit was built around a garment it does not contain",
+        )
+    }
+
+    @Test
+    fun `refuses to build around a garment that is not wearable`() {
+        // Nothing rather than a batch from the whole wardrobe: somebody asked what
+        // goes with one particular garment, and answering with outfits that do not
+        // contain it is a different question -- and a retired garment must not
+        // reach a suggestion through this door when it cannot reach one through
+        // any other.
+        givenWardrobe()
+        addGarment("retired-coat", "outerwear", "Coat", available = false)
+
+        assertEquals(emptyList(), subject.suggest(Season.SUMMER, sequence(), seedGarmentId = "retired-coat"))
+        assertEquals(emptyList(), subject.suggest(Season.SUMMER, sequence(), seedGarmentId = "no-such-garment"))
+    }
+
+    @Test
     fun `passes the caller's preferences through to the engine`() {
         // The filters on the screen have to reach the scoring, or the chips are
         // decoration.
