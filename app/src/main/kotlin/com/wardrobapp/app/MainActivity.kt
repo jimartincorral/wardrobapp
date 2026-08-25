@@ -516,7 +516,6 @@ class MainActivity : AppCompatActivity() {
                     model.onCameraUnavailable()
                 }
             },
-            onDetectColor = model::onDetectColorRequested,
             onPhotoSelected = model::onPhotoSelected,
             onPhotoRemoved = model::onPhotoRemoved,
             onRemoveBackground = model::onRemoveBackground,

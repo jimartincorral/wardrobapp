@@ -133,7 +133,6 @@
     <string name="form_saving">Guardando…</string>
     <string name="form_error_title">No se pudo guardar</string>
     <string name="error_title_photo">No se pudo usar esa foto</string>
-    <string name="error_title_colors">No se pudieron leer los colores</string>
     <string name="error_title_background">No se pudo quitar el fondo</string>
     <string name="form_section_photos">Fotos</string>
     <string name="form_section_tags">Etiquetas</string>
@@ -271,9 +270,7 @@
 
     <!-- Taking a photo, and reading a colour off one -->
     <string name="form_take_photo">Hacer foto</string>
-    <string name="form_detect_colors">Detectar colores</string>
     <string name="form_detecting_colors">Leyendo los colores de la foto…</string>
-    <string name="error_colors_not_read">No se han podido leer los colores de esa foto.</string>
     <string name="error_no_camera">Ninguna aplicación de cámara ha respondido, así que no se ha hecho ninguna foto.</string>
     <string name="error_crop_failed">No se ha podido recortar esa foto, así que no se ha añadido.</string>
 

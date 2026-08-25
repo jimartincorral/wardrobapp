@@ -25,6 +25,19 @@ data class GarmentFormState(
     val seasons: List<Season> = emptyList(),
     val brand: String = "",
     val colorPalette: List<String> = listOf(DEFAULT_COLOR),
+    /**
+     * Whether [colorPalette] is somebody's choice rather than a starting point.
+     *
+     * A new garment starts on the default colour because a garment must have one,
+     * and that default is not a choice -- it is what nobody has said anything about
+     * yet. Detection replaces it; detection never replaces a choice. True as soon as
+     * a colour is tapped, and true from the moment an existing garment is loaded,
+     * since its palette is what was saved.
+     *
+     * Form state, never stored: the garment's row has colours, not the story of how
+     * they got there.
+     */
+    val colorsChosen: Boolean = false,
     val size: String = "",
 ) {
     companion object {
@@ -176,18 +189,32 @@ data class GarmentFormState(
     fun withColorToggled(color: String): GarmentFormState {
         val palette = colorPalette.toggled(color)
 
-        return copy(colorPalette = palette.ifEmpty { listOf(DEFAULT_COLOR) })
+        return copy(
+            colorPalette = palette.ifEmpty { listOf(DEFAULT_COLOR) },
+            // Tapping any colour -- including tapping the default off and on again
+            // -- makes the palette a choice, and choices are not detected over.
+            colorsChosen = true,
+        )
     }
 
     /**
-     * Put a detected colour first, keeping what the user already picked.
+     * Apply the colours read off the photo.
      *
-     * Replacing the palette would discard a deliberate choice; a detection is a
-     * suggestion, not a correction.
+     * The palette becomes what was detected, one colour or two, rather than the
+     * detected colour joined to what was already there. That "joined to" is what
+     * left every garment carrying the default black next to its real colour: black
+     * is where a new garment starts, so prepending to it kept it.
+     *
+     * Which is why replacing is safe here and would not have been before: it only
+     * happens while [colorsChosen] is false, so there is nothing to discard. Once
+     * somebody has tapped a colour, or the garment came out of the database with
+     * colours on it, detection changes nothing at all.
+     *
+     * An empty [colors] -- a photo with nothing countable in it -- also changes
+     * nothing, rather than emptying the palette.
      */
-    fun withDetectedColor(color: String): GarmentFormState = copy(
-        colorPalette = listOf(color) + colorPalette.filterNot { it == color },
-    )
+    fun withDetectedColors(colors: List<String>): GarmentFormState =
+        if (colorsChosen || colors.isEmpty()) this else copy(colorPalette = colors)
 
     /**
      * Apply an imported preview, keeping a brand already typed. An import is a

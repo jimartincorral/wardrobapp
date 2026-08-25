@@ -91,7 +91,6 @@ fun GarmentFormScreen(
     onBack: () -> Unit,
     onAddPhoto: () -> Unit,
     onTakePhoto: () -> Unit,
-    onDetectColor: () -> Unit,
     onPhotoSelected: (Int) -> Unit,
     onPhotoRemoved: (Int) -> Unit,
     onRemoveBackground: () -> Unit,
@@ -211,12 +210,11 @@ fun GarmentFormScreen(
                             Text(stringResource(R.string.form_take_photo))
                         }
 
-                        DetectColorControl(
-                            enabled = form.imageUris.getOrNull(form.selectedImageIndex)
-                                ?.isNotEmpty() == true,
-                            running = state.detectingColor,
-                            onDetect = onDetectColor,
-                        )
+                        // No button: the colours are read when a photo arrives and
+                        // again when its background is removed. This is only the
+                        // wait, so that a palette filling itself in is explained
+                        // rather than surprising.
+                        if (state.detectingColor) DetectingColors()
 
                         // What to offer is :presentation's call, from the same
                         // function the detail screen asks -- "is there an original"
@@ -804,40 +802,25 @@ private fun hostOf(url: String): String =
     url.toUri().host ?: url
 
 /**
- * Read the selected photo's colour, on request.
+ * The wait while a photo's colours are being read.
  *
- * On request rather than on every photo, which is how the app this replaced offers it:
- * the answer is a suggestion moved to the front of the palette, and doing that
- * unasked to a garment whose colours somebody has already picked is a correction
- * nobody asked for.
+ * There is nothing to press. Detection happens on its own when there is something
+ * new to read -- a photo added, or a background removed -- and this says so while
+ * it does, because a palette that changes by itself with no explanation looks like
+ * a bug rather than a convenience.
  */
 @Composable
-private fun DetectColorControl(
-    enabled: Boolean,
-    running: Boolean,
-    onDetect: () -> Unit,
-) {
-    if (running) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 12.dp),
-        ) {
-            CircularProgressIndicator(modifier = Modifier.size(18.dp))
-            Text(
-                stringResource(R.string.form_detecting_colors),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 12.dp),
-            )
-        }
-        return
-    }
-
-    OutlinedButton(
-        onClick = onDetect,
-        enabled = enabled,
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+private fun DetectingColors() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = 12.dp),
     ) {
-        Text(stringResource(R.string.form_detect_colors))
+        CircularProgressIndicator(modifier = Modifier.size(18.dp))
+        Text(
+            stringResource(R.string.form_detecting_colors),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 12.dp),
+        )
     }
 }

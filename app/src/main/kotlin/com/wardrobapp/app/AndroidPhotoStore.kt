@@ -81,7 +81,7 @@ class AndroidPhotoStore(private val context: Context) {
     }
 
     /**
-     * A photo's pixels, small, as RGBA for [com.wardrobapp.presentation.dominantGarmentColor].
+     * A photo's pixels, small, as RGBA for [com.wardrobapp.presentation.dominantGarmentColors].
      *
      * Downscaled hard first, the way `detectDominantColor` did: a thumbnail is
      * faster to count and less swayed by a pattern's detail than the full image.
@@ -101,7 +101,7 @@ class AndroidPhotoStore(private val context: Context) {
             val packed = IntArray(bitmap.width * bitmap.height)
             bitmap.getPixels(packed, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
 
-            // ARGB ints into RGBA bytes, which is the layout `dominantGarmentColor`
+            // ARGB ints into RGBA bytes, which is the layout `dominantGarmentColors`
             // reads and what every decoder on the TypeScript side produced.
             // `getPixels` hands back non-premultiplied values, so a cut-out's
             // transparent pixels arrive as alpha 0 and are skipped rather than

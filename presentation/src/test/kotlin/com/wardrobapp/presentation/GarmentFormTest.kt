@@ -183,18 +183,41 @@ class GarmentFormTest {
     }
 
     @Test
-    fun `a detected colour goes first and keeps what was already picked`() {
-        // A detection is a suggestion, not a correction: replacing the palette
-        // would discard a deliberate choice.
-        val state = form().copy(colorPalette = listOf("#FF0000", "#00FF00"))
-            .withDetectedColor("#0000FF")
+    fun `detected colours replace the default a garment starts on`() {
+        // The bug this fixes, reported from a phone: every garment kept black. A
+        // new garment starts on black because it must have a colour, the detection
+        // used to go in front of whatever was there, and so black stayed picked
+        // beside the real colour on every single garment.
+        val state = form().withDetectedColors(listOf("#FF0000", "#FFFFFF"))
 
-        assertEquals(listOf("#0000FF", "#FF0000", "#00FF00"), state.colorPalette)
+        assertEquals(listOf("#FF0000", "#FFFFFF"), state.colorPalette)
+    }
 
-        // Detecting a colour that is already there moves it up rather than
-        // listing it twice.
-        val again = state.withDetectedColor("#FF0000")
-        assertEquals(listOf("#FF0000", "#0000FF", "#00FF00"), again.colorPalette)
+    @Test
+    fun `detection never touches colours somebody chose`() {
+        // The other half, and why replacing is safe: a tapped palette is a choice,
+        // and a choice is not detected over. Including a tapped black, which is
+        // indistinguishable from the default in the palette but not in the flag.
+        val tapped = form().withColorToggled("#00FF00")
+        assertEquals(
+            tapped.colorPalette,
+            tapped.withDetectedColors(listOf("#FF0000")).colorPalette,
+        )
+
+        // And a garment loaded from the database arrives with its colours already
+        // chosen, so editing one and removing a background repaints nothing.
+        val saved = form().copy(colorPalette = listOf("#123456"), colorsChosen = true)
+        assertEquals(listOf("#123456"), saved.withDetectedColors(listOf("#FF0000")).colorPalette)
+    }
+
+    @Test
+    fun `a photo with nothing readable in it leaves the palette alone`() {
+        // Detection reporting nothing must not empty the palette: a garment always
+        // has a colour, and "unreadable photo" is not a colour.
+        val state = form().withDetectedColors(emptyList())
+
+        assertEquals(listOf(GarmentFormState.DEFAULT_COLOR), state.colorPalette)
+        assertEquals(false, state.colorsChosen, "nothing was chosen, so nothing may be locked")
     }
 
     @Test

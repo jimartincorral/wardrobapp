@@ -45,7 +45,6 @@ class GarmentFormScreenTest {
                 onBack = {},
                 onAddPhoto = {},
                 onTakePhoto = {},
-                onDetectColor = {},
                 onPhotoSelected = {},
                 onPhotoRemoved = {},
                 onRemoveBackground = {},

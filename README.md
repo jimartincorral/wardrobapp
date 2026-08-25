@@ -6,7 +6,7 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 
 ## Features
 
-- **Garment catalog** — photos, category and type, colour palette, tags, brand, size. A photo is cropped to 3:4 as it is added, from the gallery or the camera, which is the shape every screen shows a garment in; it is then resized to 800px and re-encoded at 70% JPEG to keep the database and backups small.
+- **Garment catalog** — photos, category and type, colour palette, tags, brand, size. The colours fill themselves in from the photo as it is added, and again if you remove its background. A photo is cropped to 3:4 as it is added, from the gallery or the camera, which is the shape every screen shows a garment in; it is then resized to 800px and re-encoded at 70% JPEG to keep the database and backups small.
 - **A wardrobe you can look at your way** — the list, or a grid two, three or four garments across, chosen from the top bar and remembered between launches. A cell is the photo with the garment's brand under it, since that is the one thing a photo does not show.
 - **On-device background removal** — strips the background from a garment photo using ML Kit subject segmentation, from the add/edit form or from a garment already saved. The cut-out replaces the original rather than sitting beside it, so removing a background costs storage instead of doubling it.
 - **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged by a weighted average of tag overlap (Jaccard, 0.6), colour similarity (0.3) and size match (0.1). Signals with nothing to compare abstain rather than scoring zero, so an untagged garment can still be recognised as a duplicate.
@@ -125,11 +125,11 @@ Two things it left behind, both deliberate. Comments across this codebase explai
 ## Testing
 
 ```bash
-./gradlew test                    # 507 tests, no Android SDK, seconds
+./gradlew test                    # 509 tests, no Android SDK, seconds
 ./gradlew :app:testDebugUnitTest  # 68 more, needs the SDK — no emulator
 ```
 
-The 507 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
+The 509 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
 
 The 68 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 
@@ -153,7 +153,7 @@ CI runs all of it on every pull request, on pushes to `main`, and on pushes to `
 - **Releases are signed with a public key** until a keystore exists. See [Signing](#signing).
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **No wear log.** The app records outfit ratings, not what you wore on a given day, so there is no cost-per-wear or wear-trend reporting.
-- **Colour detection is approximate.** "Detect Colours" snaps every fourth pixel to the nearest of the 24 palette colours and returns whichever palette colour holds the most of them, reading the background-removed cut-out where there is one. That fixes the two ways it used to be wrong — it averaged the pixels, so a red-and-white striped shirt came out pink, a colour appearing nowhere in it; and it read the original photo, so a navy shirt on a white duvet came out pale blue. What is left is genuinely approximate: a garment of several colours reports the largest one rather than "multi", a print reports its background, and with no cut-out the photo's own background still votes. Treat it as a prefill to correct rather than an answer; the palette is one tap away.
+- **Colour detection is approximate.** It snaps every fourth pixel to the nearest of the 24 palette colours and picks whichever holds the most of them, plus a runner-up covering at least a fifth of the garment. What is left approximate: a print reports its ground and its strongest figure rather than "multi", the third colour of a three-coloured garment is not reported, and on a photo whose background has not been removed that background still votes. It fills the palette in rather than answering it — every colour it picks is one tap to undo.
 - **URL import only fetches public addresses.** A product page reaches the app two ways: a `wardrobapp://…?importUrl=…` deep link, which any web page, message or QR code can open, and the share sheet from a browser. Neither is necessarily an address you chose. Import therefore asks before fetching anything, and refuses addresses on the device or its local network — a phone sits *inside* a home network, and without that the app would be a way to reach a router or a printer that the page could not reach itself. Redirects are checked before they are followed, page reads are capped and given a deadline, and the image URLs a page supplies go through the same check. An `http://` page will not load at all: Android blocks cleartext by default and opting in app-wide to reach the occasional shop still on http would weaken every other request.
 
 ## Contributing
