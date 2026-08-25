@@ -135,7 +135,6 @@
     <string name="error_title_photo">No se pudo usar esa foto</string>
     <string name="error_title_colors">No se pudieron leer los colores</string>
     <string name="error_title_background">No se pudo quitar el fondo</string>
-    <string name="error_title_type">No se pudo leer el tipo de prenda</string>
     <string name="form_section_photos">Fotos</string>
     <string name="form_section_tags">Etiquetas</string>
     <string name="form_size_custom">O escribe una talla</string>
@@ -277,16 +276,6 @@
     <string name="error_colors_not_read">No se han podido leer los colores de esa foto.</string>
     <string name="error_no_camera">Ninguna aplicación de cámara ha respondido, así que no se ha hecho ninguna foto.</string>
     <string name="error_crop_failed">No se ha podido recortar esa foto, así que no se ha añadido.</string>
-
-    <!-- Reading what garment a photo is -->
-    <string name="form_suggest_type">Sugerir tipo</string>
-    <string name="form_suggesting_type">Mirando la foto…</string>
-    <string name="form_type_not_recognized">No se ha reconocido nada en esa foto. Elige el tipo abajo.</string>
-    <string name="error_type_not_read">No se ha podido leer el tipo de prenda de esa foto.</string>
-    <string name="error_labels_busy">Esa foto ya se está mirando.</string>
-    <string name="error_labels_downloading">Las sugerencias de tipo aún están descargando lo que necesitan. Inténtalo de nuevo en un momento.</string>
-    <string name="error_labels_timed_out">Leer la foto tardó demasiado y se detuvo. Si es la primera vez, puede que el modelo aún se esté descargando.</string>
-    <string name="error_labels_failed">No se ha podido leer la foto: %1$s</string>
 
     <!-- URL import, in the garment form -->
     <string name="import_section">Importar desde un enlace</string>

@@ -92,7 +92,6 @@ fun GarmentFormScreen(
     onAddPhoto: () -> Unit,
     onTakePhoto: () -> Unit,
     onDetectColor: () -> Unit,
-    onSuggestType: () -> Unit,
     onPhotoSelected: (Int) -> Unit,
     onPhotoRemoved: (Int) -> Unit,
     onRemoveBackground: () -> Unit,
@@ -217,14 +216,6 @@ fun GarmentFormScreen(
                                 ?.isNotEmpty() == true,
                             running = state.detectingColor,
                             onDetect = onDetectColor,
-                        )
-
-                        SuggestTypeControl(
-                            enabled = form.imageUris.getOrNull(form.selectedImageIndex)
-                                ?.isNotEmpty() == true,
-                            running = state.suggestingType,
-                            missed = state.typeNotRecognized,
-                            onSuggest = onSuggestType,
                         )
 
                         // What to offer is :presentation's call, from the same
@@ -811,55 +802,6 @@ private fun ImportProblemDialog(
  */
 private fun hostOf(url: String): String =
     url.toUri().host ?: url
-
-/**
- * Read what garment the selected photo is, on request.
- *
- * A button next to the colour one, and the same bargain: a suggestion, asked for.
- * The third outcome gets a line of its own -- the model can run, succeed, and have
- * seen nothing this app files -- because a button that does nothing visible reads as
- * a broken button, and this one has an honest thing to say instead.
- */
-@Composable
-private fun SuggestTypeControl(
-    enabled: Boolean,
-    running: Boolean,
-    missed: Boolean,
-    onSuggest: () -> Unit,
-) {
-    if (running) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 12.dp),
-        ) {
-            CircularProgressIndicator(modifier = Modifier.size(18.dp))
-            Text(
-                stringResource(R.string.form_suggesting_type),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 12.dp),
-            )
-        }
-        return
-    }
-
-    OutlinedButton(
-        onClick = onSuggest,
-        enabled = enabled,
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-    ) {
-        Text(stringResource(R.string.form_suggest_type))
-    }
-
-    if (missed) {
-        Text(
-            stringResource(R.string.form_type_not_recognized),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-    }
-}
 
 /**
  * Read the selected photo's colour, on request.

@@ -517,7 +517,6 @@ class MainActivity : AppCompatActivity() {
                 }
             },
             onDetectColor = model::onDetectColorRequested,
-            onSuggestType = model::onSuggestTypeRequested,
             onPhotoSelected = model::onPhotoSelected,
             onPhotoRemoved = model::onPhotoRemoved,
             onRemoveBackground = model::onRemoveBackground,

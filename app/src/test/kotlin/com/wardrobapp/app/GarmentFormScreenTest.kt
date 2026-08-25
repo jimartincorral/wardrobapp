@@ -46,7 +46,6 @@ class GarmentFormScreenTest {
                 onAddPhoto = {},
                 onTakePhoto = {},
                 onDetectColor = {},
-                onSuggestType = {},
                 onPhotoSelected = {},
                 onPhotoRemoved = {},
                 onRemoveBackground = {},
@@ -100,31 +99,6 @@ class GarmentFormScreenTest {
         compose.onNodeWithTag(GARMENT_FORM_LIST).performScrollToNode(hasText("Take Photo"))
 
         compose.onNodeWithText("Take Photo").assertIsDisplayed()
-    }
-
-    // A tall screen rather than a scroll: the notice sits directly under the button,
-    // and scrolling to the button on the 470dp-high default puts the button at the
-    // bottom edge with its notice just past it -- composed, and not displayed. Which
-    // is what the first run of this test found.
-    @Test
-    @Config(qualifiers = "w411dp-h2000dp")
-    fun `the type suggestion says when the model recognised nothing`() {
-        // The outcome with nothing to show for itself: the model ran, succeeded, and
-        // saw nothing this app files. Without this line the button looks broken, and
-        // "the Suggest Type button does nothing" is the bug report that follows.
-        show(state = GarmentFormViewModel.State(typeNotRecognized = true))
-
-        compose.onNodeWithText("Nothing recognizable in that photo. Pick the type below.")
-            .assertIsDisplayed()
-    }
-
-    @Test
-    @Config(qualifiers = "w411dp-h2000dp")
-    fun `while the model is looking, the button is replaced by what it is doing`() {
-        show(state = GarmentFormViewModel.State(suggestingType = true))
-
-        compose.onNodeWithText("Looking at the photo…").assertIsDisplayed()
-        compose.onNodeWithText("Suggest Type").assertDoesNotExist()
     }
 
     @Test
