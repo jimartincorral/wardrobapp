@@ -35,6 +35,8 @@
     <string name="home_subtitle">Keep track of everything you wear.</string>
     <string name="home_items">Items</string>
     <string name="home_archived">Archived</string>
+    <string name="home_open_wardrobe">Open the wardrobe</string>
+    <string name="home_open_archived">Open the wardrobe showing archived garments</string>
     <string name="home_add_garment">Add a garment</string>
     <string name="home_outfits_title">Outfit ideas</string>
     <string name="home_outfits_detail">Put together from what you own</string>
@@ -185,6 +187,7 @@
     <string name="statistics_by_category">By category</string>
     <string name="statistics_expand_hint">Tap a category to see what\'s in it</string>
     <string name="statistics_expand">Show subcategories</string>
+    <string name="statistics_show_in_wardrobe">Show %1$s in the wardrobe</string>
     <string name="statistics_collapse">Hide subcategories</string>
     <string name="statistics_by_colour">By colour</string>
     <string name="statistics_by_brand">By brand</string>

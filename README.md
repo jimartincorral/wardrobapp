@@ -7,6 +7,7 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 ## Features
 
 - **Garment catalog** — photos, category and type, colour palette, tags, brand, size. The colours fill themselves in from the photo as it is added, and again if you remove its background. A photo is cropped to 3:4 as it is added, from the gallery or the camera, which is the shape every screen shows a garment in; it is then resized to 800px and re-encoded at 70% JPEG to keep the database and backups small.
+- **The numbers are links** — the counts on the home screen open the wardrobe, and each bar in the statistics category chart has a small button that opens the wardrobe filtered to it. A link clears whatever was filtered before, so the list always has as many garments in it as the number that was tapped.
 - **A wardrobe you can look at your way** — the list, or a grid two, three or four garments across, chosen from the top bar and remembered between launches. A cell is the photo with the garment's brand under it, since that is the one thing a photo does not show.
 - **On-device background removal** — strips the background from a garment photo using ML Kit subject segmentation, from the add/edit form or from a garment already saved. The cut-out replaces the original rather than sitting beside it, so removing a background costs storage instead of doubling it.
 - **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged by a weighted average of tag overlap (Jaccard, 0.6), colour similarity (0.3) and size match (0.1). Signals with nothing to compare abstain rather than scoring zero, so an untagged garment can still be recognised as a duplicate.
@@ -126,13 +127,13 @@ Two things it left behind, both deliberate. Comments across this codebase explai
 ## Testing
 
 ```bash
-./gradlew test                    # 516 tests, no Android SDK, seconds
-./gradlew :app:testDebugUnitTest  # 76 more, needs the SDK — no emulator
+./gradlew test                    # 519 tests, no Android SDK, seconds
+./gradlew :app:testDebugUnitTest  # 80 more, needs the SDK — no emulator
 ```
 
-The 516 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
+The 519 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
 
-The 76 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
+The 80 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 
 ```bash
 ./gradlew :app:testDebugUnitTest

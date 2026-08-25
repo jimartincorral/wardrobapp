@@ -11,6 +11,8 @@ One app now: the Kotlin one. Anything below is built once.
 - Garment lifespan, surfaced on the statistics page.
 - One statistics page: the Analytics tab and the Statistics screen were the same
   question asked twice, and are now one tab with its breakdowns as sections.
+- Getting from a number to the garments behind it: the home counts and the
+  statistics categories open the wardrobe, filtered to what was tapped.
 - Telling the phone that a newer build exists, with its changelog, and installing
   it — the part an app outside a store has to do for itself.
 - Reclaiming photos nothing points at, folded into Optimize storage — a save has

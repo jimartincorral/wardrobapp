@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.dp
 fun HomeScreen(
     state: HomeViewModel.State,
     onAddRequested: () -> Unit,
+    onWardrobeRequested: () -> Unit,
+    onArchivedRequested: () -> Unit,
     onOutfitsRequested: () -> Unit,
     onStatisticsRequested: () -> Unit,
     onSettingsRequested: () -> Unit,
@@ -58,8 +60,25 @@ fun HomeScreen(
                     // zero here is a real answer, and "your wardrobe is empty" is
                     // the wrong thing to say about a read that has not finished
                     // or has failed.
-                    Count(stringResource(R.string.home_items), state.countText(state.items), Modifier.weight(1f))
-                    Count(stringResource(R.string.home_archived), state.countText(state.archived), Modifier.weight(1f))
+                    // Both open the wardrobe, because a number you are looking at
+                    // is the obvious way in to the things it counts. Archived opens
+                    // it showing retired garments: the plain wardrobe hides every
+                    // one of them, so a link that did not ask for them would answer
+                    // a tap on "12 archived" with a list containing none of them.
+                    Count(
+                        label = stringResource(R.string.home_items),
+                        value = state.countText(state.items),
+                        onClick = onWardrobeRequested,
+                        clickLabel = stringResource(R.string.home_open_wardrobe),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Count(
+                        label = stringResource(R.string.home_archived),
+                        value = state.countText(state.archived),
+                        onClick = onArchivedRequested,
+                        clickLabel = stringResource(R.string.home_open_archived),
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
 
@@ -124,8 +143,17 @@ fun HomeScreen(
 }
 
 @Composable
-private fun Count(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(modifier = modifier) {
+private fun Count(
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+    clickLabel: String,
+    modifier: Modifier = Modifier,
+) {
+    // The whole card, not the number: a tap target the size of two digits is a tap
+    // target nobody hits, and the label is as much a name for the thing as the
+    // count is.
+    Card(modifier = modifier.clickable(onClickLabel = clickLabel, onClick = onClick)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,

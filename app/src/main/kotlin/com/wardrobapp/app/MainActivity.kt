@@ -53,6 +53,7 @@ import androidx.navigation.compose.rememberNavController
 import com.canhub.cropper.CropImageContract
 import com.wardrobapp.data.backupFilename
 import com.wardrobapp.presentation.ThemeChoice
+import com.wardrobapp.presentation.WardrobeQuery
 import com.wardrobapp.presentation.languageChoiceFor
 import com.wardrobapp.presentation.languageTag
 import com.wardrobapp.presentation.usesDarkColors
@@ -112,6 +113,19 @@ class MainActivity : AppCompatActivity() {
                 val navigator = rememberNavController()
                 val entry by navigator.currentBackStackEntryAsState()
                 val route = entry?.destination?.route
+
+                // What the wardrobe should be showing when something else opens it:
+                // a category tapped in the statistics chart, or the archived count
+                // on the home screen. Held here rather than put in the route,
+                // because the route is what the bottom bar matches the selected tab
+                // on -- "wardrobe?category=tops" is a different string, and the bar
+                // would go blank on arrival. Consumed once, by the wardrobe.
+                var arrival by remember { mutableStateOf<WardrobeQuery?>(null) }
+
+                fun openWardrobe(query: WardrobeQuery?) {
+                    arrival = query
+                    navigator.switchTo(WARDROBE)
+                }
 
                 Scaffold(
                     // Only on the top-level destinations: a garment's detail is
@@ -176,6 +190,13 @@ class MainActivity : AppCompatActivity() {
                             Home(
                                 container = container,
                                 onAddRequested = { navigator.navigate(GARMENT_ADD) },
+                                // The plain wardrobe for what is in use, and the
+                                // wardrobe with retired garments shown for the
+                                // number that counts exactly those.
+                                onWardrobeRequested = { openWardrobe(null) },
+                                onArchivedRequested = {
+                                    openWardrobe(WardrobeQuery.showing(includeRetired = true))
+                                },
                                 // Tabs are switched to, not pushed: pushing one
                                 // would stack a second copy of a screen the bar
                                 // is already showing as selected.
@@ -188,6 +209,8 @@ class MainActivity : AppCompatActivity() {
                         composable(WARDROBE) {
                             Wardrobe(
                                 container = container,
+                                arrival = arrival,
+                                onArrivalApplied = { arrival = null },
                                 onGarmentOpened = { navigator.openGarment(it) },
                                 onAddRequested = { navigator.navigate(GARMENT_ADD) },
                                 onSettingsRequested = { navigator.navigate(SETTINGS) },
@@ -228,7 +251,12 @@ class MainActivity : AppCompatActivity() {
                         }
 
                         composable(STATISTICS) {
-                            Statistics(container)
+                            Statistics(
+                                container = container,
+                                onCategoryFilterRequested = { category ->
+                                    openWardrobe(WardrobeQuery.showing(category = category))
+                                },
+                            )
                         }
 
                         composable(GARMENT_ADD) {
@@ -273,6 +301,8 @@ class MainActivity : AppCompatActivity() {
     private fun Home(
         container: AppContainer,
         onAddRequested: () -> Unit,
+        onWardrobeRequested: () -> Unit,
+        onArchivedRequested: () -> Unit,
         onOutfitsRequested: () -> Unit,
         onStatisticsRequested: () -> Unit,
         onSettingsRequested: () -> Unit,
@@ -287,6 +317,8 @@ class MainActivity : AppCompatActivity() {
         HomeScreen(
             state = state,
             onAddRequested = onAddRequested,
+            onWardrobeRequested = onWardrobeRequested,
+            onArchivedRequested = onArchivedRequested,
             onOutfitsRequested = onOutfitsRequested,
             onStatisticsRequested = onStatisticsRequested,
             onSettingsRequested = onSettingsRequested,
@@ -297,6 +329,9 @@ class MainActivity : AppCompatActivity() {
     @Composable
     private fun Wardrobe(
         container: AppContainer,
+        /** What another screen asked this one to show, if anything. */
+        arrival: WardrobeQuery?,
+        onArrivalApplied: () -> Unit,
         onGarmentOpened: (String) -> Unit,
         onAddRequested: () -> Unit,
         onSettingsRequested: () -> Unit,
@@ -307,6 +342,17 @@ class MainActivity : AppCompatActivity() {
         val state by model.state.collectAsStateWithLifecycle()
 
         RefreshOnReturn(model::refresh)
+
+        // Applied once and then forgotten, so returning to this tab later shows the
+        // wardrobe as it was left rather than re-applying a filter from a tap that
+        // happened three screens ago. The model is reused across visits -- that is
+        // what `restoreState` buys -- so nothing else clears it.
+        LaunchedEffect(arrival) {
+            if (arrival != null) {
+                model.onQueryRequested(arrival)
+                onArrivalApplied()
+            }
+        }
 
         WardrobeScreen(
             state = state,
@@ -596,7 +642,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     @Composable
-    private fun Statistics(container: AppContainer) {
+    private fun Statistics(
+        container: AppContainer,
+        onCategoryFilterRequested: (String) -> Unit,
+    ) {
         val model: StatisticsViewModel = viewModel(
             factory = viewModelFactory { initializer { StatisticsViewModel(container) } }
         )
@@ -610,6 +659,7 @@ class MainActivity : AppCompatActivity() {
         StatisticsScreen(
             state = state,
             onCategoryTapped = model::onCategoryTapped,
+            onCategoryFilterRequested = onCategoryFilterRequested,
             onBrandSortChanged = model::onBrandSortChanged,
             onSectionTapped = model::onSectionTapped,
             onRetry = model::refresh,

@@ -27,6 +27,8 @@
     <string name="home_subtitle">Lleva el control de todo lo que vistes.</string>
     <string name="home_items">Prendas</string>
     <string name="home_archived">Archivadas</string>
+    <string name="home_open_wardrobe">Abrir el armario</string>
+    <string name="home_open_archived">Abrir el armario mostrando las prendas archivadas</string>
     <string name="home_add_garment">Agregar una prenda</string>
     <string name="home_outfits_title">Ideas de atuendos</string>
     <string name="home_outfits_detail">Combinaciones con lo que ya tienes</string>
@@ -170,6 +172,7 @@
     <string name="statistics_by_category">Por categoría</string>
     <string name="statistics_expand_hint">Toca una categoría para ver qué contiene</string>
     <string name="statistics_expand">Mostrar subcategorías</string>
+    <string name="statistics_show_in_wardrobe">Ver %1$s en el armario</string>
     <string name="statistics_collapse">Ocultar subcategorías</string>
     <string name="statistics_by_colour">Por color</string>
     <string name="statistics_by_brand">Por marca</string>
