@@ -107,6 +107,20 @@ data class WardrobeQuery(
     fun withColor(value: String?): WardrobeQuery =
         copy(color = if (color == value) null else value)
 
+    /**
+     * Pick a brand, or tap the current one again to drop it.
+     *
+     * A toggle rather than a typed box: the panel offers the brands the wardrobe
+     * holds, so there is a chip to tap twice. Held as a string still, because that
+     * is what a garment stores and what [garmentFilter] compares -- an empty one
+     * means no brand filter, which is what dropping it produces.
+     */
+    fun withBrand(value: String): WardrobeQuery =
+        copy(brand = if (brand.equals(value, ignoreCase = true)) "" else value)
+
+    fun withSize(value: String): WardrobeQuery =
+        copy(size = if (size.equals(value, ignoreCase = true)) "" else value)
+
     fun withSortToggled(): WardrobeQuery =
         copy(sort = if (sort == GarmentSort.NEWEST) GarmentSort.OLDEST else GarmentSort.NEWEST)
 }

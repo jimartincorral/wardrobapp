@@ -104,6 +104,22 @@ class WardrobeQueryTest {
     }
 
     @Test
+    fun `a brand or size is picked, and tapping it again drops it`() {
+        val picked = WardrobeQuery().withBrand("Uniqlo").withSize("M")
+
+        assertEquals("Uniqlo", picked.brand)
+        assertEquals("M", picked.size)
+
+        // The same value again clears it, whatever case the chip was drawn in --
+        // one wardrobe holds "Uniqlo" and "uniqlo" and the panel offers one chip.
+        assertEquals("", picked.withBrand("uniqlo").brand)
+        assertEquals("", picked.withSize("m").size)
+
+        // A different value replaces rather than clears.
+        assertEquals("Arket", picked.withBrand("Arket").brand)
+    }
+
+    @Test
     fun `category is not in the filter, because the query applies it`() {
         // It is a plain column, so it belongs in the SQL rather than in a pass
         // over every row. Having it in both would filter twice.

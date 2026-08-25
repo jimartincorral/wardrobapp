@@ -29,9 +29,23 @@ data class GarmentFilter(
 private fun String.sameColorAs(other: String): Boolean =
     trim().equals(other.trim(), ignoreCase = true)
 
-/** Case-insensitive "contains", with a blank needle matching everything. */
-private fun contains(haystack: String?, needle: String): Boolean =
-    (haystack ?: "").lowercase().contains(needle.lowercase().trim())
+/**
+ * Case-insensitive equality, with a blank needle matching everything.
+ *
+ * This was a "contains" while brand and size were typed into boxes, where a
+ * partial word was the point: "ark" found Arket however it was capitalised. They
+ * are picked from the wardrobe's own values now, so a partial match is no longer a
+ * kindness -- picking Nike and being shown Nike Pro as well is simply the wrong
+ * answer to a chip that came from the data.
+ *
+ * Blank still matches everything, because a filter nobody set is not a filter.
+ */
+private fun matches(value: String?, wanted: String): Boolean {
+    val needle = wanted.trim()
+    if (needle.isEmpty()) return true
+
+    return (value ?: "").trim().equals(needle, ignoreCase = true)
+}
 
 fun List<GarmentRecord>.filterBy(filter: GarmentFilter): List<GarmentRecord> = filter {
     if (filter.subcategory != null && !it.effectiveSubcategories.contains(filter.subcategory)) {
@@ -47,8 +61,8 @@ fun List<GarmentRecord>.filterBy(filter: GarmentFilter): List<GarmentRecord> = f
         return@filter false
     }
 
-    if (filter.brand != null && !contains(it.brand, filter.brand)) return@filter false
-    if (filter.size != null && !contains(it.size, filter.size)) return@filter false
+    if (filter.brand != null && !matches(it.brand, filter.brand)) return@filter false
+    if (filter.size != null && !matches(it.size, filter.size)) return@filter false
 
     // A garment's palette holds hex, so hex is what a colour filter asks for --
     // the palette's key for a colour ("gold") appears nowhere in the wardrobe.

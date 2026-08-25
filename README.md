@@ -12,6 +12,7 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 - **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged by a weighted average of tag overlap (Jaccard, 0.6), colour similarity (0.3) and size match (0.1). Signals with nothing to compare abstain rather than scoring zero, so an untagged garment can still be recognised as a duplicate.
 - **Outfit suggestions** — an epsilon-greedy engine combining category templates, colour harmony judged by hue, season and occasion fit, and pair scores learned from your ratings.
 - **Import from a link** — paste or share a product page and the garment is filled in from it: photos, title, brand. Only public addresses are fetched, and the app asks before going anywhere a link it did not choose points at.
+- **Filters that know your wardrobe** — every filter offers the values you actually own: your brands, your sizes, the colours your garments come in. Each row is one line you scroll sideways, and the choices narrow as you pick, so a combination that would show nothing is never offered.
 - **Statistics** — one page: six counts at a glance, then breakdowns by category (with subcategories), colour and brand, and how long the garments you retire lasted. Each breakdown is a section you open, so the page starts with the numbers rather than six charts.
 - **Storage that tidies itself** — Optimize storage in Settings shrinks cut-outs an older build wrote at full resolution and deletes photos no garment points at any more. Anything written in the last hour is left alone, so a garment you are still filling in is never touched.
 - **Backup and restore** — a single `.zip` containing the SQLite database and every photo, written to a folder you pick. Restore stages and verifies the archive before replacing anything, and rolls back if it can't finish.
@@ -124,13 +125,13 @@ Two things it left behind, both deliberate. Comments across this codebase explai
 ## Testing
 
 ```bash
-./gradlew test                    # 493 tests, no Android SDK, seconds
-./gradlew :app:testDebugUnitTest  # 66 more, needs the SDK — no emulator
+./gradlew test                    # 504 tests, no Android SDK, seconds
+./gradlew :app:testDebugUnitTest  # 68 more, needs the SDK — no emulator
 ```
 
-The 493 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
+The 504 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
 
-The 66 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
+The 68 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 
 ```bash
 ./gradlew :app:testDebugUnitTest
