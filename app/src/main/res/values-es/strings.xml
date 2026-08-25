@@ -497,7 +497,7 @@
     <string name="update_build">Compilación %1$d.</string>
     <string name="update_changes">Qué ha cambiado</string>
     <plurals name="update_changes_more">
-        <item quantity="one">y uno más.</item>
+        <item quantity="one">y %1$d más.</item>
         <item quantity="many">y %1$d más.</item>
         <item quantity="other">y %1$d más.</item>
     </plurals>

@@ -509,7 +509,7 @@
     <string name="update_build">Build %1$d.</string>
     <string name="update_changes">What changed</string>
     <plurals name="update_changes_more">
-        <item quantity="one">and one more.</item>
+        <item quantity="one">and %1$d more.</item>
         <item quantity="other">and %1$d more.</item>
     </plurals>
     <string name="update_install">Install</string>
