@@ -25,7 +25,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Whole history, not the default single commit: the release published below
+      # carries a changelog, and a changelog is a range of commits.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -206,8 +210,74 @@ jobs:
             fi
           } > release-notes.md
 
+          # What the app reads to know a newer build exists. Published beside
+          # the APK it describes, at an address that never changes.
+          #
+          # The changelog is the range between the build this replaces and this one,
+          # which is why the previous document is fetched before the release is
+          # deleted: it is the only record of which commit was last published.
+          # First-parent, so the list is one line per merge rather than every commit
+          # inside each one.
+          previous=''
+          if gh release download nightly --pattern latest.json --output previous.json; then
+            previous=$(python3 -c "import json;print(json.load(open('previous.json')).get('commit',''))")
+          fi
+
+          # Subject and body per commit, record-separated, because a merge commit's
+          # subject is "Merge pull request #37 from ..." and its body's first line is
+          # the pull request title -- which is the line worth showing.
+          log_format='%s%x1f%b%x1e'
+
+          if [ -n "$previous" ] && git cat-file -e "$previous^{commit}" 2>/dev/null; then
+            git log --first-parent --format="$log_format" "$previous..$GITHUB_SHA" > changes.txt
+          else
+            # No previous document, or a commit no longer in this history (a force
+            # push, a rebuilt workflow). One entry is honest; a fabricated list is not.
+            git log --first-parent --format="$log_format" -1 "$GITHUB_SHA" > changes.txt
+          fi
+
+          VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER)) \
+          VERSION_NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts) \
+          python3 - <<'PY' > latest.json
+          import json
+          import os
+
+          def headline(subject, body):
+              """What this commit says it did, in one line."""
+              if subject.startswith('Merge pull request') or subject.startswith('Merge branch'):
+                  # The pull request's title, which is what the merge is called
+                  # everywhere a person reads it.
+                  for line in body.splitlines():
+                      if line.strip():
+                          return line.strip()
+                  return ''
+              return subject.strip()
+
+          changes = []
+          for record in open('changes.txt').read().split('\x1e'):
+              if not record.strip():
+                  continue
+              subject, _, body = record.strip('\n').partition('\x1f')
+              line = headline(subject, body)
+              if line and line not in changes:
+                  changes.append(line)
+
+          print(json.dumps({
+              'version_code': int(os.environ['VERSION_CODE']),
+              'version_name': os.environ['VERSION_NAME'],
+              'commit': os.environ['GITHUB_SHA'],
+              'apk_url': (
+                  f"https://github.com/{os.environ['GITHUB_REPOSITORY']}"
+                  '/releases/download/nightly/wardrobapp.apk'
+              ),
+              # Bounded: the document is fetched by every phone at every launch, and
+              # nobody reads the fiftieth line of a changelog.
+              'changes': changes[:50],
+          }, indent=2))
+          PY
+
           gh release delete nightly --yes --cleanup-tag || true
-          gh release create nightly wardrobapp.apk \
+          gh release create nightly wardrobapp.apk latest.json \
             --target "$GITHUB_SHA" \
             --title "Latest build" \
             --prerelease \

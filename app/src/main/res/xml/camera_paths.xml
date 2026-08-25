@@ -16,4 +16,10 @@
 <paths>
     <cache-path name="camera" path="camera/" />
     <cache-path name="crop" path="crop/" />
+    <!--
+        And a downloaded build, on its way to Android's installer. In the cache for
+        the same reason the others are: it is worth nothing once it is installed,
+        and the system may reclaim it whenever it likes.
+    -->
+    <cache-path name="updates" path="updates/" />
 </paths>

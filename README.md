@@ -16,6 +16,7 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 - **Statistics** — one page: six counts at a glance, then breakdowns by category (with subcategories), colour and brand, and how long the garments you retire lasted. Each breakdown is a section you open, so the page starts with the numbers rather than six charts.
 - **Storage that tidies itself** — Optimize storage in Settings shrinks cut-outs an older build wrote at full resolution and deletes photos no garment points at any more. Anything written in the last hour is left alone, so a garment you are still filling in is never touched.
 - **Backup and restore** — a single `.zip` containing the SQLite database and every photo, written to a folder you pick. Restore stages and verifies the archive before replacing anything, and rolls back if it can't finish.
+- **Updates itself** — the app is not on an app store, so at every launch it reads a small document published beside the APK on the rolling release and says so when a newer build exists, with the changelog since the build on the phone. Install, skip that build, or later. The download address is fixed and every redirect is checked against this project's own release hosts before it is followed.
 - **English and Spanish** — full UI localization, following the per-app language setting or overridden in Settings.
 
 ## Tech stack
@@ -125,13 +126,13 @@ Two things it left behind, both deliberate. Comments across this codebase explai
 ## Testing
 
 ```bash
-./gradlew test                    # 509 tests, no Android SDK, seconds
-./gradlew :app:testDebugUnitTest  # 68 more, needs the SDK — no emulator
+./gradlew test                    # 516 tests, no Android SDK, seconds
+./gradlew :app:testDebugUnitTest  # 76 more, needs the SDK — no emulator
 ```
 
-The 509 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
+The 516 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
 
-The 68 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
+The 76 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 
 ```bash
 ./gradlew :app:testDebugUnitTest
@@ -151,6 +152,7 @@ CI runs all of it on every pull request, on pushes to `main`, and on pushes to `
 - **Old backups cannot be listed or deleted from inside the app.** Deliberately: it would mean holding a persistent directory grant the app does without — archives go in and out through the document picker with no storage permission at all, and the Files app already deletes a zip.
 - **`garments` is not one schema.** `created_at` and `updated_at` are `NOT NULL` on a fresh install and nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist on phones, so readers tolerate both — and it is why this layer uses plain SQL rather than Room, whose schema validation would reject one of them.
 - **Releases are signed with a public key** until a keystore exists. See [Signing](#signing).
+- **Updating means installing an APK.** There is no store to go through, so the app asks Android to install the build it downloaded, which needs `REQUEST_INSTALL_PACKAGES` and a one-time "allow from this source" grant. The permission is the ability to *offer* an install: the system asks, names this app as the source, and declining leaves the phone as it was. The check itself is one request per launch to a fixed address, and it is silent when it fails — no network, a captive portal, GitHub down.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **No wear log.** The app records outfit ratings, not what you wore on a given day, so there is no cost-per-wear or wear-trend reporting.
 - **Colour detection is approximate.** It snaps every fourth pixel to the nearest of the 24 palette colours and picks whichever holds the most of them, plus a runner-up covering at least a fifth of the garment. What is left approximate: a print reports its ground and its strongest figure rather than "multi", the third colour of a three-coloured garment is not reported, and on a photo whose background has not been removed that background still votes. It fills the palette in rather than answering it — every colour it picks is one tap to undo.

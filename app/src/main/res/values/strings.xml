@@ -411,6 +411,7 @@
     <string name="subcategory_bag">Bag</string>
     <string name="subcategory_wallet">Wallet</string>
     <string name="subcategory_gloves">Gloves</string>
+    <string name="subcategory_earrings">Earrings</string>
     <string name="subcategory_jewelry">Jewelry</string>
     <string name="subcategory_watch">Watch</string>
     <string name="subcategory_sunglasses">Sunglasses</string>
@@ -502,4 +503,20 @@
         <item quantity="one">%d garment in this outfit is no longer in your wardrobe.</item>
         <item quantity="other">%d garments in this outfit are no longer in your wardrobe.</item>
     </plurals>
+    <!-- A newer build of the app -->
+    <string name="update_available_title">A newer build is available</string>
+    <string name="update_version">Version %1$s, build %2$d.</string>
+    <string name="update_build">Build %1$d.</string>
+    <string name="update_changes">What changed</string>
+    <string name="update_changes_more">and %1$d more.</string>
+    <string name="update_install">Install</string>
+    <string name="update_skip">Skip this build</string>
+    <string name="update_later">Later</string>
+    <string name="update_downloading">Downloading…</string>
+    <string name="update_failed_title">Couldn\'t install that build</string>
+    <string name="error_update_untrusted">That download does not come from this app\'s own releases, so it was not fetched.</string>
+    <string name="error_update_refused">The download was refused (%1$d).</string>
+    <string name="error_update_too_large">That download is far larger than a build of this app, so it was stopped.</string>
+    <string name="error_update_redirects">That download kept being redirected, so it was stopped.</string>
+    <string name="error_update_incomplete">The download did not finish, so nothing was installed.</string>
 </resources>
