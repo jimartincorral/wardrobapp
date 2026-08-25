@@ -62,11 +62,26 @@ fun cutoutsToShrink(files: List<StoredCutout>): List<StoredCutout> =
 
 /** What a maintenance pass came to. */
 data class MaintenanceSummary(
-    /** How many cut-outs were looked at, including the ones left alone. */
+    /** How many files were looked at, including the ones left alone. */
     val examined: Int,
-    /** How many were rewritten smaller. */
+    /** How many cut-outs were rewritten smaller. */
     val shrunk: Int,
     val bytesSaved: Long,
+    /** How many files were deleted because nothing pointed at them. */
+    val deleted: Int = 0,
+) {
+    /** Whether the pass did anything, which is what decides what it reports. */
+    val changedAnything: Boolean get() = shrunk > 0 || deleted > 0
+}
+
+/** Two passes over the same directory, reported as one. */
+fun MaintenanceSummary.and(other: MaintenanceSummary): MaintenanceSummary = MaintenanceSummary(
+    // Not a sum: both passes look at the same directory, and a wardrobe of ten
+    // photos that reports twenty examined is telling the reader nothing true.
+    examined = maxOf(examined, other.examined),
+    shrunk = shrunk + other.shrunk,
+    bytesSaved = bytesSaved + other.bytesSaved,
+    deleted = deleted + other.deleted,
 )
 
 /**

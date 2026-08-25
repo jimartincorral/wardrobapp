@@ -11,6 +11,9 @@ One app now: the Kotlin one. Anything below is built once.
 - Garment lifespan, surfaced on the statistics page.
 - One statistics page: the Analytics tab and the Statistics screen were the same
   question asked twice, and are now one tab with its breakdowns as sections.
+- Reclaiming photos nothing points at, folded into Optimize storage — a save has
+  always deleted the original a cut-out replaced, but files left by older builds
+  and half-finished saves were never swept.
 - Versioned backups with validation and migration safety: the format carries a
   version, a restore refuses an archive it cannot read and says why, and it stages,
   verifies and rolls back rather than overwriting in place.

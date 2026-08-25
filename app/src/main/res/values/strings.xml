@@ -268,18 +268,22 @@
 
     <!-- Tidying up photos stored by an older build -->
     <string name="settings_tidy">Optimize storage</string>
-    <string name="settings_tidy_hint">Shrinks cut-out photos saved by an older version. Nothing else is changed, and it is safe to run again.</string>
+    <string name="settings_tidy_hint">Shrinks cut-out photos saved by an older version, and deletes photos no garment points at any more. Nothing a garment shows is touched, and it is safe to run again.</string>
     <string name="tidy_running_title">Optimizing storage</string>
-    <string name="tidy_running_body">Shrinking photo %1$d of %2$d…</string>
+    <string name="tidy_running_body">Checking photo %1$d of %2$d…</string>
     <string name="tidy_nothing_title">Nothing to optimize</string>
     <plurals name="tidy_nothing_body">
-        <item quantity="one">%1$d cut-out photo, already as small as this app makes them.</item>
-        <item quantity="other">%1$d cut-out photos, already as small as this app makes them.</item>
+        <item quantity="one">%1$d photo checked, and there was nothing to tidy.</item>
+        <item quantity="other">%1$d photos checked, and there was nothing to tidy.</item>
     </plurals>
     <string name="tidy_done_title">Storage optimized</string>
     <plurals name="tidy_done_body">
-        <item quantity="one">%1$d photo shrunk, saving %2$s MB.</item>
-        <item quantity="other">%1$d photos shrunk, saving %2$s MB.</item>
+        <item quantity="one">%1$d photo tidied, saving %2$s MB.</item>
+        <item quantity="other">%1$d photos tidied, saving %2$s MB.</item>
+    </plurals>
+    <plurals name="tidy_reclaimed_body">
+        <item quantity="one">%1$d of them was a photo nothing pointed at any more, and was deleted.</item>
+        <item quantity="other">%1$d of them were photos nothing pointed at any more, and were deleted.</item>
     </plurals>
     <string name="tidy_failed_title">Could not optimize</string>
 
