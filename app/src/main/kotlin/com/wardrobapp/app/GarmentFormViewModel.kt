@@ -25,6 +25,7 @@ import com.wardrobapp.domain.splitStructuredTags
 import com.wardrobapp.presentation.GarmentFormState
 import com.wardrobapp.presentation.brandSuggestions
 import com.wardrobapp.presentation.dominantGarmentColor
+import com.wardrobapp.presentation.suggestGarmentType
 import com.wardrobapp.presentation.toggled
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,6 +101,21 @@ class GarmentFormViewModel(
          * reason: it is its own wait with its own thing to say about it.
          */
         val detectingColor: Boolean = false,
+        /**
+         * True while a photo is being read for what garment it is.
+         *
+         * Its own flag beside [detectingColor] for the same reason that one is its
+         * own: another model, another wait, another thing to say about it.
+         */
+        val suggestingType: Boolean = false,
+        /**
+         * Set when the model ran and nothing it saw was a garment this app files.
+         *
+         * Not an error -- nothing failed and nothing was lost -- so it is a line
+         * under the button rather than a dialog. Cleared by the next edit to the
+         * form and by the next attempt, so it never outlives what it describes.
+         */
+        val typeNotRecognized: Boolean = false,
     )
 
     /**
@@ -173,7 +189,12 @@ class GarmentFormViewModel(
     // ---- the form itself ----------------------------------------------------
 
     private fun edit(transform: (GarmentFormState) -> GarmentFormState) {
-        _state.update { it.copy(form = transform(it.form), duplicates = emptyList()) }
+        // Any edit clears "nothing recognised": whatever the model failed to name,
+        // the person is now naming it themselves, and a line saying otherwise under
+        // the button is stale the moment they do.
+        _state.update {
+            it.copy(form = transform(it.form), duplicates = emptyList(), typeNotRecognized = false)
+        }
     }
 
     fun onCategorySelected(category: String) = edit {
@@ -452,6 +473,57 @@ class GarmentFormViewModel(
                         error = e.message,
                         errorFallback = R.string.error_colors_not_read,
                         errorTitle = R.string.error_title_colors,
+                    )
+                }
+            }
+        }
+    }
+
+    // ---- reading a garment type off a photo -----------------------------------
+
+    /**
+     * Suggest a category and type from the selected photo.
+     *
+     * The same shape as detecting a colour, and for the same reasons: the cut-out
+     * where there is one, because a model shown a garment on a duvet is being shown
+     * a duvet; a button rather than something that fires on every photo, because
+     * filling in a type somebody already picked is a correction nobody asked for;
+     * and a suggestion at the end rather than an answer, which is
+     * `withSuggestedType`'s business.
+     *
+     * The interesting outcome is the third one. Labelling can succeed and mean
+     * nothing -- a photo of a garment this model has no word for, or of a floor --
+     * and that is neither an error nor a suggestion. It says so and changes nothing.
+     */
+    fun onSuggestTypeRequested() {
+        val form = _state.value.form
+        val photo = form.displayedPreviewUri()
+        if (photo.isNullOrEmpty() || _state.value.suggestingType) return
+
+        _state.update { it.copy(suggestingType = true, typeNotRecognized = false, error = null) }
+
+        viewModelScope.launch {
+            try {
+                val suggestion = withContext(Dispatchers.IO) {
+                    suggestGarmentType(container.labels.labelsFor(photo.toUri()))
+                }
+
+                _state.update { state ->
+                    state.copy(
+                        suggestingType = false,
+                        typeNotRecognized = suggestion == null,
+                        form = suggestion?.let {
+                            state.form.withSuggestedType(it.category, it.subcategory, ::seasonsForSubcategories)
+                        } ?: state.form,
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        suggestingType = false,
+                        error = e.message,
+                        errorFallback = R.string.error_type_not_read,
+                        errorTitle = R.string.error_title_type,
                     )
                 }
             }

@@ -84,6 +84,9 @@ class AppContainer(context: Context) {
     /** Cutting a garment out of its background, on device. */
     val backgrounds = AndroidBackgroundRemover(context, photos)
 
+    /** Reading what a photo appears to contain, on device. */
+    val labels = AndroidGarmentLabeller(context, photos)
+
     /**
      * Downloading a product page's images into the wardrobe.
      *
