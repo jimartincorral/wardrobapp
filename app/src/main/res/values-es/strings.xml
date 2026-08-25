@@ -400,8 +400,12 @@
     <string name="subcategory_wallet">Cartera</string>
     <string name="subcategory_gloves">Guantes</string>
     <string name="subcategory_earrings">Pendientes</string>
+    <string name="subcategory_necklaces">Collares</string>
+    <string name="subcategory_bracelets">Pulseras</string>
+    <string name="subcategory_rings">Anillos</string>
     <string name="subcategory_jewelry">Joyería</string>
     <string name="subcategory_watch">Reloj</string>
+    <string name="subcategory_eyewear">Gafas</string>
     <string name="subcategory_sunglasses">Gafas de sol</string>
     <string name="subcategory_tie">Corbata</string>
     <string name="subcategory_sports_bra">Bra deportivo</string>

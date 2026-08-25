@@ -64,12 +64,21 @@ val GARMENT_CATEGORIES: List<GarmentCategory> = listOf(
             "Bag",
             "Wallet",
             "Gloves",
-            // Its own type rather than a kind of Jewelry: it is the accessory
-            // most often bought and worn as a pair, and a wardrobe that files
-            // every pair under one "Jewelry" row cannot tell them apart.
+            // Their own types rather than kinds of "Jewelry": each is bought and
+            // worn on its own often enough that filing every one of them under
+            // one catch-all row would make that row most of a jewellery box and
+            // tell nothing apart inside it.
             "Earrings",
+            "Necklaces",
+            "Bracelets",
+            "Rings",
             "Jewelry",
             "Watch",
+            // Prescription and reading glasses, distinct from "Sunglasses":
+            // both are worn on the face, but one is weather and the other is
+            // eyesight, and a wardrobe that could not tell them apart would
+            // answer "what did I wear to work" with a pair of sunglasses.
+            "Eyewear",
             "Sunglasses",
             "Tie",
         ),
@@ -213,8 +222,12 @@ val SUBCATEGORY_KEYS: Map<String, String> = mapOf(
     "Wallet" to "wallet",
     "Gloves" to "gloves",
     "Earrings" to "earrings",
+    "Necklaces" to "necklaces",
+    "Bracelets" to "bracelets",
+    "Rings" to "rings",
     "Jewelry" to "jewelry",
     "Watch" to "watch",
+    "Eyewear" to "eyewear",
     "Sunglasses" to "sunglasses",
     "Tie" to "tie",
     "Sports Bra" to "sports_bra",

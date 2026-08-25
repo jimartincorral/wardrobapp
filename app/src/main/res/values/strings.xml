@@ -417,8 +417,12 @@
     <string name="subcategory_wallet">Wallet</string>
     <string name="subcategory_gloves">Gloves</string>
     <string name="subcategory_earrings">Earrings</string>
+    <string name="subcategory_necklaces">Necklaces</string>
+    <string name="subcategory_bracelets">Bracelets</string>
+    <string name="subcategory_rings">Rings</string>
     <string name="subcategory_jewelry">Jewelry</string>
     <string name="subcategory_watch">Watch</string>
+    <string name="subcategory_eyewear">Eyewear</string>
     <string name="subcategory_sunglasses">Sunglasses</string>
     <string name="subcategory_tie">Tie</string>
     <string name="subcategory_sports_bra">Sports Bra</string>
