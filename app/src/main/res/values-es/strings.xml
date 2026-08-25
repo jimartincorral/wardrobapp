@@ -173,6 +173,8 @@
     <string name="statistics_expand_hint">Toca una categoría para ver qué contiene</string>
     <string name="statistics_expand">Mostrar subcategorías</string>
     <string name="statistics_show_in_wardrobe">Ver %1$s en el armario</string>
+    <string name="statistics_open_garment">Abrir %1$s</string>
+    <string name="statistics_open_wardrobe">Abrir el armario</string>
     <string name="statistics_collapse">Ocultar subcategorías</string>
     <string name="statistics_by_colour">Por color</string>
     <string name="statistics_by_brand">Por marca</string>

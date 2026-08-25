@@ -85,25 +85,33 @@ data class WardrobeQuery(
     fun cleared(): WardrobeQuery = WardrobeQuery()
 
     /**
-     * What the wardrobe should be showing when it is opened from somewhere else.
+     * What the wardrobe should be showing when another screen opens it.
      *
      * Built from nothing rather than from the query in force, and that is the
-     * point: a tap on "Tops" in the statistics chart means "show me those 14
-     * garments", and a size or a season left over from the last visit would show
-     * some of them and no explanation of where the rest went. The chart's number
-     * and the list's length have to agree, or the link is a lie about the chart.
+     * point: a tap on the "Tops" bar means "show me those 14 garments", and a
+     * size or a season left over from the last visit would show some of them
+     * with nothing on screen to say where the rest went. The number tapped and
+     * the length of the list have to agree, or the link misrepresents the chart.
      *
-     * [includeRetired] carries the one filter a link may deliberately set: the
-     * archived count on the home screen counts exactly the garments the plain
-     * wardrobe hides, so a link from it that did not ask for them would open on
-     * a list without a single one of the things it was counting.
-     *
-     * The screen still says it is narrowed -- the header shows the count and the
-     * clear button -- so arriving filtered is visible and one tap from undone.
+     * The screen still reports itself as narrowed -- the header shows the count
+     * and the clear button -- so arriving filtered is visible and one tap from
+     * undone.
      */
     companion object {
-        fun showing(category: String? = null, includeRetired: Boolean = false): WardrobeQuery =
-            WardrobeQuery(category = category, includeRetired = includeRetired)
+        fun showing(link: WardrobeLink?): WardrobeQuery = when (link) {
+            null -> WardrobeQuery()
+            is WardrobeLink.Category -> WardrobeQuery(category = link.id)
+            // Both, because a type only means anything inside a category: a
+            // subcategory on its own would be filtering by "Boots" across a
+            // wardrobe where two categories have boots in them.
+            is WardrobeLink.Type -> WardrobeQuery(category = link.category, subcategory = link.name)
+            is WardrobeLink.Colour -> WardrobeQuery(color = link.value)
+            is WardrobeLink.Brand -> WardrobeQuery(brand = link.name)
+            // The one link that asks for retired garments. It comes from a number
+            // that counts exactly the garments the plain wardrobe hides, so
+            // without this it would open on a list holding none of them.
+            WardrobeLink.Retired -> WardrobeQuery(includeRetired = true)
+        }
     }
 
     /**
@@ -145,4 +153,33 @@ data class WardrobeQuery(
 
     fun withSortToggled(): WardrobeQuery =
         copy(sort = if (sort == GarmentSort.NEWEST) GarmentSort.OLDEST else GarmentSort.NEWEST)
+}
+
+/**
+ * Something counted somewhere else in the app, as a thing the wardrobe can show.
+ *
+ * Every number the app displays is a number *of garments*, and every one of them
+ * is somewhere you might want to go. This is the vocabulary of those links: the
+ * statistics charts and the home counts produce them, and
+ * [WardrobeQuery.Companion.showing] turns each into the query that shows exactly
+ * what was counted.
+ *
+ * A type carries its category because the statistics page prefixes its
+ * subcategory keys for the same reason the filter needs both -- "Boots" appears
+ * under more than one category.
+ *
+ * Not every number is a link. A count of *distinct* colours or brands counts
+ * labels rather than garments, so there is no list of things behind it to show,
+ * and a lifespan bar is one particular garment -- which is why that one opens the
+ * garment rather than a filtered list.
+ */
+sealed interface WardrobeLink {
+    data class Category(val id: String) : WardrobeLink
+    data class Type(val category: String, val name: String) : WardrobeLink
+    /** The value a garment stores, not the palette's name for it. */
+    data class Colour(val value: String) : WardrobeLink
+    /** As the wearer typed it. */
+    data class Brand(val name: String) : WardrobeLink
+    /** Garments no longer worn, which nothing else in the app shows. */
+    data object Retired : WardrobeLink
 }

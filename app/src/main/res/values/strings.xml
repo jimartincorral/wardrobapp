@@ -188,6 +188,8 @@
     <string name="statistics_expand_hint">Tap a category to see what\'s in it</string>
     <string name="statistics_expand">Show subcategories</string>
     <string name="statistics_show_in_wardrobe">Show %1$s in the wardrobe</string>
+    <string name="statistics_open_garment">Open %1$s</string>
+    <string name="statistics_open_wardrobe">Open the wardrobe</string>
     <string name="statistics_collapse">Hide subcategories</string>
     <string name="statistics_by_colour">By colour</string>
     <string name="statistics_by_brand">By brand</string>

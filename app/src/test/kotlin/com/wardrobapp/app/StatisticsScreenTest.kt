@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performScrollToNode
 import com.wardrobapp.presentation.BrandSort
 import com.wardrobapp.presentation.Distribution
 import com.wardrobapp.presentation.LifespanEntry
+import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.statisticsView
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -53,7 +54,7 @@ class StatisticsScreenTest {
     )
 
     private var tapped: StatisticsSection? = null
-    private var filtered: String? = null
+    private var linked: WardrobeLink? = null
 
     private fun show(
         state: StatisticsViewModel.State = StatisticsViewModel.State(loading = false, view = view()),
@@ -62,7 +63,8 @@ class StatisticsScreenTest {
             StatisticsScreen(
                 state = state,
                 onCategoryTapped = {},
-                onCategoryFilterRequested = { filtered = it },
+                onLinkRequested = { linked = it },
+                onGarmentOpened = {},
                 onBrandSortChanged = {},
                 onSectionTapped = { tapped = it },
                 onRetry = {},
@@ -152,9 +154,9 @@ class StatisticsScreenTest {
         )
 
         scrollTo("Tops")
-        compose.onNodeWithTag(categoryFilterTag("tops")).performClick()
+        compose.onNodeWithTag(statFilterTag("tops")).performClick()
 
-        assertEquals("tops", filtered)
+        assertEquals(WardrobeLink.Category("tops"), linked)
     }
 
     @Test
@@ -163,7 +165,7 @@ class StatisticsScreenTest {
         // them -- which is also what stops the page from being a column of icons.
         show()
 
-        compose.onNodeWithTag(categoryFilterTag("tops")).assertDoesNotExist()
+        compose.onNodeWithTag(statFilterTag("tops")).assertDoesNotExist()
     }
 
     @Test
