@@ -1,9 +1,12 @@
 package com.wardrobapp.app
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import com.wardrobapp.presentation.BrandSort
 import com.wardrobapp.presentation.Distribution
 import com.wardrobapp.presentation.LifespanEntry
@@ -65,6 +68,17 @@ class StatisticsScreenTest {
         }
     }
 
+    /**
+     * Bring a node into view first.
+     *
+     * Six tiles and four headings do not fit the 320x470dp screen these run on, and
+     * a lazy list has not composed what is below the fold -- which reads exactly
+     * like a heading that is missing. This is what the first run of these tests
+     * found, on the four assertions that live further down the page.
+     */
+    private fun scrollTo(text: String) = compose.onNodeWithTag(STATISTICS_PAGE)
+        .performScrollToNode(hasText(text, substring = true))
+
     @Test
     fun `the tiles are the page, and the breakdowns are shut`() {
         show()
@@ -78,8 +92,15 @@ class StatisticsScreenTest {
         // named nowhere until its heading is tapped.
         compose.onNodeWithText("By category").assertIsDisplayed()
         compose.onNodeWithText("By colour").assertIsDisplayed()
+
+        scrollTo("By brand")
         compose.onNodeWithText("By brand").assertIsDisplayed()
+
+        scrollTo("How long things lasted")
         compose.onNodeWithText("How long things lasted").assertIsDisplayed()
+
+        // Existence, not visibility: a shut section composes nothing at all, so no
+        // amount of scrolling would find a brand.
         compose.onNodeWithText("Uniqlo").assertDoesNotExist()
     }
 
@@ -87,6 +108,7 @@ class StatisticsScreenTest {
     fun `tapping a heading asks for that section`() {
         show()
 
+        scrollTo("By brand")
         compose.onNodeWithText("By brand").performClick()
 
         assertEquals(StatisticsSection.BRAND, tapped)
@@ -103,10 +125,13 @@ class StatisticsScreenTest {
         )
 
         // As typed, not capitalized: a brand is what the wearer wrote.
+        scrollTo("Uniqlo")
         compose.onNodeWithText("Uniqlo").assertIsDisplayed()
         compose.onNodeWithText("Arket").assertIsDisplayed()
+
         // And the sort chips travel with the section rather than sitting beside a
         // heading that is now a button.
+        scrollTo("A-Z")
         compose.onNodeWithText("A-Z").assertIsDisplayed()
     }
 
@@ -123,6 +148,7 @@ class StatisticsScreenTest {
             )
         )
 
+        scrollTo("Nothing retired yet")
         compose.onNodeWithText("Nothing retired yet", substring = true).assertIsDisplayed()
     }
 

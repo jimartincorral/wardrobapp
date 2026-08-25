@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -54,6 +55,15 @@ import com.wardrobapp.presentation.paletteColorFor
 
 /** The parts of the page that open and shut, all shut to begin with. */
 enum class StatisticsSection { CATEGORY, COLOUR, BRAND, LIFESPAN }
+
+/**
+ * The scrolling page, for tests that need to reach past the fold.
+ *
+ * Six tiles and four headings is taller than the screen a Robolectric test gets,
+ * so "below the fold" and "not there at all" read the same in an assertion unless
+ * the test can scroll first -- the same reason the wardrobe's list is tagged.
+ */
+const val STATISTICS_PAGE = "statistics-page"
 
 /**
  * What the wardrobe is made of, and how long the things you stop wearing lasted.
@@ -134,7 +144,7 @@ private fun Body(
     onSectionTapped: (StatisticsSection) -> Unit,
 ) {
     LazyColumn(
-        modifier = Modifier.padding(insets),
+        modifier = Modifier.testTag(STATISTICS_PAGE).padding(insets),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
