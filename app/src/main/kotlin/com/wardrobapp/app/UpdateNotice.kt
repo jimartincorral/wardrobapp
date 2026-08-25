@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.data.AppRelease
@@ -101,11 +102,9 @@ fun UpdateNotice(
                         )
                     }
                     if (release.changes.size > CHANGES_SHOWN) {
+                        val hidden = release.changes.size - CHANGES_SHOWN
                         Text(
-                            stringResource(
-                                R.string.update_changes_more,
-                                release.changes.size - CHANGES_SHOWN,
-                            ),
+                            pluralStringResource(R.plurals.update_changes_more, hidden, hidden),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp),
