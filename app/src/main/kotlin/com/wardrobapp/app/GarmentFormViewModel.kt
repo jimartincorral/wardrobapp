@@ -731,16 +731,18 @@ class GarmentFormViewModel(
             _state.update { it.copy(brands = brands) }
         }
     }
-
-    private companion object {
-        /**
-         * How wide a photo is decoded to before its colour is read.
-         *
-         * The same 64 pixels `detectDominantColor` resized to on the other side. The
-         * exact number is not what matters -- two decoders never see identical
-         * pixels -- but reading a thumbnail rather than a photograph is, because it
-         * is what makes the answer about the garment rather than about its weave.
-         */
-        const val COLOR_SAMPLE_WIDTH = 64
-    }
 }
+
+/**
+ * How wide a photo is decoded to before its colour is read.
+ *
+ * The same 64 pixels `detectDominantColor` resized to on the other side. The
+ * exact number is not what matters -- two decoders never see identical pixels --
+ * but reading a thumbnail rather than a photograph is, because it is what makes
+ * the answer about the garment rather than about its weave.
+ *
+ * Shared with the bulk-add queue, which reads colours the same way: two numbers
+ * would mean the same photo being given two answers depending on which screen
+ * added it.
+ */
+internal const val COLOR_SAMPLE_WIDTH = 64

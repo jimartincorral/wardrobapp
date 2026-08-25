@@ -358,8 +358,15 @@ private fun BackgroundControl(
     }
 }
 
+/**
+ * A labelled block of a form.
+ *
+ * Internal rather than private because the bulk-add queue asks for a category
+ * and a type the same way this form does, and two spellings of the same heading
+ * is how one screen ends up looking like a different app.
+ */
 @Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
+internal fun Section(title: String, content: @Composable () -> Unit) {
     Column {
         Text(
             title,
@@ -370,9 +377,10 @@ private fun Section(title: String, content: @Composable () -> Unit) {
     }
 }
 
+/** A row of choices, wrapping. Shared with the bulk-add queue, as [Section] is. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun <T> Chips(
+internal fun <T> Chips(
     options: List<T>,
     selected: Set<T>,
     // Composable because the label comes out of resources now, and a plain

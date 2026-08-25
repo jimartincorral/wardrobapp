@@ -7,6 +7,7 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 ## Features
 
 - **Garment catalog** — photos, category and type, colour palette, tags, brand, size. The colours fill themselves in from the photo as it is added, and again if you remove its background. A photo is cropped to 3:4 as it is added, from the gallery or the camera, which is the shape every screen shows a garment in; it is then resized to 800px and re-encoded at 70% JPEG to keep the database and backups small.
+- **Cataloguing a drawerful** — Add several photos, from the wardrobe's menu, queues them up and asks each one for a category, which is the one thing a photo cannot say. Colours are read from each photo as it arrives, types imply their seasons, and a garment is written as each is confirmed rather than all of them on a final tap. There is no crop step: every screen draws a garment photo cropped to fill anyway, so an uncropped photo looks the same without a tap to confirm it.
 - **The numbers are links** — every count of garments leads to the garments. The home screen's two counts, the statistics tiles, and every bar in the category, type, colour and brand charts each open the wardrobe filtered to exactly what was counted; a lifespan bar opens that garment instead, since it is one garment rather than a group. A link clears whatever was filtered before, so the list is always as long as the number that was tapped.
 - **A wardrobe you can look at your way** — the list, or a grid two, three or four garments across, chosen from the top bar and remembered between launches. A cell is the photo with the garment's brand under it, since that is the one thing a photo does not show.
 - **On-device background removal** — strips the background from a garment photo using ML Kit subject segmentation, from the add/edit form or from a garment already saved. The cut-out replaces the original rather than sitting beside it, so removing a background costs storage instead of doubling it.
@@ -128,13 +129,13 @@ Two things it left behind, both deliberate. Comments across this codebase explai
 ## Testing
 
 ```bash
-./gradlew test                    # 537 tests, no Android SDK, seconds
-./gradlew :app:testDebugUnitTest  # 89 more, needs the SDK — no emulator
+./gradlew test                    # 549 tests, no Android SDK, seconds
+./gradlew :app:testDebugUnitTest  # 95 more, needs the SDK — no emulator
 ```
 
-The 537 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
+The 549 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
 
-The 89 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
+The 95 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 
 ```bash
 ./gradlew :app:testDebugUnitTest

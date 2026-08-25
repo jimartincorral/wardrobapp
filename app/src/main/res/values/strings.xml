@@ -549,4 +549,30 @@
     <string name="error_update_too_large">That download is far larger than a build of this app, so it was stopped.</string>
     <string name="error_update_redirects">That download kept being redirected, so it was stopped.</string>
     <string name="error_update_incomplete">The download did not finish, so nothing was installed.</string>
+
+    <!--
+        Bulk add: cataloguing a wardrobe rather than adding a garment. The queue
+        asks for the one thing a photo cannot say, which is what kind of garment
+        it is, and nothing else.
+    -->
+    <string name="wardrobe_add_options">More ways to add</string>
+    <string name="bulk_add_title">Add several</string>
+    <string name="bulk_add_menu">Add several photos</string>
+    <string name="bulk_add_choose">Choose photos</string>
+    <string name="bulk_add_choose_more">Add more photos</string>
+    <string name="bulk_add_intro">Pick your photos — up to %1$d at a time — and give each one a category. Colours are read from the photo; everything else can be filled in later.</string>
+    <string name="bulk_add_progress">%1$d of %2$d</string>
+    <string name="bulk_add_save">Save and next</string>
+    <string name="bulk_add_skip">Skip this photo</string>
+    <string name="bulk_add_done">Done</string>
+    <string name="bulk_add_brand">Brand (optional)</string>
+    <plurals name="bulk_add_finished">
+        <item quantity="one">%d garment added.</item>
+        <item quantity="other">%d garments added.</item>
+    </plurals>
+    <plurals name="bulk_add_skipped">
+        <item quantity="one">%d photo skipped.</item>
+        <item quantity="other">%d photos skipped.</item>
+    </plurals>
+    <string name="error_garment_not_saved">That garment could not be saved.</string>
 </resources>
