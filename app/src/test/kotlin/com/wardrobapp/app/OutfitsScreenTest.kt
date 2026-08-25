@@ -149,12 +149,22 @@ class OutfitsScreenTest {
         compose.onNodeWithText("Just learn from it").assertIsDisplayed()
     }
 
-    @Test
-    fun `the archive toggle appears only once something is in it`() {
-        show(OutfitsViewModel.State(hasGenerated = true, archivedCount = 0))
-        compose.onNodeWithTag(OUTFIT_ARCHIVE_TOGGLE).assertDoesNotExist()
+    // The archive is not a feature until there is something in it, so the toggle
+    // that reveals it stays away until then. Two tests rather than one because a
+    // composition can only be set once per test, and the empty and non-empty
+    // cases are two compositions.
 
+    @Test
+    fun `an empty archive offers no way in`() {
+        show(OutfitsViewModel.State(hasGenerated = true, archivedCount = 0))
+
+        compose.onNodeWithTag(OUTFIT_ARCHIVE_TOGGLE).assertDoesNotExist()
+    }
+
+    @Test
+    fun `an archive with outfits in it says how many`() {
         show(OutfitsViewModel.State(hasGenerated = true, archivedCount = 3))
+
         compose.onNodeWithText("Show 3 rated-only outfits").assertIsDisplayed()
     }
 }
