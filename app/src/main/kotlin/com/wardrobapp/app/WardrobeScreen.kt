@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.layout.ContentScale
@@ -54,6 +55,9 @@ import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.GARMENT_COLORS
 import com.wardrobapp.presentation.GarmentSort
 import com.wardrobapp.presentation.WardrobeQuery
+
+/** The scrolling body of the wardrobe, for tests that need to reach past the fold. */
+const val WARDROBE_LIST = "wardrobe-list"
 
 /**
  * The wardrobe list.
@@ -99,134 +103,164 @@ fun WardrobeScreen(
             }
         },
     ) { insets ->
-        Column(modifier = Modifier.fillMaxSize().padding(insets)) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedTextField(
-                    value = state.query.search,
-                    onValueChange = onSearchChanged,
-                    label = { Text(stringResource(R.string.wardrobe_search)) },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = onSortToggled) {
-                    Text(
-                        stringResource(
-                            if (state.query.sort == GarmentSort.NEWEST) {
-                                R.string.sort_newest
-                            } else {
-                                R.string.sort_oldest
-                            }
-                        )
+        // Headers and garments in one list. The filter panel used to sit above the
+        // list inside a plain Column, which measures the panel first and leaves the
+        // list whatever is under it: on a phone the panel ran off the bottom of the
+        // screen with its own last rows out of reach, and the list below it had no
+        // room left to scroll in. As an item of the list, the panel scrolls with
+        // everything else -- one gesture, the way the outfits screen and the garment
+        // form already work.
+        LazyColumn(
+            // Tagged so a test can scroll it. A LazyColumn has not composed what is
+            // below the fold, so "out of reach" and "not there at all" read the same
+            // in an assertion unless the test can scroll first.
+            modifier = Modifier.testTag(WARDROBE_LIST).fillMaxSize().padding(insets),
+            // Room at the bottom so the add button does not sit on the last card.
+            contentPadding = PaddingValues(bottom = 88.dp),
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value = state.query.search,
+                        onValueChange = onSearchChanged,
+                        label = { Text(stringResource(R.string.wardrobe_search)) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
                     )
+                    TextButton(onClick = onSortToggled) {
+                        Text(
+                            stringResource(
+                                if (state.query.sort == GarmentSort.NEWEST) {
+                                    R.string.sort_newest
+                                } else {
+                                    R.string.sort_oldest
+                                }
+                            )
+                        )
+                    }
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = onFiltersToggled) {
-                    // The count is the point: with the panel shut, it is the only
-                    // sign that the list is not the whole wardrobe.
-                    Text(
-                        when {
-                            state.filtersExpanded -> stringResource(R.string.filters_hide)
-                            state.query.activeFilterCount > 0 -> stringResource(
-                                R.string.filters_show_count,
-                                state.query.activeFilterCount,
-                            )
-                            else -> stringResource(R.string.filters_show)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = onFiltersToggled) {
+                        // The count is the point: with the panel shut, it is the only
+                        // sign that the list is not the whole wardrobe.
+                        Text(
+                            when {
+                                state.filtersExpanded -> stringResource(R.string.filters_hide)
+                                state.query.activeFilterCount > 0 -> stringResource(
+                                    R.string.filters_show_count,
+                                    state.query.activeFilterCount,
+                                )
+                                else -> stringResource(R.string.filters_show)
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    if (state.query.isNarrowed) {
+                        TextButton(onClick = onFiltersCleared) {
+                            Text(stringResource(R.string.action_clear_filters))
                         }
-                    )
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                if (state.query.isNarrowed) {
-                    TextButton(onClick = onFiltersCleared) { Text(stringResource(R.string.action_clear_filters)) }
+                    }
                 }
             }
 
             if (state.filtersExpanded) {
-                FilterPanel(
-                    query = state.query,
-                    onBrandChanged = onBrandChanged,
-                    onSizeChanged = onSizeChanged,
-                    onCategoryTapped = onCategoryTapped,
-                    onSubcategoryTapped = onSubcategoryTapped,
-                    onSeasonTapped = onSeasonTapped,
-                    onOccasionTapped = onOccasionTapped,
-                    onColorTapped = onColorTapped,
-                    onRetiredToggled = onRetiredToggled,
-                )
+                item {
+                    FilterPanel(
+                        query = state.query,
+                        onBrandChanged = onBrandChanged,
+                        onSizeChanged = onSizeChanged,
+                        onCategoryTapped = onCategoryTapped,
+                        onSubcategoryTapped = onSubcategoryTapped,
+                        onSeasonTapped = onSeasonTapped,
+                        onOccasionTapped = onOccasionTapped,
+                        onColorTapped = onColorTapped,
+                        onRetiredToggled = onRetiredToggled,
+                    )
+                }
             }
 
             // Only once there is something to count. A count of zero is already
             // said, more usefully, by the empty state below.
             if (state.garments.isNotEmpty()) {
-                Text(
-                    pluralStringResource(
-                        R.plurals.garment_count,
-                        state.garments.size,
-                        state.garments.size,
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
+                item {
+                    Text(
+                        pluralStringResource(
+                            R.plurals.garment_count,
+                            state.garments.size,
+                            state.garments.size,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
             }
 
             when {
-                state.loading && state.garments.isEmpty() -> Centered {
-                    CircularProgressIndicator()
+                state.loading && state.garments.isEmpty() -> item {
+                    Message { CircularProgressIndicator() }
                 }
 
                 // Reported, not swallowed. A read that failed must not look like
                 // a wardrobe with nothing in it.
-                state.error != null -> Centered {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            stringResource(R.string.error_wardrobe_unreadable),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            state.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(top = 4.dp, start = 24.dp, end = 24.dp),
-                        )
-                        TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                state.error != null -> item {
+                    Message {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                stringResource(R.string.error_wardrobe_unreadable),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                state.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(top = 4.dp, start = 24.dp, end = 24.dp),
+                            )
+                            TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                        }
                     }
                 }
 
                 // Three different things, because they call for three different
                 // next moves: wait, widen, or add something.
-                state.isFilteredEmpty -> Centered {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            state.query.searchTerm?.let {
-                                stringResource(R.string.wardrobe_no_match_search, it)
-                            } ?: stringResource(R.string.wardrobe_no_match_filters),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        TextButton(onClick = onFiltersCleared) { Text(stringResource(R.string.action_clear_filters)) }
+                state.isFilteredEmpty -> item {
+                    Message {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                state.query.searchTerm?.let {
+                                    stringResource(R.string.wardrobe_no_match_search, it)
+                                } ?: stringResource(R.string.wardrobe_no_match_filters),
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            TextButton(onClick = onFiltersCleared) {
+                                Text(stringResource(R.string.action_clear_filters))
+                            }
+                        }
                     }
                 }
 
-                state.isEmpty -> Centered {
-                    Text(stringResource(R.string.wardrobe_empty), style = MaterialTheme.typography.bodyLarge)
+                state.isEmpty -> item {
+                    Message {
+                        Text(stringResource(R.string.wardrobe_empty), style = MaterialTheme.typography.bodyLarge)
+                    }
                 }
 
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(state.garments, key = { it.id }) { garment ->
-                        GarmentRow(garment) { onGarmentOpened(garment.id) }
-                    }
+                else -> items(state.garments, key = { it.id }) { garment ->
+                    GarmentRow(
+                        garment,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    ) { onGarmentOpened(garment.id) }
                 }
             }
         }
@@ -368,14 +402,25 @@ private fun FilterPill(label: String, selected: Boolean, onTap: () -> Unit) {
 // The three label helpers that used to live here are gone: Vocabulary.kt answers
 // for seasons, occasions, categories and types now, out of resources.
 
+/**
+ * Something to say instead of a list: still loading, unreadable, or nothing in it.
+ *
+ * Across the width and under the controls rather than in the middle of the screen,
+ * because the middle of a scrolling list is wherever the list happens to be. The
+ * search box and the filters are what every one of these messages asks you to
+ * change, so it sits directly under them.
+ */
 @Composable
-private fun Centered(content: @Composable () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
+private fun Message(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
+        contentAlignment = Alignment.Center,
+    ) { content() }
 }
 
 @Composable
-private fun GarmentRow(garment: GarmentRecord, onClick: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+private fun GarmentRow(garment: GarmentRecord, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Card(modifier = modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
