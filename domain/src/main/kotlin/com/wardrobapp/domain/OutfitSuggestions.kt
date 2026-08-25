@@ -43,6 +43,50 @@ private val OUTFIT_TEMPLATES: List<List<OutfitSlot>> = listOf(
     listOf(OutfitSlot.LOUNGEWEAR_SETS, OutfitSlot.OUTERWEAR),
 )
 
+/**
+ * How often a template is drawn, relative to the others.
+ *
+ * Templates used to be picked uniformly, and only six of the fifteen include
+ * shoes -- so most of what the screen showed was a top and a bottom with nothing
+ * on the feet, which reads as an unfinished thought rather than an outfit. These
+ * weights are the fix, and they say what "finished" means here: shoes are what
+ * turn a pair of garments into something you could walk out in, and a layer or an
+ * accessory is what makes it look chosen rather than assembled.
+ *
+ * A multiplier rather than a rule, because the plain combinations are still real
+ * answers -- a dress on its own is an outfit -- and a wardrobe with no shoes in it
+ * must still be able to suggest something. Nothing is excluded; the odds move.
+ */
+private fun templateWeight(template: List<OutfitSlot>): Double {
+    var weight = 1.0
+    if (template.contains(OutfitSlot.SHOES)) weight *= 3.0
+    if (template.any { it == OutfitSlot.OUTERWEAR || it == OutfitSlot.ACCESSORIES }) weight *= 1.5
+    return weight
+}
+
+/**
+ * Draw a template, in proportion to [templateWeight].
+ *
+ * One call to [random], as the uniform draw it replaces was: the epsilon-greedy
+ * step downstream assumes the generator advances the same number of times
+ * whichever branch a run takes, and a template draw that sometimes stepped twice
+ * would make a seeded run unreproducible.
+ */
+private fun pickTemplate(
+    templates: List<List<OutfitSlot>>,
+    random: () -> Double,
+): List<OutfitSlot> {
+    val weights = templates.map { templateWeight(it) }
+
+    var ticket = random() * weights.sum()
+    for (i in templates.indices) {
+        ticket -= weights[i]
+        if (ticket <= 0) return templates[i]
+    }
+    // Only reachable through floating-point drift at the very end of the wheel.
+    return templates.last()
+}
+
 data class ScoredOutfit(
     val garments: List<Garment>,
     val score: Double,
@@ -138,6 +182,53 @@ private fun occasionFit(garment: Garment, preferences: SuggestionPreferences?): 
 }
 
 /**
+ * Whether two garments are dressed for the same kind of day.
+ *
+ * Null for either side having no opinion, which is not the same as disagreeing:
+ * underwear is deliberately for no occasion at all, so a thermal under a shirt
+ * must not read as a clash.
+ */
+private fun sharesAnOccasion(mine: List<Occasion>, theirs: List<Occasion>): Boolean? {
+    if (mine.isEmpty() || theirs.isEmpty()) return null
+    return mine.any { it in theirs }
+}
+
+/**
+ * How much of an outfit is dressed for one kind of day.
+ *
+ * The gap this fills: [occasionFit] scores each garment against the occasion the
+ * user *asked* for, and returns nothing at all when they asked for none -- which
+ * is most of the time. So the engine had no opinion whatsoever about whether an
+ * outfit hung together, and gym shorts under a blazer scored exactly as well as a
+ * shirt with chinos.
+ *
+ * Counted pairwise rather than as one intersection across the whole outfit,
+ * because an intersection is unanimous-or-nothing: a blazer with jeans and
+ * trainers shares no single occasion between all three, and it is a real outfit
+ * people wear. Pairwise says "two of these three agree", which is the honest
+ * reading.
+ *
+ * Positive only, like [colorHarmonyScore] and for the same reason: this table is
+ * a rough guide to what a garment is for, not an authority, and an engine that
+ * punished on its word would refuse combinations that are perfectly good.
+ */
+private fun occasionCoherence(garments: List<Garment>): Double {
+    val occasions = garments.map { it.occasions() }
+
+    var agreeing = 0
+    var pairs = 0
+    for (i in occasions.indices) {
+        for (j in i + 1 until occasions.size) {
+            val shared = sharesAnOccasion(occasions[i], occasions[j]) ?: continue
+            if (shared) agreeing++
+            pairs++
+        }
+    }
+
+    return if (pairs == 0) 0.0 else agreeing.toDouble() / pairs
+}
+
+/**
  * Whether a garment suits the season in play: +1 for a fit, -1 against an
  * explicit selection it contradicts, 0 when there is nothing to say.
  */
@@ -163,8 +254,16 @@ private fun contextScore(
     preferences: SuggestionPreferences?,
 ): Double = seasonFit(garment, currentSeason, preferences) + occasionFit(garment, preferences)
 
-/** Score a candidate outfit. */
-private fun scoreOutfit(
+/**
+ * Score a candidate outfit.
+ *
+ * Internal rather than private so a test can score two outfits and compare them.
+ * The weights below are the whole judgement of the engine, and a term that is
+ * computed and then not added to the total is a change that alters nothing while
+ * looking like it does -- which is not something the end-to-end output can be
+ * relied on to show, since the draw decides what it ever gets to score.
+ */
+internal fun scoreOutfit(
     garments: List<Garment>,
     getPairScore: PairScoreLookup,
     currentSeason: Season,
@@ -192,6 +291,11 @@ private fun scoreOutfit(
 
     val occasionTotal = garments.sumOf { occasionFit(it, preferences) }
     score += (occasionTotal / garments.size) * 1.2
+
+    // Whether the garments agree with *each other* about what kind of day this
+    // is, which is a different question from whether they suit the day that was
+    // asked for -- and the only one that has an answer when nothing was asked.
+    score += occasionCoherence(garments) * 1.0
 
     // Colour harmony
     var harmonyTotal = 0.0
@@ -231,10 +335,25 @@ private fun pickBestFit(
     var bestScore = Double.NEGATIVE_INFINITY
     var tied = mutableListOf<Garment>()
 
+    // Once, outside the loop: every candidate is compared against all of these,
+    // and `occasions()` walks two lookup tables each time it is asked.
+    val selectedOccasions = selected.map { it.occasions() }
+
     for (candidate in available) {
         val pairScoreSum = selected.sumOf { getPairScore.score(candidate.id, it.id) }
         val harmony = selected.sumOf { colorHarmonyScore(candidate.primaryColor, it.primaryColor) }
-        val total = pairScoreSum + harmony + contextScore(candidate, currentSeason, preferences) * 1.5
+
+        // Counted per garment already chosen, the way harmony is, so a candidate
+        // that suits three of them beats one that suits one. Weighted a little
+        // above a colour match on purpose: wearing gym shorts with a blazer is a
+        // worse mistake than wearing two colours that fight.
+        val candidateOccasions = candidate.occasions()
+        val coherence = selectedOccasions.count {
+            sharesAnOccasion(candidateOccasions, it) == true
+        }.toDouble()
+
+        val total = pairScoreSum + harmony + coherence +
+            contextScore(candidate, currentSeason, preferences) * 1.5
 
         if (total > bestScore + SCORE_TIE_EPSILON) {
             bestScore = total
@@ -353,9 +472,7 @@ fun buildSuggestions(
     val attempts = min(count * 5, 20)
 
     for (i in 0 until attempts) {
-        val template = viableTemplates[
-            (random() * viableTemplates.size).toInt().coerceIn(0, viableTemplates.size - 1)
-        ]
+        val template = pickTemplate(viableTemplates, random)
 
         val selected = seedGarments.toMutableList()
         val usedGarmentIds = seedGarments.map { it.id }.toMutableSet()
