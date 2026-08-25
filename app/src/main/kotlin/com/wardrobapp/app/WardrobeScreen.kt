@@ -3,14 +3,13 @@ package com.wardrobapp.app
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +21,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -64,11 +64,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.wardrobapp.data.GarmentRecord
-import com.wardrobapp.domain.GARMENT_CATEGORIES
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
-import com.wardrobapp.presentation.GARMENT_COLORS
 import com.wardrobapp.presentation.GarmentSort
+import com.wardrobapp.presentation.WardrobeFacets
 import com.wardrobapp.presentation.WARDROBE_VIEW_CHOICES
 import com.wardrobapp.presentation.WardrobeLayout
 import com.wardrobapp.presentation.WardrobeQuery
@@ -77,8 +76,13 @@ import com.wardrobapp.presentation.WardrobeView
 /** The scrolling body of the wardrobe, for tests that need to reach past the fold. */
 const val WARDROBE_LIST = "wardrobe-list"
 
-/** One colour swatch in the filter panel, for a test that needs to tap one. */
-fun colorSwatchTag(key: String) = "color-swatch-$key"
+/**
+ * One colour swatch in the filter panel, for a test that needs to tap one.
+ *
+ * Keyed by the hex, because that is what the panel now draws: the swatches are the
+ * colours the wardrobe holds, and a colour it holds may have no palette name.
+ */
+fun colorSwatchTag(hex: String) = "color-swatch-$hex"
 
 /** The button that opens the list-or-grid menu. */
 const val WARDROBE_VIEW_MENU = "wardrobe-view-menu"
@@ -89,7 +93,7 @@ const val WARDROBE_VIEW_MENU = "wardrobe-view-menu"
  * Layout only. What the list contains, in what order, and what its colours mean
  * were all decided before anything reached here.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WardrobeScreen(
     state: WardrobeViewModel.State,
@@ -101,8 +105,8 @@ fun WardrobeScreen(
     onSettingsRequested: () -> Unit,
     onFiltersToggled: () -> Unit,
     onFiltersCleared: () -> Unit,
-    onBrandChanged: (String) -> Unit,
-    onSizeChanged: (String) -> Unit,
+    onBrandTapped: (String) -> Unit,
+    onSizeTapped: (String) -> Unit,
     onCategoryTapped: (String) -> Unit,
     onSubcategoryTapped: (String) -> Unit,
     onSeasonTapped: (Season) -> Unit,
@@ -208,8 +212,9 @@ fun WardrobeScreen(
                 fullWidth {
                     FilterPanel(
                         query = state.query,
-                        onBrandChanged = onBrandChanged,
-                        onSizeChanged = onSizeChanged,
+                        facets = state.facets,
+                        onBrandTapped = onBrandTapped,
+                        onSizeTapped = onSizeTapped,
                         onCategoryTapped = onCategoryTapped,
                         onSubcategoryTapped = onSubcategoryTapped,
                         onSeasonTapped = onSeasonTapped,
@@ -432,12 +437,12 @@ private fun GarmentCell(garment: GarmentRecord, modifier: Modifier = Modifier, o
  * subcategories -- offering all of them at once would let you filter by a type
  * the chosen category does not have and show nothing.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FilterPanel(
     query: WardrobeQuery,
-    onBrandChanged: (String) -> Unit,
-    onSizeChanged: (String) -> Unit,
+    facets: WardrobeFacets,
+    onBrandTapped: (String) -> Unit,
+    onSizeTapped: (String) -> Unit,
     onCategoryTapped: (String) -> Unit,
     onSubcategoryTapped: (String) -> Unit,
     onSeasonTapped: (Season) -> Unit,
@@ -446,34 +451,21 @@ private fun FilterPanel(
     onRetiredToggled: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = query.brand,
-                onValueChange = onBrandChanged,
-                label = { Text(stringResource(R.string.filter_brand)) },
-                singleLine = true,
-                modifier = Modifier.weight(1f),
-            )
-            OutlinedTextField(
-                value = query.size,
-                onValueChange = onSizeChanged,
-                label = { Text(stringResource(R.string.filter_size)) },
-                singleLine = true,
-                modifier = Modifier.weight(1f),
-            )
-        }
-
-        FilterSection(stringResource(R.string.filter_section_category)) {
-            for (category in GARMENT_CATEGORIES) {
-                FilterPill(categoryLabel(category.id), query.category == category.id) {
-                    onCategoryTapped(category.id)
+        // A row is left out entirely when the wardrobe has nothing to put in it --
+        // a heading over an empty line is worse than no heading.
+        if (facets.categories.isNotEmpty()) {
+            FilterSection(stringResource(R.string.filter_section_category)) {
+                for (category in facets.categories) {
+                    FilterPill(categoryLabel(category), query.category == category) {
+                        onCategoryTapped(category)
+                    }
                 }
             }
         }
 
-        GARMENT_CATEGORIES.firstOrNull { it.id == query.category }?.let { category ->
+        if (facets.subcategories.isNotEmpty()) {
             FilterSection(stringResource(R.string.filter_section_type)) {
-                for (subcategory in category.subcategories) {
+                for (subcategory in facets.subcategories) {
                     FilterPill(garmentTypeLabel(subcategory), query.subcategory == subcategory) {
                         onSubcategoryTapped(subcategory)
                     }
@@ -481,51 +473,79 @@ private fun FilterPanel(
             }
         }
 
-        FilterSection(stringResource(R.string.filter_section_season)) {
-            for (season in Season.entries) {
-                FilterPill(stringResource(season.labelRes), query.season == season) { onSeasonTapped(season) }
-            }
-        }
-
-        FilterSection(stringResource(R.string.filter_section_occasion)) {
-            for (occasion in Occasion.entries) {
-                FilterPill(stringResource(occasion.labelRes), query.occasion == occasion) {
-                    onOccasionTapped(occasion)
+        if (facets.seasons.isNotEmpty()) {
+            FilterSection(stringResource(R.string.filter_section_season)) {
+                for (season in facets.seasons) {
+                    FilterPill(stringResource(season.labelRes), query.season == season) {
+                        onSeasonTapped(season)
+                    }
                 }
             }
         }
 
-        FilterSection(stringResource(R.string.filter_section_colour)) {
-            for ((key, hex) in GARMENT_COLORS) {
-                // The hex, not the key. A garment stores the hex, so that is what a
-                // colour filter has to ask for; the key is only this palette's name
-                // for it and appears nowhere in the wardrobe -- which is what this
-                // panel used to send, so every colour answered "nothing matches
-                // these filters".
-                //
-                // A colour that will not parse is the multi-colour sentinel rather
-                // than a colour, and is left out here as it is on the form: drawn
-                // as a plain circle it would be a second grey swatch that meant
-                // something else.
-                val swatch = hex.toComposeColor() ?: continue
-                val selected = query.color.equals(hex, ignoreCase = true)
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .testTag(colorSwatchTag(key))
-                        .clip(CircleShape)
-                        .background(swatch)
-                        .border(
-                            width = if (selected) 3.dp else 1.dp,
-                            color = if (selected) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.outlineVariant
-                            },
-                            shape = CircleShape,
-                        )
-                        .clickable { onColorTapped(hex) },
-                )
+        if (facets.occasions.isNotEmpty()) {
+            FilterSection(stringResource(R.string.filter_section_occasion)) {
+                for (occasion in facets.occasions) {
+                    FilterPill(stringResource(occasion.labelRes), query.occasion == occasion) {
+                        onOccasionTapped(occasion)
+                    }
+                }
+            }
+        }
+
+        if (facets.colors.isNotEmpty()) {
+            FilterSection(stringResource(R.string.filter_section_colour)) {
+                for (hex in facets.colors) {
+                    // A colour that will not parse is the multi-colour sentinel
+                    // rather than a colour, and is left out here as it is on the
+                    // form: drawn as a plain circle it would be a second grey
+                    // swatch that meant something else.
+                    val swatch = hex.toComposeColor() ?: continue
+                    val selected = query.color.equals(hex, ignoreCase = true)
+
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .testTag(colorSwatchTag(hex))
+                            .clip(CircleShape)
+                            .background(swatch)
+                            .border(
+                                width = if (selected) 3.dp else 1.dp,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant
+                                },
+                                shape = CircleShape,
+                            )
+                            .clickable { onColorTapped(hex) },
+                    )
+                }
+            }
+        }
+
+        // Brands and sizes, from the wardrobe rather than from a text box. They
+        // used to be two boxes you typed into from memory, spelled right, which is
+        // the worst way to ask for a value the app already knows.
+        if (facets.brands.isNotEmpty()) {
+            FilterSection(stringResource(R.string.filter_brand)) {
+                for (brand in facets.brands) {
+                    // As typed by whoever entered it: a brand is not a word this
+                    // app gets to capitalize.
+                    FilterPill(brand, query.brand.equals(brand, ignoreCase = true)) {
+                        onBrandTapped(brand)
+                    }
+                }
+            }
+        }
+
+        if (facets.sizes.isNotEmpty()) {
+            FilterSection(stringResource(R.string.filter_size)) {
+                for (size in facets.sizes) {
+                    FilterPill(size, query.size.equals(size, ignoreCase = true)) {
+                        onSizeTapped(size)
+                    }
+                }
             }
         }
 
@@ -545,17 +565,28 @@ private fun FilterPanel(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * One row of choices: a heading, then a single line you scroll sideways.
+ *
+ * A wrapping row was the obvious thing and the wrong one. Six categories and a
+ * dozen colours wrapped to three or four lines each, so the panel was taller than
+ * any phone and the rows below it were somewhere off the bottom of a scroll. One
+ * line per dimension keeps every heading visible at once, and a row that is too
+ * long for the screen says so by being scrollable rather than by growing.
+ */
 @Composable
-private fun FilterSection(title: String, content: @Composable FlowRowScope.() -> Unit) {
+private fun FilterSection(title: String, content: @Composable RowScope.() -> Unit) {
     Text(
         title,
         style = MaterialTheme.typography.labelLarge,
         modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
     )
-    FlowRow(
+    Row(
+        // Its own scroll state per row, remembered on the heading, so scrolling the
+        // colours does not drag the brands along with them.
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
         content = content,
     )
 }

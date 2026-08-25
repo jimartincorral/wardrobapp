@@ -6,8 +6,10 @@ import com.wardrobapp.data.GarmentQueries
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.presentation.WardrobeFacets
 import com.wardrobapp.presentation.WardrobeQuery
 import com.wardrobapp.presentation.WardrobeView
+import com.wardrobapp.presentation.wardrobeFacets
 import com.wardrobapp.presentation.filterBy
 import com.wardrobapp.presentation.orderedBy
 import kotlinx.coroutines.Dispatchers
@@ -50,6 +52,14 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
          * re-read. Persisted, so it is the same wardrobe you left.
          */
         val view: WardrobeView = WardrobeView(),
+        /**
+         * What the filter panel has to offer, from what the list holds.
+         *
+         * Derived when the list is, rather than in the composable: which values a
+         * wardrobe contains is a fact about the wardrobe, and a screen that worked
+         * it out per frame would recompute it on every scroll.
+         */
+        val facets: WardrobeFacets = WardrobeFacets(),
     ) {
         /** True only when the wardrobe really is empty, not when a read failed. */
         val isEmpty: Boolean get() = !loading && error == null && garments.isEmpty()
@@ -107,7 +117,18 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
                     .filterBy(query.garmentFilter())
                     .orderedBy(query.sort)
             }
-            _state.update { it.copy(loading = false, garments = garments, error = null) }
+            _state.update {
+                it.copy(
+                    loading = false,
+                    garments = garments,
+                    // From the garments this query returned, which is what makes
+                    // the choices narrow as filters are picked -- and what makes a
+                    // retired garment's brand appear exactly when retired garments
+                    // are being shown.
+                    facets = wardrobeFacets(garments, query),
+                    error = null,
+                )
+            }
         } catch (e: Exception) {
             _state.update {
                 it.copy(
@@ -126,9 +147,11 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
 
     fun onSearchChanged(search: String) = typed { it.copy(search = search) }
 
-    fun onBrandChanged(brand: String) = typed { it.copy(brand = brand) }
+    // Brands and sizes are tapped now rather than typed, so they go through
+    // `narrow` like every other chip: there is nothing to debounce about a tap.
+    fun onBrandTapped(brand: String) = narrow { it.withBrand(brand) }
 
-    fun onSizeChanged(size: String) = typed { it.copy(size = size) }
+    fun onSizeTapped(size: String) = narrow { it.withSize(size) }
 
     fun onCategoryTapped(id: String) = narrow { it.withCategory(id) }
 

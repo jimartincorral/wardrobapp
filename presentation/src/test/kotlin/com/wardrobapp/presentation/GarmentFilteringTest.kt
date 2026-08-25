@@ -87,9 +87,14 @@ class GarmentFilteringTest {
     }
 
     @Test
-    fun `brand and size match loosely, because they are typed by hand`() {
-        // Case and partial words, so "ark" finds Arket however it was capitalised.
-        assertEquals(listOf("tee", "blouse"), wardrobe.filterBy(GarmentFilter(brand = "ark")).map { it.id })
+    fun `brand and size match exactly, because they are picked from the wardrobe`() {
+        // Case and surrounding space are still forgiven -- the same brand is stored
+        // both ways across a wardrobe -- but a partial word is not a match: these
+        // are chips carrying values the wardrobe itself supplied.
+        assertEquals(listOf("tee", "blouse"), wardrobe.filterBy(GarmentFilter(brand = "arket")).map { it.id })
+        assertEquals(listOf("tee", "blouse"), wardrobe.filterBy(GarmentFilter(brand = " Arket ")).map { it.id })
+        assertEquals(emptyList(), wardrobe.filterBy(GarmentFilter(brand = "ark")).map { it.id })
+
         assertEquals(listOf("shirt", "blouse"), wardrobe.filterBy(GarmentFilter(size = "M")).map { it.id })
         // A blank needle is not a filter at all rather than matching nothing.
         assertEquals(3, wardrobe.filterBy(GarmentFilter(brand = "  ")).size)

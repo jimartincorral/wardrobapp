@@ -13,6 +13,7 @@ import com.wardrobapp.presentation.GarmentFilter
 import com.wardrobapp.presentation.WardrobeLayout
 import com.wardrobapp.presentation.WardrobeView
 import com.wardrobapp.presentation.filterBy
+import com.wardrobapp.presentation.wardrobeFacets
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -47,7 +48,11 @@ class WardrobeScreenTest {
     val compose = createComposeRule()
 
     /** Distinguishable by brand: the type on a row goes through the vocabulary. */
-    private fun garment(index: Int, palette: String = "#1F3A93") = normalizeGarmentRow(
+    private fun garment(
+        index: Int,
+        palette: String = "#1F3A93",
+        brand: String = "Brand %02d".format(index),
+    ) = normalizeGarmentRow(
         mapOf(
             "id" to "g$index",
             "image_uri" to "",
@@ -55,8 +60,8 @@ class WardrobeScreenTest {
             "image_uris_nobg" to "[]",
             "category" to "tops",
             "subcategories" to """["T-Shirt"]""",
-            "tags" to "[]",
-            "brand" to "Brand %02d".format(index),
+            "tags" to """["row-%02d"]""".format(index),
+            "brand" to brand,
             "size" to "M",
             "color_primary" to palette,
             "color_palette" to """["$palette"]""",
@@ -69,6 +74,7 @@ class WardrobeScreenTest {
         state: WardrobeViewModel.State,
         onColorTapped: (String) -> Unit = {},
         onViewSelected: (WardrobeView) -> Unit = {},
+        onBrandTapped: (String) -> Unit = {},
     ) {
         compose.setContent {
             WardrobeScreen(
@@ -81,8 +87,8 @@ class WardrobeScreenTest {
                 onSettingsRequested = {},
                 onFiltersToggled = {},
                 onFiltersCleared = {},
-                onBrandChanged = {},
-                onSizeChanged = {},
+                onBrandTapped = onBrandTapped,
+                onSizeTapped = {},
                 onCategoryTapped = {},
                 onSubcategoryTapped = {},
                 onSeasonTapped = {},
@@ -97,9 +103,14 @@ class WardrobeScreenTest {
     private fun wardrobe(
         filtersExpanded: Boolean = false,
         view: WardrobeView = WardrobeView(),
+        garments: List<com.wardrobapp.data.GarmentRecord> = (1..12).map { garment(it) },
     ) = WardrobeViewModel.State(
         loading = false,
-        garments = (1..12).map(::garment),
+        garments = garments,
+        // Through the real facet rule, because the panel now draws what the
+        // wardrobe holds: a chip nothing in this list wears must not appear, and a
+        // test that hand-wrote the facets would not notice either way.
+        facets = wardrobeFacets(garments, com.wardrobapp.presentation.WardrobeQuery()),
         filtersExpanded = filtersExpanded,
         view = view,
     )
@@ -108,9 +119,13 @@ class WardrobeScreenTest {
     fun `garments can be reached with the filters open`() {
         show(wardrobe(filtersExpanded = true))
 
-        compose.onNodeWithTag(WARDROBE_LIST).performScrollToNode(hasText("Brand 12"))
+        // By its tag rather than its brand: the panel offers this wardrobe's brands
+        // as chips now, so "Brand 12" is two nodes -- the chip and the row -- and a
+        // matcher that finds both is not asking about either. A tag appears on the
+        // row alone.
+        compose.onNodeWithTag(WARDROBE_LIST).performScrollToNode(hasText("row-12"))
 
-        compose.onNodeWithText("Brand 12").assertIsDisplayed()
+        compose.onNodeWithText("row-12").assertIsDisplayed()
     }
 
     @Test
@@ -138,18 +153,57 @@ class WardrobeScreenTest {
         // matched nothing and the screen said so. Both halves were right on their
         // own; nothing tested the join, which is why it shipped.
         var picked: String? = null
-        show(wardrobe(filtersExpanded = true), onColorTapped = { picked = it })
+        val gold = garment(1, palette = "#DAA520")
+        show(
+            wardrobe(filtersExpanded = true, garments = listOf(gold)),
+            onColorTapped = { picked = it },
+        )
 
         compose.onNodeWithTag(WARDROBE_LIST)
-            .performScrollToNode(hasTestTag(colorSwatchTag("gold")))
-        compose.onNodeWithTag(colorSwatchTag("gold")).performClick()
+            .performScrollToNode(hasTestTag(colorSwatchTag("#DAA520")))
+        compose.onNodeWithTag(colorSwatchTag("#DAA520")).performClick()
 
         assertEquals("#DAA520", picked)
         // And through the real predicate, so this stays honest if either side moves.
         assertEquals(
             listOf("g1"),
-            listOf(garment(1, palette = "#DAA520")).filterBy(GarmentFilter(color = picked)).map { it.id },
+            listOf(gold).filterBy(GarmentFilter(color = picked)).map { it.id },
         )
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h2000dp")
+    fun `the panel offers the brands and sizes the wardrobe has, and no others`() {
+        // What this replaces: two text boxes you typed a brand into from memory,
+        // and rows offering every category and all twenty-five palette colours,
+        // most of which matched nothing in any particular wardrobe.
+        var picked: String? = null
+        show(
+            wardrobe(
+                filtersExpanded = true,
+                garments = listOf(garment(1, brand = "Uniqlo"), garment(2, brand = "Arket")),
+            ),
+            onBrandTapped = { picked = it },
+        )
+
+        compose.onNodeWithText("Uniqlo").assertIsDisplayed()
+        compose.onNodeWithText("Arket").assertIsDisplayed()
+        // A brand this wardrobe does not hold is not on offer, whatever else does.
+        compose.onNodeWithText("Nike").assertDoesNotExist()
+
+        compose.onNodeWithText("Uniqlo").performClick()
+        assertEquals("Uniqlo", picked)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h2000dp")
+    fun `a colour no garment wears is not offered`() {
+        // The whole wardrobe is navy, so the panel is one swatch rather than the
+        // app's entire palette.
+        show(wardrobe(filtersExpanded = true, garments = listOf(garment(1, palette = "#000080"))))
+
+        compose.onNodeWithTag(colorSwatchTag("#000080")).assertExists()
+        compose.onNodeWithTag(colorSwatchTag("#DAA520")).assertDoesNotExist()
     }
 
     @Test
