@@ -52,6 +52,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.canhub.cropper.CropImageContract
 import com.wardrobapp.data.backupFilename
+import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.WardrobeQuery
@@ -225,6 +226,7 @@ class MainActivity : AppCompatActivity() {
                                 onArrivalApplied = { arrival = null },
                                 onGarmentOpened = { navigator.openGarment(it) },
                                 onAddRequested = { navigator.navigate(GARMENT_ADD) },
+                                onBulkAddRequested = { navigator.navigate(GARMENT_BULK_ADD) },
                                 onSettingsRequested = { navigator.navigate(SETTINGS) },
                             )
                         }
@@ -286,6 +288,10 @@ class MainActivity : AppCompatActivity() {
                                 // already been answered.
                                 sharedLink = pendingLink,
                             )
+                        }
+
+                        composable(GARMENT_BULK_ADD) {
+                            BulkAdd(container = container, navigator = navigator)
                         }
 
                         composable("$GARMENT_EDIT/{$GARMENT_ID}") { backStackEntry ->
@@ -351,6 +357,7 @@ class MainActivity : AppCompatActivity() {
         onArrivalApplied: () -> Unit,
         onGarmentOpened: (String) -> Unit,
         onAddRequested: () -> Unit,
+        onBulkAddRequested: () -> Unit,
         onSettingsRequested: () -> Unit,
     ) {
         val model: WardrobeViewModel = viewModel(
@@ -378,6 +385,7 @@ class MainActivity : AppCompatActivity() {
             onRetry = model::refresh,
             onGarmentOpened = onGarmentOpened,
             onAddRequested = onAddRequested,
+            onBulkAddRequested = onBulkAddRequested,
             onSettingsRequested = onSettingsRequested,
             onFiltersToggled = model::onFiltersToggled,
             onFiltersCleared = model::onFiltersCleared,
@@ -643,6 +651,43 @@ class MainActivity : AppCompatActivity() {
             onSharedLinkConfirmed = model::onSharedLinkConfirmed,
             onSharedLinkDismissed = model::onSharedLinkDismissed,
             onImportProblemDismissed = model::onImportProblemDismissed,
+        )
+    }
+
+    /**
+     * Cataloguing several garments at once.
+     *
+     * The picker is a multiple one, and there is no crop screen in between: the
+     * whole point of this screen is not stopping between photos, and every screen
+     * in the app draws a garment photo cropped to fill anyway, so an uncropped
+     * photo shows the same as a centre-cropped one without a tap to confirm it.
+     * A garment whose framing matters can be re-photographed from its own form.
+     */
+    @Composable
+    private fun BulkAdd(container: AppContainer, navigator: NavHostController) {
+        val model: BulkAddViewModel = viewModel(
+            factory = viewModelFactory { initializer { BulkAddViewModel(container) } }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        val picker = rememberLauncherForActivityResult(
+            ActivityResultContracts.PickMultipleVisualMedia(BulkAddState.MAX_PHOTOS)
+        ) { uris -> model.onPhotosPicked(uris) }
+
+        BulkAddScreen(
+            state = state,
+            onBack = { navigator.popBackStack() },
+            onChoosePhotos = {
+                picker.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+            },
+            onCategorySelected = model::onCategorySelected,
+            onSubcategoryToggled = model::onSubcategoryToggled,
+            onBrandChanged = model::onBrandChanged,
+            onSave = model::onSaveRequested,
+            onSkip = model::onSkipRequested,
+            onErrorDismissed = model::onErrorDismissed,
         )
     }
 
@@ -922,6 +967,7 @@ class MainActivity : AppCompatActivity() {
         // whether it wins is down to how the matcher ranks a literal segment
         // against an argument. Distinct prefixes leave nothing to rank.
         const val GARMENT_ADD = "add-garment"
+        const val GARMENT_BULK_ADD = "add-garments"
         const val GARMENT_EDIT = "edit-garment"
         const val GARMENT_ID = "garmentId"
 

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -83,6 +84,9 @@ const val WARDROBE_LIST = "wardrobe-list"
  * once as a chip and once on the garment wearing it -- so a matcher looking for
  * the text finds both and is asking about neither.
  */
+/** The overflow that leads to bulk add. */
+const val WARDROBE_ADD_MENU = "wardrobe-add-menu"
+
 fun filterChipTag(value: String) = "filter-chip-$value"
 
 /**
@@ -111,6 +115,7 @@ fun WardrobeScreen(
     onRetry: () -> Unit,
     onGarmentOpened: (String) -> Unit,
     onAddRequested: () -> Unit,
+    onBulkAddRequested: () -> Unit,
     onSettingsRequested: () -> Unit,
     onFiltersToggled: () -> Unit,
     onFiltersCleared: () -> Unit,
@@ -130,6 +135,7 @@ fun WardrobeScreen(
                 title = { Text(stringResource(R.string.wardrobe_title)) },
                 actions = {
                     ViewMenu(current = state.view, onSelected = onViewSelected)
+                    AddMenu(onBulkAddRequested)
                     IconButton(onClick = onSettingsRequested) {
                         Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.action_settings))
                     }
@@ -369,6 +375,38 @@ private fun ViewMenu(current: WardrobeView, onSelected: (WardrobeView) -> Unit) 
                     },
                 )
             }
+        }
+    }
+}
+
+/**
+ * The way to the bulk-add queue.
+ *
+ * A menu rather than a second button: the add button is for adding a garment, and
+ * cataloguing a drawerful is a different job that would be a poor default. A menu
+ * of one looks thin, and is still better than two buttons a thumb has to tell
+ * apart.
+ */
+@Composable
+private fun AddMenu(onBulkAddRequested: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(onClick = { open = true }, modifier = Modifier.testTag(WARDROBE_ADD_MENU)) {
+            Icon(
+                Icons.Filled.MoreVert,
+                contentDescription = stringResource(R.string.wardrobe_add_options),
+            )
+        }
+
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.bulk_add_menu)) },
+                onClick = {
+                    open = false
+                    onBulkAddRequested()
+                },
+            )
         }
     }
 }

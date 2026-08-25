@@ -539,4 +539,27 @@
     <string name="error_update_too_large">Esa descarga es mucho más grande que una versión de esta aplicación, así que se ha detenido.</string>
     <string name="error_update_redirects">Esa descarga no dejaba de redirigirse, así que se ha detenido.</string>
     <string name="error_update_incomplete">La descarga no ha terminado, así que no se ha instalado nada.</string>
+
+    <string name="wardrobe_add_options">Más formas de añadir</string>
+    <string name="bulk_add_title">Añadir varias</string>
+    <string name="bulk_add_menu">Añadir varias fotos</string>
+    <string name="bulk_add_choose">Elegir fotos</string>
+    <string name="bulk_add_choose_more">Añadir más fotos</string>
+    <string name="bulk_add_intro">Elige tus fotos — hasta %1$d a la vez — y asigna una categoría a cada una. Los colores se leen de la foto; el resto se puede completar más tarde.</string>
+    <string name="bulk_add_progress">%1$d de %2$d</string>
+    <string name="bulk_add_save">Guardar y siguiente</string>
+    <string name="bulk_add_skip">Omitir esta foto</string>
+    <string name="bulk_add_done">Hecho</string>
+    <string name="bulk_add_brand">Marca (opcional)</string>
+    <plurals name="bulk_add_finished">
+        <item quantity="one">%d prenda añadida.</item>
+        <item quantity="many">%d prendas añadidas.</item>
+        <item quantity="other">%d prendas añadidas.</item>
+    </plurals>
+    <plurals name="bulk_add_skipped">
+        <item quantity="one">%d foto omitida.</item>
+        <item quantity="many">%d fotos omitidas.</item>
+        <item quantity="other">%d fotos omitidas.</item>
+    </plurals>
+    <string name="error_garment_not_saved">Esa prenda no se pudo guardar.</string>
 </resources>
