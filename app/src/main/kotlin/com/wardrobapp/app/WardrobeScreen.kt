@@ -77,6 +77,15 @@ import com.wardrobapp.presentation.WardrobeView
 const val WARDROBE_LIST = "wardrobe-list"
 
 /**
+ * One filter chip, by the value it carries.
+ *
+ * Needed because a brand appears twice on this screen when the panel is open --
+ * once as a chip and once on the garment wearing it -- so a matcher looking for
+ * the text finds both and is asking about neither.
+ */
+fun filterChipTag(value: String) = "filter-chip-$value"
+
+/**
  * One colour swatch in the filter panel, for a test that needs to tap one.
  *
  * Keyed by the hex, because that is what the panel now draws: the swatches are the
@@ -456,7 +465,7 @@ private fun FilterPanel(
         if (facets.categories.isNotEmpty()) {
             FilterSection(stringResource(R.string.filter_section_category)) {
                 for (category in facets.categories) {
-                    FilterPill(categoryLabel(category), query.category == category) {
+                    FilterPill(categoryLabel(category), category, query.category == category) {
                         onCategoryTapped(category)
                     }
                 }
@@ -466,7 +475,11 @@ private fun FilterPanel(
         if (facets.subcategories.isNotEmpty()) {
             FilterSection(stringResource(R.string.filter_section_type)) {
                 for (subcategory in facets.subcategories) {
-                    FilterPill(garmentTypeLabel(subcategory), query.subcategory == subcategory) {
+                    FilterPill(
+                        garmentTypeLabel(subcategory),
+                        subcategory,
+                        query.subcategory == subcategory,
+                    ) {
                         onSubcategoryTapped(subcategory)
                     }
                 }
@@ -476,7 +489,7 @@ private fun FilterPanel(
         if (facets.seasons.isNotEmpty()) {
             FilterSection(stringResource(R.string.filter_section_season)) {
                 for (season in facets.seasons) {
-                    FilterPill(stringResource(season.labelRes), query.season == season) {
+                    FilterPill(stringResource(season.labelRes), season.name, query.season == season) {
                         onSeasonTapped(season)
                     }
                 }
@@ -486,7 +499,11 @@ private fun FilterPanel(
         if (facets.occasions.isNotEmpty()) {
             FilterSection(stringResource(R.string.filter_section_occasion)) {
                 for (occasion in facets.occasions) {
-                    FilterPill(stringResource(occasion.labelRes), query.occasion == occasion) {
+                    FilterPill(
+                        stringResource(occasion.labelRes),
+                        occasion.name,
+                        query.occasion == occasion,
+                    ) {
                         onOccasionTapped(occasion)
                     }
                 }
@@ -532,7 +549,7 @@ private fun FilterPanel(
                 for (brand in facets.brands) {
                     // As typed by whoever entered it: a brand is not a word this
                     // app gets to capitalize.
-                    FilterPill(brand, query.brand.equals(brand, ignoreCase = true)) {
+                    FilterPill(brand, brand, query.brand.equals(brand, ignoreCase = true)) {
                         onBrandTapped(brand)
                     }
                 }
@@ -542,7 +559,7 @@ private fun FilterPanel(
         if (facets.sizes.isNotEmpty()) {
             FilterSection(stringResource(R.string.filter_size)) {
                 for (size in facets.sizes) {
-                    FilterPill(size, query.size.equals(size, ignoreCase = true)) {
+                    FilterPill(size, size, query.size.equals(size, ignoreCase = true)) {
                         onSizeTapped(size)
                     }
                 }
@@ -591,9 +608,21 @@ private fun FilterSection(title: String, content: @Composable RowScope.() -> Uni
     )
 }
 
+/**
+ * One choice.
+ *
+ * [value] is what the chip stands for rather than what it reads: a category chip
+ * says "Tops" and carries `tops`, and the tag follows the value so a test names
+ * the same thing the callback will hand back.
+ */
 @Composable
-private fun FilterPill(label: String, selected: Boolean, onTap: () -> Unit) {
-    FilterChip(selected = selected, onClick = onTap, label = { Text(label) })
+private fun FilterPill(label: String, value: String, selected: Boolean, onTap: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onTap,
+        label = { Text(label) },
+        modifier = Modifier.testTag(filterChipTag(value)),
+    )
 }
 
 // The three label helpers that used to live here are gone: Vocabulary.kt answers

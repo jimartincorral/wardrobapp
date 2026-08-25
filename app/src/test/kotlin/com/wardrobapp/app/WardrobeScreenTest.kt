@@ -186,12 +186,15 @@ class WardrobeScreenTest {
             onBrandTapped = { picked = it },
         )
 
-        compose.onNodeWithText("Uniqlo").assertIsDisplayed()
-        compose.onNodeWithText("Arket").assertIsDisplayed()
+        // By tag rather than by text: these garments wear these brands, so each
+        // name is on screen twice -- as a chip and on its row -- and only one of
+        // them is the chip this test is about.
+        compose.onNodeWithTag(filterChipTag("Uniqlo")).assertIsDisplayed()
+        compose.onNodeWithTag(filterChipTag("Arket")).assertIsDisplayed()
         // A brand this wardrobe does not hold is not on offer, whatever else does.
-        compose.onNodeWithText("Nike").assertDoesNotExist()
+        compose.onNodeWithTag(filterChipTag("Nike")).assertDoesNotExist()
 
-        compose.onNodeWithText("Uniqlo").performClick()
+        compose.onNodeWithTag(filterChipTag("Uniqlo")).performClick()
         assertEquals("Uniqlo", picked)
     }
 
