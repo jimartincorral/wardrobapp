@@ -293,7 +293,6 @@ class MainActivity : AppCompatActivity() {
                                 container = container,
                                 garmentId = backStackEntry.arguments?.getString(GARMENT_ID).orEmpty(),
                                 navigator = navigator,
-                                onBuildOutfit = { buildOutfitAround(it) },
                             )
                         }
 
@@ -306,6 +305,7 @@ class MainActivity : AppCompatActivity() {
                                 container = container,
                                 garmentId = backStackEntry.arguments?.getString(GARMENT_ID).orEmpty(),
                                 navigator = navigator,
+                                onBuildOutfit = { buildOutfitAround(it) },
                             )
                         }
                     }
