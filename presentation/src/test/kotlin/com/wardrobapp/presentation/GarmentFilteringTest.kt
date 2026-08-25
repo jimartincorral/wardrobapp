@@ -62,6 +62,24 @@ class GarmentFilteringTest {
     }
 
     @Test
+    fun `a colour is matched by the hex a garment stores, in either case`() {
+        // What the filter panel sends is the palette's hex, because that is what a
+        // garment holds -- the key ("gold") is a name for the colour and appears
+        // nowhere in the wardrobe. And the same colour is stored in both cases
+        // across a wardrobe, so a lowercase row must not fall out of a filter
+        // picked from the palette.
+        val list = listOf(
+            garment("upper", palette = listOf("#DAA520")),
+            garment("lower", palette = listOf("#daa520")),
+            garment("other", palette = listOf("#FFFFFF")),
+        )
+
+        assertEquals(listOf("upper", "lower"), list.filterBy(GarmentFilter(color = "#DAA520")).map { it.id })
+        assertEquals(listOf("upper", "lower"), list.filterBy(GarmentFilter(color = "#daa520")).map { it.id })
+        assertEquals(emptyList(), list.filterBy(GarmentFilter(color = "gold")).map { it.id })
+    }
+
+    @Test
     fun `an occasion is what the garment is, not what it was tagged`() {
         // Nothing here carries an occasion tag; a blouse is formal because of what
         // it is.

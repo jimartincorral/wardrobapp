@@ -25,6 +25,10 @@ data class GarmentFilter(
     val color: String? = null,
 )
 
+/** Two stored colours are the same colour when their hex matches, whatever the case. */
+private fun String.sameColorAs(other: String): Boolean =
+    trim().equals(other.trim(), ignoreCase = true)
+
 /** Case-insensitive "contains", with a blank needle matching everything. */
 private fun contains(haystack: String?, needle: String): Boolean =
     (haystack ?: "").lowercase().contains(needle.lowercase().trim())
@@ -46,7 +50,12 @@ fun List<GarmentRecord>.filterBy(filter: GarmentFilter): List<GarmentRecord> = f
     if (filter.brand != null && !contains(it.brand, filter.brand)) return@filter false
     if (filter.size != null && !contains(it.size, filter.size)) return@filter false
 
-    if (filter.color != null && !it.palette.contains(filter.color)) return@filter false
+    // A garment's palette holds hex, so hex is what a colour filter asks for --
+    // the palette's key for a colour ("gold") appears nowhere in the wardrobe.
+    // Case-insensitively, because the same colour really is stored both ways
+    // across a wardrobe; `paletteColorFor` has always had to allow for that.
+    val color = filter.color
+    if (color != null && it.palette.none { hex -> hex.sameColorAs(color) }) return@filter false
 
     true
 }

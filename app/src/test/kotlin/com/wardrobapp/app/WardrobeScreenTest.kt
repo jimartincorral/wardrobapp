@@ -1,29 +1,42 @@
 package com.wardrobapp.app
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.wardrobapp.data.normalizeGarmentRow
+import com.wardrobapp.presentation.GarmentFilter
+import com.wardrobapp.presentation.filterBy
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
- * That the wardrobe screen can be scrolled with its filters open.
+ * The wardrobe screen's filter panel: that it can be scrolled, and that what it
+ * sends is what the wardrobe can be filtered by.
  *
- * The bug this exists for: the filter panel sat above the list inside a plain
- * Column, which hands each child the height it asks for in order. The panel is
- * taller than a phone screen, so it took all of it -- its own last rows off the
- * bottom, and nothing left for the list, which then had no room to scroll in.
- * Both halves of the screen were unreachable at once and neither was missing, so
- * nothing but a scroll could tell.
+ * Two shipped bugs, both in the seam between this screen and code that was already
+ * tested on its own.
  *
- * Robolectric's default screen is 320x470dp, small enough that both assertions
- * below need a real scroll to pass.
+ * The panel sat above the list inside a plain Column, which hands each child the
+ * height it asks for in order. The panel is taller than a phone screen, so it took
+ * all of it -- its own last rows off the bottom, and nothing left for the list,
+ * which then had no room to scroll in. Both halves were unreachable at once and
+ * neither was missing, so nothing but a scroll could tell.
+ *
+ * And a colour swatch sent the palette's key while the predicate matches a
+ * garment's stored hex, so every colour answered "nothing matches these filters".
+ * The predicate had a test, the palette had a test, and the pair had none.
+ *
+ * Robolectric's default screen is 320x470dp, small enough that these need a real
+ * scroll to reach what they assert on.
  */
 @RunWith(RobolectricTestRunner::class)
 class WardrobeScreenTest {
@@ -32,7 +45,7 @@ class WardrobeScreenTest {
     val compose = createComposeRule()
 
     /** Distinguishable by brand: the type on a row goes through the vocabulary. */
-    private fun garment(index: Int) = normalizeGarmentRow(
+    private fun garment(index: Int, palette: String = "#1F3A93") = normalizeGarmentRow(
         mapOf(
             "id" to "g$index",
             "image_uri" to "",
@@ -43,14 +56,17 @@ class WardrobeScreenTest {
             "tags" to "[]",
             "brand" to "Brand %02d".format(index),
             "size" to "M",
-            "color_primary" to "#1F3A93",
-            "color_palette" to """["#1F3A93"]""",
+            "color_primary" to palette,
+            "color_palette" to """["$palette"]""",
             "is_available" to 1,
         ),
         "",
     )
 
-    private fun show(state: WardrobeViewModel.State) {
+    private fun show(
+        state: WardrobeViewModel.State,
+        onColorTapped: (String) -> Unit = {},
+    ) {
         compose.setContent {
             WardrobeScreen(
                 state = state,
@@ -68,7 +84,7 @@ class WardrobeScreenTest {
                 onSubcategoryTapped = {},
                 onSeasonTapped = {},
                 onOccasionTapped = {},
-                onColorTapped = {},
+                onColorTapped = onColorTapped,
                 onRetiredToggled = {},
             )
         }
@@ -100,6 +116,32 @@ class WardrobeScreenTest {
             .performScrollToNode(hasText("Include things I no longer wear"))
 
         compose.onNodeWithText("Include things I no longer wear").assertIsDisplayed()
+    }
+
+    @Test
+    // On a screen tall enough to hold the open panel, because this asserts which
+    // value a swatch sends rather than whether it can be reached: the panel is one
+    // list item, so scrolling to it puts its top at the fold and leaves a swatch
+    // near its bottom outside the window a tap can land in.
+    @Config(qualifiers = "w411dp-h2000dp")
+    fun `tapping a colour asks for the hex a garment stores`() {
+        // The bug this covers: the panel sent the palette's key and the predicate
+        // compares against a garment's palette, which holds hex -- so every colour
+        // matched nothing and the screen said so. Both halves were right on their
+        // own; nothing tested the join, which is why it shipped.
+        var picked: String? = null
+        show(wardrobe(filtersExpanded = true), onColorTapped = { picked = it })
+
+        compose.onNodeWithTag(WARDROBE_LIST)
+            .performScrollToNode(hasTestTag(colorSwatchTag("gold")))
+        compose.onNodeWithTag(colorSwatchTag("gold")).performClick()
+
+        assertEquals("#DAA520", picked)
+        // And through the real predicate, so this stays honest if either side moves.
+        assertEquals(
+            listOf("g1"),
+            listOf(garment(1, palette = "#DAA520")).filterBy(GarmentFilter(color = picked)).map { it.id },
+        )
     }
 
     @Test

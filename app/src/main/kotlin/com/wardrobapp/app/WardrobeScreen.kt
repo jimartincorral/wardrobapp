@@ -59,6 +59,9 @@ import com.wardrobapp.presentation.WardrobeQuery
 /** The scrolling body of the wardrobe, for tests that need to reach past the fold. */
 const val WARDROBE_LIST = "wardrobe-list"
 
+/** One colour swatch in the filter panel, for a test that needs to tap one. */
+fun colorSwatchTag(key: String) = "color-swatch-$key"
+
 /**
  * The wardrobe list.
  *
@@ -343,12 +346,24 @@ private fun FilterPanel(
 
         FilterSection(stringResource(R.string.filter_section_colour)) {
             for ((key, hex) in GARMENT_COLORS) {
-                val selected = query.color == key
+                // The hex, not the key. A garment stores the hex, so that is what a
+                // colour filter has to ask for; the key is only this palette's name
+                // for it and appears nowhere in the wardrobe -- which is what this
+                // panel used to send, so every colour answered "nothing matches
+                // these filters".
+                //
+                // A colour that will not parse is the multi-colour sentinel rather
+                // than a colour, and is left out here as it is on the form: drawn
+                // as a plain circle it would be a second grey swatch that meant
+                // something else.
+                val swatch = hex.toComposeColor() ?: continue
+                val selected = query.color.equals(hex, ignoreCase = true)
                 Box(
                     modifier = Modifier
                         .size(32.dp)
+                        .testTag(colorSwatchTag(key))
                         .clip(CircleShape)
-                        .background(hex.toComposeColor() ?: MaterialTheme.colorScheme.surfaceVariant)
+                        .background(swatch)
                         .border(
                             width = if (selected) 3.dp else 1.dp,
                             color = if (selected) {
@@ -358,7 +373,7 @@ private fun FilterPanel(
                             },
                             shape = CircleShape,
                         )
-                        .clickable { onColorTapped(key) },
+                        .clickable { onColorTapped(hex) },
                 )
             }
         }
