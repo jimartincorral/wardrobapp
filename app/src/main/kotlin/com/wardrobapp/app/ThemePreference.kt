@@ -7,6 +7,15 @@ import com.wardrobapp.presentation.storedValue
 import com.wardrobapp.presentation.themeChoiceFor
 
 /**
+ * The file both appearance settings share.
+ *
+ * Named here because [ThemePreference] documents why it is not the default
+ * `<package>_preferences` file and not the database, and that reasoning is the
+ * same for anything else about how the app is drawn.
+ */
+internal const val APPEARANCE_PREFERENCES = "wardrobapp_appearance"
+
+/**
  * Where the theme choice is kept.
  *
  * SharedPreferences, and not the `user_preferences` table the schema carries, for
@@ -59,7 +68,7 @@ class ThemePreference(context: Context) {
          * to PreferenceManager and would put this next to anything a settings
          * screen ever generates.
          */
-        const val FILE_NAME = "wardrobapp_appearance"
+        const val FILE_NAME = APPEARANCE_PREFERENCES
         const val KEY = "theme_mode"
     }
 }

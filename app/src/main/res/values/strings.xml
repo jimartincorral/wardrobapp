@@ -60,6 +60,11 @@
     <string name="action_settings">Settings</string>
 
     <!-- Filters -->
+    <!-- How the wardrobe is drawn: the menu in the top bar, and its choices. -->
+    <string name="wardrobe_view_options">Change how the wardrobe is shown</string>
+    <string name="wardrobe_view_list">List</string>
+    <string name="wardrobe_view_grid">Grid of %1$d</string>
+
     <string name="filters_show">Filters</string>
     <string name="filters_show_count">Filters (%1$d)</string>
     <string name="filters_hide">Hide filters</string>

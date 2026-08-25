@@ -52,6 +52,10 @@
     <string name="action_settings">Configuración</string>
 
     <!-- Filters -->
+    <string name="wardrobe_view_options">Cambiar cómo se muestra el armario</string>
+    <string name="wardrobe_view_list">Lista</string>
+    <string name="wardrobe_view_grid">Cuadrícula de %1$d</string>
+
     <string name="filters_show">Filtros</string>
     <string name="filters_show_count">Filtros (%1$d)</string>
     <string name="filters_hide">Ocultar filtros</string>
