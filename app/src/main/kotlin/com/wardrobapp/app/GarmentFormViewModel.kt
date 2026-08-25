@@ -587,7 +587,14 @@ class GarmentFormViewModel(
     }
 
     fun onErrorDismissed() {
-        _state.update { it.copy(error = null) }
+        // Both fields, or the dialog reopens itself. `errorText()` falls back to
+        // `errorFallback` whenever `error` is null, which is the normal case --
+        // most of what this screen shows is a fallback string, not an exception's
+        // own message -- so clearing only `error` left the fallback in place and
+        // the same dialog appeared again the instant it closed. Since an
+        // AlertDialog is modal, that read as the close button doing nothing and
+        // the screen being stuck.
+        _state.update { it.copy(error = null, errorFallback = null) }
     }
 
     private fun GarmentFormState.asDuplicateCandidate() = DuplicateCandidate(
