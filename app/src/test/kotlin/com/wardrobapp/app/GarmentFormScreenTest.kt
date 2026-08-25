@@ -5,10 +5,12 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.wardrobapp.domain.ImportFailureReason
 import com.wardrobapp.domain.UnsafeUrlReason
 import com.wardrobapp.presentation.GarmentFormState
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,6 +38,7 @@ class GarmentFormScreenTest {
     private fun show(
         state: GarmentFormViewModel.State = GarmentFormViewModel.State(),
         isEditing: Boolean = false,
+        onColorToggled: (String) -> Unit = {},
     ) {
         compose.setContent {
             GarmentFormScreen(
@@ -52,7 +55,7 @@ class GarmentFormScreenTest {
                 onCategorySelected = {},
                 onSubcategoryToggled = {},
                 onSeasonToggled = {},
-                onColorToggled = {},
+                onColorToggled = onColorToggled,
                 onBrandChanged = {},
                 onSizeChanged = {},
                 onTagsChanged = {},
@@ -98,6 +101,20 @@ class GarmentFormScreenTest {
         compose.onNodeWithTag(GARMENT_FORM_LIST).performScrollToNode(hasText("Take Photo"))
 
         compose.onNodeWithText("Take Photo").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a colour is offered as a name, not only a swatch`() {
+        // Twenty-four circles that differ only by shade is not a picker anyone
+        // can use from memory. Every other choice on this form -- category,
+        // season, occasion -- reads as a word, and now so does this one.
+        var toggled: String? = null
+        show(onColorToggled = { toggled = it })
+
+        compose.onNodeWithTag(GARMENT_FORM_LIST).performScrollToNode(hasText("Navy"))
+        compose.onNodeWithText("Navy").performClick()
+
+        assertEquals("#000080", toggled)
     }
 
     @Test

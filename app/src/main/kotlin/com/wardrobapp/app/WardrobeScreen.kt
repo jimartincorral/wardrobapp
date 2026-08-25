@@ -1,7 +1,6 @@
 package com.wardrobapp.app
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -67,6 +66,7 @@ import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.GarmentSort
+import com.wardrobapp.presentation.paletteColorFor
 import com.wardrobapp.presentation.WardrobeFacets
 import com.wardrobapp.presentation.WARDROBE_VIEW_CHOICES
 import com.wardrobapp.presentation.WardrobeLayout
@@ -520,22 +520,16 @@ private fun FilterPanel(
                     val swatch = hex.toComposeColor() ?: continue
                     val selected = query.color.equals(hex, ignoreCase = true)
 
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .testTag(colorSwatchTag(hex))
-                            .clip(CircleShape)
-                            .background(swatch)
-                            .border(
-                                width = if (selected) 3.dp else 1.dp,
-                                color = if (selected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.outlineVariant
-                                },
-                                shape = CircleShape,
-                            )
-                            .clickable { onColorTapped(hex) },
+                    // A chip like every other filter, not a bare circle: brand,
+                    // size, season and the rest all carry their name as text, and
+                    // a colour told apart only by a small disc of it is unreadable
+                    // for anyone who cannot tell the shades apart by eye alone.
+                    FilterChip(
+                        selected = selected,
+                        onClick = { onColorTapped(hex) },
+                        label = { Text(colorLabel(hex)) },
+                        leadingIcon = { ColorSwatch(swatch) },
+                        modifier = Modifier.testTag(colorSwatchTag(hex)),
                     )
                 }
             }
@@ -627,6 +621,18 @@ private fun FilterPill(label: String, value: String, selected: Boolean, onTap: (
 
 // The three label helpers that used to live here are gone: Vocabulary.kt answers
 // for seasons, occasions, categories and types now, out of resources.
+
+/**
+ * A stored colour's name, or the hex itself when it is not one of the palette's.
+ *
+ * The same rule the statistics page's colour bars use, in StatisticsScreen.kt:
+ * the reader never sees a hex in a wardrobe with nothing hand-entered in it, and
+ * a hand-entered one is shown as stored rather than hidden behind a name that is
+ * not true of it.
+ */
+@Composable
+private fun colorLabel(hex: String): String = paletteColorFor(hex)?.first?.let { paletteLabel(it) } ?: hex
+
 
 /**
  * Something to say instead of a list: still loading, unreadable, or nothing in it.

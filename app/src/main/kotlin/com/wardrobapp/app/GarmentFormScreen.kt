@@ -472,27 +472,22 @@ private fun Colors(selected: Set<String>, onToggle: (String) -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        for ((_, hex) in GARMENT_COLORS) {
+        for ((key, hex) in GARMENT_COLORS) {
             val color = hex.toComposeColor()
             // The multi-colour sentinel has no colour of its own to draw, so it
             // is left out rather than shown as a blank swatch.
             if (color == null) continue
 
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(color)
-                    .border(
-                        if (hex in selected) 3.dp else 1.dp,
-                        if (hex in selected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.outlineVariant
-                        },
-                        CircleShape,
-                    )
-                    .clickable { onToggle(hex) },
+            // A named chip rather than a bare swatch: 24 circles that differ only
+            // by shade is a picker nobody can use from memory, and every other
+            // choice on this form -- category, season, occasion -- is offered as
+            // a label you read rather than a colour you guess.
+            FilterChip(
+                selected = hex in selected,
+                onClick = { onToggle(hex) },
+                label = { Text(paletteLabel(key)) },
+                leadingIcon = { ColorSwatch(color) },
+                modifier = Modifier.testTag(colorSwatchTag(hex)),
             )
         }
     }
