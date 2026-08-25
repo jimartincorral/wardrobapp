@@ -83,6 +83,8 @@
     <string name="outfits_subtitle">Suggestions are built from what you own, and learn from what you rate.</string>
     <string name="outfits_filter_any">Any</string>
     <string name="outfits_suggest">Suggest outfits</string>
+    <string name="outfits_building_around">Building around</string>
+    <string name="outfits_use_whole_wardrobe">Whole wardrobe</string>
     <string name="outfits_suggesting">Building outfits…</string>
     <string name="outfits_none_possible">No outfits could be built from what\'s available. Try fewer filters, or add a few more garments.</string>
     <string name="outfits_prompt">Tap suggest to see what goes together.</string>
@@ -120,6 +122,7 @@
     <string name="property_tags">Tags</string>
     <string name="garment_retired">Not in use</string>
     <string name="garment_retired_since">Not in use since %1$s</string>
+    <string name="garment_build_outfit">Build an outfit around this</string>
     <string name="garment_retire">No longer wearing this</string>
     <string name="garment_unretire">Wearing this again</string>
     <string name="garment_delete">Delete this garment</string>

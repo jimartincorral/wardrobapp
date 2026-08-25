@@ -2,6 +2,7 @@ package com.wardrobapp.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.SuggestedOutfit
 import com.wardrobapp.data.isoTimestamp
@@ -64,6 +65,14 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
          * answer from position alone.
          */
         val deleting: OutfitRecord? = null,
+        /**
+         * The garment every suggestion is being built around, if any.
+         *
+         * The record rather than its id, so the screen can name and show the
+         * garment it is working from -- "building around something" is not an
+         * answer anybody can act on.
+         */
+        val seed: GarmentRecord? = null,
     )
 
     private val _state = MutableStateFlow(State())
@@ -81,8 +90,36 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
         _state.update { it.copy(filters = it.filters.withOccasionSelected(occasion)) }
     }
 
+    /**
+     * Build every suggestion around one garment.
+     *
+     * The engine has supported this from the start and nothing ever asked it to:
+     * "what goes with this?" is the question somebody holding a garment actually
+     * has, and it was reachable only from a test.
+     */
+    fun onSeedRequested(garmentId: String) {
+        viewModelScope.launch {
+            val garment = try {
+                withContext(Dispatchers.IO) { container.garments.garment(garmentId) }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: e.javaClass.simpleName) }
+                return@launch
+            }
+
+            _state.update { it.copy(seed = garment) }
+            generate()
+        }
+    }
+
+    /** Back to suggesting from the whole wardrobe. */
+    fun onSeedCleared() {
+        _state.update { it.copy(seed = null) }
+        generate()
+    }
+
     fun generate() {
         val filters = _state.value.filters
+        val seed = _state.value.seed
         _state.update { it.copy(generating = true, error = null) }
 
         viewModelScope.launch {
@@ -101,6 +138,7 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
                                 occasion = filters.occasion,
                             ),
                         ),
+                        seedGarmentId = seed?.id,
                     )
                 }
 

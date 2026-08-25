@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,14 +39,65 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.occasionChips
 import com.wardrobapp.presentation.seasonChips
+
+/** The "building around this garment" banner, for a test that asks whether it is there. */
+const val OUTFIT_SEED = "outfit-seed"
+
+/**
+ * What every suggestion is being built around.
+ *
+ * Named and shown, with a way out of it. Without this the screen would quietly
+ * keep answering a narrower question than the button appears to ask -- and
+ * "Suggest outfits" returning three outfits that all contain the same coat, with
+ * nothing saying why, reads as the engine being stuck.
+ */
+@Composable
+private fun BuildingAround(seed: GarmentRecord, onCleared: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth().testTag(OUTFIT_SEED)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // The cut-out where there is one, which is what every other screen
+            // shows a garment as.
+            seed.displayImage.takeIf { it.isNotEmpty() }?.let { uri ->
+                AsyncImage(
+                    model = uri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.outfits_building_around),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    seed.subcategory?.let { garmentTypeLabel(it) } ?: categoryLabel(seed.category),
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            TextButton(onClick = onCleared) { Text(stringResource(R.string.outfits_use_whole_wardrobe)) }
+        }
+    }
+}
 
 /**
  * Outfit suggestions, and the ones that were kept.
@@ -59,6 +112,7 @@ fun OutfitsScreen(
     onSeasonTapped: (Season?) -> Unit,
     onOccasionTapped: (Occasion?) -> Unit,
     onGenerate: () -> Unit,
+    onSeedCleared: () -> Unit,
     onSave: (OutfitsViewModel.Suggestion) -> Unit,
     onRate: (OutfitsViewModel.Suggestion, Int) -> Unit,
     onPinToggled: (OutfitRecord) -> Unit,
@@ -113,6 +167,12 @@ fun OutfitsScreen(
                         ?: stringResource(R.string.outfits_filter_any)
                     Chip(label, chip.active) { onOccasionTapped(chip.value) }
                 })
+            }
+
+            // Above the button rather than below it, because it changes what the
+            // button will do.
+            state.seed?.let { seed ->
+                item { BuildingAround(seed, onSeedCleared) }
             }
 
             item {

@@ -128,6 +128,17 @@ class MainActivity : AppCompatActivity() {
                     navigator.switchTo(WARDROBE)
                 }
 
+                // The garment the outfits tab should build around when something
+                // else sends you there. Beside the navigator for the same reason
+                // the wardrobe's arrival is: the bottom bar matches the selected
+                // tab on the route, so the id cannot travel as part of one.
+                var outfitSeed by remember { mutableStateOf<String?>(null) }
+
+                fun buildOutfitAround(garmentId: String) {
+                    outfitSeed = garmentId
+                    navigator.switchTo(OUTFITS)
+                }
+
                 Scaffold(
                     // Only on the top-level destinations: a garment's detail is
                     // somewhere you came *from* one of them, so the bar would
@@ -237,6 +248,8 @@ class MainActivity : AppCompatActivity() {
 
                         composable(OUTFITS) {
                             Outfits(
+                                seedGarmentId = outfitSeed,
+                                onSeedApplied = { outfitSeed = null },
                                 container = container,
                                 onGarmentOpened = { navigator.openGarment(it) },
                                 onOutfitOpened = { navigator.navigate("$OUTFIT/${Uri.encode(it)}") },
@@ -280,6 +293,7 @@ class MainActivity : AppCompatActivity() {
                                 container = container,
                                 garmentId = backStackEntry.arguments?.getString(GARMENT_ID).orEmpty(),
                                 navigator = navigator,
+                                onBuildOutfit = { buildOutfitAround(it) },
                             )
                         }
 
@@ -478,6 +492,9 @@ class MainActivity : AppCompatActivity() {
     @Composable
     private fun Outfits(
         container: AppContainer,
+        /** A garment another screen asked this one to build around, if any. */
+        seedGarmentId: String?,
+        onSeedApplied: () -> Unit,
         onGarmentOpened: (String) -> Unit,
         onOutfitOpened: (String) -> Unit,
     ) {
@@ -488,11 +505,24 @@ class MainActivity : AppCompatActivity() {
 
         RefreshOnReturn(model::refresh)
 
+        // Applied once and then forgotten, so coming back to this tab later shows
+        // the batch as it was left rather than re-running a request from a garment
+        // screen three visits ago. Asking for it also generates, since arriving on
+        // a screen that shows nothing until you tap a button would answer "what
+        // goes with this?" with a blank page.
+        LaunchedEffect(seedGarmentId) {
+            if (seedGarmentId != null) {
+                model.onSeedRequested(seedGarmentId)
+                onSeedApplied()
+            }
+        }
+
         OutfitsScreen(
             state = state,
             onSeasonTapped = model::onSeasonTapped,
             onOccasionTapped = model::onOccasionTapped,
             onGenerate = model::generate,
+            onSeedCleared = model::onSeedCleared,
             onSave = model::onSaveRequested,
             onRate = model::onRated,
             onPinToggled = model::onPinToggled,
@@ -676,6 +706,7 @@ class MainActivity : AppCompatActivity() {
         container: AppContainer,
         garmentId: String,
         navigator: NavHostController,
+        onBuildOutfit: (String) -> Unit,
     ) {
         val model: GarmentDetailViewModel = viewModel(
             factory = viewModelFactory {
@@ -699,6 +730,7 @@ class MainActivity : AppCompatActivity() {
             onRetry = model::refresh,
             onRemoveBackground = model::onRemoveBackground,
             onUndoBackground = model::onUndoBackground,
+            onBuildOutfit = { onBuildOutfit(garmentId) },
             onRetire = model::onRetireRequested,
             onReturnToWardrobe = model::onReturnedToWardrobe,
             onDelete = model::onDeleteRequested,
