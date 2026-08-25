@@ -311,6 +311,7 @@ class MainActivity : AppCompatActivity() {
             onOccasionTapped = model::onOccasionTapped,
             onColorTapped = model::onColorTapped,
             onRetiredToggled = model::onRetiredToggled,
+            onViewSelected = model::onViewSelected,
         )
     }
 

@@ -69,6 +69,14 @@ class AppContainer(context: Context) {
     val suggestions = Suggestions(garments, outfits)
     val duplicates = Duplicates(garments)
 
+    /**
+     * How the wardrobe is drawn, and where that survives a restart.
+     *
+     * Held here rather than read in the screen so the list's first frame is the
+     * layout that was chosen: a grid arriving after a list is a visible jump.
+     */
+    val wardrobeView = WardrobeViewPreference(context)
+
     /** Where photos are decoded, scaled and written. */
     val photos = AndroidPhotoStore(context)
 

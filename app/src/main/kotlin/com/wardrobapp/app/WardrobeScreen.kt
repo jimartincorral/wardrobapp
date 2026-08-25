@@ -14,23 +14,32 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -38,6 +47,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +58,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -54,13 +69,19 @@ import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.GARMENT_COLORS
 import com.wardrobapp.presentation.GarmentSort
+import com.wardrobapp.presentation.WARDROBE_VIEW_CHOICES
+import com.wardrobapp.presentation.WardrobeLayout
 import com.wardrobapp.presentation.WardrobeQuery
+import com.wardrobapp.presentation.WardrobeView
 
 /** The scrolling body of the wardrobe, for tests that need to reach past the fold. */
 const val WARDROBE_LIST = "wardrobe-list"
 
 /** One colour swatch in the filter panel, for a test that needs to tap one. */
 fun colorSwatchTag(key: String) = "color-swatch-$key"
+
+/** The button that opens the list-or-grid menu. */
+const val WARDROBE_VIEW_MENU = "wardrobe-view-menu"
 
 /**
  * The wardrobe list.
@@ -88,12 +109,14 @@ fun WardrobeScreen(
     onOccasionTapped: (Occasion) -> Unit,
     onColorTapped: (String) -> Unit,
     onRetiredToggled: () -> Unit,
+    onViewSelected: (WardrobeView) -> Unit,
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.wardrobe_title)) },
                 actions = {
+                    ViewMenu(current = state.view, onSelected = onViewSelected)
                     IconButton(onClick = onSettingsRequested) {
                         Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.action_settings))
                     }
@@ -113,15 +136,19 @@ fun WardrobeScreen(
         // room left to scroll in. As an item of the list, the panel scrolls with
         // everything else -- one gesture, the way the outfits screen and the garment
         // form already work.
-        LazyColumn(
-            // Tagged so a test can scroll it. A LazyColumn has not composed what is
-            // below the fold, so "out of reach" and "not there at all" read the same
-            // in an assertion unless the test can scroll first.
+        // A grid of one column is a list, so both layouts are the same container and
+        // switching between them is a number rather than a second screen. The
+        // headers span whatever that number is; only the garments are cells.
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(state.view.cellsAcross),
+            // Tagged so a test can scroll it. A lazy container has not composed what
+            // is below the fold, so "out of reach" and "not there at all" read the
+            // same in an assertion unless the test can scroll first.
             modifier = Modifier.testTag(WARDROBE_LIST).fillMaxSize().padding(insets),
             // Room at the bottom so the add button does not sit on the last card.
             contentPadding = PaddingValues(bottom = 88.dp),
         ) {
-            item {
+            fullWidth {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -147,7 +174,7 @@ fun WardrobeScreen(
                 }
             }
 
-            item {
+            fullWidth {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -178,7 +205,7 @@ fun WardrobeScreen(
             }
 
             if (state.filtersExpanded) {
-                item {
+                fullWidth {
                     FilterPanel(
                         query = state.query,
                         onBrandChanged = onBrandChanged,
@@ -196,7 +223,7 @@ fun WardrobeScreen(
             // Only once there is something to count. A count of zero is already
             // said, more usefully, by the empty state below.
             if (state.garments.isNotEmpty()) {
-                item {
+                fullWidth {
                     Text(
                         pluralStringResource(
                             R.plurals.garment_count,
@@ -211,13 +238,13 @@ fun WardrobeScreen(
             }
 
             when {
-                state.loading && state.garments.isEmpty() -> item {
+                state.loading && state.garments.isEmpty() -> fullWidth {
                     Message { CircularProgressIndicator() }
                 }
 
                 // Reported, not swallowed. A read that failed must not look like
                 // a wardrobe with nothing in it.
-                state.error != null -> item {
+                state.error != null -> fullWidth {
                     Message {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
@@ -237,7 +264,7 @@ fun WardrobeScreen(
 
                 // Three different things, because they call for three different
                 // next moves: wait, widen, or add something.
-                state.isFilteredEmpty -> item {
+                state.isFilteredEmpty -> fullWidth {
                     Message {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
@@ -253,20 +280,144 @@ fun WardrobeScreen(
                     }
                 }
 
-                state.isEmpty -> item {
+                state.isEmpty -> fullWidth {
                     Message {
                         Text(stringResource(R.string.wardrobe_empty), style = MaterialTheme.typography.bodyLarge)
                     }
                 }
 
                 else -> items(state.garments, key = { it.id }) { garment ->
-                    GarmentRow(
-                        garment,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    ) { onGarmentOpened(garment.id) }
+                    if (state.view.layout == WardrobeLayout.GRID) {
+                        GarmentCell(
+                            garment,
+                            modifier = Modifier.padding(8.dp),
+                        ) { onGarmentOpened(garment.id) }
+                    } else {
+                        GarmentRow(
+                            garment,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        ) { onGarmentOpened(garment.id) }
+                    }
                 }
             }
         }
+    }
+}
+
+/**
+ * A header: one item across the whole width, whatever the grid is set to.
+ *
+ * Named rather than repeated, because every one of these would otherwise carry
+ * the same span lambda and the point of them is that they are not cells.
+ */
+private fun LazyGridScope.fullWidth(content: @Composable () -> Unit) =
+    item(span = { GridItemSpan(maxLineSpan) }) { content() }
+
+/**
+ * List or grid, and how wide a grid is.
+ *
+ * A menu rather than a row of buttons: four choices in a top bar that already
+ * holds a title and settings would leave nothing legible, and this is a decision
+ * made once in a while rather than flipped constantly.
+ *
+ * The button shows the layout in force. There is no grid in the icon set this app
+ * carries -- `material-icons-core`, chosen over the extended set that would add
+ * several megabytes for one glyph -- so the grid one is four boxes, drawn here.
+ */
+@Composable
+private fun ViewMenu(current: WardrobeView, onSelected: (WardrobeView) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val label = stringResource(R.string.wardrobe_view_options)
+
+    Box {
+        IconButton(onClick = { open = true }, modifier = Modifier.testTag(WARDROBE_VIEW_MENU)) {
+            if (current.layout == WardrobeLayout.GRID) {
+                GridGlyph(modifier = Modifier.semantics { contentDescription = label })
+            } else {
+                Icon(Icons.AutoMirrored.Filled.List, contentDescription = label)
+            }
+        }
+
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            for (choice in WARDROBE_VIEW_CHOICES) {
+                DropdownMenuItem(
+                    text = { Text(viewChoiceLabel(choice)) },
+                    onClick = {
+                        open = false
+                        onSelected(choice)
+                    },
+                    // A tick on the one in force, since the button's own icon says
+                    // list or grid but not how wide.
+                    trailingIcon = {
+                        if (choice.isCurrent(current)) {
+                            Icon(Icons.Filled.Check, contentDescription = null)
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** "List", or "Grid of 3" -- the count is the thing being chosen. */
+@Composable
+private fun viewChoiceLabel(choice: WardrobeView): String = when (choice.layout) {
+    WardrobeLayout.LIST -> stringResource(R.string.wardrobe_view_list)
+    WardrobeLayout.GRID -> stringResource(R.string.wardrobe_view_grid, choice.columns)
+}
+
+/** Four boxes: the grid icon this app has no icon for. */
+@Composable
+private fun GridGlyph(modifier: Modifier = Modifier) {
+    val tint = LocalContentColor.current
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        repeat(2) {
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                repeat(2) {
+                    Box(
+                        modifier = Modifier
+                            .size(9.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(tint),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One garment as a cell.
+ *
+ * The photo at the 3:4 every garment photo in this app is, and the brand under it
+ * -- which is how a wall of photos is read, and the one thing a photo does not
+ * show. A garment with no brand gets its type instead rather than a blank line.
+ */
+@Composable
+private fun GarmentCell(garment: GarmentRecord, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(modifier = modifier.clickable(onClick = onClick)) {
+        AsyncImage(
+            model = garment.displayImage,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(3f / 4f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        )
+
+        Text(
+            garment.brand?.takeIf { it.isNotBlank() }
+                ?: garment.subcategory?.let { garmentTypeLabel(it) }
+                ?: categoryLabel(garment.category),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }
 

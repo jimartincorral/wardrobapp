@@ -10,6 +10,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.wardrobapp.data.normalizeGarmentRow
 import com.wardrobapp.presentation.GarmentFilter
+import com.wardrobapp.presentation.WardrobeLayout
+import com.wardrobapp.presentation.WardrobeView
 import com.wardrobapp.presentation.filterBy
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -66,6 +68,7 @@ class WardrobeScreenTest {
     private fun show(
         state: WardrobeViewModel.State,
         onColorTapped: (String) -> Unit = {},
+        onViewSelected: (WardrobeView) -> Unit = {},
     ) {
         compose.setContent {
             WardrobeScreen(
@@ -86,14 +89,19 @@ class WardrobeScreenTest {
                 onOccasionTapped = {},
                 onColorTapped = onColorTapped,
                 onRetiredToggled = {},
+                onViewSelected = onViewSelected,
             )
         }
     }
 
-    private fun wardrobe(filtersExpanded: Boolean) = WardrobeViewModel.State(
+    private fun wardrobe(
+        filtersExpanded: Boolean = false,
+        view: WardrobeView = WardrobeView(),
+    ) = WardrobeViewModel.State(
         loading = false,
         garments = (1..12).map(::garment),
         filtersExpanded = filtersExpanded,
+        view = view,
     )
 
     @Test
@@ -142,6 +150,38 @@ class WardrobeScreenTest {
             listOf("g1"),
             listOf(garment(1, palette = "#DAA520")).filterBy(GarmentFilter(color = picked)).map { it.id },
         )
+    }
+
+    @Test
+    fun `the view menu offers the list and every grid width`() {
+        show(wardrobe())
+
+        compose.onNodeWithTag(WARDROBE_VIEW_MENU).performClick()
+
+        compose.onNodeWithText("List").assertIsDisplayed()
+        compose.onNodeWithText("Grid of 2").assertIsDisplayed()
+        compose.onNodeWithText("Grid of 3").assertIsDisplayed()
+        compose.onNodeWithText("Grid of 4").assertIsDisplayed()
+    }
+
+    @Test
+    fun `picking a grid asks for that many columns`() {
+        var picked: WardrobeView? = null
+        show(wardrobe(), onViewSelected = { picked = it })
+
+        compose.onNodeWithTag(WARDROBE_VIEW_MENU).performClick()
+        compose.onNodeWithText("Grid of 2").performClick()
+
+        assertEquals(WardrobeView(WardrobeLayout.GRID, columns = 2), picked)
+    }
+
+    @Test
+    fun `a grid still says whose garment each photo is`() {
+        // The one thing a cell adds to a photo, and the reason a grid is navigable
+        // at all: a wall of 3:4 photos with no captions is a wall of photos.
+        show(wardrobe(view = WardrobeView(WardrobeLayout.GRID, columns = 2)))
+
+        compose.onNodeWithText("Brand 01").assertIsDisplayed()
     }
 
     @Test

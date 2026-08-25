@@ -7,6 +7,7 @@ import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.WardrobeQuery
+import com.wardrobapp.presentation.WardrobeView
 import com.wardrobapp.presentation.filterBy
 import com.wardrobapp.presentation.orderedBy
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +42,14 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
          * failure looked exactly like an empty wardrobe.
          */
         val error: String? = null,
+        /**
+         * Rows or cells, and how many across.
+         *
+         * Alongside the query rather than inside it: it changes how the same
+         * garments are drawn, not which ones they are, so it never triggers a
+         * re-read. Persisted, so it is the same wardrobe you left.
+         */
+        val view: WardrobeView = WardrobeView(),
     ) {
         /** True only when the wardrobe really is empty, not when a read failed. */
         val isEmpty: Boolean get() = !loading && error == null && garments.isEmpty()
@@ -55,7 +64,7 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
         val isFilteredEmpty: Boolean get() = isEmpty && query.isNarrowed
     }
 
-    private val _state = MutableStateFlow(State())
+    private val _state = MutableStateFlow(State(view = container.wardrobeView.view))
     val state: StateFlow<State> = _state.asStateFlow()
 
     /**
@@ -132,6 +141,20 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
     fun onColorTapped(color: String) = narrow { it.withColor(color) }
 
     fun onRetiredToggled() = narrow { it.copy(includeRetired = !it.includeRetired) }
+
+    /**
+     * Draw the same wardrobe differently.
+     *
+     * Not through [narrow]: nothing about the query changed, so re-reading the
+     * database to lay the same rows out in two columns would be work for nothing.
+     * Written through as it is chosen, because a preference that is only saved on
+     * the way out is a preference that is lost when the app is killed.
+     */
+    fun onViewSelected(choice: WardrobeView) = _state.update {
+        val view = it.view.withChoice(choice)
+        container.wardrobeView.view = view
+        it.copy(view = view)
+    }
 
     fun onSortToggled() = narrow { it.withSortToggled() }
 
