@@ -56,6 +56,9 @@ const val OUTFIT_SEED = "outfit-seed"
 /** The show/hide control for outfits that were rated but not kept. */
 const val OUTFIT_ARCHIVE_TOGGLE = "outfit-archive-toggle"
 
+/** The line under a suggestion saying why it came up. */
+const val OUTFIT_REASONS = "outfit-reasons"
+
 /**
  * What every suggestion is being built around.
  *
@@ -339,6 +342,19 @@ private fun SuggestionCard(
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(suggestion.outfit.name, style = MaterialTheme.typography.titleMedium)
+
+            // Why it came up. A score of 0.81 tells nobody anything; "you rated
+            // these together" and "the colours work" are the parts of that number
+            // worth reading, and they are what makes a suggestion arguable rather
+            // than something to take on faith.
+            if (suggestion.outfit.reasons.isNotEmpty()) {
+                Text(
+                    suggestion.outfit.reasons.joinToString(" \u00b7 ") { stringResource(it.labelRes) },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp).testTag(OUTFIT_REASONS),
+                )
+            }
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

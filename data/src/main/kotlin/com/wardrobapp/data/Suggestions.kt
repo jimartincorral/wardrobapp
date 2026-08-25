@@ -1,6 +1,7 @@
 package com.wardrobapp.data
 
 import com.wardrobapp.domain.GenerateSuggestionsOptions
+import com.wardrobapp.domain.OutfitReason
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.SuggestionContext
 import com.wardrobapp.domain.buildSuggestions
@@ -25,6 +26,13 @@ data class SuggestedOutfit(
     val name: String,
     val score: Double,
     val garments: List<GarmentRecord>,
+    /**
+     * Why the engine picked it, most telling first.
+     *
+     * Carried as the domain's own enum rather than as text: the words belong on
+     * the screen, where the reader's language is known.
+     */
+    val reasons: List<OutfitReason> = emptyList(),
 )
 
 class Suggestions(
@@ -84,6 +92,7 @@ class Suggestions(
             SuggestedOutfit(
                 name = outfit.name,
                 score = outfit.score,
+                reasons = outfit.reasons,
                 // Every id came from `available`, so nothing should be missing;
                 // dropping a stray rather than throwing means a suggestion is
                 // shown short rather than not at all.

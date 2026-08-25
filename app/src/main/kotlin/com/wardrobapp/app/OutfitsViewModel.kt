@@ -132,6 +132,7 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
     fun generate() {
         val filters = _state.value.filters
         val seed = _state.value.seed
+        val shown = _state.value.suggestions.map { s -> s.outfit.garments.map { it.id } }
         _state.update { it.copy(generating = true, error = null) }
 
         viewModelScope.launch {
@@ -149,6 +150,11 @@ class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
                                 seasons = filters.seasons,
                                 occasion = filters.occasion,
                             ),
+                            // What is on screen right now, so a second tap does
+                            // not hand back the same three outfits. Read from the
+                            // state rather than kept in a field of its own: the
+                            // batch on screen *is* the memory.
+                            alreadySeen = shown,
                         ),
                         seedGarmentId = seed?.id,
                     )
