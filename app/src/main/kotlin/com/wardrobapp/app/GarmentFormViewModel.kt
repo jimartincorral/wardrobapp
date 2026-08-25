@@ -414,10 +414,17 @@ class GarmentFormViewModel(
      * palette and anything already chosen stays, which is what `withDetectedColor`
      * does. That is why this is a button rather than something that fires on every
      * photo -- the app this replaced offers it the same way.
+     *
+     * Read off whatever the preview is showing, which is the cut-out where the
+     * background has been removed. That matters: the count is over the pixels of
+     * the image handed in, so on an original photo a large pale background can hold
+     * more of the frame than the garment does and win outright. A cut-out's
+     * background is transparent and the alpha gate drops it, leaving only the
+     * garment to vote.
      */
     fun onDetectColorRequested() {
         val form = _state.value.form
-        val photo = form.imageUris.getOrNull(form.selectedImageIndex)
+        val photo = form.displayedPreviewUri()
         if (photo.isNullOrEmpty() || _state.value.detectingColor) return
 
         _state.update { it.copy(detectingColor = true, error = null) }
@@ -704,11 +711,10 @@ class GarmentFormViewModel(
         /**
          * How wide a photo is decoded to before its colour is read.
          *
-         * The same 64 pixels `detectDominantColor` resizes to on the other side. The
-         * exact number is not what the two apps have to agree on -- they decode
-         * differently and never see identical pixels -- but averaging a thumbnail
-         * rather than a photograph is, because it is what makes the answer about the
-         * garment rather than about its weave.
+         * The same 64 pixels `detectDominantColor` resized to on the other side. The
+         * exact number is not what matters -- two decoders never see identical
+         * pixels -- but reading a thumbnail rather than a photograph is, because it
+         * is what makes the answer about the garment rather than about its weave.
          */
         const val COLOR_SAMPLE_WIDTH = 64
     }

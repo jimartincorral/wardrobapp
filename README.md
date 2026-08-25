@@ -125,11 +125,11 @@ Two things it left behind, both deliberate. Comments across this codebase explai
 ## Testing
 
 ```bash
-./gradlew test                    # 504 tests, no Android SDK, seconds
+./gradlew test                    # 507 tests, no Android SDK, seconds
 ./gradlew :app:testDebugUnitTest  # 68 more, needs the SDK — no emulator
 ```
 
-The 504 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
+The 507 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
 
 The 68 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 
@@ -153,9 +153,7 @@ CI runs all of it on every pull request, on pushes to `main`, and on pushes to `
 - **Releases are signed with a public key** until a keystore exists. See [Signing](#signing).
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **No wear log.** The app records outfit ratings, not what you wore on a given day, so there is no cost-per-wear or wear-trend reporting.
-- **Colour detection is approximate.** "Detect Colours" averages every fourth pixel of the whole photo and snaps the result to the nearest of the 24 palette colours. Two things follow, and they compound: the background is averaged in along with the garment — a navy shirt on a white duvet reads as pale blue — and a mean is not a mode, so a red-and-white striped shirt averages to pink, a colour appearing nowhere in it. Treat it as a prefill to correct rather than an answer; the palette is one tap away.
-
-  Both improvements are available and neither is large. Detection reads the original photo even when a background-removed cut-out of exactly the garment already exists; pointing it at the cut-out would let the existing alpha gate average only the garment's own pixels. And picking the most common palette colour among the sampled pixels, rather than the mean of them, would make "dominant" mean dominant.
+- **Colour detection is approximate.** "Detect Colours" snaps every fourth pixel to the nearest of the 24 palette colours and returns whichever palette colour holds the most of them, reading the background-removed cut-out where there is one. That fixes the two ways it used to be wrong — it averaged the pixels, so a red-and-white striped shirt came out pink, a colour appearing nowhere in it; and it read the original photo, so a navy shirt on a white duvet came out pale blue. What is left is genuinely approximate: a garment of several colours reports the largest one rather than "multi", a print reports its background, and with no cut-out the photo's own background still votes. Treat it as a prefill to correct rather than an answer; the palette is one tap away.
 - **URL import only fetches public addresses.** A product page reaches the app two ways: a `wardrobapp://…?importUrl=…` deep link, which any web page, message or QR code can open, and the share sheet from a browser. Neither is necessarily an address you chose. Import therefore asks before fetching anything, and refuses addresses on the device or its local network — a phone sits *inside* a home network, and without that the app would be a way to reach a router or a printer that the page could not reach itself. Redirects are checked before they are followed, page reads are capped and given a deadline, and the image URLs a page supplies go through the same check. An `http://` page will not load at all: Android blocks cleartext by default and opting in app-wide to reach the occasional shop still on http would weaken every other request.
 
 ## Contributing
