@@ -527,8 +527,11 @@ private fun Chart(bars: @Composable () -> Unit) {
 private fun Tile(
     label: String,
     value: Long,
-    onClick: (() -> Unit)? = null,
+    // Before the link, because lint requires the modifier to be the first optional
+    // parameter a composable takes -- and it is right: every other composable in
+    // this app is called that way.
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
 ) {
     val clickLabel = stringResource(R.string.statistics_open_wardrobe)
 
