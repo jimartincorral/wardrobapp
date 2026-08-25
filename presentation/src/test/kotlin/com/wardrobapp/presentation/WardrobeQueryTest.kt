@@ -190,33 +190,49 @@ class WardrobeQueryTest {
     }
 
     @Test
-    fun `arriving from another screen shows that one thing and nothing else`() {
-        // A tap on "Tops" in the statistics chart means "show me those garments".
-        // If a size or a season from the last visit survived, the list would be
-        // shorter than the number that was tapped, with nothing on screen to say
-        // why -- which makes the chart look wrong rather than the filter.
-        val arrived = WardrobeQuery.showing(category = "tops")
+    fun `every link narrows by exactly one thing`() {
+        // A tap on a number means "show me those garments". If a size or a season
+        // from the last visit survived, the list would be shorter than the number
+        // that was tapped with nothing on screen to say why -- which makes the
+        // chart look wrong rather than the filter. So each of these is one filter,
+        // and the count is what says so.
+        val links = listOf(
+            WardrobeLink.Category("tops"),
+            WardrobeLink.Type("shoes", "Boots"),
+            WardrobeLink.Colour("#000080"),
+            WardrobeLink.Brand("Uniqlo"),
+            WardrobeLink.Retired,
+        )
 
-        assertEquals("tops", arrived.category)
-        assertEquals(1, arrived.activeFilterCount, "a link brought more than it was asked for")
-        assertEquals(WardrobeQuery(category = "tops"), arrived)
+        for (link in links) {
+            val query = WardrobeQuery.showing(link)
+            val expected = if (link is WardrobeLink.Type) 2 else 1
+
+            assertEquals(expected, query.activeFilterCount, "$link brought more than it was asked for")
+        }
     }
 
     @Test
-    fun `a link may ask for retired garments, which nothing else shows`() {
-        // The one filter a link sets deliberately: the archived count on the home
-        // screen counts exactly the garments the plain wardrobe hides, so opening
-        // the plain wardrobe from it would show none of them.
-        val arrived = WardrobeQuery.showing(includeRetired = true)
+    fun `a link lands on the filter that matches what was counted`() {
+        assertEquals("tops", WardrobeQuery.showing(WardrobeLink.Category("tops")).category)
+        assertEquals("#000080", WardrobeQuery.showing(WardrobeLink.Colour("#000080")).color)
+        assertEquals("Uniqlo", WardrobeQuery.showing(WardrobeLink.Brand("Uniqlo")).brand)
+        assertTrue(WardrobeQuery.showing(WardrobeLink.Retired).includeRetired)
+    }
 
-        assertTrue(arrived.includeRetired)
-        assertNull(arrived.category)
-        assertEquals(1, arrived.activeFilterCount)
+    @Test
+    fun `a type link carries the category it belongs to`() {
+        // Two categories have boots in them, and the statistics page prefixes its
+        // keys for that reason. A type filter on its own would show both.
+        val query = WardrobeQuery.showing(WardrobeLink.Type("shoes", "Boots"))
+
+        assertEquals("shoes", query.category)
+        assertEquals("Boots", query.subcategory)
     }
 
     @Test
     fun `a link with nothing to say is the plain wardrobe`() {
-        assertEquals(WardrobeQuery(), WardrobeQuery.showing())
-        assertEquals(0, WardrobeQuery.showing().activeFilterCount)
+        assertEquals(WardrobeQuery(), WardrobeQuery.showing(null))
+        assertEquals(0, WardrobeQuery.showing(null).activeFilterCount)
     }
 }

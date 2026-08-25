@@ -53,6 +53,7 @@ import androidx.navigation.compose.rememberNavController
 import com.canhub.cropper.CropImageContract
 import com.wardrobapp.data.backupFilename
 import com.wardrobapp.presentation.ThemeChoice
+import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.WardrobeQuery
 import com.wardrobapp.presentation.languageChoiceFor
 import com.wardrobapp.presentation.languageTag
@@ -193,9 +194,9 @@ class MainActivity : AppCompatActivity() {
                                 // The plain wardrobe for what is in use, and the
                                 // wardrobe with retired garments shown for the
                                 // number that counts exactly those.
-                                onWardrobeRequested = { openWardrobe(null) },
+                                onWardrobeRequested = { openWardrobe(WardrobeQuery.showing(null)) },
                                 onArchivedRequested = {
-                                    openWardrobe(WardrobeQuery.showing(includeRetired = true))
+                                    openWardrobe(WardrobeQuery.showing(WardrobeLink.Retired))
                                 },
                                 // Tabs are switched to, not pushed: pushing one
                                 // would stack a second copy of a screen the bar
@@ -253,9 +254,11 @@ class MainActivity : AppCompatActivity() {
                         composable(STATISTICS) {
                             Statistics(
                                 container = container,
-                                onCategoryFilterRequested = { category ->
-                                    openWardrobe(WardrobeQuery.showing(category = category))
-                                },
+                                // A number counted here, shown as the garments
+                                // behind it. What each link means is
+                                // `WardrobeQuery.showing`'s business.
+                                onLinkRequested = { openWardrobe(WardrobeQuery.showing(it)) },
+                                onGarmentOpened = { navigator.openGarment(it) },
                             )
                         }
 
@@ -644,7 +647,8 @@ class MainActivity : AppCompatActivity() {
     @Composable
     private fun Statistics(
         container: AppContainer,
-        onCategoryFilterRequested: (String) -> Unit,
+        onLinkRequested: (WardrobeLink?) -> Unit,
+        onGarmentOpened: (String) -> Unit,
     ) {
         val model: StatisticsViewModel = viewModel(
             factory = viewModelFactory { initializer { StatisticsViewModel(container) } }
@@ -659,7 +663,8 @@ class MainActivity : AppCompatActivity() {
         StatisticsScreen(
             state = state,
             onCategoryTapped = model::onCategoryTapped,
-            onCategoryFilterRequested = onCategoryFilterRequested,
+            onLinkRequested = onLinkRequested,
+            onGarmentOpened = onGarmentOpened,
             onBrandSortChanged = model::onBrandSortChanged,
             onSectionTapped = model::onSectionTapped,
             onRetry = model::refresh,

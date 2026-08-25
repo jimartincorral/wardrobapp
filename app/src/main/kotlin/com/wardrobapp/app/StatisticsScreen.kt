@@ -2,6 +2,7 @@ package com.wardrobapp.app
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -55,10 +56,16 @@ import com.wardrobapp.presentation.MULTI_SWATCH
 import com.wardrobapp.presentation.NO_SUBCATEGORY
 import com.wardrobapp.presentation.StatBar
 import com.wardrobapp.presentation.StatisticsView
+import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.paletteColorFor
 
-/** The "show these in the wardrobe" button on one category's row. */
-fun categoryFilterTag(category: String) = "statistics-filter-$category"
+/**
+ * The "show these in the wardrobe" button on one row.
+ *
+ * Keyed on the value the row stands for rather than on its position, so a test taps
+ * the row it means and not the third one down.
+ */
+fun statFilterTag(value: String) = "statistics-filter-$value"
 
 /** The parts of the page that open and shut, all shut to begin with. */
 enum class StatisticsSection { CATEGORY, COLOUR, BRAND, LIFESPAN }
@@ -94,7 +101,8 @@ const val STATISTICS_PAGE = "statistics-page"
 fun StatisticsScreen(
     state: StatisticsViewModel.State,
     onCategoryTapped: (String) -> Unit,
-    onCategoryFilterRequested: (String) -> Unit,
+    onLinkRequested: (WardrobeLink?) -> Unit,
+    onGarmentOpened: (String) -> Unit,
     onBrandSortChanged: (BrandSort) -> Unit,
     onSectionTapped: (StatisticsSection) -> Unit,
     onRetry: () -> Unit,
@@ -133,7 +141,8 @@ fun StatisticsScreen(
                 brandSort = state.brandSort,
                 insets = insets,
                 onCategoryTapped = onCategoryTapped,
-                onCategoryFilterRequested = onCategoryFilterRequested,
+                onLinkRequested = onLinkRequested,
+                onGarmentOpened = onGarmentOpened,
                 onBrandSortChanged = onBrandSortChanged,
                 onSectionTapped = onSectionTapped,
             )
@@ -149,7 +158,8 @@ private fun Body(
     brandSort: BrandSort,
     insets: PaddingValues,
     onCategoryTapped: (String) -> Unit,
-    onCategoryFilterRequested: (String) -> Unit,
+    onLinkRequested: (WardrobeLink?) -> Unit,
+    onGarmentOpened: (String) -> Unit,
     onBrandSortChanged: (BrandSort) -> Unit,
     onSectionTapped: (StatisticsSection) -> Unit,
 ) {
@@ -172,28 +182,47 @@ private fun Body(
         // with nothing to say.
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Tile(stringResource(R.string.statistics_items), view.items, Modifier.weight(1f))
-                Tile(stringResource(R.string.statistics_in_use), view.inUse, Modifier.weight(1f))
-                Tile(stringResource(R.string.statistics_retired), view.retired, Modifier.weight(1f))
+                // All three count garments, so all three lead to them. Retired
+                // asks for retired garments, since the plain wardrobe shows none.
+                Tile(
+                    label = stringResource(R.string.statistics_items),
+                    value = view.items,
+                    onClick = { onLinkRequested(WardrobeLink.Retired) },
+                    modifier = Modifier.weight(1f),
+                )
+                Tile(
+                    label = stringResource(R.string.statistics_in_use),
+                    value = view.inUse,
+                    onClick = { onLinkRequested(null) },
+                    modifier = Modifier.weight(1f),
+                )
+                Tile(
+                    label = stringResource(R.string.statistics_retired),
+                    value = view.retired,
+                    onClick = { onLinkRequested(WardrobeLink.Retired) },
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
 
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // These three count labels rather than garments -- there is no
+                // list of colours to open -- so they are numbers and nothing more.
                 Tile(
-                    stringResource(R.string.statistics_categories),
-                    view.distinctCategories.toLong(),
-                    Modifier.weight(1f),
+                    label = stringResource(R.string.statistics_categories),
+                    value = view.distinctCategories.toLong(),
+                    modifier = Modifier.weight(1f),
                 )
                 Tile(
-                    stringResource(R.string.statistics_colours),
-                    view.distinctColors.toLong(),
-                    Modifier.weight(1f),
+                    label = stringResource(R.string.statistics_colours),
+                    value = view.distinctColors.toLong(),
+                    modifier = Modifier.weight(1f),
                 )
                 Tile(
-                    stringResource(R.string.statistics_brands),
-                    view.distinctBrands.toLong(),
-                    Modifier.weight(1f),
+                    label = stringResource(R.string.statistics_brands),
+                    value = view.distinctBrands.toLong(),
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
@@ -260,8 +289,8 @@ private fun Body(
                                 action = {
                                     ShowInWardrobe(
                                         label = categoryLabel(bar.key),
-                                        tag = categoryFilterTag(bar.key),
-                                        onClick = { onCategoryFilterRequested(bar.key) },
+                                        tag = statFilterTag(bar.key),
+                                        onClick = { onLinkRequested(WardrobeLink.Category(bar.key)) },
                                     )
                                 },
                             )
@@ -269,6 +298,7 @@ private fun Body(
                             if (isOpen) {
                                 Subcategories(
                                     category = bar.key,
+                                    onLinkRequested = onLinkRequested,
                                     // Absent rather than empty for a category whose
                                     // garments all predate subcategories: the query
                                     // returns no group at all, and the dash below is
@@ -297,11 +327,24 @@ private fun Body(
                 item {
                     Chart {
                         for (bar in view.colors) {
+                            val label = bar.colorLabel()
+
                             BarRow(
-                                label = bar.colorLabel(),
+                                label = label,
                                 fraction = bar.fraction,
                                 value = "${bar.count}",
                                 swatch = { Swatch(bar.swatch) },
+                                action = {
+                                    ShowInWardrobe(
+                                        label = label,
+                                        tag = statFilterTag(bar.key),
+                                        // The value a garment stores, which is what
+                                        // the filter compares -- not the palette's
+                                        // name for it, and not the swatch, which is
+                                        // a hex chosen for drawing.
+                                        onClick = { onLinkRequested(WardrobeLink.Colour(bar.key)) },
+                                    )
+                                },
                             )
                         }
                     }
@@ -342,8 +385,20 @@ private fun Body(
                     Chart {
                         for (bar in view.brands) {
                             // A brand is what the wearer typed, so it is shown as
-                            // typed rather than capitalized.
-                            BarRow(label = bar.key, fraction = bar.fraction, value = "${bar.count}")
+                            // typed rather than capitalized -- and filtered by the
+                            // same string.
+                            BarRow(
+                                label = bar.key,
+                                fraction = bar.fraction,
+                                value = "${bar.count}",
+                                action = {
+                                    ShowInWardrobe(
+                                        label = bar.key,
+                                        tag = statFilterTag(bar.key),
+                                        onClick = { onLinkRequested(WardrobeLink.Brand(bar.key)) },
+                                    )
+                                },
+                            )
                         }
                     }
                 }
@@ -378,13 +433,25 @@ private fun Body(
                             )
                         } else {
                             for (bar in view.lifespans) {
+                                val label = bar.label()
+
                                 BarRow(
-                                    label = bar.label(),
+                                    label = label,
                                     fraction = bar.fraction,
                                     value = stringResource(R.string.statistics_days, bar.days),
                                     // Wider than a count: "365d" does not fit where
                                     // a two-digit tally does.
                                     valueWidth = 44.dp,
+                                    // A lifespan bar is one particular garment, not
+                                    // a group, so this opens that garment rather
+                                    // than a list filtered to one thing.
+                                    action = {
+                                        OpenGarment(
+                                            label = label,
+                                            tag = statFilterTag(bar.entry.garmentId),
+                                            onClick = { onGarmentOpened(bar.entry.garmentId) },
+                                        )
+                                    },
                                 )
                             }
                         }
@@ -457,8 +524,21 @@ private fun Chart(bars: @Composable () -> Unit) {
 }
 
 @Composable
-private fun Tile(label: String, value: Long, modifier: Modifier = Modifier) {
-    Card(modifier = modifier) {
+private fun Tile(
+    label: String,
+    value: Long,
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    val clickLabel = stringResource(R.string.statistics_open_wardrobe)
+
+    Card(
+        modifier = if (onClick == null) {
+            modifier
+        } else {
+            modifier.clickable(onClickLabel = clickLabel, onClick = onClick)
+        },
+    ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -487,7 +567,11 @@ private fun Tile(label: String, value: Long, modifier: Modifier = Modifier) {
  * rather than four slivers.
  */
 @Composable
-private fun Subcategories(category: String, bars: List<StatBar>) {
+private fun Subcategories(
+    category: String,
+    bars: List<StatBar>,
+    onLinkRequested: (WardrobeLink?) -> Unit,
+) {
     val rule = MaterialTheme.colorScheme.surfaceVariant
 
     Column(
@@ -510,6 +594,8 @@ private fun Subcategories(category: String, bars: List<StatBar>) {
             )
         } else {
             for (bar in bars) {
+                val type = bar.subcategoryName(category)
+
                 BarRow(
                     label = bar.subcategoryLabel(category),
                     fraction = bar.fraction,
@@ -517,6 +603,21 @@ private fun Subcategories(category: String, bars: List<StatBar>) {
                     labelWidth = 88.dp,
                     fill = MaterialTheme.colorScheme.primaryContainer,
                     height = 14.dp,
+                    // Nothing to offer on the row for garments with no type
+                    // recorded: "no type" is not something the filter can ask for,
+                    // and a button that filtered by nothing would show the whole
+                    // category and look broken.
+                    action = if (type == null) {
+                        null
+                    } else {
+                        {
+                            ShowInWardrobe(
+                                label = bar.subcategoryLabel(category),
+                                tag = statFilterTag(bar.key),
+                                onClick = { onLinkRequested(WardrobeLink.Type(category, type)) },
+                            )
+                        }
+                    },
                 )
             }
         }
@@ -611,6 +712,25 @@ private fun BarRow(
         }
 
         action?.invoke()
+    }
+}
+
+/**
+ * "Open that garment."
+ *
+ * The same size and place as [ShowInWardrobe], because it sits in the same column
+ * of rows, and a different glyph because it does a different thing: a lifespan bar
+ * is one garment, not a group, so there is nothing to filter a list down to.
+ */
+@Composable
+private fun OpenGarment(label: String, tag: String, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(28.dp).testTag(tag)) {
+        Icon(
+            Icons.AutoMirrored.Filled.ArrowForward,
+            contentDescription = stringResource(R.string.statistics_open_garment, label),
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 
