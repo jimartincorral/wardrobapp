@@ -123,12 +123,12 @@ Two things it left behind, both deliberate. Comments across this codebase explai
 
 ```bash
 ./gradlew test                    # 478 tests, no Android SDK, seconds
-./gradlew :app:testDebugUnitTest  # 42 more, needs the SDK — no emulator
+./gradlew :app:testDebugUnitTest  # 45 more, needs the SDK — no emulator
 ```
 
 The 478 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
 
-The 42 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
+The 45 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 
 ```bash
 ./gradlew :app:testDebugUnitTest
