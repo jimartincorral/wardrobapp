@@ -22,5 +22,4 @@
         and the system may reclaim it whenever it likes.
     -->
     <cache-path name="updates" path="updates/" />
-    <cache-path name="cards" path="cards/" />
 </paths>

@@ -81,33 +81,6 @@ class AndroidPhotoStore(private val context: Context) {
     }
 
     /**
-     * A stored photo as a bitmap, no wider than asked for.
-     *
-     * For drawing a photo somewhere Compose is not doing the drawing -- the outfit
-     * card composed into one image. Sampled down on the way in rather than scaled
-     * afterwards, because six full-size garment photos decoded at once is how a
-     * card render runs out of memory on the phones that have least of it.
-     *
-     * Not turned upright, and it does not need to be: everything this draws was
-     * written by [store], which turns a photo before it saves it. A photo from
-     * outside would need the EXIF read; a stored one has none left to read.
-     *
-     * Null when the photo cannot be decoded, which is a garment whose file has
-     * gone. The caller leaves a gap rather than failing the whole card.
-     */
-    fun bitmapFor(source: Uri, targetWidth: Int): Bitmap? {
-        val bounds = readBounds(source)
-        if (bounds.width <= 0 || bounds.height <= 0) return null
-
-        // A square target: the sampler halves only while *both* dimensions would
-        // still clear it, so asking for a square of the wanted width errs towards
-        // a bitmap slightly too big rather than one too small to draw sharply.
-        val target = StoredPhotoSize(targetWidth, targetWidth)
-
-        return decode(source, decodeSampleSize(bounds.width, bounds.height, target))
-    }
-
-    /**
      * A photo's pixels, small, as RGBA for [com.wardrobapp.presentation.dominantGarmentColors].
      *
      * Downscaled hard first, the way `detectDominantColor` did: a thumbnail is

@@ -11,13 +11,13 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,8 +42,8 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.wardrobapp.data.GarmentRecord
 
-/** The button that composes this outfit into a picture and offers it on. */
-const val OUTFIT_SHARE = "outfit-share"
+/** The way from an outfit to changing it. */
+const val OUTFIT_EDIT_ACTION = "outfit-edit-action"
 
 /**
  * One saved outfit: what is in it, what you thought of it, and getting rid of it.
@@ -63,7 +62,7 @@ fun OutfitDetailScreen(
     onBack: () -> Unit,
     onGarmentOpened: (String) -> Unit,
     onRate: (Int) -> Unit,
-    onShare: (Int) -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
     onDeleteConfirmed: () -> Unit,
     onDeleteDismissed: () -> Unit,
@@ -90,6 +89,18 @@ fun OutfitDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                    }
+                },
+                actions = {
+                    // Only once there is an outfit to change: this screen also shows
+                    // "not found" and a failed read, and neither is editable.
+                    if (state.outfit != null) {
+                        IconButton(onClick = onEdit, modifier = Modifier.testTag(OUTFIT_EDIT_ACTION)) {
+                            Icon(
+                                Icons.Filled.Edit,
+                                contentDescription = stringResource(R.string.outfit_edit),
+                            )
+                        }
                     }
                 },
             )
@@ -127,7 +138,6 @@ fun OutfitDetailScreen(
                 insets = insets,
                 onGarmentOpened = onGarmentOpened,
                 onRate = onRate,
-                onShare = onShare,
                 onDelete = onDelete,
             )
         }
@@ -141,7 +151,6 @@ private fun Body(
     insets: PaddingValues,
     onGarmentOpened: (String) -> Unit,
     onRate: (Int) -> Unit,
-    onShare: (Int) -> Unit,
     onDelete: () -> Unit,
 ) {
     Column(
@@ -151,28 +160,9 @@ private fun Body(
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
     ) {
-        // The outfit as one picture, before the garments it is made of: the whole
-        // point of an outfit is what the pieces come to together, and a row of
-        // separate photos is the question rather than the answer.
-        OutfitCard(state.garments, modifier = Modifier.fillMaxWidth())
-
-        val ground = MaterialTheme.colorScheme.surfaceVariant.toArgb()
-        TextButton(
-            onClick = { onShare(ground) },
-            enabled = !state.composingCard && state.garments.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp).testTag(OUTFIT_SHARE),
-        ) {
-            if (state.composingCard) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp))
-            } else {
-                Text(stringResource(R.string.outfit_share))
-            }
-        }
-
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(top = 12.dp),
         ) {
             for (garment in state.garments) {
                 OutfitGarment(garment) { onGarmentOpened(garment.id) }

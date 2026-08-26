@@ -274,6 +274,7 @@ class MainActivity : AppCompatActivity() {
                                 container = container,
                                 onGarmentOpened = { navigator.openGarment(it) },
                                 onOutfitOpened = { navigator.navigate("$OUTFIT/${Uri.encode(it)}") },
+                                onBuildRequested = { navigator.navigate(OUTFIT_BUILD) },
                             )
                         }
 
@@ -311,6 +312,18 @@ class MainActivity : AppCompatActivity() {
 
                         composable(GARMENT_BULK_ADD) {
                             BulkAdd(container = container, navigator = navigator)
+                        }
+
+                        composable(OUTFIT_BUILD) {
+                            OutfitEdit(container = container, outfitId = null, navigator = navigator)
+                        }
+
+                        composable("$OUTFIT_EDIT/{$OUTFIT_ID}") { backStackEntry ->
+                            OutfitEdit(
+                                container = container,
+                                outfitId = backStackEntry.arguments?.getString(OUTFIT_ID).orEmpty(),
+                                navigator = navigator,
+                            )
                         }
 
                         composable("$GARMENT_EDIT/{$GARMENT_ID}") { backStackEntry ->
@@ -524,6 +537,7 @@ class MainActivity : AppCompatActivity() {
         onSeedApplied: () -> Unit,
         onGarmentOpened: (String) -> Unit,
         onOutfitOpened: (String) -> Unit,
+        onBuildRequested: () -> Unit,
     ) {
         val model: OutfitsViewModel = viewModel(
             factory = viewModelFactory { initializer { OutfitsViewModel(container) } }
@@ -561,6 +575,7 @@ class MainActivity : AppCompatActivity() {
             onDeleteDismissed = model::onDeleteDismissed,
             onGarmentOpened = onGarmentOpened,
             onOutfitOpened = onOutfitOpened,
+            onBuildRequested = onBuildRequested,
         )
     }
 
@@ -733,6 +748,45 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    /**
+     * Building an outfit by hand, or changing one already saved.
+     *
+     * One screen and one model for both, told apart by whether there is an id --
+     * the same shape as the garment form, and for the same reason: two of them
+     * would be two that drift.
+     */
+    @Composable
+    private fun OutfitEdit(
+        container: AppContainer,
+        outfitId: String?,
+        navigator: NavHostController,
+    ) {
+        val model: OutfitEditViewModel = viewModel(
+            factory = viewModelFactory {
+                initializer { OutfitEditViewModel(container, outfitId) }
+            }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        // Leaving is the activity's business: the model reports that it wrote the
+        // row, and this is what that means for the back stack.
+        LaunchedEffect(state.saved) {
+            if (state.saved) navigator.popBackStack()
+        }
+
+        OutfitEditScreen(
+            state = state,
+            isEditing = model.isEditing,
+            onBack = { navigator.popBackStack() },
+            onNameChanged = model::onNameChanged,
+            onGarmentToggled = model::onGarmentToggled,
+            onOccasionTapped = model::onOccasionTapped,
+            onSeasonTapped = model::onSeasonTapped,
+            onSave = model::onSaveRequested,
+            onErrorDismissed = model::onErrorDismissed,
+        )
+    }
+
     @Composable
     private fun OutfitDetail(
         container: AppContainer,
@@ -752,23 +806,12 @@ class MainActivity : AppCompatActivity() {
             if (state.deleted) navigator.popBackStack()
         }
 
-        // Offering the card to another app is the activity's business too: the
-        // model writes the file and says where, and this is what "share" means for
-        // a written file. Reported back as done, so returning to this outfit does
-        // not re-open the sheet.
-        LaunchedEffect(state.cardToShare) {
-            state.cardToShare?.let { card ->
-                shareOutfitCard(card.toUri())
-                model.onShared()
-            }
-        }
-
         OutfitDetailScreen(
             state = state,
             onBack = { navigator.popBackStack() },
             onGarmentOpened = { navigator.openGarment(it) },
             onRate = model::onRated,
-            onShare = model::onShareRequested,
+            onEdit = { navigator.navigate("$OUTFIT_EDIT/${Uri.encode(outfitId)}") },
             onDelete = model::onDeleteRequested,
             onDeleteConfirmed = model::onDeleteConfirmed,
             onDeleteDismissed = model::onDeleteDismissed,
@@ -913,26 +956,6 @@ class MainActivity : AppCompatActivity() {
      * provider URI because a `file://` one handed to an activity is a
      * FileUriExposedException waiting to happen.
      */
-    /**
-     * Hand an outfit card to whatever the phone can share a picture with.
-     *
-     * A chooser rather than a direct target, and read permission granted on the
-     * address itself: the file lives in this app's cache behind a FileProvider, so
-     * without the grant the receiving app is handed an address it cannot open.
-     *
-     * A phone with nothing that accepts an image is possible, and is not worth a
-     * crash: `createChooser` handles an empty list by saying so.
-     */
-    private fun shareOutfitCard(card: Uri) {
-        val share = Intent(Intent.ACTION_SEND).apply {
-            type = "image/jpeg"
-            putExtra(Intent.EXTRA_STREAM, card)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-
-        startActivity(Intent.createChooser(share, getString(R.string.outfit_share_chooser)))
-    }
-
     private fun cropDestination(): Uri {
         val directory = File(cacheDir, "crop").also { it.mkdirs() }
         val file = File(directory, "cropped.jpg")
@@ -1040,6 +1063,13 @@ class MainActivity : AppCompatActivity() {
         // "garment/{garmentId}", which would match both of them as an id, and
         // whether it wins is down to how the matcher ranks a literal segment
         // against an argument. Distinct prefixes leave nothing to rank.
+        // Built by hand rather than suggested, and changing one already saved.
+        // Distinct prefixes for the same reason the garment routes have them: the
+        // outfit detail route is "outfit/{outfitId}", which would match a literal
+        // segment as an id.
+        const val OUTFIT_BUILD = "build-outfit"
+        const val OUTFIT_EDIT = "edit-outfit"
+
         const val GARMENT_ADD = "add-garment"
         const val GARMENT_BULK_ADD = "add-garments"
         const val GARMENT_EDIT = "edit-garment"

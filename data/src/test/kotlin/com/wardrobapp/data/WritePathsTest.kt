@@ -458,6 +458,62 @@ class WritePathsTest {
     }
 
     @Test
+    fun `editing an outfit changes what it is without forgetting what it scored`() {
+        // The rating lives in another table and is deliberately left alone: editing
+        // an outfit is not a reason to forget what you thought of it. Nor is being
+        // edited a reason to stop having been the engine's idea, which is what the
+        // statistics count.
+        eachSchema { schema, driver, _, _ ->
+            val outfits = OutfitWrites(driver)
+            outfits.insert(
+                id = "o1",
+                name = "Fit",
+                garmentIds = listOf("a", "b"),
+                occasion = "casual",
+                season = "summer",
+                isSuggested = true,
+                now = now,
+            )
+            outfits.rate(ratingId = "r1", outfitId = "o1", rating = 4, now = now)
+
+            outfits.update(
+                id = "o1",
+                name = "Monday",
+                garmentIds = listOf("a", "c"),
+                occasion = "work",
+                season = null,
+            )
+
+            val outfit = OutfitQueries(driver).outfit("o1")
+            assertNotNull(outfit, schema)
+            assertEquals("Monday", outfit.name, schema)
+            assertEquals(listOf("a", "c"), outfit.garmentIds, schema)
+            assertEquals("work", outfit.occasion, schema)
+            assertNull(outfit.season, schema)
+            assertTrue(outfit.isSuggested, "an edit disowned the engine's idea: $schema")
+            assertEquals(4, OutfitQueries(driver).rating("o1")?.rating, schema)
+        }
+    }
+
+    @Test
+    fun `editing an outfit leaves every other outfit alone`() {
+        // A missing WHERE is the classic way an UPDATE eats a table, and reading
+        // one row back cannot tell that apart from a correct write.
+        eachSchema { schema, driver, _, _ ->
+            val outfits = OutfitWrites(driver)
+            outfits.insert(id = "o1", name = "One", garmentIds = listOf("a"), now = now)
+            outfits.insert(id = "o2", name = "Two", garmentIds = listOf("b"), now = now)
+
+            outfits.update(id = "o1", name = "Edited", garmentIds = listOf("z"), occasion = null, season = null)
+
+            val other = OutfitQueries(driver).outfit("o2")
+            assertNotNull(other, schema)
+            assertEquals("Two", other.name, schema)
+            assertEquals(listOf("b"), other.garmentIds, schema)
+        }
+    }
+
+    @Test
     fun `deleting an outfit takes its rating with it`() {
         eachSchema { schema, driver, _, _ ->
             val outfits = OutfitWrites(driver)

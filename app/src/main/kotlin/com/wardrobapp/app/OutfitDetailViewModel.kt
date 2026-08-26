@@ -63,16 +63,6 @@ class OutfitDetailViewModel(
          */
         @StringRes val errorFallback: Int? = null,
         val working: Boolean = false,
-        /** A card being composed into a file, which takes a moment. */
-        val composingCard: Boolean = false,
-        /**
-         * The written card, waiting to be handed to a share sheet.
-         *
-         * Held rather than acted on because starting an activity is the screen's
-         * business, not a model's -- and cleared as soon as the screen has done it,
-         * so coming back to this outfit does not re-open the sheet.
-         */
-        val cardToShare: String? = null,
         val confirmingDelete: Boolean = false,
         /** Set once it is gone, so the screen showing it can leave. */
         val deleted: Boolean = false,
@@ -187,53 +177,4 @@ class OutfitDetailViewModel(
             }
         }
     }
-
-    /**
-     * Compose this outfit into an image and hand back where it was written.
-     *
-     * The drawing and the writing are both slow enough to matter -- several photos
-     * decoded and a 1080-wide canvas encoded -- so both happen off the main
-     * thread, and the screen shows that it is working meanwhile.
-     *
-     * The background colour is handed in because it belongs to the theme the app
-     * is drawing with, which a model cannot see: a card shared out of the dark
-     * theme should not arrive on a light ground.
-     */
-    fun onShareRequested(background: Int) {
-        if (_state.value.composingCard) return
-
-        val garments = _state.value.garments
-        if (garments.isEmpty()) return
-
-        _state.update { it.copy(composingCard = true, error = null, errorFallback = null) }
-
-        viewModelScope.launch {
-            try {
-                val written = withContext(Dispatchers.IO) {
-                    container.cards.write(garments, background)
-                }
-
-                _state.update {
-                    it.copy(
-                        composingCard = false,
-                        // Null when no garment in the outfit belongs anywhere on a
-                        // card. Nothing to share, and nothing worth an error either.
-                        cardToShare = written,
-                        errorFallback = if (written == null) R.string.error_card_empty else null,
-                    )
-                }
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        composingCard = false,
-                        error = e.message,
-                        errorFallback = R.string.error_card_not_written,
-                    )
-                }
-            }
-        }
-    }
-
-    /** The sheet has been offered; the address has served its purpose. */
-    fun onShared() = _state.update { it.copy(cardToShare = null) }
 }
