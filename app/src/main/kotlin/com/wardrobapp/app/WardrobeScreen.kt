@@ -28,7 +28,6 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -116,7 +115,6 @@ fun WardrobeScreen(
     onGarmentOpened: (String) -> Unit,
     onAddRequested: () -> Unit,
     onBulkAddRequested: () -> Unit,
-    onSettingsRequested: () -> Unit,
     onFiltersToggled: () -> Unit,
     onFiltersCleared: () -> Unit,
     onBrandTapped: (String) -> Unit,
@@ -136,9 +134,6 @@ fun WardrobeScreen(
                 actions = {
                     ViewMenu(current = state.view, onSelected = onViewSelected)
                     AddMenu(onBulkAddRequested)
-                    IconButton(onClick = onSettingsRequested) {
-                        Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.action_settings))
-                    }
                 },
             )
         },

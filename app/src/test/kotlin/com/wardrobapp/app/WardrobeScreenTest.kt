@@ -85,7 +85,6 @@ class WardrobeScreenTest {
                 onGarmentOpened = {},
                 onAddRequested = {},
                 onBulkAddRequested = {},
-                onSettingsRequested = {},
                 onFiltersToggled = {},
                 onFiltersCleared = {},
                 onBrandTapped = onBrandTapped,
