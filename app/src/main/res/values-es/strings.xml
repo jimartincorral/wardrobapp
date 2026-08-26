@@ -550,6 +550,7 @@
     <string name="bulk_add_save">Guardar y siguiente</string>
     <string name="bulk_add_skip">Omitir esta foto</string>
     <string name="bulk_add_done">Hecho</string>
+    <string name="bulk_add_crop">Recortar</string>
     <string name="bulk_add_brand">Marca (opcional)</string>
     <plurals name="bulk_add_finished">
         <item quantity="one">%d prenda añadida.</item>

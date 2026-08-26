@@ -50,6 +50,8 @@ class BulkAddViewModel(private val container: AppContainer) : ViewModel() {
         val importing: Boolean = false,
         /** A garment being written. */
         val saving: Boolean = false,
+        /** A background being cut out of the garment on screen. */
+        val removingBackground: Boolean = false,
         val error: String? = null,
         @StringRes val errorFallback: Int? = null,
     )
@@ -115,12 +117,12 @@ class BulkAddViewModel(private val container: AppContainer) : ViewModel() {
      * whose colour was not read is still a garment, and this screen's whole point
      * is not stopping to ask.
      */
-    private fun detectColors(imageUri: String) {
+    private fun detectColors(readFrom: String) {
         viewModelScope.launch {
             val detected = try {
                 withContext(Dispatchers.IO) {
                     container.photos
-                        .pixelsFor(imageUri.toUri(), COLOR_SAMPLE_WIDTH)
+                        .pixelsFor(readFrom.toUri(), COLOR_SAMPLE_WIDTH)
                         ?.let { dominantGarmentColors(it) }
                 }
             } catch (_: Exception) {
@@ -128,7 +130,7 @@ class BulkAddViewModel(private val container: AppContainer) : ViewModel() {
             }
 
             if (detected != null) {
-                _state.update { it.copy(queue = it.queue.withDetectedColors(imageUri, detected)) }
+                _state.update { it.copy(queue = it.queue.withDetectedColors(readFrom, detected)) }
             }
         }
     }
@@ -142,6 +144,127 @@ class BulkAddViewModel(private val container: AppContainer) : ViewModel() {
 
     fun onBrandChanged(brand: String) =
         _state.update { it.copy(queue = it.queue.withBrand(brand)) }
+
+    /**
+     * Store a re-cropped photo in place of the one it was cropped from.
+     *
+     * The crop screen writes to a scratch file that the next crop overwrites, so
+     * the result is copied into the app's own storage before it is pointed at --
+     * the same journey a picked photo makes. The photo it replaces is deleted
+     * because nothing else refers to it: the draft is the only thing that did.
+     */
+    fun onPhotoCropped(source: Uri) {
+        val draft = _state.value.queue.current ?: return
+
+        _state.update { it.copy(saving = true, error = null, errorFallback = null) }
+
+        viewModelScope.launch {
+            try {
+                val stored = withContext(Dispatchers.IO) {
+                    val ref = resolveImageRef(
+                        container.photos.store(source, UUID.randomUUID().toString()),
+                        container.imageDirectory,
+                    )
+                    // Only after the new file exists: a delete first and a failure
+                    // second would leave the draft pointing at nothing.
+                    container.photos.delete(draft.imageUri)
+                    draft.cutoutUri.takeIf { it.isNotEmpty() }?.let(container.photos::delete)
+                    ref
+                }
+
+                _state.update {
+                    it.copy(
+                        saving = false,
+                        queue = it.queue.withPhotoReplaced(draft.imageUri, stored),
+                    )
+                }
+                // A crop is a different set of pixels, so the colours read off the
+                // old framing are an answer about a photo that no longer exists.
+                detectColors(stored)
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        saving = false,
+                        error = e.message,
+                        errorFallback = R.string.error_photo_not_imported,
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * The crop screen failed.
+     *
+     * Backing out of it is not a failure -- it means the photo is fine as it is --
+     * so only a real error says anything, and the draft keeps the photo it had.
+     */
+    fun onCropFailed() = _state.update {
+        it.copy(errorFallback = R.string.error_photo_not_imported)
+    }
+
+    /** Cut the garment on screen out of its background. */
+    fun onRemoveBackground() {
+        val draft = _state.value.queue.current ?: return
+        if (_state.value.removingBackground) return
+
+        _state.update { it.copy(removingBackground = true, error = null, errorFallback = null) }
+
+        viewModelScope.launch {
+            try {
+                val cutout = withContext(Dispatchers.IO) {
+                    resolveImageRef(
+                        container.backgrounds.removeBackground(
+                            draft.imageUri.toUri(),
+                            UUID.randomUUID().toString(),
+                        ),
+                        container.imageDirectory,
+                    )
+                }
+
+                _state.update {
+                    it.copy(
+                        removingBackground = false,
+                        queue = it.queue.withCutout(draft.imageUri, cutout),
+                    )
+                }
+                // The cut-out is a better photo of the same garment: only the
+                // garment's own pixels are left in it, so its colours are worth
+                // reading again. The form does this for the same reason.
+                detectColors(cutout)
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        removingBackground = false,
+                        error = e.message,
+                        errorFallback = R.string.error_background_not_removed,
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Put the original photo back.
+     *
+     * The cut-out file goes with it. Unlike the form, there is never a question of
+     * whose it is: a draft's cut-out was written for this queue and nothing has a
+     * row pointing at it yet.
+     */
+    fun onUndoBackground() {
+        val draft = _state.value.queue.current ?: return
+        if (draft.cutoutUri.isEmpty()) return
+
+        _state.update { it.copy(queue = it.queue.withCutoutCleared(draft.imageUri)) }
+
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                runCatching { container.photos.delete(draft.cutoutUri) }
+            }
+            // Back to the photo's own colours, which are not the cut-out's.
+            detectColors(draft.imageUri)
+        }
+    }
 
     /** Write the garment on screen, then move on. */
     fun onSaveRequested() {
@@ -181,7 +304,10 @@ class BulkAddViewModel(private val container: AppContainer) : ViewModel() {
 
         viewModelScope.launch {
             try {
-                withContext(Dispatchers.IO) { container.photos.delete(draft.imageUri) }
+                withContext(Dispatchers.IO) {
+                    container.photos.delete(draft.imageUri)
+                    draft.cutoutUri.takeIf { it.isNotEmpty() }?.let(container.photos::delete)
+                }
             } catch (_: Exception) {
                 // A file left behind is not worth stopping for, and Optimize
                 // storage sweeps photos nothing points at.
@@ -196,13 +322,19 @@ class BulkAddViewModel(private val container: AppContainer) : ViewModel() {
     internal fun write(draft: BulkAddState.Draft) {
         val now = isoTimestamp(System.currentTimeMillis())
 
+        // A cut-out is stored in both columns and the original let go -- saving
+        // space is the whole point of removing a background, and keeping both would
+        // mean every removal costing more storage rather than less. The rule is the
+        // form's, delegated rather than restated.
+        val images = draft.imagesToStore()
+
         container.garmentWrites.insert(
             GarmentWrites.NewGarment(
                 id = UUID.randomUUID().toString(),
-                imageUri = draft.imageUri,
-                imageUriNoBg = null,
-                imageUris = listOf(draft.imageUri),
-                imageUrisNoBg = listOf(""),
+                imageUri = images.imageUris.first(),
+                imageUriNoBg = images.bgRemovedUris.firstOrNull()?.ifEmpty { null },
+                imageUris = images.imageUris,
+                imageUrisNoBg = images.bgRemovedUris,
                 category = draft.category,
                 subcategories = draft.subcategories,
                 // Seasons are stored as tags, the way the form stores them and the
@@ -216,5 +348,11 @@ class BulkAddViewModel(private val container: AppContainer) : ViewModel() {
                 now = now,
             )
         )
+
+        // Only after the row is written: deleting sooner would break a garment
+        // whose write then failed.
+        for (orphan in images.discardable) {
+            container.photos.delete(orphan)
+        }
     }
 }

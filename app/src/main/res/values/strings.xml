@@ -565,6 +565,7 @@
     <string name="bulk_add_save">Save and next</string>
     <string name="bulk_add_skip">Skip this photo</string>
     <string name="bulk_add_done">Done</string>
+    <string name="bulk_add_crop">Crop</string>
     <string name="bulk_add_brand">Brand (optional)</string>
     <plurals name="bulk_add_finished">
         <item quantity="one">%d garment added.</item>

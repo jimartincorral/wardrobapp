@@ -38,12 +38,36 @@ data class BulkAddState(
     data class Draft(
         /** The stored photo, resolved to something drawable. */
         val imageUri: String,
+        /**
+         * The cut-out of [imageUri], or "" where there is none.
+         *
+         * Both are kept while the draft is on screen so that removing a background
+         * can be undone. The collapse at write time is the form's rule, not a
+         * second one -- see [imagesToStore].
+         */
+        val cutoutUri: String = "",
         val category: String = DEFAULT_CATEGORY,
         val subcategories: List<String> = emptyList(),
         val seasons: List<Season> = emptyList(),
         val brand: String = "",
         val colorPalette: List<String> = listOf(GarmentFormState.DEFAULT_COLOR),
-    )
+    ) {
+        /** What to draw, and what to read colours from: the cut-out where there is one. */
+        val displayUri: String get() = cutoutUri.ifEmpty { imageUri }
+
+        /**
+         * What this draft's photo columns should hold, and what is left over.
+         *
+         * Delegated to the form's own rule rather than restated: a cut-out is
+         * stored in both columns and the original let go, and both mistakes there
+         * are silent ones -- discard a file something still points at and the
+         * garment shows a gap, miss one and it sits on the phone forever.
+         */
+        fun imagesToStore(): GarmentFormState.ImagesToStore = GarmentFormState(
+            imageUris = listOf(imageUri),
+            bgRemovedUris = listOf(cutoutUri),
+        ).imagesToStore()
+    }
 
     /** The draft being filled in, or null when the queue has drained. */
     val current: Draft? get() = drafts.firstOrNull()
@@ -100,15 +124,46 @@ data class BulkAddState(
      * -- a photo with nothing countable in it -- change nothing rather than
      * emptying the palette.
      */
-    fun withDetectedColors(imageUri: String, colors: List<String>): BulkAddState {
+    fun withDetectedColors(readFrom: String, colors: List<String>): BulkAddState {
         if (colors.isEmpty()) return this
 
         return copy(
             drafts = drafts.map { draft ->
-                if (draft.imageUri == imageUri) draft.copy(colorPalette = colors) else draft
+                // Against what the draft is *now* showing: a background removed
+                // while detection ran makes the answer it came back with an answer
+                // about the wrong pixels, and a cut-out's colours are the better
+                // ones anyway.
+                if (draft.displayUri == readFrom) draft.copy(colorPalette = colors) else draft
             },
         )
     }
+
+    /**
+     * A photo re-cropped.
+     *
+     * Keyed on the photo it replaces, and it clears that photo's cut-out: the
+     * cut-out was of the uncropped photo, so it no longer describes what is there.
+     * The form clears it for the same reason when a photo is replaced.
+     */
+    fun withPhotoReplaced(previous: String, next: String): BulkAddState = copy(
+        drafts = drafts.map { draft ->
+            if (draft.imageUri == previous) {
+                draft.copy(imageUri = next, cutoutUri = "")
+            } else {
+                draft
+            }
+        },
+    )
+
+    /** A background removed from one photo. Keyed, because removal is slow. */
+    fun withCutout(imageUri: String, cutoutUri: String): BulkAddState = copy(
+        drafts = drafts.map { draft ->
+            if (draft.imageUri == imageUri) draft.copy(cutoutUri = cutoutUri) else draft
+        },
+    )
+
+    /** A removal undone: the photo goes back to being what is drawn. */
+    fun withCutoutCleared(imageUri: String): BulkAddState = withCutout(imageUri, "")
 
     /** The draft on screen was saved. */
     fun advanced(): BulkAddState =
