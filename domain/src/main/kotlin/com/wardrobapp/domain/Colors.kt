@@ -221,11 +221,49 @@ fun isLoudColor(hex: String): Boolean {
     return hypot(lab.a, lab.b) >= NEUTRAL_CHROMA
 }
 
-fun colorHarmonyScore(hex1: String, hex2: String): Double = when (colorRelationship(hex1, hex2)) {
+fun defaultColorHarmonyScore(relationship: ColorRelationship): Double = when (relationship) {
     ColorRelationship.SAME -> 0.3 // Works, but reads as unconsidered.
     ColorRelationship.NEUTRAL -> 0.5
     ColorRelationship.ANALOGOUS -> 0.6
     ColorRelationship.NEAR_MISS -> 0.2 // Close enough to look accidental rather than chosen.
     ColorRelationship.CONTRASTING -> 0.7
     ColorRelationship.UNKNOWN -> 0.0 // No information is not the same as a good match.
+}
+
+/**
+ * How well two colours go together, for this wardrobe's owner.
+ *
+ * The numbers above are one view of colour, and it is not everybody's: told that
+ * two shades of the same colour "read as unconsidered", somebody who dresses in
+ * monochrome is being argued with by their own wardrobe. So a rating teaches this
+ * too, and what a kind of pairing is worth here is the default moved towards what
+ * outfits built on it were actually rated.
+ *
+ * Moved rather than replaced, by [learningConfidence]: one five-star outfit is
+ * not an aesthetic, and the defaults are a reasonable prior to keep most of until
+ * there is evidence against them. With no evidence at all this returns exactly
+ * what it returned before any of this existed.
+ *
+ * UNKNOWN is never learned about. It means one of the colours could not be read,
+ * and how outfits containing an unreadable colour were rated says nothing about
+ * colour.
+ */
+fun colorHarmonyScore(
+    hex1: String,
+    hex2: String,
+    learned: (ColorRelationship) -> LearnedScore? = { null },
+): Double {
+    val relationship = colorRelationship(hex1, hex2)
+    val base = defaultColorHarmonyScore(relationship)
+
+    if (relationship == ColorRelationship.UNKNOWN) return base
+
+    val evidence = learned(relationship) ?: return base
+    val confidence = learningConfidence(evidence.count)
+
+    // The learned score runs -1..+1; harmony runs 0..1, so it is mapped across
+    // before the two are blended.
+    val target = (evidence.score + 1) / 2
+
+    return base * (1 - confidence) + target * confidence
 }

@@ -1,5 +1,7 @@
 package com.wardrobapp.data
 
+import com.wardrobapp.domain.ColorRelationship
+import com.wardrobapp.domain.colorHarmonyScore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -510,6 +512,139 @@ class WritePathsTest {
             assertNotNull(other, schema)
             assertEquals("Two", other.name, schema)
             assertEquals(listOf("b"), other.garmentIds, schema)
+        }
+    }
+
+    @Test
+    fun `rating an outfit teaches each garment its own record`() {
+        // What a pair score cannot express: a garment that keeps turning up in
+        // outfits rated badly is one to reach for less, whatever it is next to.
+        eachSchema { schema, driver, _, writes ->
+            writes.insert(newGarment("a"))
+            writes.insert(newGarment("b", category = "bottoms"))
+
+            val outfits = OutfitWrites(driver)
+            outfits.insert(id = "o1", name = "Fit", garmentIds = listOf("a", "b"), now = now)
+            outfits.rate(ratingId = "r1", outfitId = "o1", rating = 5, now = now)
+
+            val learned = OutfitQueries(driver).learnedPreferences()
+            assertNotNull(learned.garment("a"), schema)
+            assertTrue(learned.garment("a")!!.score > 0, "a five-star outfit taught nothing: $schema")
+            assertEquals(1, learned.garment("b")?.count, schema)
+        }
+    }
+
+    @Test
+    fun `a low rating teaches a dislike rather than nothing`() {
+        eachSchema { schema, driver, _, writes ->
+            writes.insert(newGarment("a"))
+            writes.insert(newGarment("b", category = "bottoms"))
+
+            val outfits = OutfitWrites(driver)
+            outfits.insert(id = "o1", name = "Fit", garmentIds = listOf("a", "b"), now = now)
+            outfits.rate(ratingId = "r1", outfitId = "o1", rating = 1, now = now)
+
+            assertTrue(
+                OutfitQueries(driver).learnedPreferences().garment("a")!!.score < 0,
+                "a one-star outfit did not teach a dislike: $schema",
+            )
+        }
+    }
+
+    @Test
+    fun `correcting a rating is one opinion, not two`() {
+        // The count is what confidence is built on, so a rating changed from 1 to
+        // 5 must leave one rating's worth of evidence behind it.
+        eachSchema { schema, driver, _, writes ->
+            writes.insert(newGarment("a"))
+            writes.insert(newGarment("b", category = "bottoms"))
+
+            val outfits = OutfitWrites(driver)
+            outfits.insert(id = "o1", name = "Fit", garmentIds = listOf("a", "b"), now = now)
+            outfits.rate(ratingId = "r1", outfitId = "o1", rating = 1, now = now)
+            outfits.rate(ratingId = "r2", outfitId = "o1", rating = 5, now = now)
+
+            val learned = OutfitQueries(driver).learnedPreferences().garment("a")
+            assertEquals(1, learned?.count, schema)
+            assertTrue(learned!!.score > 0, "the correction did not take: $schema")
+        }
+    }
+
+    @Test
+    fun `rating an outfit teaches what its colours were doing`() {
+        // Two shades of navy is a SAME pairing; rating it well is what stops the
+        // app telling a monochrome dresser that their outfit reads as
+        // unconsidered.
+        eachSchema { schema, driver, _, writes ->
+            writes.insert(newGarment("a", colorPrimary = "#1B2A4A"))
+            writes.insert(newGarment("b", category = "bottoms", colorPrimary = "#1B2A4A"))
+
+            val outfits = OutfitWrites(driver)
+            outfits.insert(id = "o1", name = "Fit", garmentIds = listOf("a", "b"), now = now)
+            outfits.rate(ratingId = "r1", outfitId = "o1", rating = 5, now = now)
+
+            val learned = OutfitQueries(driver).learnedPreferences()
+            val same = learned.colorRelationship(ColorRelationship.SAME)
+            assertNotNull(same, "nothing was learned about the pairing: $schema")
+            assertTrue(same.score > 0, schema)
+
+            // And it reaches the judgement, which is the point of storing it.
+            assertTrue(
+                colorHarmonyScore("#1B2A4A", "#1B2A4A", learned.colorRelationship) >
+                    colorHarmonyScore("#1B2A4A", "#1B2A4A"),
+                "the learned pairing did not change what it is worth: $schema",
+            )
+        }
+    }
+
+    @Test
+    fun `an unreadable colour teaches nothing about colour`() {
+        // A garment whose colour will not parse says nothing about pairings, and
+        // must not pile evidence onto UNKNOWN.
+        eachSchema { schema, driver, _, writes ->
+            writes.insert(newGarment("a", colorPrimary = "not-a-colour"))
+            writes.insert(newGarment("b", category = "bottoms", colorPrimary = "#1B2A4A"))
+
+            val outfits = OutfitWrites(driver)
+            outfits.insert(id = "o1", name = "Fit", garmentIds = listOf("a", "b"), now = now)
+            outfits.rate(ratingId = "r1", outfitId = "o1", rating = 5, now = now)
+
+            assertNull(
+                OutfitQueries(driver).learnedPreferences()
+                    .colorRelationship(ColorRelationship.UNKNOWN),
+                schema,
+            )
+        }
+    }
+
+    @Test
+    fun `a wardrobe nobody has rated has taught nothing`() {
+        // The engine has to behave exactly as it did before any of this on a fresh
+        // install, and that is only true if the lookups answer null.
+        eachSchema { schema, driver, _, writes ->
+            writes.insert(newGarment("a"))
+
+            val learned = OutfitQueries(driver).learnedPreferences()
+            assertNull(learned.garment("a"), schema)
+            assertNull(learned.colorRelationship(ColorRelationship.SAME), schema)
+        }
+    }
+
+    @Test
+    fun `deleting a garment takes its own score with it`() {
+        eachSchema { schema, driver, _, writes ->
+            writes.insert(newGarment("a"))
+            writes.insert(newGarment("b", category = "bottoms"))
+
+            val outfits = OutfitWrites(driver)
+            outfits.insert(id = "o1", name = "Fit", garmentIds = listOf("a", "b"), now = now)
+            outfits.rate(ratingId = "r1", outfitId = "o1", rating = 5, now = now)
+
+            writes.delete("a")
+
+            val learned = OutfitQueries(driver).learnedPreferences()
+            assertNull(learned.garment("a"), schema)
+            assertNotNull(learned.garment("b"), "the wrong garment's score was deleted: $schema")
         }
     }
 

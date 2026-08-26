@@ -1,5 +1,8 @@
 package com.wardrobapp.data
 
+import com.wardrobapp.domain.ColorRelationship
+import com.wardrobapp.domain.LearnedPreferences
+import com.wardrobapp.domain.LearnedScore
 import com.wardrobapp.domain.PairScoreLookup
 import com.wardrobapp.domain.pairKey
 
@@ -78,5 +81,46 @@ class OutfitQueries(private val driver: SqlDriver) {
             }
 
         return PairScoreLookup { a, b -> scores[pairKey(a, b)] ?: 0.0 }
+    }
+
+    /**
+     * Everything else ratings have taught, as the lookups the engine asks.
+     *
+     * Read whole and closed over rather than queried per garment: the engine asks
+     * about a garment once per candidate per slot per draw, which is thousands of
+     * questions for a batch of five outfits, and a query each would make
+     * generating suggestions a visible pause.
+     *
+     * A relationship name this build does not recognise is ignored rather than
+     * failing the read -- a row from a newer build, restored into an older one.
+     */
+    fun learnedPreferences(): LearnedPreferences {
+        val garments = driver
+            .query("SELECT garment_id, score, rating_count FROM garment_scores")
+            .associate { row ->
+                jsString(row["garment_id"]) to LearnedScore(
+                    score = (row["score"] as Number).toDouble(),
+                    count = (row["rating_count"] as Number).toInt(),
+                )
+            }
+
+        val colors = driver
+            .query("SELECT relationship, score, rating_count FROM color_harmony_scores")
+            .mapNotNull { row ->
+                val relationship = ColorRelationship.entries
+                    .find { it.name == jsString(row["relationship"]) }
+                    ?: return@mapNotNull null
+
+                relationship to LearnedScore(
+                    score = (row["score"] as Number).toDouble(),
+                    count = (row["rating_count"] as Number).toInt(),
+                )
+            }
+            .toMap()
+
+        return LearnedPreferences(
+            garment = { id -> garments[id] },
+            colorRelationship = { relationship -> colors[relationship] },
+        )
     }
 }

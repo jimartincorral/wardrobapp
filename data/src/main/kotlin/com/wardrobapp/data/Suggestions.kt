@@ -82,6 +82,7 @@ class Suggestions(
             SuggestionContext(
                 garments = available.map { it.toDomain() },
                 getPairScore = outfits.pairScores(),
+                learned = outfits.learnedPreferences(),
                 currentSeason = currentSeason,
                 random = random,
             ),

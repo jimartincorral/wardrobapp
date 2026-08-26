@@ -282,6 +282,15 @@ private fun contextScore(
 data class OutfitScore(
     val total: Double,
     val learnedPairs: Double,
+    /**
+     * How the garments themselves have been rated, whatever they were worn with.
+     *
+     * Zero for an outfit of garments nobody has rated, rather than negative:
+     * absence of evidence is not a complaint. Can be negative for garments that
+     * keep turning up in outfits rated badly, which is the point -- a pair score
+     * only knows about combinations somebody has already been shown.
+     */
+    val garmentAffinity: Double,
     val season: Double,
     val occasion: Double,
     val coherence: Double,
@@ -301,6 +310,7 @@ internal fun scoreOutfit(
     getPairScore: PairScoreLookup,
     currentSeason: Season,
     preferences: SuggestionPreferences?,
+    learned: LearnedPreferences = LearnedPreferences.NONE,
 ): OutfitScore {
     // Pair scores from learning
     var pairTotal = 0.0
@@ -312,7 +322,7 @@ internal fun scoreOutfit(
         }
     }
     // Weight learned preferences heavily.
-    val learned = if (pairCount > 0) (pairTotal / pairCount) * 3 else 0.0
+    val learnedScore = if (pairCount > 0) (pairTotal / pairCount) * 3 else 0.0
 
     // Season and occasion, each counted exactly once. Season used to be added
     // here at weight 1.0 and again inside contextScore at weight 1.2, giving it
@@ -331,11 +341,23 @@ internal fun scoreOutfit(
     var harmonyCount = 0
     for (i in garments.indices) {
         for (j in i + 1 until garments.size) {
-            harmonyTotal += colorHarmonyScore(garments[i].primaryColor, garments[j].primaryColor)
+            harmonyTotal += colorHarmonyScore(
+                garments[i].primaryColor,
+                garments[j].primaryColor,
+                learned.colorRelationship,
+            )
             harmonyCount++
         }
     }
     val harmony = if (harmonyCount > 0) (harmonyTotal / harmonyCount) * 1.5 else 0.0
+
+    // What the garments are worth on their own. Averaged rather than summed so a
+    // five-garment outfit is not favoured over a three-garment one for having
+    // more chances to be liked, and damped by how little is known about each --
+    // a garment nobody has rated contributes nothing rather than dragging the
+    // outfit down.
+    val affinity = garments.map { learned.garment(it.id)?.trusted ?: 0.0 }.average() *
+        GARMENT_AFFINITY_WEIGHT
 
     // The one term that subtracts. Harmony is an average over pairs and cannot
     // see how many loud colours there are in total, only how each pair of them
@@ -343,8 +365,9 @@ internal fun scoreOutfit(
     val loud = -excessLoudColours(garments) * LOUD_COLOUR_PENALTY
 
     return OutfitScore(
-        total = learned + season + occasion + coherence + harmony + loud,
-        learnedPairs = learned,
+        total = learnedScore + affinity + season + occasion + coherence + harmony + loud,
+        learnedPairs = learnedScore,
+        garmentAffinity = affinity,
         season = season,
         occasion = occasion,
         coherence = coherence,
@@ -392,7 +415,10 @@ fun outfitReasons(score: OutfitScore, limit: Int = 2): List<OutfitReason> = list
     // Learned pairs have no ceiling -- a rating folds into a running average that
     // sits within about 0.5 either way, so 3x that is around 1.5 -- and being
     // rated well at all is the strongest thing that can be said about an outfit.
-    OutfitReason.LEARNED to score.learnedPairs.takeIf { it > 0.3 },
+    // Both learned signals, as one claim: "you have rated these well" is one
+    // thing to a reader, and saying it twice would push a real second reason off
+    // a line that only holds two.
+    OutfitReason.LEARNED to (score.learnedPairs + score.garmentAffinity).takeIf { it > 0.3 },
     OutfitReason.COLOURS to score.harmony.takeIf { it >= 1.5 * REASON_THRESHOLD },
     OutfitReason.OCCASION to score.occasion.takeIf { it >= 1.2 * REASON_THRESHOLD },
     OutfitReason.SEASON to score.season.takeIf { it >= 1.0 * REASON_THRESHOLD },
@@ -419,6 +445,16 @@ private const val LOUD_COLOUR_ALLOWANCE = 2
 
 /** What a loud colour past the allowance costs. */
 private const val LOUD_COLOUR_PENALTY = 0.8
+
+/**
+ * How much a garment's own record counts.
+ *
+ * Below the weight on a learned *pair* (3), because a pair is the more specific
+ * claim: "these two work together" says more than "you tend to like this shirt".
+ * Level with season and coherence, which is about right -- a signal that should
+ * tilt a close call rather than decide one on its own.
+ */
+private const val GARMENT_AFFINITY_WEIGHT = 1.0
 
 /** How many colours past the allowance an outfit shouts in. */
 private fun excessLoudColours(garments: List<Garment>): Int =
@@ -460,6 +496,7 @@ private fun pickBestFit(
     currentSeason: Season,
     random: () -> Double,
     preferences: SuggestionPreferences?,
+    learned: LearnedPreferences,
 ): Garment {
     var bestScore = Double.NEGATIVE_INFINITY
     var tied = mutableListOf<Garment>()
@@ -470,7 +507,13 @@ private fun pickBestFit(
 
     for (candidate in available) {
         val pairScoreSum = selected.sumOf { getPairScore.score(candidate.id, it.id) }
-        val harmony = selected.sumOf { colorHarmonyScore(candidate.primaryColor, it.primaryColor) }
+        val harmony = selected.sumOf {
+            colorHarmonyScore(candidate.primaryColor, it.primaryColor, learned.colorRelationship)
+        }
+        // A garment's own record steers the build as well as the ranking: a
+        // garment that keeps appearing in outfits rated badly should be reached
+        // for less often, not merely scored down once it is already in.
+        val affinity = learned.garment(candidate.id)?.trusted ?: 0.0
 
         // Counted per garment already chosen, the way harmony is, so a candidate
         // that suits three of them beats one that suits one. Weighted a little
@@ -487,7 +530,7 @@ private fun pickBestFit(
         val wouldShout = excessLoudColours(selected + candidate) -
             excessLoudColours(selected)
 
-        val total = pairScoreSum + harmony + coherence -
+        val total = pairScoreSum + harmony + coherence + affinity -
             wouldShout * LOUD_COLOUR_PENALTY +
             contextScore(candidate, currentSeason, preferences) * 1.5
 
@@ -544,6 +587,14 @@ data class SuggestionContext(
     val garments: List<Garment>,
     /** Learned affinity for a garment pair, in either order. */
     val getPairScore: PairScoreLookup,
+    /**
+     * What else ratings have taught: a garment's own record, and which kinds of
+     * colour pairing this wardrobe's owner actually likes.
+     *
+     * Defaulted to knowing nothing, so a caller that has not wired it up gets
+     * exactly the engine that existed before it did.
+     */
+    val learned: LearnedPreferences = LearnedPreferences.NONE,
     /** Season assumed when the user has not selected one. */
     val currentSeason: Season,
     /** Source of randomness, injected so a run can be reproduced. */
@@ -564,6 +615,7 @@ fun buildSuggestions(
     val seedGarments = options.seedGarments
     val garments = context.garments
     val getPairScore = context.getPairScore
+    val learned = context.learned
     val currentSeason = context.currentSeason
     val random = context.random
 
@@ -628,7 +680,15 @@ fun buildSuggestions(
             // exactly once, so the random sequence does not depend on which one
             // is taken.
             val picked = if (random() < 0.8 && selected.isNotEmpty()) {
-                pickBestFit(available, selected, getPairScore, currentSeason, random, preferences)
+                pickBestFit(
+                    available,
+                    selected,
+                    getPairScore,
+                    currentSeason,
+                    random,
+                    preferences,
+                    learned,
+                )
             } else {
                 pickWeightedAtRandom(available, currentSeason, random, preferences)
             }
@@ -639,7 +699,7 @@ fun buildSuggestions(
 
         if (selected.isEmpty()) continue
 
-        val score = scoreOutfit(selected, getPairScore, currentSeason, preferences)
+        val score = scoreOutfit(selected, getPairScore, currentSeason, preferences, learned)
         val name = outfitNameFrom(selected.map { garmentLabelFor(it.category, it.subcategory) })
         candidates.add(
             ScoredOutfit(

@@ -170,6 +170,10 @@ class GarmentWrites(private val driver: SqlDriver) {
             "DELETE FROM garment_pair_scores WHERE garment_id_a = ? OR garment_id_b = ?",
             listOf(id, id),
         )
+        // Its own learned score goes the same way its pair scores do: a row
+        // keyed on a garment that no longer exists is one nothing will ever ask
+        // about again, and a backup should not carry it forever.
+        driver.execute("DELETE FROM garment_scores WHERE garment_id = ?", listOf(id))
         OutfitWrites(driver).removeGarment(id)
 
         photos

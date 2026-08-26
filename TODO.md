@@ -22,6 +22,10 @@ One app now: the Kotlin one. Anything below is built once.
 - Bulk add: several photos in, a queue that asks each one for a category, cropping
   and background removal offered per garment, and a garment written per
   confirmation.
+- Learning more than pairs from a rating: each garment's own record, and which
+  kinds of colour pairing this wardrobe's owner actually likes, both blended
+  towards the built-in defaults in proportion to the evidence behind them. The
+  personalization half of Recommendation v2.
 - Outfits built by hand and outfits changed afterwards: one screen for both, with
   the wardrobe to pick from grouped by category, a name that falls back to what is
   in the outfit, and what the outfit is for.
@@ -67,11 +71,10 @@ One app now: the Kotlin one. Anything below is built once.
   - [ ] View upcoming planned outfits
 - [ ] Restore preview: show what an archive contains before replacing anything.
       The validation it would read from already exists.
-- [ ] Recommendation engine v2, what is left of it:
-  - [ ] Better personalization signals — ratings are cheap to give now that rating
-        no longer forces a save, so this is a question of what else to learn from
-        rather than of how to collect it
-  - [ ] Context-aware constraints, minus the "recent wear" half
+- [ ] Context-aware constraints, what is left of them: with the wear log gone,
+      "not worn recently" is out for good, and what remains each needs a decision
+      first -- a temperature band (see Weather, below) or a planned-outfit lookup
+      (see the calendar, above). Nothing is unblocked here today.
 - [ ] Weather, if it is wanted: there is no weather concept anywhere, not a field
       and not a constant, and `season` may be enough. A temperature band per
       garment plus one tap for "cold today" would keep this local-first; a forecast
@@ -92,9 +95,11 @@ One app now: the Kotlin one. Anything below is built once.
 ## Suggested build order
 
 1. Restore preview, which needs nothing new.
-2. Recommendation v2's remaining half.
-3. The planning calendar, now that an outfit can be put together by hand.
-4. Cloud sync and the schedule with it, once there is a keystore.
+2. The planning calendar, now that an outfit can be put together by hand.
+3. Cloud sync and the schedule with it, once there is a keystore.
+
+What is left of the recommendation engine is waiting on product decisions rather
+than on work: a temperature band, or a calendar to ask what is already planned.
 
 The cutover to Kotlin is done, so each of these is built once. What is left of it
 is a keystore: see Signing in the README.
