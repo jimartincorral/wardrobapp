@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.net.Uri
 import androidx.core.content.FileProvider
+import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.presentation.CARD_ASPECT_HEIGHT
@@ -65,7 +66,9 @@ internal fun outfitCardBitmap(
     val placements = outfitCardLayout(garments)
     if (placements.isEmpty()) return null
 
-    val card = Bitmap.createBitmap(CARD_WIDTH, CARD_HEIGHT, Bitmap.Config.ARGB_8888)
+    // The KTX factory, which lint asks for; ARGB_8888 is its default, and the
+    // alpha matters: a cut-out garment is transparent where its background was.
+    val card = createBitmap(CARD_WIDTH, CARD_HEIGHT)
     val canvas = Canvas(card)
     canvas.drawColor(background)
 
