@@ -90,12 +90,17 @@ class OutfitSuggestionsTest {
         garments: List<Garment>,
         pairScores: Map<String, Double> = emptyMap(),
         preferences: SuggestionPreferences? = null,
+        learned: LearnedPreferences = LearnedPreferences.NONE,
     ): OutfitScore = scoreOutfit(
         garments = garments,
         getPairScore = PairScoreLookup { a, b -> pairScores[pairKey(a, b)] ?: 0.0 },
         currentSeason = Season.SPRING,
         preferences = preferences,
+        learned = learned,
     )
+
+    /** A garment score with enough evidence behind it to be acted on. */
+    private fun settled(score: Double, count: Int = 40) = LearnedScore(score, count)
 
     @Test
     fun `an empty wardrobe suggests nothing`() {
@@ -532,5 +537,136 @@ class OutfitSuggestionsTest {
                 "draw $i: expected ${expected[i]}, got ${drawn[i]}",
             )
         }
+    }
+
+    // ---- what a rating teaches beyond the pair it was given to ---------------
+
+    @Test
+    fun `a garment nobody has rated is not held against its outfit`() {
+        // Absence of evidence is not a complaint. This is the whole reason the
+        // term is damped by confidence rather than being a plain average.
+        val garments = listOf(garment("a", "tops"), garment("b", "bottoms"))
+
+        assertEquals(0.0, breakdownOf(garments).garmentAffinity, 1e-9)
+    }
+
+    @Test
+    fun `a garment rated well lifts the outfits it is in`() {
+        val garments = listOf(garment("a", "tops"), garment("b", "bottoms"))
+        val liked = LearnedPreferences(garment = { id -> settled(1.0).takeIf { id == "a" } })
+
+        assertTrue(breakdownOf(garments, learned = liked).total > breakdownOf(garments).total)
+    }
+
+    @Test
+    fun `a garment rated badly costs the outfits it is in`() {
+        // The point of a garment-level score: a pair score only knows about
+        // combinations somebody has already been shown, so a garment you dislike
+        // keeps coming up until every one of its pairings has been rated.
+        val garments = listOf(garment("a", "tops"), garment("b", "bottoms"))
+        val disliked = LearnedPreferences(garment = { id -> settled(-1.0).takeIf { id == "a" } })
+
+        assertTrue(breakdownOf(garments, learned = disliked).total < breakdownOf(garments).total)
+    }
+
+    @Test
+    fun `one rating does not rearrange the wardrobe`() {
+        // A single five-star outfit is not an aesthetic. The same score with one
+        // rating behind it must move the total far less than with forty.
+        val garments = listOf(garment("a", "tops"), garment("b", "bottoms"))
+        val fresh = LearnedPreferences(garment = { LearnedScore(1.0, count = 1) })
+        val settledLikes = LearnedPreferences(garment = { settled(1.0) })
+
+        val plain = breakdownOf(garments).total
+        val afterOne = breakdownOf(garments, learned = fresh).total - plain
+        val afterMany = breakdownOf(garments, learned = settledLikes).total - plain
+
+        assertTrue(afterOne > 0.0)
+        assertTrue(afterOne * 3 < afterMany, "one rating counted for too much")
+    }
+
+    @Test
+    fun `a garment is not liked more for being in a bigger outfit`() {
+        // Averaged, not summed: otherwise the term rewards outfits for having
+        // more garments, which is a different judgement entirely.
+        val liked = LearnedPreferences(garment = { settled(1.0) })
+        val two = breakdownOf(listOf(garment("a", "tops"), garment("b", "bottoms")), learned = liked)
+        val three = breakdownOf(
+            listOf(garment("a", "tops"), garment("b", "bottoms"), garment("c", "shoes")),
+            learned = liked,
+        )
+
+        assertEquals(two.garmentAffinity, three.garmentAffinity, 1e-9)
+    }
+
+    @Test
+    fun `a colour pairing rated well is worth more than the default says`() {
+        // Somebody who dresses in monochrome should stop being told that two
+        // shades of one colour read as unconsidered.
+        val same = colorHarmonyScore("#1B2A4A", "#1B2A4A")
+        val learnedSame = colorHarmonyScore("#1B2A4A", "#1B2A4A") { relationship ->
+            settled(1.0).takeIf { relationship == ColorRelationship.SAME }
+        }
+
+        assertTrue(learnedSame > same)
+    }
+
+    @Test
+    fun `a colour pairing rated badly is worth less`() {
+        val contrasting = colorHarmonyScore("#1B2A4A", "#C2410C")
+        val learned = colorHarmonyScore("#1B2A4A", "#C2410C") { relationship ->
+            settled(-1.0).takeIf { relationship == ColorRelationship.CONTRASTING }
+        }
+
+        assertTrue(learned < contrasting)
+    }
+
+    @Test
+    fun `the default is never entirely discarded`() {
+        // Confidence never reaches 1: the hardcoded aesthetics are a prior worth
+        // keeping a little of, however much evidence there is.
+        val learned = colorHarmonyScore("#1B2A4A", "#1B2A4A") { settled(-1.0, count = 100_000) }
+
+        assertTrue(learned > 0.0, "a learned dislike erased the default entirely")
+    }
+
+    @Test
+    fun `nothing is learned about a colour that could not be read`() {
+        // UNKNOWN means a colour would not parse. How outfits containing an
+        // unreadable colour were rated says nothing about colour.
+        val unreadable = colorHarmonyScore("not-a-colour", "#1B2A4A") { settled(1.0) }
+
+        assertEquals(colorHarmonyScore("not-a-colour", "#1B2A4A"), unreadable, 1e-9)
+    }
+
+    @Test
+    fun `an engine told nothing behaves as it did before any of this`() {
+        // The default LearnedPreferences knows nothing, so every existing caller
+        // gets exactly the engine it had.
+        val garments = listOf(garment("a", "tops"), garment("b", "bottoms"), garment("c", "shoes"))
+
+        assertEquals(
+            breakdownOf(garments),
+            breakdownOf(garments, learned = LearnedPreferences.NONE),
+        )
+    }
+
+    @Test
+    fun `a correction does not count as a second opinion`() {
+        // The count is what confidence is built on, so a rating changed from 2 to
+        // 5 must leave one rating's worth of evidence, not two.
+        val first = foldRatingIntoScore(null, 2)
+        val corrected = foldRatingIntoScore(first, 5, previous = 2)
+
+        assertEquals(1, corrected.count)
+        assertEquals(foldRatingIntoScore(null, 5).score, corrected.score, 1e-9)
+    }
+
+    @Test
+    fun `evidence accumulates towards trust, never reaching it`() {
+        assertEquals(0.0, learningConfidence(0), 1e-9)
+        assertTrue(learningConfidence(1) < learningConfidence(8))
+        assertEquals(0.5, learningConfidence(LEARNING_CONFIDENCE_HALFWAY), 1e-9)
+        assertTrue(learningConfidence(1_000_000) < 1.0)
     }
 }

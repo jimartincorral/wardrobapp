@@ -70,6 +70,18 @@ object WardrobeSchema {
       PRIMARY KEY (garment_id_a, garment_id_b)
     );
 
+    CREATE TABLE IF NOT EXISTS garment_scores (
+      garment_id TEXT PRIMARY KEY,
+      score REAL NOT NULL DEFAULT 0,
+      rating_count INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS color_harmony_scores (
+      relationship TEXT PRIMARY KEY,
+      score REAL NOT NULL DEFAULT 0,
+      rating_count INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS user_preferences (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL

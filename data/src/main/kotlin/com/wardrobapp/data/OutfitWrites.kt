@@ -1,7 +1,11 @@
 package com.wardrobapp.data
 
+import com.wardrobapp.domain.ColorRelationship
+import com.wardrobapp.domain.LearnedScore
 import com.wardrobapp.domain.PairScore
+import com.wardrobapp.domain.colorRelationship
 import com.wardrobapp.domain.foldRatingIntoPair
+import com.wardrobapp.domain.foldRatingIntoScore
 import com.wardrobapp.domain.garmentPairs
 
 /**
@@ -204,9 +208,92 @@ class OutfitWrites(private val driver: SqlDriver) {
 
         OutfitQueries(driver).outfit(outfitId)?.let { outfit ->
             applyPairLearning(outfit.garmentIds, rating, previous)
+            applyGarmentLearning(outfit.garmentIds, rating, previous)
+            applyColorLearning(outfit.garmentIds, rating, previous)
         }
 
         RatingRecord(ratingId, outfitId, rating, feedback, now)
+    }
+
+    /**
+     * Fold a rating into each garment's own record.
+     *
+     * A rating says something about every garment in the outfit, not only about
+     * how they pair: a garment that keeps turning up in outfits rated badly is
+     * one to reach for less, whatever it is next to. A pair score cannot express
+     * that, because it only knows about combinations already shown.
+     */
+    private fun applyGarmentLearning(garmentIds: List<String>, rating: Int, previous: Int?) {
+        for (id in garmentIds.distinct()) {
+            val next = foldRatingIntoScore(learnedScore("garment_scores", "garment_id", id), rating, previous)
+            writeLearnedScore("garment_scores", "garment_id", id, next)
+        }
+    }
+
+    /**
+     * Fold a rating into the kinds of colour pairing the outfit was built on.
+     *
+     * Per *pair* of garments, because a colour relationship is a fact about two
+     * colours. A relationship appearing twice in one outfit is folded twice, which
+     * is right: an outfit that is three shades of one colour is more evidence
+     * about monochrome than one that is two.
+     *
+     * The garments have to be read back to know their colours, and a garment
+     * since deleted simply contributes nothing.
+     *
+     * UNKNOWN is skipped. It means a colour could not be parsed, and what a
+     * rating says about an unreadable colour is nothing.
+     */
+    private fun applyColorLearning(garmentIds: List<String>, rating: Int, previous: Int?) {
+        val colors = garmentIds.distinct().mapNotNull { id ->
+            driver.query("SELECT color_primary FROM garments WHERE id = ?", listOf(id))
+                .firstOrNull()
+                ?.let { jsString(it["color_primary"]) }
+        }
+
+        for (i in colors.indices) {
+            for (j in i + 1 until colors.size) {
+                val relationship = colorRelationship(colors[i], colors[j])
+                if (relationship == ColorRelationship.UNKNOWN) continue
+
+                val key = relationship.name
+                val next = foldRatingIntoScore(
+                    learnedScore("color_harmony_scores", "relationship", key),
+                    rating,
+                    previous,
+                )
+                writeLearnedScore("color_harmony_scores", "relationship", key, next)
+            }
+        }
+    }
+
+    /** One learned row, or null when nothing has been learned about it yet. */
+    private fun learnedScore(table: String, keyColumn: String, key: String): LearnedScore? = driver
+        .query("SELECT score, rating_count FROM $table WHERE $keyColumn = ?", listOf(key))
+        .firstOrNull()
+        ?.let {
+            LearnedScore(
+                score = (it["score"] as Number).toDouble(),
+                count = (it["rating_count"] as Number).toInt(),
+            )
+        }
+
+    /**
+     * Write a learned row, inserting or updating.
+     *
+     * `INSERT OR REPLACE` rather than a read-then-branch: the read has already
+     * happened to fold the rating, and the two tables have a single-column key,
+     * so there is nothing to preserve that the fold has not already accounted
+     * for.
+     *
+     * The table and column names are interpolated, and are literals from this
+     * file rather than anything a caller supplies -- the values are still bound.
+     */
+    private fun writeLearnedScore(table: String, keyColumn: String, key: String, value: LearnedScore) {
+        driver.execute(
+            "INSERT OR REPLACE INTO $table ($keyColumn, score, rating_count) VALUES (?, ?, ?)",
+            listOf(key, value.score, value.count),
+        )
     }
 
     private fun applyPairLearning(garmentIds: List<String>, rating: Int, previous: Int?) {

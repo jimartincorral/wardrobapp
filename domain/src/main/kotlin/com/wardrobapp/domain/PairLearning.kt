@@ -42,25 +42,17 @@ fun foldRatingIntoPair(
     rating: Int,
     previous: Int? = null,
 ): PairScore {
-    val normalized = normalizeRating(rating)
-
-    if (existing == null) {
-        // A first rating starts from an implicit score of zero, so the EMA step
-        // reduces to the rating's own share.
-        return PairScore(score = normalized * PAIR_LEARNING_RATE, wearCount = 1)
-    }
-
-    val base = if (previous == null) {
-        existing.score
-    } else {
-        // The inverse of the EMA step, undoing the rating being replaced.
-        (existing.score - normalizeRating(previous) * PAIR_LEARNING_RATE) / (1 - PAIR_LEARNING_RATE)
-    }
-
-    return PairScore(
-        score = base * (1 - PAIR_LEARNING_RATE) + normalized * PAIR_LEARNING_RATE,
-        wearCount = if (previous == null) existing.wearCount + 1 else existing.wearCount,
+    // The arithmetic is [foldRatingIntoScore], which a garment's own score and a
+    // colour pairing's score also use. It was this function's; it moved when a
+    // second thing needed it, because three copies of an inverse-EMA step is
+    // three chances to get the correction wrong in only one of them.
+    val folded = foldRatingIntoScore(
+        existing?.let { LearnedScore(score = it.score, count = it.wearCount) },
+        rating,
+        previous,
     )
+
+    return PairScore(score = folded.score, wearCount = folded.count)
 }
 
 /**
