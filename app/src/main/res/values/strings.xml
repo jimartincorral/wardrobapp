@@ -20,6 +20,7 @@
 
     <!-- Tab bar -->
     <string name="tab_home">Home</string>
+    <string name="tab_settings">Settings</string>
     <string name="tab_wardrobe">Wardrobe</string>
     <string name="tab_outfits">Outfits</string>
     <string name="tab_statistics">Statistics</string>
@@ -57,7 +58,6 @@
     <string name="wardrobe_no_match_search">Nothing matches "%1$s".</string>
     <string name="sort_newest">Newest</string>
     <string name="sort_oldest">Oldest</string>
-    <string name="action_settings">Settings</string>
 
     <!-- Filters -->
     <!-- How the wardrobe is drawn: the menu in the top bar, and its choices. -->

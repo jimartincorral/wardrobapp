@@ -2,6 +2,7 @@ package com.wardrobapp.app
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import com.wardrobapp.data.UnrestorableReason
 import com.wardrobapp.presentation.LanguageChoice
@@ -52,7 +53,6 @@ class SettingsScreenTest {
                 onLanguageSelected = {},
                 theme = theme,
                 onThemeSelected = {},
-                onBack = {},
                 onBackupRequested = {},
                 onBackupDismissed = {},
                 onRestoreRequested = {},
@@ -217,5 +217,16 @@ class SettingsScreenTest {
         )
 
         compose.onNodeWithText("Copia no válida", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `settings is a tab, so it offers no way back`() {
+        // It was a screen you went to from the wardrobe's gear and came back
+        // from. As a tab there is nothing behind it, and the four beside it have
+        // no back arrow either -- one here would offer to leave a place you did
+        // not arrive at from anywhere.
+        show(loaded())
+
+        compose.onNodeWithContentDescription("Back").assertDoesNotExist()
     }
 }

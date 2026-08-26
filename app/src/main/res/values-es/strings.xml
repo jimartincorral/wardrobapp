@@ -12,6 +12,7 @@
 
     <!-- Tab bar -->
     <string name="tab_home">Inicio</string>
+    <string name="tab_settings">Ajustes</string>
     <string name="tab_wardrobe">Armario</string>
     <string name="tab_outfits">Atuendos</string>
     <string name="tab_statistics">Estadísticas</string>
@@ -49,7 +50,6 @@
     <string name="wardrobe_no_match_search">Nada coincide con «%1$s».</string>
     <string name="sort_newest">Más recientes</string>
     <string name="sort_oldest">Más antiguas</string>
-    <string name="action_settings">Configuración</string>
 
     <!-- Filters -->
     <string name="wardrobe_view_options">Cambiar cómo se muestra el armario</string>

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -21,7 +20,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -65,7 +63,6 @@ fun SettingsScreen(
      */
     theme: ThemeChoice,
     onThemeSelected: (ThemeChoice) -> Unit,
-    onBack: () -> Unit,
     onBackupRequested: () -> Unit,
     onBackupDismissed: () -> Unit,
     onRestoreRequested: () -> Unit,
@@ -87,14 +84,10 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.settings_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                    }
-                },
-            )
+            // No back arrow: this is a tab now, and the four beside it have none
+            // either. An arrow here would offer to leave a place you did not
+            // arrive at from anywhere.
+            TopAppBar(title = { Text(stringResource(R.string.settings_title)) })
         },
     ) { insets ->
         // Bound once rather than smart-cast through the branches below, which is

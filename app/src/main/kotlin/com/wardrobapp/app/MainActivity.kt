@@ -234,7 +234,7 @@ class MainActivity : AppCompatActivity() {
                                 // is already showing as selected.
                                 onOutfitsRequested = { navigator.switchTo(OUTFITS) },
                                 onStatisticsRequested = { navigator.switchTo(STATISTICS) },
-                                onSettingsRequested = { navigator.navigate(SETTINGS) },
+                                onSettingsRequested = { navigator.switchTo(SETTINGS) },
                             )
                         }
 
@@ -246,7 +246,6 @@ class MainActivity : AppCompatActivity() {
                                 onGarmentOpened = { navigator.openGarment(it) },
                                 onAddRequested = { navigator.navigate(GARMENT_ADD) },
                                 onBulkAddRequested = { navigator.navigate(GARMENT_BULK_ADD) },
-                                onSettingsRequested = { navigator.navigate(SETTINGS) },
                             )
                         }
 
@@ -390,7 +389,6 @@ class MainActivity : AppCompatActivity() {
         onGarmentOpened: (String) -> Unit,
         onAddRequested: () -> Unit,
         onBulkAddRequested: () -> Unit,
-        onSettingsRequested: () -> Unit,
     ) {
         val model: WardrobeViewModel = viewModel(
             factory = viewModelFactory { initializer { WardrobeViewModel(container) } }
@@ -418,7 +416,6 @@ class MainActivity : AppCompatActivity() {
             onGarmentOpened = onGarmentOpened,
             onAddRequested = onAddRequested,
             onBulkAddRequested = onBulkAddRequested,
-            onSettingsRequested = onSettingsRequested,
             onFiltersToggled = model::onFiltersToggled,
             onFiltersCleared = model::onFiltersCleared,
             onBrandTapped = model::onBrandTapped,
@@ -510,7 +507,6 @@ class MainActivity : AppCompatActivity() {
             // recomposition is an IPC round trip for a string that cannot change
             // while the app is running.
             version = remember { appVersion() },
-            onBack = { navigator.popBackStack() },
             // Named the way the app this replaced names its own backups: its
             // Settings screen lists them by that prefix, so one written here
             // into the same folder shows up there.
@@ -1091,6 +1087,12 @@ class MainActivity : AppCompatActivity() {
             Tab(WARDROBE, R.string.tab_wardrobe, Icons.Filled.List),
             Tab(OUTFITS, R.string.tab_outfits, Icons.Filled.Star),
             Tab(STATISTICS, R.string.tab_statistics, Icons.Filled.Info),
+            // A tab rather than somewhere you go and come back from. What is in
+            // it -- the theme, the language, backups, storage -- is not a
+            // detour off one screen, and it was reached through a gear on the
+            // wardrobe's bar, which put it behind a screen it has nothing to do
+            // with.
+            Tab(SETTINGS, R.string.tab_settings, Icons.Filled.Settings),
         )
     }
 }
