@@ -15,7 +15,7 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 - **Rate an outfit without keeping it** — rating a suggestion teaches the app which garments go together, and used to save the outfit as a side effect, so the only way to teach it was to file away outfits you had just called two stars. A rating now archives instead: kept for what it taught, out of the saved list, and behind a toggle that says how many are there. The prompt that follows offers to keep it properly.
 - **It learns what you like, not what I like** — a rating teaches three things, not one. Which garments go together, as before; how each garment does on its own, so one you keep rating badly is reached for less whatever it is paired with; and which *kinds* of colour pairing you actually wear, so the app stops telling a monochrome dresser that two shades of one colour read as unconsidered. Each learned value is trusted in proportion to the ratings behind it — eight is the crossover — so one five-star outfit tilts a judgement rather than rewriting it, and the built-in aesthetics are never entirely discarded. On a wardrobe nobody has rated, the engine is exactly the engine it was.
 - **Outfit suggestions** — from the whole wardrobe, or built around one garment you picked ("what goes with this?", from its own screen). An epsilon-greedy engine combining category templates weighted towards complete outfits, colour harmony judged by hue, a cap on how many colours one outfit may shout in, season and occasion fit, whether the garments agree with each other about the occasion, and pair scores learned from your ratings. Each suggestion says why it came up, the search widens with the size of your wardrobe, and a second tap does not hand back the batch you just saw.
-- **Outfits you put together yourself** — build one by hand from the outfits tab, or change one you already saved: its name, what is in it, and what it is for. The wardrobe to pick from is grouped by category, retired garments are left out, and an outfit left untitled is named after what is in it, the way a suggestion is. Editing an outfit leaves its rating alone, and leaves it counted as the engine's idea if that is what it was.
+- **Outfits you put together yourself** — build one by hand from the outfits tab, or change one you already saved: its name, what is in it, and what it is for. The wardrobe to pick from is grouped by category and can be searched — a type, a brand, a size, a tag, or a category — retired garments are left out, and an outfit left untitled is named after what is in it, the way a suggestion is. Editing an outfit leaves its rating alone, and leaves it counted as the engine's idea if that is what it was.
 - **Import from a link** — paste or share a product page and the garment is filled in from it: photos, title, brand. Only public addresses are fetched, and the app asks before going anywhere a link it did not choose points at.
 - **Filters that know your wardrobe** — every filter offers the values you actually own: your brands, your sizes, the colours your garments come in. Each row is one line you scroll sideways, and the choices narrow as you pick, so a combination that would show nothing is never offered.
 - **Statistics** — one page: six counts at a glance, then breakdowns by category (with subcategories), colour and brand, and how long the garments you retire lasted. Each breakdown is a section you open, so the page starts with the numbers rather than six charts.
@@ -131,13 +131,13 @@ Two things it left behind, both deliberate. Comments across this codebase explai
 ## Testing
 
 ```bash
-./gradlew test                    # 591 tests, no Android SDK, seconds
-./gradlew :app:testDebugUnitTest  # 103 more, needs the SDK — no emulator
+./gradlew test                    # 600 tests, no Android SDK, seconds
+./gradlew :app:testDebugUnitTest  # 107 more, needs the SDK — no emulator
 ```
 
-The 591 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
+The 600 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
 
-The 103 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
+The 107 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 
 ```bash
 ./gradlew :app:testDebugUnitTest

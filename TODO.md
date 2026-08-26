@@ -27,8 +27,8 @@ One app now: the Kotlin one. Anything below is built once.
   towards the built-in defaults in proportion to the evidence behind them. The
   personalization half of Recommendation v2.
 - Outfits built by hand and outfits changed afterwards: one screen for both, with
-  the wardrobe to pick from grouped by category, a name that falls back to what is
-  in the outfit, and what the outfit is for.
+  the wardrobe to pick from grouped by category and searchable, a name that falls
+  back to what is in the outfit, and what the outfit is for.
 - Getting from a number to the garments behind it: the home counts and the
   statistics categories open the wardrobe, filtered to what was tapped.
 - Telling the phone that a newer build exists, with its changelog, and installing

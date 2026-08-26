@@ -37,12 +37,17 @@ class GarmentQueries(
         }
 
         filters.search?.let { term ->
+            // Category included, so that searching the wardrobe for "shoes"
+            // finds the shoes. It also keeps this in step with
+            // `garmentMatchesSearch`, which the outfit picker uses over garments
+            // it already holds -- the same question asked two ways, and the field
+            // lists have to agree or one of them finds what the other cannot.
             sql.append(
                 " AND (brand LIKE ? OR tags LIKE ? OR subcategory LIKE ? " +
-                    "OR subcategories LIKE ? OR size LIKE ?)"
+                    "OR subcategories LIKE ? OR size LIKE ? OR category LIKE ?)"
             )
             val like = "%$term%"
-            repeat(5) { args.add(like) }
+            repeat(6) { args.add(like) }
         }
 
         sql.append(" ORDER BY created_at DESC")
