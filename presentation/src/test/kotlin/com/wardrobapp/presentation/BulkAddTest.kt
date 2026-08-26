@@ -129,6 +129,75 @@ class BulkAddTest {
     }
 
     @Test
+    fun `a re-cropped photo replaces the one it was cropped from`() {
+        val state = queueOf("a.jpg", "b.jpg").withPhotoReplaced("a.jpg", "cropped.jpg")
+
+        assertEquals("cropped.jpg", state.current?.imageUri)
+        assertEquals("b.jpg", state.drafts[1].imageUri)
+    }
+
+    @Test
+    fun `cropping drops the cut-out that was of the old framing`() {
+        // A cut-out of the uncropped photo no longer describes what is there, and
+        // showing it would mean the crop appearing to do nothing.
+        val state = queueOf("a.jpg")
+            .withCutout("a.jpg", "cut.png")
+            .withPhotoReplaced("a.jpg", "cropped.jpg")
+
+        assertEquals("", state.current?.cutoutUri)
+        assertEquals("cropped.jpg", state.current?.displayUri)
+    }
+
+    @Test
+    fun `a cut-out is what gets drawn, until it is undone`() {
+        val cut = queueOf("a.jpg").withCutout("a.jpg", "cut.png")
+
+        assertEquals("cut.png", cut.current?.displayUri)
+        assertEquals("a.jpg", cut.withCutoutCleared("a.jpg").current?.displayUri)
+    }
+
+    @Test
+    fun `a cut-out lands on the photo it was cut from`() {
+        // Removal is slow enough for the queue to move on underneath it.
+        val state = queueOf("a.jpg", "b.jpg").advanced().withCutout("a.jpg", "cut.png")
+
+        assertEquals("", state.current?.cutoutUri)
+    }
+
+    @Test
+    fun `colours read from a cut-out are ignored once it is undone`() {
+        // The answer came back about pixels the draft is no longer showing, and the
+        // photo's own colours are not the cut-out's.
+        val state = queueOf("a.jpg")
+            .withCutout("a.jpg", "cut.png")
+            .withCutoutCleared("a.jpg")
+            .withDetectedColors("cut.png", listOf("#FF0000"))
+
+        assertEquals(listOf(GarmentFormState.DEFAULT_COLOR), state.current?.colorPalette)
+    }
+
+    @Test
+    fun `a cut-out is stored in both columns and the original let go`() {
+        // The form's rule, reached through a draft: saving space is the whole point
+        // of removing a background, so keeping both files would make every removal
+        // cost more storage rather than less.
+        val images = queueOf("a.jpg").withCutout("a.jpg", "cut.png").current!!.imagesToStore()
+
+        assertEquals(listOf("cut.png"), images.imageUris)
+        assertEquals(listOf("cut.png"), images.bgRemovedUris)
+        assertEquals(listOf("a.jpg"), images.discardable)
+    }
+
+    @Test
+    fun `a photo with no cut-out is stored as itself, with nothing to discard`() {
+        val images = queueOf("a.jpg").current!!.imagesToStore()
+
+        assertEquals(listOf("a.jpg"), images.imageUris)
+        assertEquals(listOf(""), images.bgRemovedUris)
+        assertTrue(images.discardable.isEmpty())
+    }
+
+    @Test
     fun `editing only touches the garment on screen`() {
         val state = queueOf("a.jpg", "b.jpg").withCategory("shoes").withBrand("Acme")
 

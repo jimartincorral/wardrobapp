@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
+import androidx.core.net.toUri
 import androidx.core.os.LocaleListCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -657,11 +658,10 @@ class MainActivity : AppCompatActivity() {
     /**
      * Cataloguing several garments at once.
      *
-     * The picker is a multiple one, and there is no crop screen in between: the
-     * whole point of this screen is not stopping between photos, and every screen
-     * in the app draws a garment photo cropped to fill anyway, so an uncropped
-     * photo shows the same as a centre-cropped one without a tap to confirm it.
-     * A garment whose framing matters can be re-photographed from its own form.
+     * The picker takes many photos and none of them goes through the crop screen on
+     * the way in: thirty crop screens in a row is the tedium this exists to remove.
+     * Cropping is offered per garment in the queue instead, beside background
+     * removal, so it is a tap where it is wanted rather than a gate on every photo.
      */
     @Composable
     private fun BulkAdd(container: AppContainer, navigator: NavHostController) {
@@ -674,6 +674,20 @@ class MainActivity : AppCompatActivity() {
             ActivityResultContracts.PickMultipleVisualMedia(BulkAddState.MAX_PHOTOS)
         ) { uris -> model.onPhotosPicked(uris) }
 
+        // The same crop screen the form uses, at the same fixed 3:4. Minted per
+        // composition, as there: the contract needs its destination before it
+        // launches.
+        val cropOutput = remember { cropDestination() }
+        val colors = MaterialTheme.colorScheme
+        val cropper = rememberLauncherForActivityResult(CropImageContract()) { result ->
+            when {
+                result.isSuccessful -> result.uriContent?.let(model::onPhotoCropped)
+                // Cancelling is not a failure: it means the photo is fine as it is.
+                result.error != null -> model.onCropFailed()
+                else -> Unit
+            }
+        }
+
         BulkAddScreen(
             state = state,
             onBack = { navigator.popBackStack() },
@@ -685,6 +699,16 @@ class MainActivity : AppCompatActivity() {
             onCategorySelected = model::onCategorySelected,
             onSubcategoryToggled = model::onSubcategoryToggled,
             onBrandChanged = model::onBrandChanged,
+            // Always the photo rather than the cut-out on top of it: a crop of a
+            // cut-out is a crop of a smaller photo, and the framing being chosen is
+            // the garment's own.
+            onCrop = {
+                state.queue.current?.let { draft ->
+                    cropper.launch(cropTo3by4(draft.imageUri.toUri(), cropOutput, colors))
+                }
+            },
+            onRemoveBackground = model::onRemoveBackground,
+            onUndoBackground = model::onUndoBackground,
             onSave = model::onSaveRequested,
             onSkip = model::onSkipRequested,
             onErrorDismissed = model::onErrorDismissed,

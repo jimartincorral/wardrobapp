@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,6 +49,9 @@ const val BULK_ADD_SAVE = "bulk-add-save"
 /** What the batch came to, once the queue has drained. */
 const val BULK_ADD_SUMMARY = "bulk-add-summary"
 
+/** The re-crop offered per photo. */
+const val BULK_ADD_CROP = "bulk-add-crop"
+
 /**
  * Cataloguing several garments from several photos.
  *
@@ -64,6 +68,9 @@ fun BulkAddScreen(
     onCategorySelected: (String) -> Unit,
     onSubcategoryToggled: (String) -> Unit,
     onBrandChanged: (String) -> Unit,
+    onCrop: () -> Unit,
+    onRemoveBackground: () -> Unit,
+    onUndoBackground: () -> Unit,
     onSave: () -> Unit,
     onSkip: () -> Unit,
     onErrorDismissed: () -> Unit,
@@ -112,9 +119,13 @@ fun BulkAddScreen(
                     queue = queue,
                     draft = draft,
                     saving = state.saving,
+                    removingBackground = state.removingBackground,
                     onCategorySelected = onCategorySelected,
                     onSubcategoryToggled = onSubcategoryToggled,
                     onBrandChanged = onBrandChanged,
+                    onCrop = onCrop,
+                    onRemoveBackground = onRemoveBackground,
+                    onUndoBackground = onUndoBackground,
                     onSave = onSave,
                     onSkip = onSkip,
                 )
@@ -152,18 +163,27 @@ private fun LazyListScope.startItems(importing: Boolean, onChoosePhotos: () -> U
  *
  * The category is what is asked for, because it is the thing the photo cannot
  * answer and the suggestion engine cannot do without. Type and brand sit next to
- * it since they are a tap each while the garment is in front of you. Everything
- * else -- size, tags, more photos, a background removed -- is left to the
- * garment's own form, later, if it is wanted at all.
+ * it since they are a tap each while the garment is in front of you.
+ *
+ * Cropping and background removal are offered here rather than deferred to the
+ * garment's own form: they are what decides how the garment *looks* in every list
+ * it will ever appear in, and a photo left as it came off the camera is the one
+ * thing a later edit is least likely to go back and fix. Both are a tap, and
+ * neither is required. What is left for the form is only what a photo cannot show
+ * -- size, tags, a second photo.
  */
 private fun LazyListScope.draftItems(
     queue: BulkAddState,
     draft: BulkAddState.Draft,
     /** A garment being written. Not "photos still arriving": those must not block a tap. */
     saving: Boolean,
+    removingBackground: Boolean,
     onCategorySelected: (String) -> Unit,
     onSubcategoryToggled: (String) -> Unit,
     onBrandChanged: (String) -> Unit,
+    onCrop: () -> Unit,
+    onRemoveBackground: () -> Unit,
+    onUndoBackground: () -> Unit,
     onSave: () -> Unit,
     onSkip: () -> Unit,
 ) {
@@ -183,7 +203,7 @@ private fun LazyListScope.draftItems(
             modifier = Modifier.fillMaxWidth(),
         ) {
             AsyncImage(
-                model = draft.imageUri,
+                model = draft.displayUri,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -201,6 +221,17 @@ private fun LazyListScope.draftItems(
                 }
             }
         }
+    }
+
+    item {
+        PhotoActions(
+            hasCutout = draft.cutoutUri.isNotEmpty(),
+            busy = saving,
+            removingBackground = removingBackground,
+            onCrop = onCrop,
+            onRemoveBackground = onRemoveBackground,
+            onUndoBackground = onUndoBackground,
+        )
     }
 
     item {
@@ -247,6 +278,53 @@ private fun LazyListScope.draftItems(
 
             TextButton(onClick = onSkip, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.bulk_add_skip))
+            }
+        }
+    }
+}
+
+/**
+ * What can be done to the photo before it becomes a garment.
+ *
+ * Undo replaces Remove once there is a cut-out, rather than sitting beside it: two
+ * buttons where one applies is how somebody removes a background twice. Cropping
+ * stays offered either way and clears the cut-out when used, because a cut-out of
+ * the uncropped photo no longer describes what is there.
+ */
+@Composable
+private fun PhotoActions(
+    hasCutout: Boolean,
+    busy: Boolean,
+    removingBackground: Boolean,
+    onCrop: () -> Unit,
+    onRemoveBackground: () -> Unit,
+    onUndoBackground: () -> Unit,
+) {
+    if (removingBackground) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp))
+            Text(
+                stringResource(R.string.background_cutting),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
+        return
+    }
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = onCrop, enabled = !busy, modifier = Modifier.testTag(BULK_ADD_CROP)) {
+            Text(stringResource(R.string.bulk_add_crop))
+        }
+
+        if (hasCutout) {
+            TextButton(onClick = onUndoBackground, enabled = !busy) {
+                Text(stringResource(R.string.background_undo))
+            }
+        } else {
+            TextButton(onClick = onRemoveBackground, enabled = !busy) {
+                Text(stringResource(R.string.background_remove))
             }
         }
     }

@@ -40,6 +40,9 @@ class BulkAddScreenTest {
                 onCategorySelected = {},
                 onSubcategoryToggled = {},
                 onBrandChanged = {},
+                onCrop = {},
+                onRemoveBackground = {},
+                onUndoBackground = {},
                 onSave = { saved++ },
                 onSkip = {},
                 onErrorDismissed = {},
@@ -70,6 +73,27 @@ class BulkAddScreenTest {
         compose.onNodeWithTag(BULK_ADD_SAVE).performClick()
 
         assertEquals(1, saved)
+    }
+
+    @Test
+    fun `a queued photo can be cropped and cut out before it is saved`() {
+        // The two things that decide how the garment looks in every list it will
+        // appear in. Offered here rather than left to an edit nobody comes back to
+        // make.
+        show(BulkAddState().withDraftsAdded(listOf("a.jpg")))
+
+        compose.onNodeWithTag(BULK_ADD_CROP).assertIsDisplayed()
+        compose.onNodeWithText("Remove background").assertIsDisplayed()
+    }
+
+    @Test
+    fun `once a background is gone the offer is to put it back`() {
+        // Not both at once: two buttons where one applies is how somebody removes a
+        // background twice.
+        show(BulkAddState().withDraftsAdded(listOf("a.jpg")).withCutout("a.jpg", "cut.png"))
+
+        compose.onNodeWithText("Undo background removal").assertIsDisplayed()
+        compose.onNodeWithText("Remove background").assertDoesNotExist()
     }
 
     @Test
