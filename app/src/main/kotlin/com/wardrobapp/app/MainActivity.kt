@@ -13,6 +13,7 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -142,6 +143,23 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 Scaffold(
+                    // Lift the whole app above the keyboard.
+                    //
+                    // `adjustResize` in the manifest used to be enough, but it
+                    // resizes the *window*, and `enableEdgeToEdge` above tells the
+                    // window manager this app draws behind the system bars -- so
+                    // the window no longer shrinks and the keyboard covers whatever
+                    // was at the bottom of the screen, which on the form is the
+                    // field being typed into.
+                    //
+                    // Here rather than on each screen: every screen is composed
+                    // inside this one, so one padding lifts all of them, and a
+                    // screen that grows a text field later cannot forget to do it.
+                    // Applying the inset also *consumes* it, which is what stops
+                    // the navigation bar below from adding its own padding on top --
+                    // that would leave a bar-shaped gap between the keyboard and
+                    // the content.
+                    modifier = Modifier.imePadding(),
                     // Only on the top-level destinations: a garment's detail is
                     // somewhere you came *from* one of them, so the bar would
                     // offer to take you sideways out of it.
