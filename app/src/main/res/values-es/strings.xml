@@ -563,9 +563,15 @@
         <item quantity="other">%d fotos omitidas.</item>
     </plurals>
     <string name="error_garment_not_saved">Esa prenda no se pudo guardar.</string>
-    <string name="outfit_card_empty">Todavía no hay nada que quepa en una tarjeta.</string>
-    <string name="outfit_share">Compartir este conjunto</string>
-    <string name="outfit_share_chooser">Compartir conjunto</string>
-    <string name="error_card_empty">No hay nada en este conjunto con lo que hacer una imagen.</string>
-    <string name="error_card_not_written">Ese conjunto no se pudo convertir en imagen.</string>
+    <string name="outfit_build_title">Crear un conjunto</string>
+    <string name="outfit_edit_title">Editar conjunto</string>
+    <string name="outfit_build">Crear un conjunto</string>
+    <string name="outfit_edit">Editar este conjunto</string>
+    <string name="outfit_name_label">Nombre (opcional)</string>
+    <string name="outfit_name_hint">Si lo dejas vacío, se nombra según lo que contiene.</string>
+    <string name="outfit_pick_garments">Prendas</string>
+    <string name="outfit_chosen">En este conjunto</string>
+    <string name="outfit_chosen_none">Todavía no has elegido nada. Toca una prenda abajo.</string>
+    <string name="outfit_save">Guardar conjunto</string>
+    <string name="error_outfit_not_saved">Ese conjunto no se pudo guardar.</string>
 </resources>

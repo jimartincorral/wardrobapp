@@ -22,11 +22,9 @@ One app now: the Kotlin one. Anything below is built once.
 - Bulk add: several photos in, a queue that asks each one for a category, cropping
   and background removal offered per garment, and a garment written per
   confirmation.
-- The outfit card: an outfit drawn as a flat-lay, on its own screen and as an
-  image that can be shared. One layout, two renderers. A full AI render of the
-  clothes on a body is what this would ideally be, and no on-device model can do
-  that yet -- so it is a composition, and the thing the manual builder and the
-  outfit editor will preview.
+- Outfits built by hand and outfits changed afterwards: one screen for both, with
+  the wardrobe to pick from grouped by category, a name that falls back to what is
+  in the outfit, and what the outfit is for.
 - Getting from a number to the garments behind it: the home counts and the
   statistics categories open the wardrobe, filtered to what was tapped.
 - Telling the phone that a newer build exists, with its changelog, and installing
@@ -37,6 +35,13 @@ One app now: the Kotlin one. Anything below is built once.
   verifies and rolls back rather than overwriting in place.
 
 ## Not being built
+
+- **The outfit card** — the garment photos composed into one image. Built, tried
+  and removed: a flat-lay laid out by the slot each garment fills reads as a grid
+  of photographs rather than as an outfit, and no rearranging of rectangles fixes
+  that. What it would want is a render of the clothes on a body, which no
+  on-device model can do and which sending a wardrobe to a server for is a
+  different app. So an outfit is shown as the garments in it.
 
 - **A wear log**, and everything that reduced to it: monthly wear trend,
   cost-per-wear, sorting the wardrobe by most or least worn, rotation reminders,
@@ -57,14 +62,6 @@ One app now: the Kotlin one. Anything below is built once.
 
 ## Ready to build
 
-- [ ] Manual outfit builder, on top of the outfit card:
-  - [ ] Select garments by category
-  - [ ] Preview the combination
-  - [ ] Save the custom outfit
-- [ ] Outfit editing on the outfit detail screen:
-  - [ ] Rename outfit
-  - [ ] Replace/remove garments
-  - [ ] Update occasion/season metadata
 - [ ] Outfit planning calendar:
   - [ ] Plan an outfit by date
   - [ ] View upcoming planned outfits
@@ -94,10 +91,9 @@ One app now: the Kotlin one. Anything below is built once.
 
 ## Suggested build order
 
-1. The manual builder and the outfit editor, both of which now have a card to
-   preview.
-2. Restore preview, which needs nothing new.
-3. Recommendation v2's remaining half.
+1. Restore preview, which needs nothing new.
+2. Recommendation v2's remaining half.
+3. The planning calendar, now that an outfit can be put together by hand.
 4. Cloud sync and the schedule with it, once there is a keystore.
 
 The cutover to Kotlin is done, so each of these is built once. What is left of it

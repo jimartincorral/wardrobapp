@@ -577,12 +577,18 @@
     </plurals>
     <string name="error_garment_not_saved">That garment could not be saved.</string>
     <!--
-        The outfit card: an outfit composed into one picture, on its own screen
-        and in the file that gets shared from it.
+        Building an outfit by hand, and changing one: the same screen, reached
+        from the outfits list and from an outfit's own screen.
     -->
-    <string name="outfit_card_empty">Nothing here belongs on a card yet.</string>
-    <string name="outfit_share">Share this outfit</string>
-    <string name="outfit_share_chooser">Share outfit</string>
-    <string name="error_card_empty">There is nothing in this outfit to make a picture of.</string>
-    <string name="error_card_not_written">That outfit could not be made into a picture.</string>
+    <string name="outfit_build_title">Build an outfit</string>
+    <string name="outfit_edit_title">Edit outfit</string>
+    <string name="outfit_build">Build an outfit</string>
+    <string name="outfit_edit">Edit this outfit</string>
+    <string name="outfit_name_label">Name (optional)</string>
+    <string name="outfit_name_hint">Left empty, it is named after what is in it.</string>
+    <string name="outfit_pick_garments">Garments</string>
+    <string name="outfit_chosen">In this outfit</string>
+    <string name="outfit_chosen_none">Nothing picked yet. Tap a garment below.</string>
+    <string name="outfit_save">Save outfit</string>
+    <string name="error_outfit_not_saved">That outfit could not be saved.</string>
 </resources>

@@ -83,6 +83,39 @@ class OutfitWrites(private val driver: SqlDriver) {
         ),
     ) > 0
 
+    /**
+     * Change an outfit: what it is called, what is in it, and what it is for.
+     *
+     * Everything an outfit is, apart from what it has been rated -- which is a
+     * different table, and is deliberately left alone: editing an outfit is not a
+     * reason to forget what you thought of it.
+     *
+     * `is_suggested` is left alone too. An outfit the engine came up with and
+     * somebody then edited was still the engine's idea, and pretending otherwise
+     * would quietly change what the statistics count.
+     *
+     * The pair scores a rating taught are not recomputed. They were learned from
+     * the garments that were in the outfit when it was rated, which is what
+     * actually happened -- reaching back to unlearn them would be rewriting a
+     * judgement the user made about a different set of clothes.
+     */
+    fun update(
+        id: String,
+        name: String,
+        garmentIds: List<String>,
+        occasion: String?,
+        season: String?,
+    ) {
+        driver.execute(
+            """
+            UPDATE outfits
+            SET name = ?, garment_ids = ?, occasion = ?, season = ?
+            WHERE id = ?
+            """.trimIndent(),
+            listOf(name, jsonArray(garmentIds), occasion, season, id),
+        )
+    }
+
     fun setPinned(id: String, isPinned: Boolean) {
         driver.execute(
             "UPDATE outfits SET is_pinned = ? WHERE id = ?",

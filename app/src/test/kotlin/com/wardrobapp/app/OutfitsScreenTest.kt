@@ -82,6 +82,7 @@ class OutfitsScreenTest {
                 onDeleteDismissed = {},
                 onGarmentOpened = {},
                 onOutfitOpened = {},
+                onBuildRequested = {},
             )
         }
     }

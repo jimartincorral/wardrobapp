@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -57,6 +58,9 @@ const val OUTFIT_SEED = "outfit-seed"
 const val OUTFIT_ARCHIVE_TOGGLE = "outfit-archive-toggle"
 
 /** The line under a suggestion saying why it came up. */
+/** The way to building an outfit by hand. */
+const val OUTFIT_BUILD_ACTION = "outfit-build-action"
+
 const val OUTFIT_REASONS = "outfit-reasons"
 
 /**
@@ -130,6 +134,7 @@ fun OutfitsScreen(
     onDeleteDismissed: () -> Unit,
     onGarmentOpened: (String) -> Unit,
     onOutfitOpened: (String) -> Unit,
+    onBuildRequested: () -> Unit,
 ) {
     state.deleting?.let { outfit ->
         AlertDialog(
@@ -163,7 +168,24 @@ fun OutfitsScreen(
         )
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.outfits_title)) }) }) { insets ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.outfits_title)) },
+                actions = {
+                    // The way to an outfit the engine had no part in. In the bar
+                    // rather than as a floating button: this list ends in buttons of
+                    // its own, and one floating over them would cover the last.
+                    IconButton(onClick = onBuildRequested, modifier = Modifier.testTag(OUTFIT_BUILD_ACTION)) {
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = stringResource(R.string.outfit_build),
+                        )
+                    }
+                },
+            )
+        },
+    ) { insets ->
         LazyColumn(
             modifier = Modifier.padding(insets),
             contentPadding = PaddingValues(16.dp),
