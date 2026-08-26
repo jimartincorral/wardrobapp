@@ -84,6 +84,9 @@ class AppContainer(context: Context) {
     /** Cutting a garment out of its background, on device. */
     val backgrounds = AndroidBackgroundRemover(context, photos)
 
+    /** Composes an outfit into one shareable image. */
+    val cards = AndroidOutfitCards(context, photos)
+
     /**
      * Downloading a product page's images into the wardrobe.
      *

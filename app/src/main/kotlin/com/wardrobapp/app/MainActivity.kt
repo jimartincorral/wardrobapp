@@ -752,11 +752,23 @@ class MainActivity : AppCompatActivity() {
             if (state.deleted) navigator.popBackStack()
         }
 
+        // Offering the card to another app is the activity's business too: the
+        // model writes the file and says where, and this is what "share" means for
+        // a written file. Reported back as done, so returning to this outfit does
+        // not re-open the sheet.
+        LaunchedEffect(state.cardToShare) {
+            state.cardToShare?.let { card ->
+                shareOutfitCard(card.toUri())
+                model.onShared()
+            }
+        }
+
         OutfitDetailScreen(
             state = state,
             onBack = { navigator.popBackStack() },
             onGarmentOpened = { navigator.openGarment(it) },
             onRate = model::onRated,
+            onShare = model::onShareRequested,
             onDelete = model::onDeleteRequested,
             onDeleteConfirmed = model::onDeleteConfirmed,
             onDeleteDismissed = model::onDeleteDismissed,
@@ -901,6 +913,26 @@ class MainActivity : AppCompatActivity() {
      * provider URI because a `file://` one handed to an activity is a
      * FileUriExposedException waiting to happen.
      */
+    /**
+     * Hand an outfit card to whatever the phone can share a picture with.
+     *
+     * A chooser rather than a direct target, and read permission granted on the
+     * address itself: the file lives in this app's cache behind a FileProvider, so
+     * without the grant the receiving app is handed an address it cannot open.
+     *
+     * A phone with nothing that accepts an image is possible, and is not worth a
+     * crash: `createChooser` handles an empty list by saying so.
+     */
+    private fun shareOutfitCard(card: Uri) {
+        val share = Intent(Intent.ACTION_SEND).apply {
+            type = "image/jpeg"
+            putExtra(Intent.EXTRA_STREAM, card)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        startActivity(Intent.createChooser(share, getString(R.string.outfit_share_chooser)))
+    }
+
     private fun cropDestination(): Uri {
         val directory = File(cacheDir, "crop").also { it.mkdirs() }
         val file = File(directory, "cropped.jpg")

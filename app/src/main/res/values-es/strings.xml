@@ -563,4 +563,9 @@
         <item quantity="other">%d fotos omitidas.</item>
     </plurals>
     <string name="error_garment_not_saved">Esa prenda no se pudo guardar.</string>
+    <string name="outfit_card_empty">Todavía no hay nada que quepa en una tarjeta.</string>
+    <string name="outfit_share">Compartir este conjunto</string>
+    <string name="outfit_share_chooser">Compartir conjunto</string>
+    <string name="error_card_empty">No hay nada en este conjunto con lo que hacer una imagen.</string>
+    <string name="error_card_not_written">Ese conjunto no se pudo convertir en imagen.</string>
 </resources>

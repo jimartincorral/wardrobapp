@@ -19,8 +19,14 @@ One app now: the Kotlin one. Anything below is built once.
   can be pointed at one garment to build around. Rating no longer forces a save --
   rated-only outfits are archived, so the learning is kept without the list
   filling up.
-- Bulk add: several photos in, a queue that asks each one for a category, and a
-  garment written per confirmation.
+- Bulk add: several photos in, a queue that asks each one for a category, cropping
+  and background removal offered per garment, and a garment written per
+  confirmation.
+- The outfit card: an outfit drawn as a flat-lay, on its own screen and as an
+  image that can be shared. One layout, two renderers. A full AI render of the
+  clothes on a body is what this would ideally be, and no on-device model can do
+  that yet -- so it is a composition, and the thing the manual builder and the
+  outfit editor will preview.
 - Getting from a number to the garments behind it: the home counts and the
   statistics categories open the wardrobe, filtered to what was tapped.
 - Telling the phone that a newer build exists, with its changelog, and installing
@@ -51,13 +57,7 @@ One app now: the Kotlin one. Anything below is built once.
 
 ## Ready to build
 
-- [ ] **An outfit card** — the garment photos composed into one image. Wanted for
-      its own sake (an outfit that can be looked at, and shared) and as the thing
-      the manual builder and the outfit editor preview. A full AI render of the
-      clothes on a body is what this would ideally be; no on-device model can do
-      that yet, so this is a composition: the garments laid out by the slot they
-      fill, drawn to a bitmap.
-- [ ] Manual outfit builder, on top of that card:
+- [ ] Manual outfit builder, on top of the outfit card:
   - [ ] Select garments by category
   - [ ] Preview the combination
   - [ ] Save the custom outfit
@@ -94,8 +94,8 @@ One app now: the Kotlin one. Anything below is built once.
 
 ## Suggested build order
 
-1. The outfit card, then the manual builder and the outfit editor on top of it.
-   Three features, one piece of new machinery.
+1. The manual builder and the outfit editor, both of which now have a card to
+   preview.
 2. Restore preview, which needs nothing new.
 3. Recommendation v2's remaining half.
 4. Cloud sync and the schedule with it, once there is a keystore.
