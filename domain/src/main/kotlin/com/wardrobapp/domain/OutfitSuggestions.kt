@@ -106,10 +106,23 @@ fun pairKey(idA: String, idB: String): String =
 /** Squash the open-ended ranking score into a stable 0..1 display value. */
 private fun normalizeOutfitScore(rawScore: Double): Double = 1 / (1 + exp(-rawScore / 2))
 
-private fun garmentSlots(garment: Garment): List<OutfitSlot> {
-    val sub = (garment.subcategory ?: "").lowercase()
+private fun garmentSlots(garment: Garment): List<OutfitSlot> =
+    garmentSlotsFor(garment.category, garment.subcategory)
 
-    return when (garment.category) {
+/**
+ * Which part of an outfit a garment can fill.
+ *
+ * Public and taking the two fields it reads rather than a whole [Garment],
+ * because the outfit card asks the same question of a database row: where a
+ * garment belongs on a flat-lay is where it belongs in a template, and two
+ * answers would mean a suggestion whose picture disagrees with it.
+ *
+ * An empty list means a garment no outfit is built out of -- most underwear.
+ */
+fun garmentSlotsFor(category: String, subcategory: String?): List<OutfitSlot> {
+    val sub = (subcategory ?: "").lowercase()
+
+    return when (category) {
         "tops" -> listOf(OutfitSlot.TOPS)
         "bottoms" -> listOf(OutfitSlot.BOTTOMS)
         "dresses" -> listOf(OutfitSlot.DRESSES)

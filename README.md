@@ -14,6 +14,7 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 - **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged by a weighted average of tag overlap (Jaccard, 0.6), colour similarity (0.3) and size match (0.1). Signals with nothing to compare abstain rather than scoring zero, so an untagged garment can still be recognised as a duplicate.
 - **Rate an outfit without keeping it** — rating a suggestion teaches the app which garments go together, and used to save the outfit as a side effect, so the only way to teach it was to file away outfits you had just called two stars. A rating now archives instead: kept for what it taught, out of the saved list, and behind a toggle that says how many are there. The prompt that follows offers to keep it properly.
 - **Outfit suggestions** — from the whole wardrobe, or built around one garment you picked ("what goes with this?", from its own screen). An epsilon-greedy engine combining category templates weighted towards complete outfits, colour harmony judged by hue, a cap on how many colours one outfit may shout in, season and occasion fit, whether the garments agree with each other about the occasion, and pair scores learned from your ratings. Each suggestion says why it came up, the search widens with the size of your wardrobe, and a second tap does not hand back the batch you just saw.
+- **An outfit as one picture** — a saved outfit is drawn as a flat-lay card: the garments laid out in the bands they are worn in, upper body above legs above feet, with accessories beside the shoes. A band nothing fills collapses and gives its height to the rest, so every card is full. The same layout draws the card on screen and the image the share button writes, so what gets shared is a picture of the card rather than a second arrangement of the same clothes. Cut-outs are used where a garment has one, which is what makes it read as a flat-lay rather than a collage.
 - **Import from a link** — paste or share a product page and the garment is filled in from it: photos, title, brand. Only public addresses are fetched, and the app asks before going anywhere a link it did not choose points at.
 - **Filters that know your wardrobe** — every filter offers the values you actually own: your brands, your sizes, the colours your garments come in. Each row is one line you scroll sideways, and the choices narrow as you pick, so a combination that would show nothing is never offered.
 - **Statistics** — one page: six counts at a glance, then breakdowns by category (with subcategories), colour and brand, and how long the garments you retire lasted. Each breakdown is a section you open, so the page starts with the numbers rather than six charts.
@@ -129,13 +130,13 @@ Two things it left behind, both deliberate. Comments across this codebase explai
 ## Testing
 
 ```bash
-./gradlew test                    # 556 tests, no Android SDK, seconds
-./gradlew :app:testDebugUnitTest  # 97 more, needs the SDK — no emulator
+./gradlew test                    # 567 tests, no Android SDK, seconds
+./gradlew :app:testDebugUnitTest  # 102 more, needs the SDK — no emulator
 ```
 
-The 556 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
+The 567 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
 
-The 97 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
+The 102 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 
 ```bash
 ./gradlew :app:testDebugUnitTest

@@ -576,4 +576,13 @@
         <item quantity="other">%d photos skipped.</item>
     </plurals>
     <string name="error_garment_not_saved">That garment could not be saved.</string>
+    <!--
+        The outfit card: an outfit composed into one picture, on its own screen
+        and in the file that gets shared from it.
+    -->
+    <string name="outfit_card_empty">Nothing here belongs on a card yet.</string>
+    <string name="outfit_share">Share this outfit</string>
+    <string name="outfit_share_chooser">Share outfit</string>
+    <string name="error_card_empty">There is nothing in this outfit to make a picture of.</string>
+    <string name="error_card_not_written">That outfit could not be made into a picture.</string>
 </resources>
