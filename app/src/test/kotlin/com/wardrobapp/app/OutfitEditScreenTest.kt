@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.hasTestTag
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.presentation.OutfitEditState
@@ -34,6 +35,7 @@ class OutfitEditScreenTest {
     val compose = createComposeRule()
 
     private var toggled: String? = null
+    private var searched: String? = null
     private var saved = 0
 
     private fun garment(id: String, category: String, subcategory: String? = null) = GarmentRecord(
@@ -67,17 +69,20 @@ class OutfitEditScreenTest {
         edit: OutfitEditState = OutfitEditState(),
         isEditing: Boolean = false,
         garments: List<GarmentRecord> = wardrobe,
+        search: String = "",
     ) {
         compose.setContent {
             OutfitEditScreen(
                 state = OutfitEditViewModel.State(
                     edit = edit,
                     garments = garments,
+                    search = search,
                     loading = false,
                 ),
                 isEditing = isEditing,
                 onBack = {},
                 onNameChanged = {},
+                onSearchChanged = { searched = it },
                 onGarmentToggled = { toggled = it },
                 onOccasionTapped = {},
                 onSeasonTapped = {},
@@ -133,6 +138,44 @@ class OutfitEditScreenTest {
         compose.onNodeWithTag(outfitPickTag("g2")).performClick()
 
         assertEquals("g2", toggled)
+    }
+
+    @Test
+    fun `a search narrows what the picker offers`() {
+        // The reason the search exists: sideways-scrolling rows per category are
+        // fine for a drawer and a lot of scrolling for a wardrobe.
+        show(search = "jeans")
+
+        compose.onNodeWithTag(OUTFIT_EDIT_LIST)
+            .performScrollToNode(hasTestTag(outfitPickTag("g2")))
+        compose.onNodeWithTag(outfitPickTag("g2")).assertIsDisplayed()
+        compose.onNodeWithTag(outfitPickTag("g1")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a search nothing answers to says so`() {
+        // Rather than a wardrobe that appears to have emptied itself.
+        show(search = "wellington boots")
+
+        compose.onNodeWithText("No garment matches that.").assertIsDisplayed()
+    }
+
+    @Test
+    fun `what is already in the outfit stays visible while searching`() {
+        // The search narrows what is *offered*. An outfit that appeared to lose a
+        // garment because of what was typed would be alarming and wrong.
+        show(edit = OutfitEditState(garmentIds = listOf("g1")), search = "jeans")
+
+        compose.onNodeWithTag(OUTFIT_EDIT_SAVE).assertIsEnabled()
+    }
+
+    @Test
+    fun `typing in the picker search is reported`() {
+        show()
+
+        compose.onNodeWithTag(OUTFIT_PICK_SEARCH).performTextInput("parka")
+
+        assertEquals("parka", searched)
     }
 
     @Test

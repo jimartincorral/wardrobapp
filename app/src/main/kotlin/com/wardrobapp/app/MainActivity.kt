@@ -779,6 +779,7 @@ class MainActivity : AppCompatActivity() {
             isEditing = model.isEditing,
             onBack = { navigator.popBackStack() },
             onNameChanged = model::onNameChanged,
+            onSearchChanged = model::onSearchChanged,
             onGarmentToggled = model::onGarmentToggled,
             onOccasionTapped = model::onOccasionTapped,
             onSeasonTapped = model::onSeasonTapped,

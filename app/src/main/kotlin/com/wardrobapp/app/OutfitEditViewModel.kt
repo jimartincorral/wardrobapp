@@ -44,6 +44,13 @@ class OutfitEditViewModel(
          * outfit out of clothes that are gone.
          */
         val garments: List<GarmentRecord> = emptyList(),
+        /**
+         * What has been typed into the picker's search.
+         *
+         * Screen state rather than part of [edit]: it narrows what is offered and
+         * says nothing about the outfit, so it must not travel to the row.
+         */
+        val search: String = "",
         val loading: Boolean = true,
         val saving: Boolean = false,
         /** Set once the row is written, so the screen knows to leave. */
@@ -108,6 +115,8 @@ class OutfitEditViewModel(
     }
 
     fun onNameChanged(name: String) = edit { it.withName(name) }
+
+    fun onSearchChanged(search: String) = _state.update { it.copy(search = search) }
 
     fun onGarmentToggled(garmentId: String) = edit { it.withGarmentToggled(garmentId) }
 

@@ -44,12 +44,16 @@ import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.GARMENT_CATEGORIES
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.presentation.garmentsMatching
 
 /** The list, so a test can scroll it: a lazy container has not composed the bottom. */
 const val OUTFIT_EDIT_LIST = "outfit-edit-list"
 
 /** The button that writes the outfit. */
 const val OUTFIT_EDIT_SAVE = "outfit-edit-save"
+
+/** The picker's search field. */
+const val OUTFIT_PICK_SEARCH = "outfit-pick-search"
 
 /** One garment in the picker, by its id, so a tap can be aimed. */
 fun outfitPickTag(garmentId: String) = "outfit-pick-$garmentId"
@@ -72,6 +76,7 @@ fun OutfitEditScreen(
     isEditing: Boolean,
     onBack: () -> Unit,
     onNameChanged: (String) -> Unit,
+    onSearchChanged: (String) -> Unit,
     onGarmentToggled: (String) -> Unit,
     onOccasionTapped: (Occasion) -> Unit,
     onSeasonTapped: (Season) -> Unit,
@@ -128,6 +133,7 @@ fun OutfitEditScreen(
                 state = state,
                 insets = insets,
                 onNameChanged = onNameChanged,
+                onSearchChanged = onSearchChanged,
                 onGarmentToggled = onGarmentToggled,
                 onOccasionTapped = onOccasionTapped,
                 onSeasonTapped = onSeasonTapped,
@@ -142,6 +148,7 @@ private fun Editor(
     state: OutfitEditViewModel.State,
     insets: PaddingValues,
     onNameChanged: (String) -> Unit,
+    onSearchChanged: (String) -> Unit,
     onGarmentToggled: (String) -> Unit,
     onOccasionTapped: (Occasion) -> Unit,
     onSeasonTapped: (Season) -> Unit,
@@ -228,17 +235,46 @@ private fun Editor(
         // made, below it is what there is to make one from, and the save button
         // between them is where one ends and the other begins.
         item {
-            Text(
-                stringResource(R.string.outfit_pick_garments),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+            Column {
+                Text(
+                    stringResource(R.string.outfit_pick_garments),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+                )
+
+                // Sideways-scrolling rows are fine for a drawer and a lot of
+                // scrolling for a wardrobe, so a garment can be typed for
+                // instead: its type, its brand, its size, a tag, or the category
+                // it is in.
+                OutlinedTextField(
+                    value = state.search,
+                    onValueChange = onSearchChanged,
+                    label = { Text(stringResource(R.string.outfit_pick_search)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag(OUTFIT_PICK_SEARCH),
+                )
+            }
+        }
+
+        // What the search leaves. Nothing at all is worth saying out loud rather
+        // than showing a wardrobe that appears to have emptied itself.
+        val offered = garmentsMatching(state.garments, state.search)
+
+        if (offered.isEmpty()) {
+            item {
+                Text(
+                    stringResource(R.string.outfit_pick_nothing_found),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         // One heading per category, and only categories something is in: an empty
-        // heading is a promise the wardrobe cannot keep.
+        // heading is a promise the wardrobe cannot keep -- which is truer with a
+        // search running, since most categories have nothing matching in them.
         for (category in GARMENT_CATEGORIES) {
-            val garments = state.garments.filter { it.category == category.id }
+            val garments = offered.filter { it.category == category.id }
             if (garments.isEmpty()) continue
 
             item {

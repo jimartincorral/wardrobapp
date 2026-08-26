@@ -591,4 +591,6 @@
     <string name="outfit_chosen_none">Nothing picked yet. Tap a garment below.</string>
     <string name="outfit_save">Save outfit</string>
     <string name="error_outfit_not_saved">That outfit could not be saved.</string>
+    <string name="outfit_pick_search">Find a garment</string>
+    <string name="outfit_pick_nothing_found">No garment matches that.</string>
 </resources>
