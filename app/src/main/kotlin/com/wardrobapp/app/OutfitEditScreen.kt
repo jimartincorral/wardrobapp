@@ -224,8 +224,19 @@ private fun Editor(
             }
         }
 
-        // The wardrobe to pick from, one heading per category. Only categories
-        // something is in: an empty heading is a promise the wardrobe cannot keep.
+        // The wardrobe, under a heading of its own: above it is the outfit being
+        // made, below it is what there is to make one from, and the save button
+        // between them is where one ends and the other begins.
+        item {
+            Text(
+                stringResource(R.string.outfit_pick_garments),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+
+        // One heading per category, and only categories something is in: an empty
+        // heading is a promise the wardrobe cannot keep.
         for (category in GARMENT_CATEGORIES) {
             val garments = state.garments.filter { it.category == category.id }
             if (garments.isEmpty()) continue
