@@ -3,6 +3,8 @@ package com.wardrobapp.app
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.AppRelease
+import com.wardrobapp.data.SigningChange
+import com.wardrobapp.data.signingChange
 import com.wardrobapp.data.updateWorthOffering
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +41,12 @@ class UpdateViewModel(
         val progress: Float? = null,
         /** What went wrong, in the words of whatever failed. Null when nothing has. */
         val failure: String? = null,
+        /**
+         * True when the build that was downloaded is signed with a key this phone's
+         * copy is not, so Android will refuse to install it over what is there and
+         * only a reinstall gets across.
+         */
+        val signingChanged: Boolean = false,
     )
 
     private val _state = MutableStateFlow(State())
@@ -80,6 +88,24 @@ class UpdateViewModel(
                     }
                 }
 
+                // Asked before the installer is opened rather than after it fails,
+                // because it fails as "App not installed" and nothing else. This is
+                // the last moment at which this app is still the thing being read,
+                // and so the only place the reinstall can be explained.
+                val change = withContext(Dispatchers.IO) {
+                    signingChange(
+                        installed = updates.installedCertificate(),
+                        downloaded = updates.downloadedCertificate(apk),
+                    )
+                }
+
+                if (change == SigningChange.NEW_KEY) {
+                    _state.update {
+                        it.copy(downloading = false, progress = null, signingChanged = true)
+                    }
+                    return@launch
+                }
+
                 updates.install(apk)
                 _state.update { State() }
             } catch (e: Exception) {
@@ -106,6 +132,15 @@ class UpdateViewModel(
 
     /** Not now. Nothing is remembered, so the next launch asks again. */
     fun onDismissed() = _state.update { State() }
+
+    /**
+     * Close the notice about a build signed with a new key.
+     *
+     * Nothing is remembered and nothing is skipped. The build is still the newest
+     * one, and offering it again at the next launch is right until somebody has done
+     * the reinstall it asks for -- at which point the keys match and it stops.
+     */
+    fun onSigningChangeDismissed() = _state.update { State() }
 
     /** Put the notice back the way it was before a failed download. */
     fun onFailureDismissed() = _state.update { it.copy(failure = null) }

@@ -44,6 +44,7 @@ class UpdateNoticeTest {
         onInstall: () -> Unit = {},
         onSkip: () -> Unit = {},
         onDismiss: () -> Unit = {},
+        onSigningChangeDismissed: () -> Unit = {},
     ) {
         compose.setContent {
             UpdateNotice(
@@ -52,6 +53,7 @@ class UpdateNoticeTest {
                 onSkip = onSkip,
                 onDismiss = onDismiss,
                 onFailureDismissed = {},
+                onSigningChangeDismissed = onSigningChangeDismissed,
             )
         }
     }
@@ -129,6 +131,28 @@ class UpdateNoticeTest {
         compose.onNodeWithText("Install").assertDoesNotExist()
         compose.onNodeWithText("Skip this build").assertDoesNotExist()
         compose.onNodeWithText("Later").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a build signed with a new key explains the reinstall instead of installing`() {
+        // The failure this replaces is Android's "App not installed", which says
+        // nothing about why and nothing about what to do. If this dialog ever stops
+        // naming the backup first, somebody uninstalls and loses a wardrobe.
+        show(UpdateViewModel.State(available = release, signingChanged = true))
+
+        compose.onNodeWithTag(UPDATE_NEW_KEY).assertIsDisplayed()
+        compose.onNodeWithText("This build needs a fresh install").assertIsDisplayed()
+        compose.onNodeWithText("Install").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the new-key notice is shown ahead of anything else`() {
+        // Both can be set only by a bug, but if they ever are, the one that says what
+        // to do beats the one that says something went wrong.
+        show(UpdateViewModel.State(available = release, signingChanged = true, failure = "boom"))
+
+        compose.onNodeWithTag(UPDATE_NEW_KEY).assertIsDisplayed()
+        compose.onNodeWithText("boom").assertDoesNotExist()
     }
 
     @Test

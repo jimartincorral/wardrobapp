@@ -544,6 +544,8 @@
     <string name="update_later">Later</string>
     <string name="update_downloading">Downloading…</string>
     <string name="update_failed_title">Couldn\'t install that build</string>
+    <string name="update_new_key_title">This build needs a fresh install</string>
+    <string name="update_new_key_body">This build is signed with a key of its own, instead of the shared one every earlier build carried. Android only replaces an app with a build signed the same way, so it will refuse this one.\n\nTo move across and keep your wardrobe:\n\n1. Create a backup, in Settings.\n2. Uninstall Wardrobapp.\n3. Install the new build from the project\'s releases page.\n4. Restore your backup.\n\nThe copy just downloaded goes with the app when it is uninstalled, so fetch the new build again afterwards. Every build after this one installs over the top as usual.</string>
     <string name="error_update_untrusted">That download does not come from this app\'s own releases, so it was not fetched.</string>
     <string name="error_update_refused">The download was refused (%1$d).</string>
     <string name="error_update_too_large">That download is far larger than a build of this app, so it was stopped.</string>
