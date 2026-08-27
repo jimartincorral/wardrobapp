@@ -145,8 +145,14 @@ jobs:
         run: |
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
           if [ -z "$APKSIGNER" ]; then
-            echo '::warning::apksigner was not found on the runner, so the signing certificate could not be checked.'
-            exit 0
+            # Fatal rather than skipped. This step is the only thing standing
+            # between a wrongly-signed APK and the rolling release, and a check
+            # that passes by not running is worse than no check at all: the build
+            # goes green, the release publishes, and the phones are what discover
+            # it. A runner without apksigner is a broken runner, not a reason to
+            # ship a build nobody verified.
+            echo '::error::apksigner was not found on the runner, so the signing certificate could not be checked.'
+            exit 1
           fi
 
           "$APKSIGNER" verify --print-certs \
