@@ -37,6 +37,11 @@ One app now: the Kotlin one. Anything below is built once.
 - Versioned backups with validation and migration safety: the format carries a
   version, a restore refuses an archive it cannot read and says why, and it stages,
   verifies and rolls back rather than overwriting in place.
+- Looking inside a backup before restoring from it: an archive says when it was
+  made and how many photos it holds, and one this build cannot read is refused
+  before anybody has committed to it rather than after. The Drive list is dated
+  rather than named for the same reason -- a timestamped file name is a date nobody
+  reads at a glance.
 
 ## Not being built
 
@@ -69,8 +74,18 @@ One app now: the Kotlin one. Anything below is built once.
 - [ ] Outfit planning calendar:
   - [ ] Plan an outfit by date
   - [ ] View upcoming planned outfits
-- [ ] Restore preview: show what an archive contains before replacing anything.
-      The validation it would read from already exists.
+
+      **Held on purpose, not merely unstarted.** Nothing new is built until cloud
+      backup works on a phone, because everything unproven there is unproven in the
+      same way: written, reviewed, green in CI, and never once run. Adding a second
+      such feature would double what is waiting on the same afternoon with a device
+      in hand rather than halve it.
+
+      Its product decisions are also still open -- whether a planned outfit is a
+      date on an outfit or a table of its own, whether past plans become history or
+      vanish, and whether "what am I wearing Thursday" is a screen or a section of
+      one. Those shape the schema, and a schema is the expensive thing to get
+      wrong.
 - [ ] Context-aware constraints, what is left of them: with the wear log gone,
       "not worn recently" is out for good, and what remains each needs a decision
       first -- a temperature band (see Weather, below) or a planned-outfit lookup
@@ -111,12 +126,18 @@ One app now: the Kotlin one. Anything below is built once.
 
 ## Suggested build order
 
-1. Take PR #60 through a sign-in on a phone. It is the only thing between cloud
-   backup and done, and no amount of work here substitutes for it.
-2. Restore preview, which needs nothing new.
-3. The planning calendar, now that an outfit can be put together by hand.
-4. The backup schedule, once the path it would run unattended has worked once by
+1. **Take the Drive sign-in through a browser on a phone.** Everything else waits
+   on this, deliberately. Cloud backup is merged and published, and not one line
+   of it has run: the browser round trip, the redirect scheme, the token exchange
+   and the refresh are all still theory. Nothing here substitutes for it, and
+   building past it just adds to the pile that needs the same afternoon.
+2. The backup schedule, once the path it would run unattended has worked once by
    hand.
+3. The planning calendar, after that, and after its product questions are settled.
+
+Restore preview is done: an archive says when it was made and what it holds before
+it replaces anything, and one this build cannot read is refused before somebody
+has committed to it rather than after.
 
 What is left of the recommendation engine is waiting on product decisions rather
 than on work: a temperature band, or a calendar to ask what is already planned.

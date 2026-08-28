@@ -77,8 +77,31 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
         if (auth.isSignedIn) refresh()
     }
 
-    /** The sign-in screen to launch, or null when there is already permission. */
-    fun authorizationIntent(): Intent = auth.authorizationIntent(service)
+    /**
+     * The sign-in screen to launch, or null when this phone cannot show one.
+     *
+     * Null rather than an exception because of where this is called from: the tap
+     * handler, outside the coroutine that catches everything else here. AppAuth
+     * throws a bare `ActivityNotFoundException` when it cannot find a browser to
+     * hand the sign-in to, and an exception thrown there closes the app rather than
+     * reaching a dialog.
+     *
+     * That it can happen at all is a manifest matter -- see the `<queries>` block,
+     * without which Android reports no browsers on a phone that plainly has one --
+     * but a phone with genuinely no browser is a real phone, and it should be told
+     * so rather than shut down.
+     */
+    fun authorizationIntent(): Intent? = try {
+        auth.authorizationIntent(service)
+    } catch (error: Exception) {
+        _state.update {
+            it.copy(
+                failure = getApplication<Application>()
+                    .getString(R.string.error_drive_no_browser),
+            )
+        }
+        null
+    }
 
     /** What came back from it. */
     fun onAuthorizationResult(data: Intent?) {

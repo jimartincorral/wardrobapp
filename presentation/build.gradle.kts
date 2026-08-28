@@ -32,6 +32,14 @@ dependencies {
 tasks.withType<Test>().configureEach {
     val appResources = rootProject.file("app/src/main/res")
     systemProperty("appResDir", appResources.absolutePath)
+
+    // And the manifest, for XmlWellFormedTest. It is not under res/, and it is the
+    // one XML file in this project whose breakage stops the build outright rather
+    // than failing a check -- `processDebugMainManifest` cannot parse it, so
+    // nothing downstream runs.
+    val appManifest = rootProject.file("app/src/main/AndroidManifest.xml")
+    systemProperty("appManifest", appManifest.absolutePath)
+    inputs.file(appManifest)
     // Declared as an input, not just handed over as a path. Without this Gradle
     // sees nothing in this module change when a string does, calls the test task
     // UP-TO-DATE and skips it -- so the check would pass once and then quietly
