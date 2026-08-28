@@ -239,6 +239,10 @@
     <string name="restore_confirm_title">Restore from a backup?</string>
     <string name="restore_confirm_body">Everything in this app\'s wardrobe will be replaced by the contents of the backup you pick. If the backup turns out not to be usable, nothing is changed.</string>
     <string name="restore_pick">Pick a backup</string>
+    <string name="restore_preview_title">Restore this backup?</string>
+    <string name="restore_preview_made">Made %1$s</string>
+    <string name="restore_preview_undated">This backup did not record when it was made.</string>
+    <string name="restore_preview_restore">Restore</string>
     <string name="restore_running_title">Restoring</string>
     <string name="restore_running_body">Unpacking and checking the backup.</string>
     <string name="restore_done_title">Wardrobe restored</string>
@@ -521,6 +525,10 @@
     <plurals name="backup_photos_skipped">
         <item quantity="one">%d photo could not be read and was left out.</item>
         <item quantity="other">%d photos could not be read and were left out.</item>
+    </plurals>
+    <plurals name="restore_preview_photos">
+        <item quantity="one">%d photo</item>
+        <item quantity="other">%d photos</item>
     </plurals>
     <plurals name="restore_done_garments">
         <item quantity="one">The backup was restored: %d garment.</item>

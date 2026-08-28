@@ -54,6 +54,31 @@ fun formatStoredDate(
         .format(parsed)
 }
 
+/**
+ * The same, with the time of day kept.
+ *
+ * For the places where the date alone does not identify a thing: backups are
+ * named by timestamp and several can share a day -- the rolling Drive folder
+ * keeps five, and a wardrobe can be backed up twice in an afternoon. Choosing
+ * between two rows both reading "28 August" is not choosing.
+ *
+ * Falls back the same way [formatStoredDate] does, and for the same reason: a
+ * timestamp this cannot read is still information.
+ */
+fun formatStoredDateTime(
+    value: String,
+    timeZone: TimeZone,
+    locale: Locale,
+    dateStyle: Int = DateFormat.MEDIUM,
+    timeStyle: Int = DateFormat.SHORT,
+): String {
+    val parsed = parseStoredDate(value, timeZone) ?: return value
+
+    return DateFormat.getDateTimeInstance(dateStyle, timeStyle, locale)
+        .also { it.timeZone = timeZone }
+        .format(parsed)
+}
+
 private fun parseStoredDate(value: String, timeZone: TimeZone): Date? {
     val text = value.trim()
     if (text.isEmpty()) return null

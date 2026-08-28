@@ -5,6 +5,7 @@ import java.util.Locale
 import java.util.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 
 class StoredDatesTest {
 
@@ -84,5 +85,35 @@ class StoredDatesTest {
             "January 15, 2026",
             formatStoredDate("2026-01-15", utc, english, DateFormat.LONG),
         )
+    }
+
+    // ---- with the time of day, for things a date alone does not identify -----
+
+    @Test
+    fun `two backups from the same day are told apart`() {
+        // The reason this exists at all. A rolling folder keeps five, a wardrobe
+        // can be backed up twice in an afternoon, and two rows both reading
+        // "Aug 28, 2026" are not a choice.
+        val morning = formatStoredDateTime("2026-08-28T09:00:00.000Z", utc, english)
+        val evening = formatStoredDateTime("2026-08-28T21:30:00.000Z", utc, english)
+
+        assertNotEquals(morning, evening)
+    }
+
+    @Test
+    fun `the time is read in the reader's own zone, like the date`() {
+        // 09:00 UTC is a different hour in Madrid, and a backup should be labelled
+        // with the time its owner made it rather than the one the file records.
+        val here = formatStoredDateTime("2026-08-28T09:00:00.000Z", madrid, english)
+        val there = formatStoredDateTime("2026-08-28T09:00:00.000Z", losAngeles, english)
+
+        assertNotEquals(here, there)
+    }
+
+    @Test
+    fun `a timestamp it cannot read comes back unchanged`() {
+        // Same contract as formatStoredDate: an unrecognised value is still
+        // information, and a dialog should not lose it.
+        assertEquals("not a date", formatStoredDateTime("not a date", utc, english))
     }
 }

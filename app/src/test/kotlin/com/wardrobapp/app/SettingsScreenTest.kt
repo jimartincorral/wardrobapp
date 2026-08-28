@@ -4,10 +4,13 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import com.wardrobapp.data.ArchivePreview
 import com.wardrobapp.data.UnrestorableReason
 import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.settingsView
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -40,6 +43,9 @@ class SettingsScreenTest {
 
     private val version = AppVersion(name = "0.1-port", code = 1000)
 
+    /** Counts agreement to restore *this* archive, as opposed to opening the picker. */
+    private var archiveConfirmed = 0
+
     private fun show(
         state: SettingsViewModel.State,
         theme: ThemeChoice = ThemeChoice.SYSTEM,
@@ -57,6 +63,7 @@ class SettingsScreenTest {
                 onBackupDismissed = {},
                 onRestoreRequested = {},
                 onRestoreConfirmed = {},
+                onArchiveConfirmed = { archiveConfirmed++ },
                 onRestoreDismissed = {},
                 onTidyRequested = {},
                 onTidyDismissed = {},
@@ -232,5 +239,69 @@ class SettingsScreenTest {
         show(loaded())
 
         compose.onNodeWithContentDescription("Back").assertDoesNotExist()
+    }
+
+    // ---- the preview, which is what a restore now goes through ---------------
+
+    @Test
+    fun `a picked archive says when it was made before anything is replaced`() {
+        // The reason this step exists: a backup is a timestamped file name, and
+        // choosing between two of them by name is not choosing.
+        show(
+            loaded().copy(
+                restore = SettingsViewModel.Restore.Previewing(
+                    ArchivePreview(
+                        version = 3,
+                        createdAt = "2026-08-28T09:00:00.000Z",
+                        declaredImages = 12,
+                        presentImages = 12,
+                        hasDatabase = true,
+                    ),
+                ),
+            ),
+        )
+
+        compose.onNodeWithText("Restore this backup?").assertIsDisplayed()
+        compose.onNodeWithText("12 photos").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an archive that never recorded a date says so rather than showing a blank`() {
+        // The v1/v2 formats had no created_at. An empty line would read as a bug in
+        // the screen rather than a fact about the backup.
+        show(
+            loaded().copy(
+                restore = SettingsViewModel.Restore.Previewing(
+                    ArchivePreview(
+                        version = 2,
+                        createdAt = null,
+                        presentImages = 1,
+                        hasDatabase = true,
+                        legacy = true,
+                    ),
+                ),
+            ),
+        )
+
+        compose.onNodeWithText("This backup did not record when it was made.").assertIsDisplayed()
+        compose.onNodeWithText("1 photo").assertIsDisplayed()
+    }
+
+    @Test
+    fun `agreeing to the previewed archive is a separate answer from opening the picker`() {
+        // Two confirmations, two callbacks: one says "yes, restore something", the
+        // other says "yes, restore *this*". Wiring them together would put the
+        // second one back where it was, which is to say nowhere.
+        show(
+            loaded().copy(
+                restore = SettingsViewModel.Restore.Previewing(
+                    ArchivePreview(version = 3, presentImages = 0, hasDatabase = true),
+                ),
+            ),
+        )
+
+        compose.onNodeWithText("Restore").performClick()
+
+        assertEquals(1, archiveConfirmed)
     }
 }

@@ -2,8 +2,10 @@ package com.wardrobapp.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wardrobapp.data.ArchivePreview
 import com.wardrobapp.data.UnrestorableArchiveException
 import com.wardrobapp.data.UnrestorableReason
+import com.wardrobapp.data.readArchivePreview
 import com.wardrobapp.presentation.BackupPhase
 import com.wardrobapp.presentation.SettingsView
 import com.wardrobapp.presentation.backupPercent
@@ -80,10 +82,23 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
      * Where a restore has got to.
      *
      * [Confirming] exists because a restore replaces the whole wardrobe, and
-     * picking a file is not the same as agreeing to that.
+     * picking a file is not the same as agreeing to that. [Previewing] exists
+     * because agreeing to it in the abstract is not the same as agreeing to *this
+     * archive*: until the file is chosen there is nothing to describe, and after
+     * it is chosen there is no reason not to.
      */
     sealed interface Restore {
         data object Confirming : Restore
+
+        /**
+         * A chosen archive, read but not applied.
+         *
+         * The wardrobe is untouched here: [readArchivePreview] writes nothing and
+         * refuses whatever the restore would refuse, so an archive that reaches
+         * this state is one the restore has already agreed to accept.
+         */
+        data class Previewing(val preview: ArchivePreview) : Restore
+
         data object Running : Restore
         /** Restored; the count is absent only if the reload afterwards failed. */
         data class Done(val garments: Long?) : Restore
@@ -250,16 +265,63 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun onRestoreDismissed() {
+        pendingArchive = null
         _state.update { it.copy(restore = null) }
     }
 
     /**
-     * Restore from an archive, then show what happened.
+     * The archive waiting to be confirmed.
      *
-     * Takes a way to open the archive rather than the archive itself, for the
-     * same reasons as [onBackupDestinationPicked].
+     * Cleared on dismissal as well as on use, so backing out of a preview cannot
+     * leave a file armed for the next confirmation.
+     */
+    private var pendingArchive: (() -> InputStream)? = null
+
+    /**
+     * Read the chosen archive and say what is in it, without applying it.
+     *
+     * Takes a way to *open* the archive rather than an open one, and that is what
+     * makes this step possible at all: the preview consumes a stream and so does
+     * the restore, and a `content://` stream does not rewind. A factory can be
+     * called twice.
+     *
+     * An archive that cannot be restored fails here instead, which is the other
+     * half of what this step is for: the same refusal, the same sentence, but
+     * arriving before somebody has been told their wardrobe is about to be
+     * replaced rather than after.
      */
     fun onArchivePicked(openArchive: () -> InputStream) {
+        _state.update { it.copy(restore = Restore.Running) }
+
+        viewModelScope.launch {
+            val read = withContext(Dispatchers.IO) {
+                runCatching { openArchive().use { readArchivePreview(it) } }
+            }
+
+            // Outside the update: `update` re-runs its lambda when another writer
+            // got there first, and a lambda that also assigns a field would do it
+            // twice. Harmless for this assignment, and the wrong habit to keep.
+            pendingArchive = read.getOrNull()?.let { openArchive }
+
+            val next = read.fold(
+                onSuccess = { preview -> Restore.Previewing(preview) },
+                onFailure = { error -> error.asRestoreFailure() },
+            )
+
+            _state.update { it.copy(restore = next) }
+        }
+    }
+
+    /**
+     * Apply the archive that was previewed.
+     *
+     * The opener is kept here rather than carried in the state: a lambda in a data
+     * class breaks equality, and a state that is never equal to itself makes a
+     * StateFlow emit on every update.
+     */
+    fun onRestoreConfirmed() {
+        val openArchive = pendingArchive ?: return
+
         _state.update { it.copy(restore = Restore.Running) }
 
         viewModelScope.launch {
@@ -271,20 +333,28 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
             // figures on screen were read before the attempt and saying so
             // costs nothing.
             val garments = reload()
+            pendingArchive = null
 
             _state.update {
                 it.copy(
                     restore = outcome.fold(
                         onSuccess = { Restore.Done(garments) },
-                        onFailure = { error ->
-                            Restore.Failed(
-                                message = error.message ?: error.javaClass.simpleName,
-                                reason = (error as? UnrestorableArchiveException)?.reason,
-                            )
-                        },
+                        onFailure = { error -> error.asRestoreFailure() },
                     )
                 )
             }
         }
     }
+
+    /**
+     * A thrown thing as something the screen can say.
+     *
+     * Shared by the preview and the restore because they fail the same way and for
+     * the same reasons -- which is the point of the preview calling :data's
+     * validation rather than its own.
+     */
+    private fun Throwable.asRestoreFailure() = Restore.Failed(
+        message = message ?: javaClass.simpleName,
+        reason = (this as? UnrestorableArchiveException)?.reason,
+    )
 }

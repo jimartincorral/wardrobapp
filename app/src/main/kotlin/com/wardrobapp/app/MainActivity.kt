@@ -519,6 +519,7 @@ class MainActivity : AppCompatActivity() {
             // at all. Filtering on the type would hide the user's own backup
             // from them, so every type is offered and the archive decides.
             onRestoreConfirmed = { opener.launch(arrayOf("*/*")) },
+            onArchiveConfirmed = model::onRestoreConfirmed,
             onRestoreDismissed = model::onRestoreDismissed,
             onTidyRequested = model::onTidyRequested,
             onTidyDismissed = model::onTidyDismissed,
