@@ -554,6 +554,7 @@ class MainActivity : AppCompatActivity() {
             onRefresh = cloud::refresh,
             onRestore = cloud::onRestoreRequested,
             onFailureDismissed = cloud::onFailureDismissed,
+            onRestoredDismissed = cloud::onRestoredDismissed,
         )
     }
 

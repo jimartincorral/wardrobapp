@@ -47,6 +47,7 @@ fun CloudBackupSection(
     onRefresh: () -> Unit,
     onRestore: (DriveBackup) -> Unit,
     onFailureDismissed: () -> Unit,
+    onRestoredDismissed: () -> Unit,
 ) {
     var confirming by remember { mutableStateOf<DriveBackup?>(null) }
 
@@ -58,6 +59,22 @@ fun CloudBackupSection(
             confirmButton = {
                 TextButton(onClick = onFailureDismissed) {
                     Text(stringResource(R.string.action_close))
+                }
+            },
+        )
+    }
+
+    // The same two strings the local restore uses. A restore that arrived from
+    // Drive is the same event as one that arrived from the file picker, and saying
+    // it differently would imply it was not.
+    if (state.restored) {
+        AlertDialog(
+            onDismissRequest = onRestoredDismissed,
+            title = { Text(stringResource(R.string.restore_done_title)) },
+            text = { Text(stringResource(R.string.restore_done_body)) },
+            confirmButton = {
+                TextButton(onClick = onRestoredDismissed) {
+                    Text(stringResource(R.string.action_done))
                 }
             },
         )

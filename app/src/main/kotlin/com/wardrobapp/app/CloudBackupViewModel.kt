@@ -56,7 +56,14 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
         val progress: Float? = null,
         /** What went wrong, in the words of whatever failed. */
         val failure: String? = null,
-        /** Set once a restore has finished, so the screen can say the app must be reopened. */
+        /**
+         * Set once a restore has finished, so the screen can say so.
+         *
+         * A restore replaces the wardrobe without any visible sign of it: the
+         * spinner stops and the section looks exactly as it did. The local restore
+         * confirms itself with a dialog, and arriving by way of Drive is not a
+         * reason to say less.
+         */
         val restored: Boolean = false,
     )
 
@@ -169,6 +176,8 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun onFailureDismissed() = _state.update { it.copy(failure = null) }
+
+    fun onRestoredDismissed() = _state.update { it.copy(restored = false) }
 
     /**
      * Ask what is in Drive, without putting anything there.
