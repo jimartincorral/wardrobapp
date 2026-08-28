@@ -80,24 +80,43 @@ One app now: the Kotlin one. Anything below is built once.
       garment plus one tap for "cold today" would keep this local-first; a forecast
       service would mean network, location and a key, which is a different app.
 
+## Built, waiting on a device rather than on work
+
+- [ ] **Cloud backup sync to Google Drive** -- PR #60, unmerged. Connect an
+      account, back up, list what is there, restore any of it, disconnect.
+      `drive.file` rather than `appDataFolder`, so a backup stays a zip its owner
+      can open without this app. Two OAuth clients are registered and committed,
+      against the release certificate's SHA-1
+      (`c9c04a682b973e52b93edc82d5a39facfea438bf`) and the debug one.
+
+      What is left is the one thing nothing in CI can do: **the sign-in has never
+      run on a phone.** The browser round trip, the redirect scheme, the token
+      exchange and the refresh are all unproven. That is the next step and it is a
+      device step, not a coding one.
+
+      One consequence to remember rather than rediscover: an Android OAuth client
+      is keyed to the application id *and* the signing certificate. A new keystore
+      means updating the release client's fingerprint in Google's console, or Drive
+      sign-in breaks in release only -- debug keeps working and hides it. See
+      Signing in the README.
+
 ## Parked
 
-- [ ] **Cloud backup sync**, Google Drive first. `drive.file` scope rather than
-      `appDataFolder`, so a backup stays something its owner can see and download.
-      No longer blocked: the app has had a release key of its own since 28 August
-      2026, and Google's console wants the SHA-1 of its certificate,
-      `c9c04a682b973e52b93edc82d5a39facfea438bf`, to register an OAuth client
-      against. See Signing in the README.
-- [ ] **Scheduled backups**, which belong with the above rather than before it: a
-      weekly job writing a backup and keeping the last few. Worth having on-device
-      too, but a schedule whose only destination is a folder on the same phone is
-      half a safety net.
+- [ ] **Scheduled backups**, which belong *after* the above rather than beside it:
+      a weekly job writing a backup and keeping the last few. Deliberately not
+      built yet -- a job that runs unattended wants the path it uses to have worked
+      at least once while somebody was watching. Worth having on-device too, but a
+      schedule whose only destination is a folder on the same phone is half a
+      safety net.
 
 ## Suggested build order
 
-1. Restore preview, which needs nothing new.
-2. The planning calendar, now that an outfit can be put together by hand.
-3. Cloud sync and the schedule with it, which the release key has unblocked.
+1. Take PR #60 through a sign-in on a phone. It is the only thing between cloud
+   backup and done, and no amount of work here substitutes for it.
+2. Restore preview, which needs nothing new.
+3. The planning calendar, now that an outfit can be put together by hand.
+4. The backup schedule, once the path it would run unattended has worked once by
+   hand.
 
 What is left of the recommendation engine is waiting on product decisions rather
 than on work: a temperature band, or a calendar to ask what is already planned.
