@@ -25,9 +25,6 @@ import com.wardrobapp.data.AppRelease
 /** The notice itself, for the tests that ask whether it is on screen. */
 const val UPDATE_NOTICE = "update-notice"
 
-/** The notice about a build signed with a new key, for the tests that ask for it. */
-const val UPDATE_NEW_KEY = "update-new-key"
-
 /**
  * How many changelog lines are shown.
  *
@@ -56,35 +53,7 @@ fun UpdateNotice(
     onSkip: () -> Unit,
     onDismiss: () -> Unit,
     onFailureDismissed: () -> Unit,
-    onSigningChangeDismissed: () -> Unit,
 ) {
-    // Before the failure below, because this is not one: the download worked, and
-    // what is wrong is that Android cannot apply it to the copy on this phone.
-    if (state.signingChanged) {
-        AlertDialog(
-            onDismissRequest = onSigningChangeDismissed,
-            modifier = Modifier.testTag(UPDATE_NEW_KEY),
-            title = { Text(stringResource(R.string.update_new_key_title)) },
-            text = {
-                // Scrolled: this is four steps and the reason for them, and a short
-                // screen at a large font size would otherwise cut off the one that
-                // matters most -- which is the backup, and which is first.
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    Text(
-                        stringResource(R.string.update_new_key_body),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = onSigningChangeDismissed) {
-                    Text(stringResource(R.string.action_close))
-                }
-            },
-        )
-        return
-    }
-
     val failure = state.failure
     if (failure != null) {
         AlertDialog(
