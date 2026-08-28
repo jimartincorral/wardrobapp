@@ -49,8 +49,9 @@ class StringResourceParityTest {
      * shipping app got wrong.
      */
     private val sameInBothLanguages = setOf(
-        // A name.
+        // Names.
         "app_name",
+        "settings_section_cloud",
         // Each language names itself in itself, as the shipping app does.
         "language_english",
         "language_spanish",

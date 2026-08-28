@@ -540,6 +540,33 @@
     <string name="error_update_redirects">Esa descarga no dejaba de redirigirse, así que se ha detenido.</string>
     <string name="error_update_incomplete">La descarga no ha terminado, así que no se ha instalado nada.</string>
 
+    <string name="settings_section_cloud">Google Drive</string>
+    <string name="settings_cloud_hint">Las copias también pueden ir a una carpeta de tu propio Google Drive, donde puedes abrirlas y descargarlas sin esta aplicación. Wardrobapp solo ve los archivos que ha puesto ahí.</string>
+    <string name="settings_cloud_connect">Conectar Google Drive</string>
+    <string name="settings_cloud_disconnect">Desconectar</string>
+    <string name="settings_cloud_backup_now">Copiar a Drive</string>
+    <string name="settings_cloud_refresh">Actualizar</string>
+    <string name="settings_cloud_connecting">Conectando…</string>
+    <string name="settings_cloud_listing">Leyendo tu Drive…</string>
+    <string name="settings_cloud_backing_up">Creando la copia…</string>
+    <string name="settings_cloud_restoring">Restaurando…</string>
+    <string name="settings_cloud_empty">Todavía no hay copias en Drive.</string>
+    <string name="settings_cloud_kept">Las copias antiguas se eliminan a medida que llegan nuevas.</string>
+    <string name="settings_cloud_restore">Restaurar</string>
+    <string name="settings_cloud_restore_title">¿Restaurar desde Drive?</string>
+    <string name="settings_cloud_restore_body">Todo lo que hay en el armario de esta aplicación se reemplazará por el contenido de esa copia. Si resulta ilegible, no se cambia nada.</string>
+    <string name="settings_cloud_disconnect_note">Desconectar solo olvida el permiso. Las copias siguen en tu Drive.</string>
+
+    <string name="error_drive_signin_incomplete">El inicio de sesión no ha terminado, así que Google Drive no se ha conectado.</string>
+    <string name="error_drive_no_permission">Google no ha devuelto el permiso, así que Google Drive no se ha conectado.</string>
+    <string name="error_drive_no_access">Wardrobapp no ha podido obtener permiso para acceder a tu Drive. Vuelve a conectarlo en Ajustes.</string>
+    <string name="error_drive_untrusted">Esa dirección no es de Google Drive, así que no se ha enviado nada.</string>
+    <string name="error_drive_unauthorized">Wardrobapp ya no tiene permiso para acceder a tu Drive. Vuelve a conectarlo en Ajustes.</string>
+    <string name="error_drive_refused">Google Drive ha rechazado la petición (%1$d).</string>
+    <string name="error_drive_no_folder">Google Drive no ha dicho dónde está la carpeta que ha creado, así que no se ha subido nada.</string>
+    <string name="error_drive_no_session">Google Drive no ha dicho dónde enviar la copia, así que no se ha subido nada.</string>
+    <string name="error_drive_upload_unconfirmed">La copia se ha enviado pero Google Drive no lo ha confirmado, así que puede que no esté ahí.</string>
+
     <string name="wardrobe_add_options">Más formas de añadir</string>
     <string name="bulk_add_title">Añadir varias</string>
     <string name="bulk_add_menu">Añadir varias fotos</string>

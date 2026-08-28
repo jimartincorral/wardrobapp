@@ -63,6 +63,45 @@ class TimestampsTest {
     }
 
     @Test
+    fun `reads back exactly what it wrote`() {
+        val instants = listOf(0L, 7L, 1000L, 1787494516017L, 4102444800000L)
+
+        for (instant in instants) {
+            assertEquals(instant, epochMillisOfIso(isoTimestamp(instant)))
+        }
+    }
+
+    @Test
+    fun `reads the shape Drive stamps a file with`() {
+        // RFC 3339 without the fractional seconds, which is what Drive returns
+        // when they are zero. A parser that only knew this app's own shape would
+        // drop those files out of the backup list entirely.
+        assertEquals(1787494516000L, epochMillisOfIso("2026-08-23T14:15:16Z"))
+    }
+
+    @Test
+    fun `reads UTC whatever the device is set to`() {
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Tokyo"))
+        val tokyo = epochMillisOfIso("2026-08-23T14:15:16.017Z")
+        TimeZone.setDefault(TimeZone.getTimeZone("America/Los_Angeles"))
+        val losAngeles = epochMillisOfIso("2026-08-23T14:15:16.017Z")
+
+        assertEquals(1787494516017L, tokyo)
+        assertEquals(tokyo, losAngeles)
+    }
+
+    @Test
+    fun `refuses what it cannot read rather than guessing`() {
+        // Null drops one record. A guess sorts it into the wrong place, and the
+        // oldest backup is the one that gets deleted.
+        assertEquals(null, epochMillisOfIso(""))
+        assertEquals(null, epochMillisOfIso("not a date"))
+        assertEquals(null, epochMillisOfIso("2026-08-23"))
+        assertEquals(null, epochMillisOfIso("2026-13-01T00:00:00.000Z"))
+        assertEquals(null, epochMillisOfIso("1787494516017"))
+    }
+
+    @Test
     fun `sorts as text in the same order as in time`() {
         // Which is the whole reason the shape has to be fixed: every read path
         // orders by these columns as strings.

@@ -32,6 +32,23 @@ val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0
 // `app/debug.keystore` rather than failing: a contributor with no keystore must
 // still be able to build, and until a real key exists that file is what every
 // published APK has been signed with.
+// The OAuth clients this app is, to Google.
+//
+// Committed rather than kept as secrets, and deliberately: an Android OAuth
+// client has no client secret, and the id ships inside the APK where anybody can
+// read it. What stops somebody else using it is the pair Google checks it
+// against -- the application id and the signing certificate -- which is why there
+// are two of these, and why they are registered against the fingerprints in
+// Signing, above. Hiding the id would protect nothing and would mean a build
+// nobody but its author could produce.
+//
+// Quoted twice: `buildConfigField` takes the Java source of the value, not the
+// value.
+val RELEASE_DRIVE_CLIENT_ID =
+    "\"911335776498-44e7arm15lbfgssdmrmef3b8ghil6nt4.apps.googleusercontent.com\""
+val DEBUG_DRIVE_CLIENT_ID =
+    "\"911335776498-cdb983dqrt7mh2eti4pdlmo764eedbt7.apps.googleusercontent.com\""
+
 val releaseStoreFile: String? = providers.gradleProperty("WARDROBAPP_STORE_FILE").orNull
 val releaseStorePassword: String? = providers.gradleProperty("WARDROBAPP_STORE_PASSWORD").orNull
 val releaseKeyAlias: String? = providers.gradleProperty("WARDROBAPP_KEY_ALIAS").orNull
@@ -177,10 +194,19 @@ android {
             // build. `android:authorities` is `${applicationId}.camera`, so the
             // FileProvider follows the suffix on its own.
             applicationIdSuffix = ".debug"
+
+            // Its own OAuth client, because Google keys an Android client on the
+            // application id *and* the signing certificate, and a debug build
+            // differs in both: `.debug` on the id, and the committed debug key
+            // rather than the release one. One client cannot cover both.
+            buildConfigField("String", "DRIVE_CLIENT_ID", DEBUG_DRIVE_CLIENT_ID)
+            manifestPlaceholders["appAuthRedirectScheme"] = "com.anonymous.wardrobapp.debug"
         }
 
         release {
             isMinifyEnabled = false
+            buildConfigField("String", "DRIVE_CLIENT_ID", RELEASE_DRIVE_CLIENT_ID)
+            manifestPlaceholders["appAuthRedirectScheme"] = "com.anonymous.wardrobapp"
             // A real keystore when one is configured; otherwise the committed
             // one, whose whole purpose is that it is the key the installed base
             // already trusts. See `signingConfigs` above.
@@ -194,6 +220,9 @@ android {
 
     buildFeatures {
         compose = true
+        // For DRIVE_CLIENT_ID, which differs per build type and so cannot be a
+        // constant in the source.
+        buildConfig = true
     }
 
     testOptions {
@@ -257,6 +286,15 @@ dependencies {
     // two produce the same cut-outs. Still a beta upstream; matching what ships is
     // the defensible choice.
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
+
+    // OAuth for Drive backups: the authorization request, PKCE, the token
+    // exchange and the refresh. Not hand-rolled, unlike the rest of this app's
+    // networking -- the update check fetches a public document, where the worst
+    // a mistake costs is a failed download, and this holds a credential to
+    // somebody's Google account. It is also not Play Services: GoogleSignIn is
+    // deprecated in favour of an API still settling, and AppAuth keeps the auth
+    // path working on a phone with no Google services at all.
+    implementation("net.openid:appauth:0.11.1")
 
     // Photos are files on disk; Coil loads them without hand-rolled decoding.
     implementation("io.coil-kt:coil-compose:2.7.0")
