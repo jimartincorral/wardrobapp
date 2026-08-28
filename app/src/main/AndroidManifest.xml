@@ -41,8 +41,8 @@
         Drive failure or a network failure, it is the sign-in screen being unable to
         exist, on a phone that has Chrome sitting on the home screen.
 
-        A signing-in flow belongs in the browser rather than in a WebView -- a
-        password typed into a WebView is typed into this app's process -- so being
+        A signing-in flow belongs in the browser rather than in a WebView, since a
+        password typed into a WebView is typed into this app's process, so being
         able to find one is not optional.
     -->
     <queries>
