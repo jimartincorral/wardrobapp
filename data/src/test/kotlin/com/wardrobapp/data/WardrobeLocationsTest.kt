@@ -16,11 +16,23 @@ class WardrobeLocationsTest {
 
     private val filesDir = File("/data/user/0/com.anonymous.wardrobapp/files")
 
+    /**
+     * The path as the device would write it, whatever the host writes it as.
+     *
+     * These are locations on an Android phone, which is POSIX, but `File` renders
+     * a path with the separator of whatever machine is running the test. On
+     * Windows that is a backslash, which made the literal comparisons below fail
+     * for no reason -- and, worse, made the `/databases/` check below unable to
+     * fail for any reason, since a path full of backslashes never contains it.
+     * A test written against a silent failure should not have one of its own.
+     */
+    private val File.devicePath: String get() = path.replace(File.separatorChar, '/')
+
     @Test
     fun `the database is the one expo-sqlite opens by bare name`() {
         assertEquals(
             "/data/user/0/com.anonymous.wardrobapp/files/SQLite/wardrobapp.db",
-            wardrobeFilesIn(filesDir).databaseFile.path,
+            wardrobeFilesIn(filesDir).databaseFile.devicePath,
         )
     }
 
@@ -30,7 +42,7 @@ class WardrobeLocationsTest {
         // answer and the wrong one -- it is a sibling of `files/`, not inside it.
         assertEquals(
             false,
-            wardrobeFilesIn(filesDir).databaseFile.path.contains("/databases/"),
+            wardrobeFilesIn(filesDir).databaseFile.devicePath.contains("/databases/"),
         )
     }
 
@@ -38,7 +50,7 @@ class WardrobeLocationsTest {
     fun `photos are where the wardrobes on real phones already are`() {
         assertEquals(
             "/data/user/0/com.anonymous.wardrobapp/files/garment-images",
-            wardrobeFilesIn(filesDir).imagesDir.path,
+            wardrobeFilesIn(filesDir).imagesDir.devicePath,
         )
     }
 
