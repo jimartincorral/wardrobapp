@@ -38,7 +38,10 @@ class CloudBackupSectionTest {
     private val archive = DriveBackup(
         id = "abc",
         name = "wardrobapp-backup-2026-08-28T09-00-00-000Z.zip",
-        modifiedAt = 1_756_371_600_000L,
+        // 2026-08-28T09:00:00Z, matching the name -- they disagreed before, which
+        // would have made a test about dates pass on the wrong one.
+        modifiedAt = 1_787_907_600_000L,
+        bytes = 3_145_728L,
     )
 
     private fun show(state: CloudBackupViewModel.State) {
@@ -123,10 +126,22 @@ class CloudBackupSectionTest {
     }
 
     @Test
-    fun `the archive on offer is named, so it is clear which one is being replaced`() {
+    fun `a row is dated rather than named, since the name is a timestamp nobody reads`() {
+        // `wardrobapp-backup-2026-08-28T09-00-00-000Z.zip` is a date in the sense
+        // that a barcode is a price. The year is asserted rather than the whole
+        // string because the format is the reader's own locale's.
         show(CloudBackupViewModel.State(signedIn = true, backups = listOf(archive)))
 
-        compose.onNodeWithText(archive.name).assertIsDisplayed()
+        compose.onNodeWithText("2026", substring = true).assertIsDisplayed()
+        compose.onNodeWithText(archive.name).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a row says how big the archive is, where Drive said`() {
+        // Worth knowing before pulling it down a phone connection.
+        show(CloudBackupViewModel.State(signedIn = true, backups = listOf(archive)))
+
+        compose.onNodeWithText("3.0 MB").assertIsDisplayed()
     }
 
     @Test
