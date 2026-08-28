@@ -552,7 +552,7 @@
     <string name="settings_section_cloud">Google Drive</string>
     <string name="settings_cloud_hint">Las copias también pueden ir a una carpeta de tu propio Google Drive, donde puedes abrirlas y descargarlas sin esta aplicación. Wardrobapp solo ve los archivos que ha puesto ahí.</string>
     <string name="settings_cloud_connect">Conectar Google Drive</string>
-    <string name="error_drive_no_browser">Para iniciar sesión hace falta un navegador web, y este teléfono no parece tener uno.</string>
+    <string name="error_drive_no_browser">No se pudo iniciar el acceso. Normalmente significa que no se encontró ningún navegador web. (%1$s)</string>
     <string name="settings_cloud_disconnect">Desconectar</string>
     <string name="settings_cloud_backup_now">Copiar a Drive</string>
     <string name="settings_cloud_refresh">Actualizar</string>
