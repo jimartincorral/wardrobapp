@@ -540,6 +540,16 @@
     <string name="error_update_redirects">Esa descarga no dejaba de redirigirse, así que se ha detenido.</string>
     <string name="error_update_incomplete">La descarga no ha terminado, así que no se ha instalado nada.</string>
 
+    <string name="error_drive_signin_incomplete">El inicio de sesión no ha terminado, así que Google Drive no se ha conectado.</string>
+    <string name="error_drive_no_permission">Google no ha devuelto el permiso, así que Google Drive no se ha conectado.</string>
+    <string name="error_drive_no_access">Wardrobapp no ha podido obtener permiso para acceder a tu Drive. Vuelve a conectarlo en Ajustes.</string>
+    <string name="error_drive_untrusted">Esa dirección no es de Google Drive, así que no se ha enviado nada.</string>
+    <string name="error_drive_unauthorized">Wardrobapp ya no tiene permiso para acceder a tu Drive. Vuelve a conectarlo en Ajustes.</string>
+    <string name="error_drive_refused">Google Drive ha rechazado la petición (%1$d).</string>
+    <string name="error_drive_no_folder">Google Drive no ha dicho dónde está la carpeta que ha creado, así que no se ha subido nada.</string>
+    <string name="error_drive_no_session">Google Drive no ha dicho dónde enviar la copia, así que no se ha subido nada.</string>
+    <string name="error_drive_upload_unconfirmed">La copia se ha enviado pero Google Drive no lo ha confirmado, así que puede que no esté ahí.</string>
+
     <string name="wardrobe_add_options">Más formas de añadir</string>
     <string name="bulk_add_title">Añadir varias</string>
     <string name="bulk_add_menu">Añadir varias fotos</string>

@@ -128,6 +128,32 @@ class DriveRequestsTest {
     }
 
     @Test
+    fun `an upload session address is accepted only on Google's domain`() {
+        assertTrue(isTrustedDriveEndpoint("https://www.googleapis.com/upload/drive/v3/files?upload_id=x"))
+        assertTrue(isTrustedDriveEndpoint("https://googleapis.com/upload"))
+        // Whichever subdomain Google hands the session out on.
+        assertTrue(isTrustedDriveEndpoint("https://upload-eu.googleapis.com/x"))
+    }
+
+    @Test
+    fun `an address that merely looks like Google's is refused`() {
+        // The dot is the whole test: a name ending in the string without the dot
+        // is a different domain that anybody can register.
+        assertFalse(isTrustedDriveEndpoint("https://evilgoogleapis.com/upload"))
+        assertFalse(isTrustedDriveEndpoint("https://googleapis.com.attacker.test/upload"))
+        assertFalse(isTrustedDriveEndpoint("https://attacker.test/googleapis.com"))
+    }
+
+    @Test
+    fun `an upload session must be https and must not carry a userinfo`() {
+        assertFalse(isTrustedDriveEndpoint("http://www.googleapis.com/upload"))
+        // Userinfo is how one host is made to read as another.
+        assertFalse(isTrustedDriveEndpoint("https://www.googleapis.com@attacker.test/upload"))
+        assertFalse(isTrustedDriveEndpoint(""))
+        assertFalse(isTrustedDriveEndpoint("www.googleapis.com/upload"))
+    }
+
+    @Test
     fun `a token is spent before it expires, not after`() {
         val expiry = 1_000_000L
 

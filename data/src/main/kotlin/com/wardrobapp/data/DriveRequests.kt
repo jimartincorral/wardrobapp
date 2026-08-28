@@ -90,6 +90,41 @@ fun driveDownloadUrl(fileId: String): String =
 fun driveDeleteUrl(fileId: String): String =
     DRIVE_API_BASE + "/files/" + encodedPath(fileId)
 
+/**
+ * Whether an address is one of Google's upload endpoints.
+ *
+ * A resumable upload starts by being told where to send the bytes: the session
+ * address arrives in a `Location` header, which is a server saying "now write to
+ * here". Everything else in this app checks an address it was handed before
+ * following it -- the update checker does it for redirects -- and an archive is a
+ * copy of the whole wardrobe, so it is worth the same care.
+ *
+ * HTTPS only, and no userinfo: a URL carrying one is a way of making a host look
+ * like another to whoever reads it.
+ */
+fun isTrustedDriveEndpoint(url: String): Boolean {
+    val scheme = url.substringBefore("://", missingDelimiterValue = "")
+    if (!scheme.equals("https", ignoreCase = true)) return false
+
+    val authority = url.substringAfter("://").substringBefore('/').substringBefore('?')
+    if (authority.contains('@')) return false
+
+    val host = authority.substringBefore(':').lowercase()
+
+    return host == GOOGLE_APIS || host.endsWith(".$GOOGLE_APIS")
+}
+
+/**
+ * The domain Drive answers on.
+ *
+ * Matched as a domain rather than as a list of exact names, because a resumable
+ * session is handed out on whichever host Google picks and that has not always
+ * been the one the request went to. The subdomain is left open; the domain is
+ * not, and `evilgoogleapis.com` is a different domain -- which is why this checks
+ * for a dot before it rather than for the string anywhere in the name.
+ */
+private const val GOOGLE_APIS = "googleapis.com"
+
 /** The metadata sent ahead of an archive's bytes. */
 fun driveUploadMetadata(name: String, folderId: String): String =
     JsonObject(

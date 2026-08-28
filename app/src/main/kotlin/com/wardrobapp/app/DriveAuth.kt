@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import com.wardrobapp.data.DRIVE_SCOPE
+import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -32,8 +33,10 @@ import net.openid.appauth.ResponseTypeValues
  */
 class DriveAuth(context: Context) {
 
+    private val context = context.applicationContext
+
     private val preferences =
-        context.applicationContext.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+        this.context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
 
     /** Whether there is a usable authorization, refreshable or not yet spent. */
     val isSignedIn: Boolean get() = readState().isAuthorized
@@ -61,7 +64,10 @@ class DriveAuth(context: Context) {
         val response = AuthorizationResponse.fromIntent(data)
         val failure = AuthorizationException.fromIntent(data)
 
-        if (response == null) throw failure ?: IllegalStateException("No authorization response.")
+        if (response == null) {
+            throw failure
+                ?: IOException(context.getString(R.string.error_drive_signin_incomplete))
+        }
 
         val state = readState().apply { update(response, failure) }
 
@@ -70,7 +76,7 @@ class DriveAuth(context: Context) {
                 when {
                     result != null -> continuation.resume(result)
                     else -> continuation.resumeWithException(
-                        error ?: IllegalStateException("No token response."),
+                        error ?: IOException(context.getString(R.string.error_drive_no_permission)),
                     )
                 }
             }
@@ -97,7 +103,7 @@ class DriveAuth(context: Context) {
                 when {
                     accessToken != null -> continuation.resume(accessToken)
                     else -> continuation.resumeWithException(
-                        error ?: IllegalStateException("No access token."),
+                        error ?: IOException(context.getString(R.string.error_drive_no_access)),
                     )
                 }
             }
