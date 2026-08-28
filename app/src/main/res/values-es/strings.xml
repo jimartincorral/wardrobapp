@@ -225,6 +225,10 @@
     <string name="restore_confirm_title">¿Restaurar desde una copia?</string>
     <string name="restore_confirm_body">Todo lo que hay en el armario de esta aplicación se reemplazará por el contenido de la copia que elijas. Si la copia resulta inservible, no se cambia nada.</string>
     <string name="restore_pick">Elegir una copia</string>
+    <string name="restore_preview_title">¿Restaurar esta copia?</string>
+    <string name="restore_preview_made">Creada el %1$s</string>
+    <string name="restore_preview_undated">Esta copia no registró cuándo se creó.</string>
+    <string name="restore_preview_restore">Restaurar</string>
     <string name="restore_running_title">Restaurando</string>
     <string name="restore_running_body">Descomprimiendo y comprobando la copia.</string>
     <string name="restore_done_title">Armario restaurado</string>
@@ -508,6 +512,11 @@
         <item quantity="one">No se pudo leer %d foto y se dejó fuera.</item>
         <item quantity="many">No se pudieron leer %d fotos y se dejaron fuera.</item>
         <item quantity="other">No se pudieron leer %d fotos y se dejaron fuera.</item>
+    </plurals>
+    <plurals name="restore_preview_photos">
+        <item quantity="one">%d foto</item>
+        <item quantity="many">%d fotos</item>
+        <item quantity="other">%d fotos</item>
     </plurals>
     <plurals name="restore_done_garments">
         <item quantity="one">Se restauró la copia: %d prenda.</item>

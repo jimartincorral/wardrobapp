@@ -38,6 +38,9 @@ import com.wardrobapp.data.ArchiveDetail
 import com.wardrobapp.data.UnrestorableReason
 import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.ThemeChoice
+import com.wardrobapp.presentation.formatStoredDateTime
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Settings.
@@ -66,7 +69,10 @@ fun SettingsScreen(
     onBackupRequested: () -> Unit,
     onBackupDismissed: () -> Unit,
     onRestoreRequested: () -> Unit,
+    /** Agreed to restore in principle: opens the file picker. */
     onRestoreConfirmed: () -> Unit,
+    /** Agreed to restore *this* archive, having been shown what is in it. */
+    onArchiveConfirmed: () -> Unit,
     onRestoreDismissed: () -> Unit,
     onTidyRequested: () -> Unit,
     onTidyDismissed: () -> Unit,
@@ -85,7 +91,7 @@ fun SettingsScreen(
         BackupDialog(backup, onBackupDismissed)
     }
     state.restore?.let { restore ->
-        RestoreDialog(restore, onRestoreConfirmed, onRestoreDismissed)
+        RestoreDialog(restore, onRestoreConfirmed, onArchiveConfirmed, onRestoreDismissed)
     }
     state.tidy?.let { tidy ->
         TidyDialog(tidy, onTidyDismissed)
@@ -348,7 +354,10 @@ private fun BackupDialog(
 @Composable
 private fun RestoreDialog(
     restore: SettingsViewModel.Restore,
+    /** Opens the file picker. */
     onConfirm: () -> Unit,
+    /** Applies the archive already picked and described. */
+    onConfirmRestore: () -> Unit,
     onDismiss: () -> Unit,
 ) = when (restore) {
     is SettingsViewModel.Restore.Confirming -> AlertDialog(
@@ -360,6 +369,54 @@ private fun RestoreDialog(
             )
         },
         confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.restore_pick)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+
+    /**
+     * The archive that was picked, described before it is applied.
+     *
+     * The date carries the time of day: a rolling folder holds several backups and
+     * two from the same afternoon are not told apart by "28 August". An archive
+     * that never recorded one says so rather than showing a blank -- the older
+     * formats did not have the field, and that is a fact about the backup rather
+     * than a gap in the screen.
+     */
+    is SettingsViewModel.Restore.Previewing -> AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.restore_preview_title)) },
+        text = {
+            Column {
+                Text(
+                    restore.preview.createdAt?.let { made ->
+                        stringResource(
+                            R.string.restore_preview_made,
+                            formatStoredDateTime(made, TimeZone.getDefault(), Locale.getDefault()),
+                        )
+                    } ?: stringResource(R.string.restore_preview_undated),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    pluralStringResource(
+                        R.plurals.restore_preview_photos,
+                        restore.preview.presentImages,
+                        restore.preview.presentImages,
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Text(
+                    stringResource(R.string.restore_confirm_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirmRestore) {
+                Text(stringResource(R.string.restore_preview_restore))
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 

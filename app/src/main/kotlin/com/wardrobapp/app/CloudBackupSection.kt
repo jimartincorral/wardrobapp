@@ -25,6 +25,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.data.DriveBackup
+import com.wardrobapp.data.isoTimestamp
+import com.wardrobapp.presentation.formatMegabytes
+import com.wardrobapp.presentation.formatStoredDateTime
+import java.util.Locale
+import java.util.TimeZone
 
 /** For the tests that ask whether the section is on screen. */
 const val CLOUD_SECTION = "cloud-section"
@@ -84,7 +89,31 @@ fun CloudBackupSection(
         AlertDialog(
             onDismissRequest = { confirming = null },
             title = { Text(stringResource(R.string.settings_cloud_restore_title)) },
-            text = { Text(stringResource(R.string.settings_cloud_restore_body)) },
+            text = {
+                // Which one, not merely whether. The list is five rows of the same
+                // sentence, so a confirmation that did not name the archive would
+                // be asking about whichever was tapped -- and the tap is exactly
+                // what somebody might have got wrong.
+                Column {
+                    Text(
+                        stringResource(
+                            R.string.restore_preview_made,
+                            formatStoredDateTime(
+                                isoTimestamp(backup.modifiedAt),
+                                TimeZone.getDefault(),
+                                Locale.getDefault(),
+                            ),
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        stringResource(R.string.settings_cloud_restore_body),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -145,11 +174,28 @@ fun CloudBackupSection(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(
-                        backup.name,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.weight(1f),
-                    )
+                    // The date rather than the file name. Drive names these by
+                    // timestamp -- `wardrobapp-backup-2026-08-28T09-00-00-000Z.zip`
+                    // -- which is a date nobody reads at a glance, and the folder
+                    // holds five of them. `modifiedTime` came back with the listing,
+                    // so this costs no request.
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            formatStoredDateTime(
+                                isoTimestamp(backup.modifiedAt),
+                                TimeZone.getDefault(),
+                                Locale.getDefault(),
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        backup.bytes?.let { bytes ->
+                            Text(
+                                stringResource(R.string.settings_megabytes, formatMegabytes(bytes)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     TextButton(onClick = { confirming = backup }, enabled = idle) {
                         Text(stringResource(R.string.settings_cloud_restore))
                     }
