@@ -111,4 +111,52 @@ class AppUpdatesTest {
         // But the next build is a new decision, not a settled one.
         assertEquals(release, updateWorthOffering(installed = 1000, skipped = 1119, release = release))
     }
+
+    @Test
+    fun `the same key is an ordinary upgrade`() {
+        assertEquals(
+            SigningChange.SAME_KEY,
+            signingChange(installed = "fac61745dc0903786fb9", downloaded = "fac61745dc0903786fb9"),
+        )
+    }
+
+    @Test
+    fun `a different key is one Android will refuse`() {
+        assertEquals(
+            SigningChange.NEW_KEY,
+            signingChange(installed = "fac61745dc0903786fb9", downloaded = "0b3d9a72f1104c65ee27"),
+        )
+    }
+
+    @Test
+    fun `the same digest spelled two ways is still one key`() {
+        // keytool prints colon-separated uppercase; a digest built on the phone is
+        // plain lowercase. Reading these as two keys would tell every phone that an
+        // ordinary build needs an uninstall.
+        assertEquals(
+            SigningChange.SAME_KEY,
+            signingChange(
+                installed = "FA:C6:17:45:DC:09:03:78:6F:B9",
+                downloaded = "fac61745dc0903786fb9",
+            ),
+        )
+    }
+
+    @Test
+    fun `a certificate that could not be read is not a new key`() {
+        // The safe answer is to carry on: telling somebody to uninstall the app and
+        // restore a backup is wrong every time the key has not actually changed.
+        assertEquals(
+            SigningChange.UNREADABLE,
+            signingChange(installed = null, downloaded = "fac61745dc0903786fb9"),
+        )
+        assertEquals(
+            SigningChange.UNREADABLE,
+            signingChange(installed = "fac61745dc0903786fb9", downloaded = null),
+        )
+        assertEquals(
+            SigningChange.UNREADABLE,
+            signingChange(installed = "   ", downloaded = "fac61745dc0903786fb9"),
+        )
+    }
 }

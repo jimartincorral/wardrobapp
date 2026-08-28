@@ -2,6 +2,9 @@ package com.wardrobapp.app
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.content.FileProvider
 import androidx.core.content.edit
 import com.wardrobapp.data.AppRelease
@@ -12,6 +15,8 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.MalformedURLException
 import java.net.URL
+import java.security.MessageDigest
+import java.util.Locale
 
 /**
  * Where the published document lives.
@@ -175,6 +180,61 @@ class AndroidAppUpdates(private val context: Context) {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             },
         )
+    }
+
+    /**
+     * The certificate this app was installed with, as a SHA-256 digest.
+     *
+     * This is what Android compares against when it is asked to replace this app
+     * with another build, so it is the one side of the comparison that is not in
+     * doubt. Null when the platform will not say, which the caller reads as "no
+     * answer" rather than as "a different key".
+     */
+    fun installedCertificate(): String? = certificateDigest { flags ->
+        context.packageManager.getPackageInfo(context.packageName, flags)
+    }
+
+    /**
+     * The certificate a downloaded build carries, as a SHA-256 digest.
+     *
+     * Read off the file rather than taken from anything the release document says
+     * about it. The document arrives over the network, and a build's own signature
+     * is what Android will actually check; asking the APK is both the honest
+     * question and the one a publisher cannot answer wrongly.
+     */
+    fun downloadedCertificate(apk: File): String? = certificateDigest { flags ->
+        context.packageManager.getPackageArchiveInfo(apk.path, flags)
+    }
+
+    /**
+     * The signer on a package, hashed.
+     *
+     * Two APIs either side of Android 9, which is the only reason this is one
+     * function taking a lookup rather than the same thing written out twice: below
+     * 9 there is `signatures`, which is deprecated above it, and from 9 there is
+     * `signingInfo`, which does not exist below. `apkContentsSigners` rather than
+     * the rotation history, because the question is what this build was signed
+     * with, not what it was once signed with.
+     *
+     * Anything going wrong at all is null. A certificate that cannot be read must
+     * never be the reason an update stops being offered -- an unreadable answer
+     * means the install goes ahead exactly as it did before this existed.
+     */
+    @Suppress("DEPRECATION") // `signatures`, below the Android 9 it was deprecated in.
+    private fun certificateDigest(lookup: (Int) -> PackageInfo?): String? = try {
+        val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            lookup(PackageManager.GET_SIGNING_CERTIFICATES)?.signingInfo?.apkContentsSigners
+        } else {
+            lookup(PackageManager.GET_SIGNATURES)?.signatures
+        }
+
+        signatures?.firstOrNull()?.let { signature ->
+            MessageDigest.getInstance("SHA-256")
+                .digest(signature.toByteArray())
+                .joinToString("") { byte -> String.format(Locale.ROOT, "%02x", byte) }
+        }
+    } catch (_: Exception) {
+        null
     }
 
     /** The document, as text, bounded. */

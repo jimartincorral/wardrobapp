@@ -534,6 +534,8 @@
     <string name="update_later">Más tarde</string>
     <string name="update_downloading">Descargando…</string>
     <string name="update_failed_title">No se pudo instalar esa versión</string>
+    <string name="update_new_key_title">Esta versión necesita una instalación nueva</string>
+    <string name="update_new_key_body">Esta versión está firmada con una clave propia, en lugar de la clave compartida que llevaban todas las anteriores. Android solo reemplaza una aplicación por otra firmada de la misma forma, así que va a rechazar esta.\n\nPara pasar a ella y conservar el armario:\n\n1. Crea una copia de seguridad, en Ajustes.\n2. Desinstala Wardrobapp.\n3. Instala la nueva versión desde la página de publicaciones del proyecto.\n4. Restaura la copia.\n\nLa descarga que se acaba de hacer desaparece junto con la aplicación al desinstalarla, así que habrá que descargarla otra vez después. Cada versión posterior a esta se instalará encima como siempre.</string>
     <string name="error_update_untrusted">Esa descarga no viene de las publicaciones de esta aplicación, así que no se ha hecho.</string>
     <string name="error_update_refused">La descarga se ha rechazado (%1$d).</string>
     <string name="error_update_too_large">Esa descarga es mucho más grande que una versión de esta aplicación, así que se ha detenido.</string>
