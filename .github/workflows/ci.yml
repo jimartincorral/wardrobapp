@@ -137,11 +137,18 @@ jobs:
       # is not an update of the installed app -- it is a build that every phone
       # refuses, discovered at install time by whoever tried.
       #
-      # With no keystore configured the APK must carry the committed key, and
-      # the expected fingerprint is read out of that keystore rather than
-      # written down here, so the two cannot drift. With one configured the
-      # requirement inverts: it must *not* be the public key any more.
+      # Either way the expected fingerprint is read out of a keystore rather than
+      # written down here, so the check and the key cannot drift apart.
+      #
+      # With no keystore configured the APK must carry the committed debug key --
+      # the one the installed base already trusts. With one configured it must
+      # carry that keystore's key: not simply "not the debug key", which a build
+      # signed with any third key would also satisfy while being just as
+      # uninstallable.
       - name: Check the APK is signed with the expected key
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
           if [ -z "$APKSIGNER" ]; then
@@ -166,6 +173,30 @@ jobs:
               echo '::error::A keystore was configured but the APK carries the public debug key.'
               exit 1
             fi
+
+            # Not merely "isn't the old key" but "is the key we were handed". A
+            # build signed with some third key is just as unusable to a phone
+            # holding this app, and a check that only looks for the debug key
+            # would wave it through. The fingerprint is read back out of the
+            # keystore CI decoded, so there is nothing written down here to drift.
+            #
+            # The password goes in on stdin rather than as -storepass: an argument
+            # is visible in the process list for as long as the command runs.
+            expected=$(printf '%s' "$ANDROID_KEYSTORE_PASSWORD" \
+              | keytool -list -v -keystore app/release.keystore -alias "$ANDROID_KEY_ALIAS" \
+              | grep -m1 'SHA256:' | awk '{print $NF}' | tr -d ':' | tr 'A-F' 'a-f')
+
+            if [ -z "$expected" ]; then
+              echo '::error::The release keystore certificate could not be read, so the APK could not be checked against it.'
+              exit 1
+            fi
+
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::The APK is signed with $actual, not with the configured release key ($expected)."
+              exit 1
+            fi
+
+            echo "Signed with the configured release key ($expected)."
             exit 0
           fi
 
