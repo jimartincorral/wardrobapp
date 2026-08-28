@@ -202,7 +202,6 @@ class MainActivity : AppCompatActivity() {
                         onSkip = updates::onSkipRequested,
                         onDismiss = updates::onDismissed,
                         onFailureDismissed = updates::onFailureDismissed,
-                        onSigningChangeDismissed = updates::onSigningChangeDismissed,
                     )
 
                     // Routed once, when it arrives. Not consumed here -- the form

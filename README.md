@@ -92,8 +92,6 @@ CI decodes the keystore, passes the rest to Gradle as `ORG_GRADLE_PROJECT_WARDRO
 
 **3. Reinstall once, on each device.** Android refuses an APK whose signature differs from the installed app's, so the first properly-signed build is a clean break: **back up from Settings, uninstall, install the signed APK, restore the backup.** Every later build upgrades in place again.
 
-The app says so itself rather than leaving that to be discovered. Before handing a downloaded build to the installer it compares that build's signing certificate with its own, and when they differ it explains those four steps instead of opening an installer that can only refuse. This is why the order matters: **that check has to be published, signed with the old key, before the first build signed with the new one** — a phone can only run the code it already has, so a phone that updated last from a build without the check still gets a bare "App not installed".
-
 ## Project structure
 
 ```
