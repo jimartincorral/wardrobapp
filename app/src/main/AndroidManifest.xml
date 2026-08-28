@@ -46,10 +46,31 @@
         able to find one is not optional.
     -->
     <queries>
+        <!--
+            Both schemes, and not because a browser handles one of them. AppAuth
+            decides what counts as a browser by resolving `http://www.example.com`
+            and then insisting the filter it finds declares http and https both, so
+            an app declaring only one of the two is asking a narrower question than
+            the library goes on to ask.
+        -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
+
+        <!--
+            And the Custom Tabs service, which is a separate question from "is there
+            a browser": the sign-in is shown in a tab bound to that service, and
+            binding to a service in another package needs that package visible too.
+        -->
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
         </intent>
     </queries>
 
