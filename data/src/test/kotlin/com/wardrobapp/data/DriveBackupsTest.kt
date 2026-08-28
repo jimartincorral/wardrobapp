@@ -112,6 +112,36 @@ class DriveBackupsTest {
     }
 
     @Test
+    fun `a name that would escape the folder it is written into is not ours`() {
+        // A restore writes the archive to a file named after the Drive entry, so a
+        // name is a path before it is a label. Drive will hold any of these
+        // happily -- its owner can rename a file in their own folder -- and the
+        // prefix and extension alone do not make one safe to build a path from.
+        assertFalse(isBackupName("wardrobapp-backup-../../../evil.zip"))
+        assertFalse(isBackupName("wardrobapp-backup-/etc/passwd.zip"))
+        assertFalse(isBackupName("wardrobapp-backup-..\\..\\evil.zip"))
+        assertFalse(isBackupName("wardrobapp-backup-a\u0000b.zip"))
+    }
+
+    @Test
+    fun `an escaping name is dropped from a listing entirely`() {
+        // Not merely unlisted: it must not reach a DriveBackup at all, since
+        // everything downstream trusts the name enough to write to it.
+        val listing = """
+            {"files": [
+              {"id": "1", "name": "wardrobapp-backup-../../../evil.zip",
+               "modifiedTime": "2026-08-28T09:00:00.000Z"},
+              {"id": "2", "name": "wardrobapp-backup-2026-08-28T09-00-00-000Z.zip",
+               "modifiedTime": "2026-08-28T09:00:00.000Z"}
+            ]}
+        """.trimIndent()
+
+        val backups = parseDriveBackups(listing)
+
+        assertEquals(listOf("2"), backups.map { it.id })
+    }
+
+    @Test
     fun `pruning keeps the newest and drops the oldest`() {
         val backups = parseDriveBackups(listing)
 

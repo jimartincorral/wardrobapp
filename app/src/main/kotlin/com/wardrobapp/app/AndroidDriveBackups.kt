@@ -50,10 +50,20 @@ class AndroidDriveBackups(
      * answer to both is the same, which is why this does not try to tell them
      * apart.
      */
-    suspend fun folderId(): String {
-        val found = parseDriveFolderId(get(driveFindFolderUrl()))
-        if (found != null) return found
+    suspend fun folderId(): String = existingFolderId() ?: createdFolderId()
 
+    /**
+     * The app's folder if there is one, without making it.
+     *
+     * Separate from [folderId] because listing must not create: opening the
+     * settings screen while signed in asks what is in Drive, and that question
+     * should not put a folder in somebody's Drive before they have ever asked for
+     * a backup.
+     */
+    suspend fun existingFolderId(): String? =
+        parseDriveFolderId(get(driveFindFolderUrl()))
+
+    private suspend fun createdFolderId(): String {
         val created = postJson(
             url = "https://www.googleapis.com/drive/v3/files",
             body = driveFolderMetadata(),
@@ -112,6 +122,11 @@ class AndroidDriveBackups(
                 }
             }
 
+            // Before the body, because a refused PUT has no body to read: the
+            // stream throws, and what reaches the screen is a Java exception
+            // carrying the session address rather than a sentence about Drive.
+            connection.expectOk()
+
             val body = connection.readBody()
             parseDriveFileId(body)
                 ?: throw IOException(context.getString(R.string.error_drive_upload_unconfirmed))
@@ -163,8 +178,13 @@ class AndroidDriveBackups(
         val connection = open(driveDeleteUrl(fileId), "DELETE")
 
         try {
-            // Drive answers a delete with 204 and no body.
+            // Drive answers a delete with 204 and no body. A 404 means somebody
+            // already removed it from their own folder, which `drive.file` exists
+            // to let them do -- the file is gone, which is what was asked for, and
+            // failing the whole prune over it would leave the rest unpruned.
             val code = connection.responseCode
+            if (code == HttpURLConnection.HTTP_NOT_FOUND) return
+
             if (code != HttpURLConnection.HTTP_NO_CONTENT && code != HttpURLConnection.HTTP_OK) {
                 throw IOException(context.getString(R.string.error_drive_refused, code))
             }

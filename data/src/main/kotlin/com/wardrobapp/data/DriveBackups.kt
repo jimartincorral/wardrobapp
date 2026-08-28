@@ -88,9 +88,27 @@ fun parseDriveBackups(text: String): List<DriveBackup> {
  * file somebody renamed stops counting as ours, which is the right way round: the
  * cost of that is one archive no longer pruned automatically, and the cost of the
  * opposite is deleting a file somebody deliberately named something else.
+ *
+ * A name carrying a path separator is refused even when the prefix and extension
+ * fit, because this name does not stay in Drive: a restore writes the archive to
+ * a file named after it, and `wardrobapp-backup-../../x.zip` names a file
+ * somewhere else entirely. Drive is happy to hold a name like that -- it is not a
+ * path to Drive -- and its owner can rename a file in their own folder to
+ * anything, so the check belongs here rather than in the caller that happens to
+ * build a path today.
  */
 fun isBackupName(name: String): Boolean =
-    name.startsWith(BACKUP_PREFIX) && name.endsWith(".zip")
+    name.startsWith(BACKUP_PREFIX) &&
+        name.endsWith(".zip") &&
+        name.none { it in FORBIDDEN_IN_NAME }
+
+/**
+ * What may not appear in a name this app will write to disk.
+ *
+ * Both separators, since an archive named on one platform is read on another, and
+ * NUL, which truncates a path in the C library underneath rather than failing.
+ */
+private val FORBIDDEN_IN_NAME = charArrayOf('/', '\\', '\u0000')
 
 /**
  * The archives to delete so that only [keep] remain.

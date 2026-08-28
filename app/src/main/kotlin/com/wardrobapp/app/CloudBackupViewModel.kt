@@ -117,11 +117,19 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
 
         // Only after one has arrived. Pruning first would, on a run where the
         // upload then failed, leave fewer backups than there were to begin with.
-        for (id in backupsToPrune(drive.list(folder), KEPT_IN_DRIVE)) {
+        val listed = drive.list(folder)
+        val pruned = backupsToPrune(listed, KEPT_IN_DRIVE).toSet()
+
+        for (id in pruned) {
             drive.delete(id)
         }
 
-        loadList()
+        // What is left is known without asking Drive again: the listing above was
+        // taken after the upload, so it already holds the new archive, and pruning
+        // only ever removes ids that came out of it. One fewer request on a phone's
+        // connection, at the end of the one thing here that moves megabytes.
+        val kept = listed.filterNot { it.id in pruned }
+        _state.update { it.copy(backups = kept) }
     }
 
     /**
@@ -162,8 +170,17 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
 
     fun onFailureDismissed() = _state.update { it.copy(failure = null) }
 
+    /**
+     * Ask what is in Drive, without putting anything there.
+     *
+     * [AndroidDriveBackups.existingFolderId] rather than `folderId`: this runs on
+     * opening the screen, and a question about what is in somebody's Drive must
+     * not be the thing that creates a folder in it. No folder means no backups,
+     * which is exactly what the empty list says.
+     */
     private suspend fun loadList() {
-        val backups = drive.list(drive.folderId())
+        val folder = drive.existingFolderId()
+        val backups = folder?.let { drive.list(it) } ?: emptyList()
         _state.update { it.copy(backups = backups) }
     }
 
