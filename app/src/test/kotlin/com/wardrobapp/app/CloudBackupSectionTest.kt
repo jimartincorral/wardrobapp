@@ -126,6 +126,18 @@ class CloudBackupSectionTest {
     }
 
     @Test
+    fun `the confirmation names which archive, not merely that one was tapped`() {
+        // Five rows carry the same sentence, so a confirmation that did not say
+        // which would be asking about whichever was tapped -- and the tap is the
+        // part somebody might have got wrong.
+        show(CloudBackupViewModel.State(signedIn = true, backups = listOf(archive)))
+
+        compose.onNodeWithText("Restore").performClick()
+
+        compose.onNodeWithText("Made", substring = true).assertIsDisplayed()
+    }
+
+    @Test
     fun `a row is dated rather than named, since the name is a timestamp nobody reads`() {
         // `wardrobapp-backup-2026-08-28T09-00-00-000Z.zip` is a date in the sense
         // that a barcode is a price. The year is asserted rather than the whole

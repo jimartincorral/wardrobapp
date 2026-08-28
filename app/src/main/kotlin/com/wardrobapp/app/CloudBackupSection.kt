@@ -89,7 +89,31 @@ fun CloudBackupSection(
         AlertDialog(
             onDismissRequest = { confirming = null },
             title = { Text(stringResource(R.string.settings_cloud_restore_title)) },
-            text = { Text(stringResource(R.string.settings_cloud_restore_body)) },
+            text = {
+                // Which one, not merely whether. The list is five rows of the same
+                // sentence, so a confirmation that did not name the archive would
+                // be asking about whichever was tapped -- and the tap is exactly
+                // what somebody might have got wrong.
+                Column {
+                    Text(
+                        stringResource(
+                            R.string.restore_preview_made,
+                            formatStoredDateTime(
+                                isoTimestamp(backup.modifiedAt),
+                                TimeZone.getDefault(),
+                                Locale.getDefault(),
+                            ),
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        stringResource(R.string.settings_cloud_restore_body),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
