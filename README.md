@@ -68,18 +68,47 @@ CI builds one on every push and publishes it from `main` to the rolling [`nightl
 
 ### Signing
 
-Every published build so far — including the ones from before this was a Kotlin app — has been signed with the **public Android debug key** that ships inside Expo's project template. `app/debug.keystore` is that key, committed on purpose: Android replaces an installed app only with a build signed by the same key, so this is what makes a release an upgrade rather than a second app. `app/build.gradle.kts` says so at length beside the config, and CI verifies every release APK carries it.
+Published builds are signed with a **private release key**, held by the maintainer and
+given to CI as four repository secrets. Its certificate is
 
-It is a public key. Anybody can sign an APK with it, so a build claiming to be an update of this app cannot be told apart from one — trust the source rather than the signature. The fix is a keystore only its owner holds:
-
-**1. Create one.** Needs a desktop; it cannot be done from the phone. Keep the file and both passwords somewhere you will still have them in five years — losing them means never being able to upgrade an installed app again.
-
-```bash
-keytool -genkeypair -v -keystore wardrobapp-release.keystore \
-  -alias wardrobapp -keyalg RSA -keysize 2048 -validity 10000
+```
+CN=jimartincorral, C=ES
+SHA-256  f35c02f1d70160524b637859898085c852ca98180a14852d0137eba6b1738197
+SHA-1    c9c04a682b973e52b93edc82d5a39facfea438bf
 ```
 
-**2. Add four repository secrets** (Settings → Secrets and variables → Actions):
+so a build claiming to be an update of this app can now be checked against something,
+rather than taken on trust:
+
+```bash
+apksigner verify --print-certs wardrobapp.apk
+```
+
+`keytool` prints the same fingerprint colon-separated and uppercase; it is the same
+number. CI asserts it on every release: with a keystore configured the signing check
+inverts, and an APK still carrying the public debug key fails the build.
+
+Every build published before 28 August 2026 — including all of them from before this
+was a Kotlin app — carried the **public Android debug key** from Expo’s project
+template instead. `app/debug.keystore` is that key, still committed, and still the
+fallback when no keystore is configured: a fork or a contributor without the secrets
+must be able to build, and `app/build.gradle.kts` explains at length beside the config
+why it is in the repository at all. It signs nothing published from here any more.
+
+Moving between the two was a one-time break, and it is done. Android replaces an
+installed app only with a build signed by the same key, so the first signed build could
+not upgrade anything: it needed a backup, an uninstall, an install and a restore, once
+per device. Every build since upgrades in place as before.
+
+**Setting this up on a fork.** Create a keystore — needs a desktop, and both passwords
+want keeping somewhere you will still have them in five years, because losing them
+means never being able to upgrade an installed app again:
+
+```bash
+keytool -genkeypair -v -keystore wardrobapp-release.keystore -alias wardrobapp -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Then add four repository secrets (Settings → Secrets and variables → Actions):
 
 | Secret | Value |
 | --- | --- |
@@ -88,9 +117,11 @@ keytool -genkeypair -v -keystore wardrobapp-release.keystore \
 | `ANDROID_KEY_ALIAS` | the key alias (`wardrobapp` above) |
 | `ANDROID_KEY_PASSWORD` | the key password |
 
-CI decodes the keystore, passes the rest to Gradle as `ORG_GRADLE_PROJECT_WARDROBAPP_*` properties, and inverts its signing check: with a keystore configured, an APK still carrying the public key fails the build. The same four properties work locally (`-PWARDROBAPP_STORE_FILE=…`).
-
-**3. Reinstall once, on each device.** Android refuses an APK whose signature differs from the installed app's, so the first properly-signed build is a clean break: **back up from Settings, uninstall, install the signed APK, restore the backup.** Every later build upgrades in place again.
+CI decodes the keystore and passes the rest to Gradle as
+`ORG_GRADLE_PROJECT_WARDROBAPP_*` properties. The same four work locally, either as
+`-PWARDROBAPP_STORE_FILE=…` or in `GRADLE_USER_HOME/gradle.properties`, which keeps the
+passwords out of your shell history and out of the repository. Use forward slashes in
+that path: a `.properties` file reads a backslash as an escape.
 
 ## Project structure
 
@@ -156,7 +187,6 @@ CI runs all of it on every pull request, on pushes to `main`, and on pushes to `
 - **Android only.** iOS was never finished and web was removed; the storage layer it used could silently lose data.
 - **Old backups cannot be listed or deleted from inside the app.** Deliberately: it would mean holding a persistent directory grant the app does without — archives go in and out through the document picker with no storage permission at all, and the Files app already deletes a zip.
 - **`garments` is not one schema.** `created_at` and `updated_at` are `NOT NULL` on a fresh install and nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist on phones, so readers tolerate both — and it is why this layer uses plain SQL rather than Room, whose schema validation would reject one of them.
-- **Releases are signed with a public key** until a keystore exists. See [Signing](#signing).
 - **Updating means installing an APK.** There is no store to go through, so the app asks Android to install the build it downloaded, which needs `REQUEST_INSTALL_PACKAGES` and a one-time "allow from this source" grant. The permission is the ability to *offer* an install: the system asks, names this app as the source, and declining leaves the phone as it was. The check itself is one request per launch to a fixed address, and it is silent when it fails — no network, a captive portal, GitHub down.
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **No wear log.** The app records outfit ratings, not what you wore on a given day, so there is no cost-per-wear or wear-trend reporting.
