@@ -566,6 +566,7 @@
     <string name="settings_section_cloud">Google Drive</string>
     <string name="settings_cloud_hint">Backups can also go to a folder in your own Google Drive, where you can open and download them without this app. Wardrobapp only ever sees the files it put there.</string>
     <string name="settings_cloud_connect">Connect Google Drive</string>
+    <string name="error_drive_no_browser">Signing in needs a web browser, and this phone does not appear to have one.</string>
     <string name="settings_cloud_disconnect">Disconnect</string>
     <string name="settings_cloud_backup_now">Back up to Drive</string>
     <string name="settings_cloud_refresh">Refresh</string>

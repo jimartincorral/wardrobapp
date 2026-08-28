@@ -549,7 +549,9 @@ class MainActivity : AppCompatActivity() {
 
         CloudBackupSection(
             state = state,
-            onConnect = { signIn.launch(cloud.authorizationIntent()) },
+            // Nothing launched when there is nothing to launch: the model has put
+            // the reason on screen already.
+            onConnect = { cloud.authorizationIntent()?.let(signIn::launch) },
             onDisconnect = cloud::onSignOutRequested,
             onBackUp = cloud::onBackUpRequested,
             onRefresh = cloud::refresh,

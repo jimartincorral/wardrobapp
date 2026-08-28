@@ -28,6 +28,31 @@
     -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!--
+        Which browsers exist on this phone.
+
+        From Android 11 an app can only see the packages it declares an interest
+        in, and a query it has not declared comes back empty rather than refused.
+        AppAuth chooses a browser by asking exactly this question, so without the
+        declaration it finds none, decides no browser is installed, and throws a
+        bare ActivityNotFoundException the moment somebody asks to sign in.
+
+        The consequence is worth stating because nothing catches it: this is not a
+        Drive failure or a network failure, it is the sign-in screen being unable to
+        exist, on a phone that has Chrome sitting on the home screen.
+
+        A signing-in flow belongs in the browser rather than in a WebView -- a
+        password typed into a WebView is typed into this app's process -- so being
+        able to find one is not optional.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
