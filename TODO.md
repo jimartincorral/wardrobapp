@@ -84,9 +84,10 @@ One app now: the Kotlin one. Anything below is built once.
 
 - [ ] **Cloud backup sync**, Google Drive first. `drive.file` scope rather than
       `appDataFolder`, so a backup stays something its owner can see and download.
-      Blocked on a real keystore: an OAuth client is registered against the app's
-      signing certificate, so this cannot be set up against a public debug key.
-      See Signing in the README.
+      No longer blocked: the app has had a release key of its own since 28 August
+      2026, and Google's console wants the SHA-1 of its certificate,
+      `c9c04a682b973e52b93edc82d5a39facfea438bf`, to register an OAuth client
+      against. See Signing in the README.
 - [ ] **Scheduled backups**, which belong with the above rather than before it: a
       weekly job writing a backup and keeping the last few. Worth having on-device
       too, but a schedule whose only destination is a folder on the same phone is
@@ -96,10 +97,12 @@ One app now: the Kotlin one. Anything below is built once.
 
 1. Restore preview, which needs nothing new.
 2. The planning calendar, now that an outfit can be put together by hand.
-3. Cloud sync and the schedule with it, once there is a keystore.
+3. Cloud sync and the schedule with it, which the release key has unblocked.
 
 What is left of the recommendation engine is waiting on product decisions rather
 than on work: a temperature band, or a calendar to ask what is already planned.
 
-The cutover to Kotlin is done, so each of these is built once. What is left of it
-is a keystore: see Signing in the README.
+The cutover to Kotlin is done, so each of these is built once, and the keystore it
+was waiting on exists: published builds have been signed with a release key of
+their own since 28 August 2026. Nothing here is blocked on infrastructure any
+more -- what is left is either work or a product decision.

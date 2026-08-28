@@ -112,7 +112,7 @@ android {
 
     signingConfigs {
         /*
-         * The key every published build of this app has carried.
+         * The key every published build carried until 28 August 2026.
          *
          * It is the public debug keystore that ships inside
          * `expo-template-bare-minimum`, and it signed every APK the React
@@ -131,12 +131,17 @@ android {
          * public npm package, and it has been the app's signing identity all
          * along -- this makes that explicit rather than incidental.
          *
-         * What it costs is real and unchanged: anybody can sign an APK with this
-         * key, so a build claiming to be an update of this app cannot be
-         * distinguished from one. The fix is a keystore only its owner holds,
-         * which the `release` config below already accepts -- and which costs
-         * one back-up, uninstall and restore per device, whenever somebody
-         * decides to pay it.
+         * What it cost was real: anybody can sign an APK with this key, so a
+         * build claiming to be an update could not be distinguished from one.
+         * That price has since been paid. Published builds are signed with a
+         * release key only its owner holds -- the `release` config below, fed by
+         * four repository secrets -- which cost one back-up, uninstall and
+         * restore per device, once, in August 2026.
+         *
+         * So this config no longer signs anything that gets published. It is the
+         * fallback for a build with no keystore configured: a fork, or a
+         * contributor without the secrets, who must still be able to assemble a
+         * release. That is why it stays, and why it stays committed.
          */
         create("installedBase") {
             storeFile = file("debug.keystore")
