@@ -24,3 +24,50 @@ fun isoTimestamp(epochMillis: Long): String =
     SimpleDateFormat(ISO_PATTERN, Locale.ROOT)
         .apply { timeZone = TimeZone.getTimeZone("UTC") }
         .format(Date(epochMillis))
+
+/**
+ * The same format read back, and the shapes other people write it in.
+ *
+ * [isoTimestamp] is the only shape this app writes, but it is not the only shape
+ * this app reads: Google Drive stamps a file's `modifiedTime` in RFC 3339, which
+ * is the same timestamp with the fractional seconds omitted when they are zero,
+ * and an archive manifest carries whichever shape the build that wrote it used.
+ * So the patterns are tried in turn rather than one being assumed.
+ *
+ * Null rather than an exception, and null rather than a guess: a timestamp that
+ * cannot be read is a record that gets dropped, which is safer than one that
+ * sorts into the wrong place. Everything asking this question is ordering
+ * backups by age, and the oldest is what gets deleted.
+ */
+fun epochMillisOfIso(text: String): Long? {
+    for (pattern in READABLE_PATTERNS) {
+        val parsed = try {
+            SimpleDateFormat(pattern, Locale.ROOT)
+                .apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                    // So a near-miss is rejected rather than rolled over into a
+                    // date nobody wrote -- "2026-13-01" is not next January.
+                    isLenient = false
+                }
+                .parse(text)
+        } catch (_: Exception) {
+            null
+        }
+
+        if (parsed != null) return parsed.time
+    }
+
+    return null
+}
+
+/**
+ * Every shape [epochMillisOfIso] accepts, most specific first.
+ *
+ * All UTC: this app writes `Z` and Drive returns `Z`, and a pattern that quietly
+ * accepted a local time would read the same string as a different instant
+ * depending on which phone was holding it.
+ */
+private val READABLE_PATTERNS = listOf(
+    ISO_PATTERN,
+    "yyyy-MM-dd'T'HH:mm:ss'Z'",
+)
