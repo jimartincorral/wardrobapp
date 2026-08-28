@@ -555,6 +555,23 @@
         asks for the one thing a photo cannot say, which is what kind of garment
         it is, and nothing else.
     -->
+    <string name="settings_section_cloud">Google Drive</string>
+    <string name="settings_cloud_hint">Backups can also go to a folder in your own Google Drive, where you can open and download them without this app. Wardrobapp only ever sees the files it put there.</string>
+    <string name="settings_cloud_connect">Connect Google Drive</string>
+    <string name="settings_cloud_disconnect">Disconnect</string>
+    <string name="settings_cloud_backup_now">Back up to Drive</string>
+    <string name="settings_cloud_refresh">Refresh</string>
+    <string name="settings_cloud_connecting">Connecting…</string>
+    <string name="settings_cloud_listing">Reading your Drive…</string>
+    <string name="settings_cloud_backing_up">Backing up…</string>
+    <string name="settings_cloud_restoring">Restoring…</string>
+    <string name="settings_cloud_empty">No backups in Drive yet.</string>
+    <string name="settings_cloud_kept">Older backups are removed as newer ones arrive.</string>
+    <string name="settings_cloud_restore">Restore</string>
+    <string name="settings_cloud_restore_title">Restore from Drive?</string>
+    <string name="settings_cloud_restore_body">Everything in this app\'s wardrobe will be replaced by what is in that backup. If it turns out to be unreadable, nothing is changed.</string>
+    <string name="settings_cloud_disconnect_note">Disconnecting only forgets the permission. The backups stay in your Drive.</string>
+
     <string name="error_drive_signin_incomplete">The sign-in did not finish, so Google Drive was not connected.</string>
     <string name="error_drive_no_permission">Google did not hand back the permission, so Google Drive was not connected.</string>
     <string name="error_drive_no_access">Wardrobapp could not get permission to reach your Drive. Connect it again in Settings.</string>

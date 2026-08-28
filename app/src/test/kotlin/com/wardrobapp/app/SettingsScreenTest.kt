@@ -61,6 +61,10 @@ class SettingsScreenTest {
                 onTidyRequested = {},
                 onTidyDismissed = {},
                 onRetry = {},
+                // Empty on purpose: what the Drive section shows is
+                // CloudBackupSection's to answer for, and these tests are about
+                // this screen.
+                cloudSection = {},
             )
         }
     }

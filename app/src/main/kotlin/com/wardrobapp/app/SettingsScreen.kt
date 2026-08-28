@@ -71,6 +71,15 @@ fun SettingsScreen(
     onTidyRequested: () -> Unit,
     onTidyDismissed: () -> Unit,
     onRetry: () -> Unit,
+    /**
+     * The Google Drive part of backing up, supplied rather than built here.
+     *
+     * A slot because this screen does not need to know what is in it: cloud backup
+     * has its own state, its own failures and its own model, and threading six more
+     * callbacks through here would make this signature about Drive rather than
+     * about settings.
+     */
+    cloudSection: @Composable () -> Unit,
 ) {
     state.backup?.let { backup ->
         BackupDialog(backup, onBackupDismissed)
@@ -174,6 +183,13 @@ fun SettingsScreen(
             ) {
                 Text(stringResource(R.string.settings_backup_restore))
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Directly under the backup section, because it answers the same
+            // question: where a copy of this wardrobe goes.
+            Section(stringResource(R.string.settings_section_cloud))
+            cloudSection()
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 

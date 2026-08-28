@@ -523,6 +523,37 @@ class MainActivity : AppCompatActivity() {
             onTidyRequested = model::onTidyRequested,
             onTidyDismissed = model::onTidyDismissed,
             onRetry = model::refresh,
+            cloudSection = { CloudBackup() },
+        )
+    }
+
+    /**
+     * The Google Drive section of Settings.
+     *
+     * Its own model and its own launcher, kept here rather than in
+     * [SettingsScreen] so that screen stays a screen: the sign-in is an activity
+     * result, which needs somewhere with a launcher to live.
+     */
+    @Composable
+    private fun CloudBackup() {
+        val cloud: CloudBackupViewModel = viewModel()
+        val state by cloud.state.collectAsStateWithLifecycle()
+
+        // A cancelled sign-in comes back with no data, which the model reads as
+        // "nothing happened" -- there is no failure to report when somebody
+        // closed the tab themselves.
+        val signIn = rememberLauncherForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) { result -> cloud.onAuthorizationResult(result.data) }
+
+        CloudBackupSection(
+            state = state,
+            onConnect = { signIn.launch(cloud.authorizationIntent()) },
+            onDisconnect = cloud::onSignOutRequested,
+            onBackUp = cloud::onBackUpRequested,
+            onRefresh = cloud::refresh,
+            onRestore = cloud::onRestoreRequested,
+            onFailureDismissed = cloud::onFailureDismissed,
         )
     }
 
