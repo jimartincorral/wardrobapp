@@ -55,6 +55,11 @@
     <string name="wardrobe_view_options">Cambiar cómo se muestra el armario</string>
     <string name="wardrobe_view_list">Lista</string>
     <string name="wardrobe_view_grid">Cuadrícula de %1$d</string>
+    <string name="wardrobe_view_section_layout">Diseño</string>
+    <string name="wardrobe_view_section_show">Mostrar en cada una</string>
+    <string name="wardrobe_caption_brand">Marca</string>
+    <string name="wardrobe_caption_type">Tipo</string>
+    <string name="wardrobe_caption_category">Categoría</string>
 
     <string name="filters_show">Filtros</string>
     <string name="filters_show_count">Filtros (%1$d)</string>

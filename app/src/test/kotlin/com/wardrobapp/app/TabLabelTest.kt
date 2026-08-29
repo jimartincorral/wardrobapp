@@ -1,0 +1,82 @@
+package com.wardrobapp.app
+
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodes
+import androidx.compose.ui.text.TextLayoutResult
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+/**
+ * Five tab labels, each on one line, with the whole word showing.
+ *
+ * Worth measuring rather than looking at, because looking at it is how the bug got
+ * here: "Estadisticas" fitted while there were four tabs and wrapped when the
+ * Settings tab made it five, and nothing in the build had an opinion. The
+ * arithmetic that says 10sp is enough is arithmetic; the fonts are the device's,
+ * so this asks the layout instead.
+ *
+ * It composes [WardrobeBottomBar] itself -- the bar that ships, with the list of
+ * tabs that ships -- so a sixth tab, or a longer word in either language, fails
+ * here rather than on somebody's phone.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w411dp-h2000dp")
+class TabLabelTest {
+
+    @get:Rule
+    val compose = createComposeRule()
+
+    @Test
+    fun `every label fits on one line in English`() {
+        assertLabelsFit()
+    }
+
+    @Test
+    @Config(qualifiers = "+es-rES")
+    fun `every label fits on one line in Spanish`() {
+        assertLabelsFit()
+    }
+
+    private fun assertLabelsFit() {
+        compose.setContent { WardrobeBottomBar(route = HOME, onTabSelected = {}) }
+
+        val labels = labelLayouts()
+        assertEquals("not every tab drew a label", TABS.size, labels.size)
+
+        for (label in labels) {
+            val word = label.layoutInput.text.text
+
+            assertEquals("\"$word\" wrapped onto a second line", 1, label.lineCount)
+
+            // The one that catches an ellipsis. `maxLines = 1` means a word too
+            // wide is truncated rather than wrapped, so the line count alone would
+            // report a fit for a label reading "Estadisti...".
+            assertFalse("\"$word\" was cut short to fit", label.hasVisualOverflow)
+        }
+    }
+
+    /**
+     * The laid-out text behind every label in the bar.
+     *
+     * Unmerged, because a navigation item merges its descendants into one
+     * clickable node and the text layout belongs to the Text inside it. The icons
+     * carry no content description, so the text nodes are the labels and nothing
+     * else.
+     */
+    private fun labelLayouts(): List<TextLayoutResult> =
+        compose.onAllNodes(
+            SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult),
+            useUnmergedTree = true,
+        ).fetchSemanticsNodes().map { node ->
+            val results = mutableListOf<TextLayoutResult>()
+            node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+            results.single()
+        }
+}
