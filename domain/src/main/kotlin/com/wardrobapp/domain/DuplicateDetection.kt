@@ -39,12 +39,34 @@ data class DuplicateCandidate(
 /**
  * Score above which a garment is reported as a likely duplicate.
  *
- * Lower than the original 0.81 because the score is a weighted *average* over
- * the signals that have data, rather than a sum whose maximum depended on how
- * much the user happened to fill in. At 0.81 an exact duplicate with no tags
- * peaked at 0.40 and could never be reported at all.
+ * It was 0.81 once, then 0.65, and the reason it moved down was that the score is
+ * a weighted *average* over whichever signals have data rather than a sum: at 0.81
+ * an exact duplicate with no tags peaked at 0.40 and could never fire at all.
+ *
+ * 0.74 is not a taste. Once the subcategory and colour gates are passed, the only
+ * things left to disagree about are tags and size, and the scores they produce are
+ * a short list rather than a continuum:
+ *
+ * ```
+ *   same type, same colour, only a recorded size differs   0.750
+ *   tags 3 of 4 shared, nothing else differs               0.733
+ *   tags 2 of 3 shared, same size                          0.700
+ *   tags 2 of 3 shared, nothing else                       0.667
+ * ```
+ *
+ * A pair whose only disagreement is a size is one to keep -- that decision is the
+ * owner's, and it was made. So the bar sits directly under 0.750, which is the
+ * highest it can go without overturning it, and what it actually removes is
+ * partial tag overlap: garments sharing half or three-quarters of their tags and
+ * otherwise alike.
+ *
+ * The caveat worth stating rather than burying: a size mismatch only clears this
+ * when the two colours are near enough identical. At the far edge of what the
+ * colour gate admits that same pair scores 0.648, which was already below the old
+ * 0.65 -- so the size case has never been kept across the whole colour range, and
+ * this does not change that.
  */
-const val DUPLICATE_THRESHOLD = 0.65
+const val DUPLICATE_THRESHOLD = 0.74
 
 /** One contribution to a duplicate score; a null score means "no data". */
 private data class SignalTerm(val weight: Double, val score: Double?)
