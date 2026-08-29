@@ -12,6 +12,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,6 +35,9 @@ import java.util.TimeZone
 /** For the tests that ask whether the section is on screen. */
 const val CLOUD_SECTION = "cloud-section"
 
+/** The weekly-backup switch, which has no label text of its own to find. */
+const val CLOUD_SCHEDULE = "cloud-schedule"
+
 /**
  * Backups in somebody's own Google Drive.
  *
@@ -53,6 +57,7 @@ fun CloudBackupSection(
     onRestore: (DriveBackup) -> Unit,
     onFailureDismissed: () -> Unit,
     onRestoredDismissed: () -> Unit,
+    onScheduleChanged: (Boolean) -> Unit,
 ) {
     var confirming by remember { mutableStateOf<DriveBackup?>(null) }
 
@@ -208,6 +213,58 @@ fun CloudBackupSection(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+
+            // The weekly backup, under the list rather than above it: what is in
+            // Drive answers "is my wardrobe safe", and this answers "will it stay
+            // safe" -- which is the second question somebody asks, not the first.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    stringResource(R.string.settings_cloud_schedule),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = state.scheduled,
+                    onCheckedChange = onScheduleChanged,
+                    enabled = idle,
+                    modifier = Modifier.testTag(CLOUD_SCHEDULE),
+                )
+            }
+
+            Text(
+                stringResource(R.string.settings_cloud_schedule_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            // What the schedule has actually done, which is the only way an
+            // unattended job can report anything: nobody is watching it run, so a
+            // week of silent failure would otherwise look exactly like a week of
+            // success.
+            state.lastRunAt?.let { at ->
+                val moment = formatStoredDateTime(
+                    isoTimestamp(at),
+                    TimeZone.getDefault(),
+                    Locale.getDefault(),
+                )
+
+                Text(
+                    state.lastRunFailure
+                        ?.let { stringResource(R.string.settings_cloud_last_failed, it) }
+                        ?: stringResource(R.string.settings_cloud_last_backup, moment),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (state.lastRunFailure != null) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
 

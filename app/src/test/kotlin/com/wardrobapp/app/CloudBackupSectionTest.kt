@@ -1,9 +1,12 @@
 package com.wardrobapp.app
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.wardrobapp.data.DriveBackup
@@ -33,6 +36,7 @@ class CloudBackupSectionTest {
     val compose = createComposeRule()
 
     private var restoredDismissed = 0
+    private var scheduleWanted: Boolean? = null
     private var restoreAsked: DriveBackup? = null
 
     private val archive = DriveBackup(
@@ -55,6 +59,7 @@ class CloudBackupSectionTest {
                 onRestore = { restoreAsked = it },
                 onFailureDismissed = {},
                 onRestoredDismissed = { restoredDismissed++ },
+                onScheduleChanged = { scheduleWanted = it },
             )
         }
     }
@@ -173,5 +178,74 @@ class CloudBackupSectionTest {
         show(CloudBackupViewModel.State(signedIn = true))
 
         compose.onNodeWithText("No backups in Drive yet.").assertIsDisplayed()
+    }
+
+    // ---- the weekly backup ---------------------------------------------------
+
+    @Test
+    fun `the weekly backup is off until it is asked for`() {
+        // Nothing about Drive happens on its own, and a schedule that armed itself
+        // because an account was connected would be the app deciding to upload
+        // somebody's wardrobe every week without being asked.
+        show(CloudBackupViewModel.State(signedIn = true))
+
+        compose.onNodeWithTag(CLOUD_SCHEDULE).assertIsOff()
+    }
+
+    @Test
+    fun `switching it on is reported`() {
+        show(CloudBackupViewModel.State(signedIn = true))
+
+        compose.onNodeWithTag(CLOUD_SCHEDULE).performClick()
+
+        assertEquals(true, scheduleWanted)
+    }
+
+    @Test
+    fun `switching it off is reported too`() {
+        // The off direction is its own case: it cancels queued work, and a switch
+        // that only reported one way would leave a job running after somebody
+        // turned it off.
+        show(CloudBackupViewModel.State(signedIn = true, scheduled = true))
+
+        compose.onNodeWithTag(CLOUD_SCHEDULE).assertIsOn()
+        compose.onNodeWithTag(CLOUD_SCHEDULE).performClick()
+
+        assertEquals(false, scheduleWanted)
+    }
+
+    @Test
+    fun `a successful run says when`() {
+        show(
+            CloudBackupViewModel.State(
+                signedIn = true,
+                lastRunAt = archive.modifiedAt,
+            ),
+        )
+
+        compose.onNodeWithText("Last backup", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a failed run says so rather than showing a date and nothing else`() {
+        // The whole point of recording it. Nobody watches an unattended job, so a
+        // month of silent failure would look exactly like a month of success.
+        show(
+            CloudBackupViewModel.State(
+                signedIn = true,
+                lastRunAt = archive.modifiedAt,
+                lastRunFailure = "Drive refused the request (403).",
+            ),
+        )
+
+        compose.onNodeWithText("Last attempt failed", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Last backup", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the schedule is not offered before there is an account to back up to`() {
+        show(CloudBackupViewModel.State(signedIn = false))
+
+        compose.onNodeWithTag(CLOUD_SCHEDULE).assertDoesNotExist()
     }
 }

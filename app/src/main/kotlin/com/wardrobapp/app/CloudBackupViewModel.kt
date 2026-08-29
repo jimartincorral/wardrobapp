@@ -18,16 +18,6 @@ import kotlinx.coroutines.withContext
 import net.openid.appauth.AuthorizationService
 
 /**
- * How many archives are kept in Drive.
- *
- * Enough that a backup taken after the damage was done has not pushed out the one
- * from before it, which is the failure a rolling backup is for. Not a setting,
- * because the number that matters is "more than one" and the rest is storage
- * somebody can clear out themselves -- the folder is theirs and they can see it.
- */
-private const val KEPT_IN_DRIVE = 5
-
-/**
  * Backing a wardrobe up to somebody's Google Drive, and getting it back.
  *
  * Everything worth deciding is decided elsewhere: :data says which archives are
@@ -51,6 +41,10 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
 
     private val drive = AndroidDriveBackups(application) { auth.accessToken(service) }
 
+    private val runner = DriveBackupRunner(application, container, drive)
+
+    private val schedule = BackupSchedule(application)
+
     data class State(
         val signedIn: Boolean = false,
         /** What is in Drive, newest first. Empty until it has been asked for. */
@@ -61,6 +55,17 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
         val progress: Float? = null,
         /** What went wrong, in the words of whatever failed. */
         val failure: String? = null,
+        /** Whether the weekly backup is on. Only meaningful while signed in. */
+        val scheduled: Boolean = false,
+        /** When a backup last finished, successfully or not. Null until one has. */
+        val lastRunAt: Long? = null,
+        /**
+         * Why the last run failed, or null when it succeeded.
+         *
+         * Separate from [failure], which is a dialog about something just
+         * attempted. This is a line about a job that ran while nobody was here.
+         */
+        val lastRunFailure: String? = null,
         /**
          * Set once a restore has finished, so the screen can say so.
          *
@@ -75,7 +80,14 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
     /** The one thing in flight, since none of these may overlap. */
     enum class Working { CONNECTING, LISTING, BACKING_UP, RESTORING }
 
-    private val _state = MutableStateFlow(State(signedIn = auth.isSignedIn))
+    private val _state = MutableStateFlow(
+        State(
+            signedIn = auth.isSignedIn,
+            scheduled = schedule.enabled,
+            lastRunAt = schedule.lastRunAt,
+            lastRunFailure = schedule.lastFailure,
+        ),
+    )
     val state: StateFlow<State> = _state.asStateFlow()
 
     init {
@@ -139,43 +151,16 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
      * with something broken in it.
      */
     fun onBackUpRequested() = run(Working.BACKING_UP) {
-        val folder = drive.folderId()
-        val name = backupFilename(System.currentTimeMillis())
-        val staged = File(getApplication<Application>().cacheDir, name)
+        val kept = runner.backUp { sent -> _state.update { it.copy(progress = sent) } }
 
-        try {
-            withContext(Dispatchers.IO) {
-                container.backupTo(
-                    openDestination = { staged.outputStream() },
-                    onImageCopied = { _, _ -> },
-                )
-            }
+        // A backup is a backup: the line on screen says when this wardrobe last
+        // reached Drive, and it would be a strange reading of that to count only
+        // the ones nobody asked for.
+        schedule.recordSuccess(System.currentTimeMillis())
 
-            drive.upload(staged, name, folder) { sent ->
-                _state.update { it.copy(progress = sent) }
-            }
-        } finally {
-            // Small, but still a file touched from a coroutine that runs on the
-            // main thread: the Drive calls move themselves off it, and this would
-            // otherwise be the last piece of I/O left on it.
-            withContext(Dispatchers.IO) { staged.delete() }
+        _state.update {
+            it.copy(backups = kept, lastRunAt = schedule.lastRunAt, lastRunFailure = null)
         }
-
-        // Only after one has arrived. Pruning first would, on a run where the
-        // upload then failed, leave fewer backups than there were to begin with.
-        val listed = drive.list(folder)
-        val pruned = backupsToPrune(listed, KEPT_IN_DRIVE).toSet()
-
-        for (id in pruned) {
-            drive.delete(id)
-        }
-
-        // What is left is known without asking Drive again: the listing above was
-        // taken after the upload, so it already holds the new archive, and pruning
-        // only ever removes ids that came out of it. One fewer request on a phone's
-        // connection, at the end of the one thing here that moves megabytes.
-        val kept = listed.filterNot { it.id in pruned }
-        _state.update { it.copy(backups = kept) }
     }
 
     /**
@@ -203,13 +188,26 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    /** Turn the weekly backup on or off. */
+    fun onScheduleChanged(wanted: Boolean) {
+        if (wanted) schedule.enable() else schedule.disable()
+        _state.update { it.copy(scheduled = schedule.enabled) }
+    }
+
     /**
      * Forget the permission.
      *
      * Nothing in Drive is touched. The archives stay where their owner can see
      * them, which is the whole reason for `drive.file` over a hidden folder.
+     *
+     * The schedule goes with it, and that is not tidiness: a weekly job with no
+     * permission left would wake, fail to get a token, retry, and go on doing that
+     * for as long as the app is installed, with nobody watching and nothing said.
+     * Reconnecting does not turn it back on -- switching something off on the way
+     * out and finding it on when you return would be the app deciding for you.
      */
     fun onSignOutRequested() {
+        schedule.disable()
         auth.signOut()
         _state.update { State(signedIn = false) }
     }
