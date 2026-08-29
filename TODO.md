@@ -37,6 +37,11 @@ One app now: the Kotlin one. Anything below is built once.
 - Versioned backups with validation and migration safety: the format carries a
   version, a restore refuses an archive it cannot read and says why, and it stages,
   verifies and rolls back rather than overwriting in place.
+- Backing up to Google Drive, and doing it on a schedule: connect an account, back
+  up by hand or automatically, see what is in the folder, restore from any of it,
+  disconnect. How often, how many to keep, whether to wait for Wi-Fi and whether to
+  wait for charge are all chosen rather than assumed -- the first version decided
+  all four on the reader's behalf, which was wrong.
 - Looking inside a backup before restoring from it: an archive says when it was
   made and how many photos it holds, and one this build cannot read is refused
   before anybody has committed to it rather than after. The Drive list is dated
@@ -117,27 +122,21 @@ One app now: the Kotlin one. Anything below is built once.
 
 ## Parked
 
-- [ ] **Scheduled backups**, which belong *after* the above rather than beside it:
-      a weekly job writing a backup and keeping the last few. Deliberately not
-      built yet -- a job that runs unattended wants the path it uses to have worked
-      at least once while somebody was watching. Worth having on-device too, but a
-      schedule whose only destination is a folder on the same phone is half a
-      safety net.
+- [ ] **A local destination for the schedule.** The automatic backup goes to Drive
+      only. A copy on the same phone is half a safety net -- it survives a mistake
+      and not a lost phone -- but half is more than none, and it is the answer for
+      somebody who will not connect a Google account at all.
 
 ## Suggested build order
 
-1. **Take the Drive sign-in through a browser on a phone.** Everything else waits
-   on this, deliberately. Cloud backup is merged and published, and not one line
-   of it has run: the browser round trip, the redirect scheme, the token exchange
-   and the refresh are all still theory. Nothing here substitutes for it, and
-   building past it just adds to the pile that needs the same afternoon.
-2. The backup schedule, once the path it would run unattended has worked once by
-   hand.
-3. The planning calendar, after that, and after its product questions are settled.
-
-Restore preview is done: an archive says when it was made and what it holds before
-it replaces anything, and one this build cannot read is refused before somebody
-has committed to it rather than after.
+1. **Watch one scheduled backup actually happen.** The sign-in, the upload and the
+   restore have all been through a phone; the schedule has not. Its constraints,
+   its interval and its cancellation are argued from the WorkManager API and
+   nothing more, and the honest test is a fortnight of the app being installed.
+2. The planning calendar, once its product questions are settled: whether a planned
+   outfit is a date on an outfit or a table of its own, whether past plans become
+   history or vanish, and whether "what am I wearing Thursday" is a screen or part
+   of one. Those shape the schema, which is the expensive thing to get wrong.
 
 What is left of the recommendation engine is waiting on product decisions rather
 than on work: a temperature band, or a calendar to ask what is already planned.

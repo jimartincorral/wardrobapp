@@ -10,6 +10,7 @@ import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.OutfitReason
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.UnsafeUrlReason
+import com.wardrobapp.presentation.BackupFrequency
 import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.ThemeChoice
 
@@ -257,6 +258,21 @@ val ThemeChoice.labelRes: Int
         ThemeChoice.SYSTEM -> R.string.theme_automatic
         ThemeChoice.LIGHT -> R.string.theme_light
         ThemeChoice.DARK -> R.string.theme_dark
+    }
+
+/**
+ * What to call each backup frequency.
+ *
+ * Adjectives rather than "Every day": the row reads as an answer to "how often",
+ * which is the heading above it, and "Daily / Weekly / Monthly" scans as one set
+ * where "Every day / Every week" repeats a word three times.
+ */
+@get:StringRes
+val BackupFrequency.labelRes: Int
+    get() = when (this) {
+        BackupFrequency.DAILY -> R.string.backup_frequency_daily
+        BackupFrequency.WEEKLY -> R.string.backup_frequency_weekly
+        BackupFrequency.MONTHLY -> R.string.backup_frequency_monthly
     }
 
 /**

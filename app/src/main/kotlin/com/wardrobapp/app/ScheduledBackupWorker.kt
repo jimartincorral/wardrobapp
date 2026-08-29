@@ -6,7 +6,7 @@ import androidx.work.WorkerParameters
 import net.openid.appauth.AuthorizationService
 
 /**
- * The weekly backup, running with nobody watching.
+ * The scheduled backup, running with nobody watching.
  *
  * Which is the whole reason the sign-in asked for `access_type=offline`: without a
  * refresh token this could only work while somebody was looking at the screen, and
@@ -45,7 +45,7 @@ class ScheduledBackupWorker(
 
         return try {
             val drive = AndroidDriveBackups(app) { auth.accessToken(service) }
-            DriveBackupRunner(app, AppContainer.get(app), drive).backUp()
+            DriveBackupRunner(app, AppContainer.get(app), drive).backUp(schedule.retention)
 
             schedule.recordSuccess(System.currentTimeMillis())
             Result.success()
@@ -53,8 +53,8 @@ class ScheduledBackupWorker(
             schedule.recordFailure(System.currentTimeMillis(), error.message)
 
             // A few goes with the backoff WorkManager applies, then stop until next
-            // week. Retrying indefinitely turns one bad week into a job that never
-            // stops trying, and the weekly schedule is itself the outer retry.
+            // interval. Retrying indefinitely turns one bad run into a job that
+            // never stops trying, and the schedule is itself the outer retry.
             if (runAttemptCount + 1 < ATTEMPTS) Result.retry() else Result.failure()
         } finally {
             // Holds a browser binding. Leaking one leaks the connection behind it,

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -27,6 +28,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.data.DriveBackup
 import com.wardrobapp.data.isoTimestamp
+import com.wardrobapp.presentation.BackupFrequency
+import com.wardrobapp.presentation.BackupRetention
+import com.wardrobapp.presentation.keep
 import com.wardrobapp.presentation.formatMegabytes
 import com.wardrobapp.presentation.formatStoredDateTime
 import java.util.Locale
@@ -35,8 +39,12 @@ import java.util.TimeZone
 /** For the tests that ask whether the section is on screen. */
 const val CLOUD_SECTION = "cloud-section"
 
-/** The weekly-backup switch, which has no label text of its own to find. */
+/** The controls with no label text of their own to find. */
 const val CLOUD_SCHEDULE = "cloud-schedule"
+const val CLOUD_FREQUENCY = "cloud-frequency"
+const val CLOUD_RETENTION = "cloud-retention"
+const val CLOUD_WIFI_ONLY = "cloud-wifi-only"
+const val CLOUD_BATTERY = "cloud-battery"
 
 /**
  * Backups in somebody's own Google Drive.
@@ -58,6 +66,10 @@ fun CloudBackupSection(
     onFailureDismissed: () -> Unit,
     onRestoredDismissed: () -> Unit,
     onScheduleChanged: (Boolean) -> Unit,
+    onFrequencyChanged: (BackupFrequency) -> Unit,
+    onRetentionChanged: (BackupRetention) -> Unit,
+    onWifiOnlyChanged: (Boolean) -> Unit,
+    onBatteryChanged: (Boolean) -> Unit,
 ) {
     var confirming by remember { mutableStateOf<DriveBackup?>(null) }
 
@@ -237,11 +249,112 @@ fun CloudBackupSection(
                 )
             }
 
+            // Disabled rather than hidden while the schedule is off: somebody
+            // deciding whether to switch it on wants to see what they would be
+            // agreeing to, and a row that appears only afterwards asks them to
+            // commit first and read second.
+            val settable = idle && state.scheduled
+
             Text(
-                stringResource(R.string.settings_cloud_schedule_hint),
+                stringResource(R.string.settings_cloud_frequency),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 4.dp).testTag(CLOUD_FREQUENCY),
+            ) {
+                for (choice in BackupFrequency.entries) {
+                    FilterChip(
+                        selected = choice == state.frequency,
+                        onClick = { onFrequencyChanged(choice) },
+                        enabled = settable,
+                        label = { Text(stringResource(choice.labelRes)) },
+                    )
+                }
+            }
+
+            Text(
+                stringResource(R.string.settings_cloud_keep),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 4.dp).testTag(CLOUD_RETENTION),
+            ) {
+                for (choice in BackupRetention.entries) {
+                    FilterChip(
+                        selected = choice == state.retention,
+                        onClick = { onRetentionChanged(choice) },
+                        enabled = settable,
+                        // The numbers label themselves. Five resources whose whole
+                        // content is a numeral would be five things to translate
+                        // that are the same in every language.
+                        label = {
+                            Text(
+                                choice.keep?.toString()
+                                    ?: stringResource(R.string.settings_cloud_keep_all),
+                            )
+                        },
+                    )
+                }
+            }
+
+            // Said where it is chosen rather than in a general hint: keeping one is
+            // giving up the thing a rolling backup is for, and somebody choosing it
+            // should be told at the moment they do.
+            if (state.retention == BackupRetention.ONE) {
+                Text(
+                    stringResource(R.string.settings_cloud_keep_one_warning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    stringResource(R.string.settings_cloud_wifi_only),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = state.wifiOnly,
+                    onCheckedChange = onWifiOnlyChanged,
+                    enabled = settable,
+                    modifier = Modifier.testTag(CLOUD_WIFI_ONLY),
+                )
+            }
+            Text(
+                stringResource(R.string.settings_cloud_wifi_only_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    stringResource(R.string.settings_cloud_battery),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = state.batteryNotLow,
+                    onCheckedChange = onBatteryChanged,
+                    enabled = settable,
+                    modifier = Modifier.testTag(CLOUD_BATTERY),
+                )
+            }
 
             // What the schedule has actually done, which is the only way an
             // unattended job can report anything: nobody is watching it run, so a

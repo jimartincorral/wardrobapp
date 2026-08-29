@@ -152,6 +152,12 @@ effect.
 **A new keystore means updating the release client's fingerprint.** Sign-in then
 breaks in release only, while debug keeps working and hides it.
 
+**The automatic backup is configurable, and its settings are this phone's.** How
+often (daily, weekly, monthly), how many archives the folder keeps (1, 3, 5, 10 or
+all), and whether to wait for Wi-Fi and for charge, all live in SharedPreferences
+rather than in the wardrobe -- so a restore from another device does not bring
+somebody else's data-plan decisions with it.
+
 **The consent screen has to be published, not left in testing.** A project in
 Testing admits only the accounts on its test-user list, and refuses the rest with
 *"Error 403: access_denied"* after the sign-in page has already loaded. Adding
