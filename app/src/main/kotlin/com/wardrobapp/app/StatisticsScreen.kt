@@ -525,8 +525,6 @@ private fun Body(
  */
 @Composable
 private fun DuplicateRow(group: DuplicateGarmentGroup, onGarmentOpened: (String) -> Unit) {
-    val open = stringResource(R.string.statistics_open_garment)
-
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         // Scrolls sideways, because a group has no ceiling: eight near-identical
         // pairs of socks is an ordinary thing to own, and eight thumbnails are
@@ -536,9 +534,16 @@ private fun DuplicateRow(group: DuplicateGarmentGroup, onGarmentOpened: (String)
             modifier = Modifier.horizontalScroll(rememberScrollState()),
         ) {
             for (garment in group.garments) {
+                // Named, through the resource the lifespan rows already use: three
+                // photos all described as "open this garment" tell a screen reader
+                // nothing about which one it is on.
+                val what = garment.subcategory?.takeIf { it.isNotBlank() }
+                    ?.let { garmentTypeLabel(it) }
+                    ?: categoryLabel(garment.category)
+
                 AsyncImage(
                     model = garment.displayImage,
-                    contentDescription = open,
+                    contentDescription = stringResource(R.string.statistics_open_garment, what),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(56.dp)
