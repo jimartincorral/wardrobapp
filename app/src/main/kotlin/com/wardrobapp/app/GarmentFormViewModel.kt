@@ -604,9 +604,6 @@ class GarmentFormViewModel(
         // would look untyped, and untyped is never a duplicate -- the warning
         // would go quiet rather than wrong, which is worse.
         subcategories = subcategories,
-        // The same tags that will be stored, so the candidate is compared as the
-        // garment it is about to become.
-        tags = mergeStructuredTags(tags, seasons),
         colorPrimary = colorPalette.firstOrNull() ?: GarmentFormState.DEFAULT_COLOR,
         // Every colour, not just the leading one: a black and red shirt is not a
         // red shirt, and comparing only the dominant colour said it was.

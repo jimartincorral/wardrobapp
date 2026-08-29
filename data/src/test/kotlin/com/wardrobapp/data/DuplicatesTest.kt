@@ -1,7 +1,6 @@
 package com.wardrobapp.data
 
 import com.wardrobapp.domain.DuplicateCandidate
-import com.wardrobapp.domain.DuplicateReason
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -49,7 +48,6 @@ class DuplicatesTest {
         // Matching what `addGarment` writes: a duplicate has to be the same kind
         // of thing, so a candidate with no type would match nothing at all.
         subcategories = listOf("T-Shirt"),
-        tags = listOf("cotton", "basic"),
         colorPrimary = "#000000",
         colorPalette = listOf("#000000"),
     )
@@ -61,12 +59,11 @@ class DuplicatesTest {
         val matches = subject.matching(candidate)
 
         assertEquals(listOf("twin"), matches.map { it.garment.id })
-        assertTrue(matches.single().score > 0.99, "an exact duplicate scored ${matches.single().score}")
     }
 
     @Test
     fun `hands back the photos a warning needs`() {
-        // The scoring works on the domain type, which has no photo. A warning
+        // The rule works on the domain type, which has no photo. A warning
         // showing "you may already own this" with a blank tile is no warning.
         addGarment("twin")
 
@@ -75,19 +72,6 @@ class DuplicatesTest {
         assertEquals("file:///photos/twin.jpg", match.garment.displayImage)
     }
 
-    @Test
-    fun `says why`() {
-        addGarment("twin")
-
-        val reasons = subject.matching(candidate).single().reasons
-
-        assertTrue(DuplicateReason.SIMILAR_TAGS in reasons, "reasons were $reasons")
-
-        // Not the size, which is no longer looked at, and not the colour, which is
-        // the entry requirement rather than a finding. What is left is what varies.
-        assertTrue(DuplicateReason.SAME_SIZE !in reasons, "reasons were $reasons")
-        assertTrue(DuplicateReason.SIMILAR_COLOR !in reasons, "reasons were $reasons")
-    }
 
     @Test
     fun `never warns about a garment that is no longer in use`() {
@@ -100,8 +84,8 @@ class DuplicatesTest {
 
     @Test
     fun `does not compare across categories`() {
-        // Only the same category is loaded, so a pair of black trousers tagged
-        // like a black t-shirt is not a duplicate of it.
+        // Only the same category is loaded, so black trousers filed as a
+        // "T-Shirt" by some import are not a duplicate of a black t-shirt.
         addGarment("trousers", category = "bottoms")
 
         assertEquals(emptyList(), subject.matching(candidate))
@@ -109,21 +93,19 @@ class DuplicatesTest {
 
     @Test
     fun `ignores a garment that shares nothing but its category`() {
-        addGarment("unrelated", tags = listOf("wool", "formal"), color = "#FFFFFF", size = "XL")
+        addGarment("unrelated", subcategory = "Jumper", color = "#FFFFFF")
 
         assertEquals(emptyList(), subject.matching(candidate))
     }
 
     @Test
-    fun `reports the closest first`() {
-        addGarment("partial", tags = listOf("cotton"))
-        addGarment("exact", tags = listOf("cotton", "basic"))
+    fun `every match comes back, in the order the wardrobe holds them`() {
+        // Nothing to rank by: each of these satisfies the same rule to the same
+        // degree, and an order would imply one is more of a duplicate than another.
+        addGarment("first")
+        addGarment("second")
 
-        // Threshold lowered so both are reported and the order is what is tested.
-        val matches = subject.matching(candidate, threshold = -1.0)
-
-        assertEquals(listOf("exact", "partial"), matches.map { it.garment.id })
-        assertTrue(matches[0].score > matches[1].score)
+        assertEquals(listOf("first", "second"), subject.matching(candidate).map { it.garment.id })
     }
 
     @Test

@@ -9,7 +9,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.wardrobapp.data.DuplicateGarmentGroup
 import com.wardrobapp.data.normalizeGarmentRow
-import com.wardrobapp.domain.DuplicateReason
 import com.wardrobapp.presentation.BrandSort
 import com.wardrobapp.presentation.Distribution
 import com.wardrobapp.presentation.LifespanEntry
@@ -230,10 +229,7 @@ class StatisticsScreenTest {
         view = view(),
         openSections = if (open) setOf(StatisticsSection.DUPLICATES) else emptySet(),
         duplicates = listOf(
-            DuplicateGarmentGroup(
-                garments = listOf(garment("g1"), garment("g2"), garment("g3")),
-                reasons = listOf(DuplicateReason.SIMILAR_COLOR, DuplicateReason.SAME_SIZE),
-            ),
+            DuplicateGarmentGroup(listOf(garment("g1"), garment("g2"), garment("g3"))),
         ),
     )
 
@@ -250,14 +246,15 @@ class StatisticsScreenTest {
     }
 
     @Test
-    fun `an open group says how many and why`() {
+    fun `an open group says how many, and nothing about why`() {
         show(withDuplicates(open = true))
 
         scrollTo("3 garments")
 
-        // The count and the reasons, and the reasons are the ones that hold for
-        // every member rather than for one pair inside it.
-        compose.onNodeWithText("3 garments \u00b7 similar colour, same size").assertIsDisplayed()
+        // The count alone. Every group is here for the identical reason -- the
+        // same kind of thing in the same colours -- so a reason line would repeat
+        // the section's own heading once per row.
+        compose.onNodeWithText("3 garments").assertIsDisplayed()
     }
 
     @Test

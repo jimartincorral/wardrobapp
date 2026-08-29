@@ -48,49 +48,42 @@ One app now: the Kotlin one. Anything below is built once.
   rather than named for the same reason -- a timestamped file name is a date nobody
   reads at a glance.
 
-- Near-duplicates, in both directions. The scoring and the warning when adding a
-  garment were already there; what was missing was ever asking the question about
-  garments already saved, so shirts added on different days had never been compared
-  with each other. Statistics now sweeps the wardrobe and groups what it finds.
+- Near-duplicates, in both directions: the warning when a garment is added, and a
+  sweep over the wardrobe on the statistics page. The scoring for the first already
+  existed; what was missing was ever asking the question about garments already
+  saved, so shirts added on different days had never been compared with each other.
 
-  Two decisions worth not rediscovering: groups are anchored rather than chained,
-  because A resembling B and B resembling C does not make A resemble C and one
-  absurd group costs the whole list its credibility; and the sweep buckets by
-  category itself, because `findDuplicatesAmong` scores tags, colour and size and
-  never looks at the category at all -- it is right at the add form only because
-  that caller narrows the *query* first.
+  **The rule is: the same subcategory, in the same colours.** That is all of it.
+  There is no score and no threshold.
 
-  The first version reported far too much, and the fix was not the threshold. The
-  score renormalises over whichever signals have data, so two garments of the same
-  colour with no tags scored exactly 1.0 and no threshold below 1.0 could reach
-  them; season tags made it worse, since `mergeStructuredTags` folds seasons into
-  the tags column and two garments both marked "summer" score a perfect Jaccard
-  match on a filter value. So the same subcategory and the same colour are now
-  conditions rather than signals, and the threshold stayed at 0.65.
+  There used to be both -- a weighted average over tags, colour and size,
+  renormalised over whichever had data, behind a threshold that moved from 0.81 to
+  0.65 to 0.74 over three attempts to make it behave. It is worth knowing why that
+  failed, because the instinct to reintroduce it will come back. Every complaint
+  turned out to be categorical rather than a matter of degree: a jumper is not a
+  t-shirt, a black and red shirt is not a red shirt, a size is what fits you rather
+  than what a garment is. A number cannot express any of those. Worse, the
+  renormalisation meant two garments of one colour with nothing else recorded scored
+  exactly 1.0, which no threshold below 1.0 could reach and 1.0 excluded everything.
 
-  The threshold then moved 0.65 -> 0.74, which is derived rather than chosen: past
-  the gates the only things left to disagree about are tags and size, and a pair
-  differing only in a recorded size scores 0.750. Keeping those is the owner's
-  decision, so the bar sits directly under it, and what it removes is partial tag
-  overlap. Tests bracket it on both sides -- lowering fails the tag cases, raising
-  fails the size one -- so the next person to move it is told what it costs.
+  What the rule costs, and it is not small: every navy t-shirt is now one group,
+  whatever else distinguishes them. Its virtue is that it can be predicted without
+  reading any of this.
 
-  Then the colour gate became a *palette* gate: a black and red shirt is not a red
-  shirt, and comparing only the dominant colour said it was, since red leads both
-  palettes and nothing looked further. Palettes now have to correspond one to one,
-  order aside -- which of two colours dominates is a fact about the photograph. And
-  size stopped counting at all: the same shirt in an M and an L is the same shirt,
-  and two different shirts that are both M are still two shirts.
+  Three details that are easy to get wrong a second time:
 
-  One trap that cost a round: the palette gate and the colour *score* have to agree
-  about which colours they compare. The first version gated on a matched palette and
-  then scored the leading colours positionally, so a reversed palette passed the
-  gate and scored red against black. They are one call now.
+  - Palettes must *correspond*, not overlap -- same count, each colour with a
+    partner, a partner spent once claimed. Order is not part of it, since which of
+    two colours dominates is a fact about the photograph.
+  - The sweep buckets by category itself, because two categories can share a
+    subcategory name and `findDuplicatesAmong` never looks at the category.
+  - Groups are anchored rather than chained. Sharing a type is not transitive: a
+    garment filed as both "T-Shirt" and "Vest" would otherwise link the two.
 
-  A garment with no subcategory is therefore not a duplicate of anything, and
-  nothing on screen says so. Deliberate: without knowing what a garment is there is
-  no claim to make. If the section ever looks empty on a wardrobe that plainly has
-  twins, missing types are the first thing to check.
+  A garment with no subcategory is not a duplicate of anything, including another
+  with none, and nothing on screen says so. Deliberate: without knowing what a
+  garment is there is no claim to make. If the section ever looks empty on a
+  wardrobe that plainly has twins, missing types are the first thing to check.
 
 ## Not being built
 

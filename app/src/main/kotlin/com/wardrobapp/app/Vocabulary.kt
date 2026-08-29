@@ -10,7 +10,6 @@ import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.OutfitReason
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.UnsafeUrlReason
-import com.wardrobapp.domain.DuplicateReason
 import com.wardrobapp.presentation.BackupFrequency
 import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.LanguageChoice
@@ -276,24 +275,6 @@ val BackupFrequency.labelRes: Int
         BackupFrequency.WEEKLY -> R.string.backup_frequency_weekly
         BackupFrequency.MONTHLY -> R.string.backup_frequency_monthly
     }
-
-/**
- * Why two garments were called much the same.
- *
- * Here rather than beside either of the two screens that ask, because both do:
- * the warning when a garment is being added, and the list of what the wardrobe
- * already holds twice. Worded once, so they cannot come to describe the same
- * finding differently.
- */
-@Composable
-internal fun DuplicateReason.label(): String = stringResource(
-    when (this) {
-        DuplicateReason.SIMILAR_TAGS -> R.string.duplicate_reason_tags
-        DuplicateReason.SIMILAR_COLOR -> R.string.duplicate_reason_colour
-        DuplicateReason.SAME_SIZE -> R.string.duplicate_reason_size
-        DuplicateReason.OVERALL_SIMILARITY -> R.string.duplicate_reason_overall
-    }
-)
 
 /**
  * What to call each thing a grid cell can say under a photo.

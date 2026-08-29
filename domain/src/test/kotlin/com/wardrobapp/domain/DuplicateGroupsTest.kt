@@ -18,17 +18,14 @@ class DuplicateGroupsTest {
     private fun garment(
         id: String,
         category: String = "tops",
-        subcategory: String = "T-Shirt",
-        tags: List<String> = listOf("casual", "summer"),
+        subcategories: List<String> = listOf("T-Shirt"),
         color: String = "#1F3A93",
-        size: String? = "M",
     ) = Garment(
         id = id,
         category = category,
-        subcategories = listOf(subcategory),
-        tags = tags,
+        subcategories = subcategories,
         colorPrimary = color,
-        size = size,
+        colorPalette = listOf(color),
     )
 
     @Test
@@ -59,8 +56,8 @@ class DuplicateGroupsTest {
     fun `a wardrobe where nothing resembles anything reports nothing`() {
         val groups = duplicateGroups(
             listOf(
-                garment("g1", tags = listOf("formal"), color = "#000000", size = "S"),
-                garment("g2", tags = listOf("beachwear"), color = "#FFD700", size = "XL"),
+                garment("g1", color = "#000000"),
+                garment("g2", color = "#FFD700"),
             ),
         )
 
@@ -109,21 +106,12 @@ class DuplicateGroupsTest {
 
     @Test
     fun `a group is everything like its anchor, not a chain of resemblances`() {
-        // The design decision, held by a test because nothing else records it: A
-        // resembling B and B resembling C does not make A resemble C. Chained,
-        // this wardrobe would be one group of three and would be telling the
-        // reader that a garment sharing no tag with another is the same garment.
-        // These three really do chain, which the first version of this test did
-        // not: neighbours share four tags of six, while a and c share three of
-        // seven and fall under the bar. Anchored, a and b group and c is left
-        // alone; chained, all three arrive as one garment.
-        //
-        // Retuned when the size signal was removed: it used to contribute a tenth
-        // of every score here, and without it the old fixture no longer cleared
-        // the threshold at all.
-        val a = garment("a", tags = listOf("casual", "summer", "cotton", "blue", "light"))
-        val b = garment("b", tags = listOf("summer", "cotton", "blue", "light", "linen"))
-        val c = garment("c", tags = listOf("cotton", "blue", "light", "linen", "holiday"))
+        // Sharing a type is not transitive: a is a T-Shirt, c is a Vest, and b is
+        // filed as both. Anchored, a and b group and c is left alone. Chained, all
+        // three arrive as one garment, and a T-Shirt is offered as a Vest.
+        val a = garment("a", subcategories = listOf("T-Shirt"))
+        val b = garment("b", subcategories = listOf("T-Shirt", "Vest"))
+        val c = garment("c", subcategories = listOf("Vest"))
 
         val groups = duplicateGroups(listOf(a, b, c))
 
@@ -147,38 +135,6 @@ class DuplicateGroupsTest {
         )
     }
 
-    @Test
-    fun `a reason is only given when it holds for the whole group`() {
-        // A heading saying "same size" over a group where one garment is an XL
-        // is a heading that lies about most of what is under it.
-        val groups = duplicateGroups(
-            listOf(
-                garment("g1", size = "M"),
-                garment("g2", size = "M"),
-                garment("g3", size = "XL"),
-            ),
-        )
-
-        val group = groups.single()
-
-        // Pinned rather than guarded with an `if`: were the scoring to stop
-        // grouping all three, the assertion below would hold for a reason that
-        // has nothing to do with what this test is about, and pass saying nothing.
-        assertEquals(3, group.garments.size, "these three no longer group, so the rest proves nothing")
-        assertTrue(
-            DuplicateReason.SAME_SIZE !in group.reasons,
-            "a reason true of one pair was claimed for the group",
-        )
-    }
-
-    @Test
-    fun `a group always says something about why`() {
-        // Never an empty line under the photos: when the members agree on nothing
-        // nameable, the honest answer is that they are simply alike overall.
-        for (group in duplicateGroups((1..3).map { garment("g$it") })) {
-            assertTrue(group.reasons.isNotEmpty(), "a group gave no reason at all")
-        }
-    }
 
     @Test
     fun `a candidate built from a garment compares by the colour the form would use`() {
@@ -200,9 +156,9 @@ class DuplicateGroupsTest {
         // same colour, same tags, same size, and one of them is a jumper.
         val groups = duplicateGroups(
             listOf(
-                garment("shirt1", subcategory = "T-Shirt"),
-                garment("shirt2", subcategory = "T-Shirt"),
-                garment("jumper", subcategory = "Jumper"),
+                garment("shirt1"),
+                garment("shirt2"),
+                garment("jumper", subcategories = listOf("Jumper")),
             ),
         )
 
@@ -217,7 +173,7 @@ class DuplicateGroupsTest {
         // Not an empty group and not a group of one: they never enter. The cost of
         // the rule, and the reason a wardrobe with no types recorded reports
         // nothing at all.
-        val groups = duplicateGroups((1..3).map { garment("g$it").copy(subcategories = emptyList()) })
+        val groups = duplicateGroups((1..3).map { garment("g$it", subcategories = emptyList()) })
 
         assertEquals(emptyList(), groups)
     }
