@@ -26,6 +26,7 @@ class DuplicatesTest {
     private fun addGarment(
         id: String,
         category: String = "tops",
+        subcategory: String = "T-Shirt",
         tags: List<String> = listOf("cotton", "basic"),
         color: String = "#000000",
         size: String? = "M",
@@ -36,7 +37,7 @@ class DuplicatesTest {
                 "subcategories, tags, color_primary, color_palette, size, is_available, " +
                 "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             listOf(
-                id, "$id.jpg", "[\"$id.jpg\"]", category, "T-Shirt", "[\"T-Shirt\"]",
+                id, "$id.jpg", "[\"$id.jpg\"]", category, subcategory, jsonArray(listOf(subcategory)),
                 jsonArray(tags), color, "[\"$color\"]", size,
                 if (available) 1 else 0, "2026-01-01", "2026-01-01",
             ),
@@ -45,6 +46,9 @@ class DuplicatesTest {
 
     private val candidate = DuplicateCandidate(
         category = "tops",
+        // Matching what `addGarment` writes: a duplicate has to be the same kind
+        // of thing, so a candidate with no type would match nothing at all.
+        subcategories = listOf("T-Shirt"),
         tags = listOf("cotton", "basic"),
         colorPrimary = "#000000",
         colorPalette = listOf("#000000"),
@@ -183,6 +187,27 @@ class DuplicatesTest {
             groups.all { it.garments.map { g -> g.category }.distinct().size == 1 },
             "a group spanned two categories",
         )
+    }
+
+    @Test
+    fun `a shirt and a jumper are not each other`() {
+        // The comparison the sweep was making before there was a gate: same
+        // category, same colour, same tags, same size.
+        addGarment("shirt1", subcategory = "T-Shirt")
+        addGarment("shirt2", subcategory = "T-Shirt")
+        addGarment("jumper", subcategory = "Jumper")
+
+        val groups = subject.groups()
+
+        assertEquals(listOf("shirt1", "shirt2"), groups.single().garments.map { it.id }.sorted())
+    }
+
+    @Test
+    fun `the same shirt in two colours is two shirts`() {
+        addGarment("navy", color = "#1F3A93")
+        addGarment("red", color = "#B22222")
+
+        assertEquals(emptyList(), subject.groups())
     }
 
 }

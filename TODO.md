@@ -60,6 +60,19 @@ One app now: the Kotlin one. Anything below is built once.
   never looks at the category at all -- it is right at the add form only because
   that caller narrows the *query* first.
 
+  The first version reported far too much, and the fix was not the threshold. The
+  score renormalises over whichever signals have data, so two garments of the same
+  colour with no tags scored exactly 1.0 and no threshold below 1.0 could reach
+  them; season tags made it worse, since `mergeStructuredTags` folds seasons into
+  the tags column and two garments both marked "summer" score a perfect Jaccard
+  match on a filter value. So the same subcategory and the same colour are now
+  conditions rather than signals, and the threshold stayed at 0.65.
+
+  A garment with no subcategory is therefore not a duplicate of anything, and
+  nothing on screen says so. Deliberate: without knowing what a garment is there is
+  no claim to make. If the section ever looks empty on a wardrobe that plainly has
+  twins, missing types are the first thing to check.
+
 ## Not being built
 
 - **The outfit card** — the garment photos composed into one image. Built, tried
