@@ -152,6 +152,16 @@ effect.
 **A new keystore means updating the release client's fingerprint.** Sign-in then
 breaks in release only, while debug keeps working and hides it.
 
+**The consent screen has to be published, not left in testing.** A project in
+Testing admits only the accounts on its test-user list, and refuses the rest with
+*"Error 403: access_denied"* after the sign-in page has already loaded. Adding
+yourself as a test user clears that, and should not be the fix: Google expires a
+test user's refresh token after **seven days**, so everything works and then stops
+a week later for no visible reason -- and an unattended backup is exactly the case
+where nobody is watching to sign in again. Publishing avoids that, and needs no
+verification review, which is one of the reasons `drive.file` was chosen over
+`appDataFolder`: Google classes it non-sensitive.
+
 The redirect URI is not registered anywhere: Google derives it from the package
 name, and the app builds the matching one from `BuildConfig.APPLICATION_ID`
 (`com.anonymous.wardrobapp:/oauth2redirect`). `appAuthRedirectScheme` in
