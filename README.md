@@ -162,6 +162,14 @@ where nobody is watching to sign in again. Publishing avoids that, and needs no
 verification review, which is one of the reasons `drive.file` was chosen over
 `appDataFolder`: Google classes it non-sensitive.
 
+Publishing does require four things filled in on the Branding page: an app name, a
+support email, a homepage and a privacy policy. The last two are in this
+repository -- the repository itself is the homepage, and [PRIVACY.md](PRIVACY.md)
+is the policy, which GitHub serves at a URL Google accepts. It is written from what
+the code does rather than from a template, so it names all four occasions on which
+this app touches the network; if that ever stops being true, it is the file to
+change.
+
 The redirect URI is not registered anywhere: Google derives it from the package
 name, and the app builds the matching one from `BuildConfig.APPLICATION_ID`
 (`com.anonymous.wardrobapp:/oauth2redirect`). `appAuthRedirectScheme` in
