@@ -1,8 +1,6 @@
 package com.wardrobapp.data
 
-import com.wardrobapp.domain.DUPLICATE_THRESHOLD
 import com.wardrobapp.domain.DuplicateCandidate
-import com.wardrobapp.domain.DuplicateReason
 import com.wardrobapp.domain.duplicateGroups
 import com.wardrobapp.domain.findDuplicatesAmong
 
@@ -14,18 +12,11 @@ import com.wardrobapp.domain.findDuplicatesAmong
  * which garments are even considered is the decision that lives here.
  */
 
-/** Garments that look like each other, with the photos a list needs to show. */
-data class DuplicateGarmentGroup(
-    val garments: List<GarmentRecord>,
-    val reasons: List<DuplicateReason>,
-)
+/** Garments that are each other, with the photos a list needs to show. */
+data class DuplicateGarmentGroup(val garments: List<GarmentRecord>)
 
-/** A likely duplicate, with the photos a warning needs to show. */
-data class DuplicateGarment(
-    val garment: GarmentRecord,
-    val score: Double,
-    val reasons: List<DuplicateReason>,
-)
+/** A garment the wardrobe already has, with the photo a warning needs to show. */
+data class DuplicateGarment(val garment: GarmentRecord)
 
 class Duplicates(private val garments: GarmentQueries) {
 
@@ -36,22 +27,17 @@ class Duplicates(private val garments: GarmentQueries) {
      * is not something you already own, and warning about one would tell someone
      * to go and look for a garment they deliberately put away.
      */
-    fun matching(
-        candidate: DuplicateCandidate,
-        threshold: Double = DUPLICATE_THRESHOLD,
-    ): List<DuplicateGarment> {
+    fun matching(candidate: DuplicateCandidate): List<DuplicateGarment> {
         val existing = garments.allGarments(
             GarmentQueries.Filters(category = candidate.category, availableOnly = true)
         )
         val byId = existing.associateBy { it.id }
 
-        return findDuplicatesAmong(candidate, existing.map { it.toDomain() }, threshold)
+        return findDuplicatesAmong(candidate, existing.map { it.toDomain() })
             .mapNotNull { match ->
                 // Every id came from `existing`; a missing one would be a bug
                 // rather than a state, and skipping it beats crashing a save.
-                byId[match.garment.id]?.let {
-                    DuplicateGarment(garment = it, score = match.score, reasons = match.reasons)
-                }
+                byId[match.garment.id]?.let { DuplicateGarment(it) }
             }
     }
 
@@ -67,16 +53,11 @@ class Duplicates(private val garments: GarmentQueries) {
      * put away is not something owned twice. Which garments get compared with
      * which is [duplicateGroups]'s business, including keeping categories apart.
      */
-    fun groups(threshold: Double = DUPLICATE_THRESHOLD): List<DuplicateGarmentGroup> {
+    fun groups(): List<DuplicateGarmentGroup> {
         val existing = garments.allGarments(GarmentQueries.Filters(availableOnly = true))
         val byId = existing.associateBy { it.id }
 
-        return duplicateGroups(existing.map { it.toDomain() }, threshold)
-            .map { group ->
-                DuplicateGarmentGroup(
-                    garments = group.garments.mapNotNull { byId[it.id] },
-                    reasons = group.reasons,
-                )
-            }
+        return duplicateGroups(existing.map { it.toDomain() })
+            .map { group -> DuplicateGarmentGroup(group.garments.mapNotNull { byId[it.id] }) }
     }
 }

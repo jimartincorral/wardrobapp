@@ -558,14 +558,10 @@ private fun DuplicateRow(group: DuplicateGarmentGroup, onGarmentOpened: (String)
         }
 
         Text(
-            // The count first, because "3 garments" is what the row is about and
-            // the reasons are why. Through the same wording the add-form warning
-            // uses, so the two never drift into describing this differently.
-            // `map` then join, never `joinToString { it.label() }`: the transform
-            // is a non-inline function value, and a @Composable call cannot go
-            // inside one. It compiles nowhere but CI, so it is worth naming.
-            pluralStringResource(R.plurals.statistics_duplicate_count, group.garments.size, group.garments.size) +
-                " \u00b7 " + group.reasons.map { it.label() }.joinToString(),
+            // The count, and no "why". Every group is here for the identical
+            // reason -- same type, same colours -- so a reason line would repeat
+            // the section's own heading once per row.
+            pluralStringResource(R.plurals.statistics_duplicate_count, group.garments.size, group.garments.size),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

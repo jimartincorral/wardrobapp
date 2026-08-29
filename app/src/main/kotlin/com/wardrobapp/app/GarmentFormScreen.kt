@@ -610,20 +610,19 @@ private fun DuplicateWarning(
                                     .clip(RoundedCornerShape(6.dp))
                                     .background(MaterialTheme.colorScheme.surfaceVariant),
                             )
-                            Column(modifier = Modifier.padding(start = 12.dp)) {
-                                Text(
-                                    match.garment.subcategory?.let { garmentTypeLabel(it) }
-                                        ?: categoryLabel(match.garment.category),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    match.reasons.map { it.label() }.joinToString(", "),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+                            // The type, and nothing under it. Every match is here
+                            // for the identical reason -- same type, same colours --
+                            // so printing that reason under each one says nothing the
+                            // dialog's own title has not, and the photo shows the
+                            // colour better than a word for it would.
+                            Text(
+                                match.garment.subcategory?.let { garmentTypeLabel(it) }
+                                    ?: categoryLabel(match.garment.category),
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(start = 12.dp),
+                            )
                         }
                     }
                 }

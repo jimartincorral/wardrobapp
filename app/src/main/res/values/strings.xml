@@ -188,10 +188,6 @@
     <string name="duplicate_title">You may already own this</string>
     <string name="duplicate_add_anyway">Add it anyway</string>
     <string name="duplicate_review">Let me look</string>
-    <string name="duplicate_reason_tags">similar tags</string>
-    <string name="duplicate_reason_colour">similar colour</string>
-    <string name="duplicate_reason_size">same size</string>
-    <string name="duplicate_reason_overall">overall similarity</string>
 
     <!-- Statistics: one page, where an Analytics tab and a Statistics screen
          used to say the same things twice. -->

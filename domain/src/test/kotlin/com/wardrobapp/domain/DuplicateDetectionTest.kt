@@ -2,388 +2,210 @@ package com.wardrobapp.domain
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
- * Whether a garment being added is one the wardrobe already has.
+ * Whether a garment is one the wardrobe already has.
  *
- * The score is a weighted average over the signals that have something to say --
- * tags and colour -- renormalised over whichever of them are present. That
- * renormalisation is the interesting part, and the reason the previous version of
- * this could never fire at all: with no tags recorded, the tag term contributed
- * nothing but still consumed 0.6 of the available weight, so an exact duplicate
- * peaked at 0.40 against a 0.81 threshold.
- *
- * Which category a garment belongs to is not asked here; the data layer narrows
- * to one category before calling this, and its own tests cover that.
+ * The rule is the whole of it: the same kind of thing, in the same colours. There
+ * is no score and no threshold to tune, so what is worth testing is where the two
+ * conditions draw their lines -- and, as much, that the things which used to matter
+ * no longer do.
  */
 class DuplicateDetectionTest {
 
-    // Every fixture carries a type, because a garment without one is now not a
-    // duplicate of anything -- so a fixture that omitted it would test the gate
-    // rather than whatever the test is named for.
     private fun existing(
         id: String,
+        subcategories: List<String> = listOf("T-Shirt"),
+        colors: List<String> = listOf("#1F3A93"),
         tags: List<String> = emptyList(),
-        color: String = "#1F3A93",
         size: String? = null,
-        subcategory: String = "T-Shirt",
     ) = Garment(
         id = id,
         category = "tops",
-        subcategories = listOf(subcategory),
+        subcategories = subcategories,
         tags = tags,
-        colorPrimary = color,
+        colorPrimary = colors.first(),
+        colorPalette = colors,
         size = size,
     )
 
     private fun candidate(
-        tags: List<String> = emptyList(),
-        color: String = "#1F3A93",
-        subcategory: String = "T-Shirt",
+        subcategories: List<String> = listOf("T-Shirt"),
+        colors: List<String> = listOf("#1F3A93"),
     ) = DuplicateCandidate(
         category = "tops",
-        subcategories = listOf(subcategory),
-        tags = tags,
-        colorPrimary = color,
+        subcategories = subcategories,
+        colorPrimary = colors.first(),
+        colorPalette = colors,
     )
 
-    @Test
-    fun `an exact duplicate is reported`() {
-        val matches = findDuplicatesAmong(
-            candidate(tags = listOf("casual", "summer")),
-            listOf(existing("g1", tags = listOf("casual", "summer"), size = "M")),
-        )
-
-        assertEquals(listOf("g1"), matches.map { it.garment.id })
-        assertEquals(1.0, matches.single().score)
-    }
+    private fun matchIds(candidate: DuplicateCandidate, vararg existing: Garment) =
+        findDuplicatesAmong(candidate, existing.toList()).map { it.garment.id }
 
     @Test
-    fun `an exact duplicate with nothing recorded but its colour is still reported`() {
-        // The case that used to be unreachable. Nothing but a colour is thin
-        // evidence, so the score should be a match rather than a certainty -- but
-        // it has to clear the bar, because it is the same garment.
-        val matches = findDuplicatesAmong(candidate(), listOf(existing("g1")))
-
-        assertEquals(listOf("g1"), matches.map { it.garment.id })
-        assertTrue(matches.single().score > DUPLICATE_THRESHOLD)
+    fun `the same kind of thing in the same colour is the same garment`() {
+        assertEquals(listOf("g1"), matchIds(candidate(), existing("g1")))
     }
 
-    @Test
-    fun `a garment that shares nothing is not reported`() {
-        val matches = findDuplicatesAmong(
-            candidate(tags = listOf("formal"), color = "#C0392B"),
-            listOf(existing("g1", tags = listOf("sport"), color = "#2E8B57", size = "XL")),
-        )
-
-        assertEquals(emptyList(), matches.map { it.garment.id })
-    }
-
-    @Test
-    fun `an unanswered question lowers confidence rather than arguing against a match`() {
-        // Same garment, described in less detail: the score falls but the verdict
-        // does not flip. An absent signal is missing evidence, not evidence of
-        // difference.
-        // Absent tags: colour is the only signal, and it agrees, so the score is
-        // as high as the evidence allows.
-        val tagsAbsent = findDuplicatesAmong(candidate(), listOf(existing("g1"))).single().score
-
-        // Tags present and disagreeing: now there *is* evidence against, and it
-        // pulls the score down through the bar.
-        val tagsDisagree = findDuplicatesAmong(
-            candidate(tags = listOf("formal")),
-            listOf(existing("g1", tags = listOf("sport"))),
-        )
-
-        assertTrue(tagsAbsent > DUPLICATE_THRESHOLD, "an unanswered question argued against a match")
-        assertTrue(tagsDisagree.isEmpty(), "disagreeing tags still matched")
-    }
-
-    @Test
-    fun `it says why`() {
-        val tagsAndColour = findDuplicatesAmong(
-            candidate(tags = listOf("casual", "summer")),
-            listOf(existing("g1", tags = listOf("casual", "summer"))),
-        ).single()
-
-        assertTrue(DuplicateReason.SIMILAR_TAGS in tagsAndColour.reasons)
-
-        // And never the colour, which is now the entry requirement rather than a
-        // finding: every garment that gets this far is the same colour, so saying
-        // so would be a reason given for everything, which is a reason for
-        // nothing.
-        assertTrue(DuplicateReason.SIMILAR_COLOR !in tagsAndColour.reasons)
-
-        // And never a size, which is no longer looked at: what fits you is not
-        // what a garment is.
-        val differentSizes = findDuplicatesAmong(
-            candidate(tags = listOf("casual")),
-            listOf(existing("g1", tags = listOf("casual"), size = "XXL")),
-        ).single()
-
-        assertTrue(DuplicateReason.SAME_SIZE !in differentSizes.reasons)
-    }
-
-    @Test
-    fun `a match with no single standout signal still says something`() {
-        // Otherwise a warning appears with no reason under it, which reads as a
-        // bug in the warning rather than a judgement about the garment.
-        val matches = findDuplicatesAmong(
-            candidate(tags = listOf("a", "b", "c")),
-            listOf(existing("g1", tags = listOf("a", "b", "d"))),
-        )
-
-        for (match in matches) {
-            assertTrue(match.reasons.isNotEmpty(), "${match.garment.id} was reported with no reason")
-        }
-    }
-
-    @Test
-    fun `the closest is reported first`() {
-        val matches = findDuplicatesAmong(
-            candidate(tags = listOf("casual", "summer")),
-            listOf(
-                existing("weaker", tags = listOf("casual"), size = "L"),
-                existing("exact", tags = listOf("casual", "summer"), size = "M"),
-            ),
-        )
-
-        assertEquals("exact", matches.first().garment.id)
-        assertEquals(matches.map { it.score }.sortedDescending(), matches.map { it.score })
-    }
-
-    @Test
-    fun `an empty wardrobe reports nothing rather than failing`() {
-        assertEquals(emptyList(), findDuplicatesAmong(candidate(tags = listOf("casual")), emptyList()))
-    }
-
-    @Test
-    fun `the threshold is a threshold`() {
-        // Passed in, so a caller can be stricter -- and worth checking, because a
-        // comparison written the wrong way round is invisible at the default.
-        val wardrobe = listOf(existing("g1", tags = listOf("casual")))
-
-        assertTrue(findDuplicatesAmong(candidate(tags = listOf("casual")), wardrobe, threshold = 0.1).isNotEmpty())
-        // Strictly above, so an exact match does not clear a threshold of 1.
-        assertTrue(findDuplicatesAmong(candidate(tags = listOf("casual")), wardrobe, threshold = 1.0).isEmpty())
-    }
-
-    @Test
-    fun `two garments that merely default to black are not duplicates of each other`() {
-        // '#000000' is the schema's default colour, so it is the value a garment
-        // has when nobody chose one. Taking the best match across whole palettes
-        // meant a red garment and a blue one that both listed black scored as
-        // identical -- which is why the comparison is primary against primary.
-        val red = candidate(color = "#C0392B").copy(colorPalette = listOf("#C0392B", "#000000"))
-        val blue = Garment(
-            id = "blue",
-            category = "tops",
-            colorPrimary = "#1F3A93",
-            colorPalette = listOf("#1F3A93", "#000000"),
-        )
-
-        assertEquals(emptyList(), findDuplicatesAmong(red, listOf(blue)))
-    }
     @Test
     fun `two kinds of thing are never the same thing`() {
-        // The comparison that made the wardrobe-wide sweep unusable. These score
-        // 1.0 on everything that is measured -- same category, same colour, same
-        // tags, same size -- and no threshold below 1.0 could ever have separated
-        // them, because nothing was looking at what they are.
-        val matches = findDuplicatesAmong(
-            candidate(subcategory = "T-Shirt", tags = listOf("casual")),
-            listOf(existing("g1", subcategory = "Jumper", tags = listOf("casual"))),
-        )
-
-        assertEquals(emptyList(), matches)
+        assertEquals(emptyList(), matchIds(candidate(), existing("g1", subcategories = listOf("Jumper"))))
     }
 
     @Test
     fun `one type in common is enough`() {
         // A garment can be filed under more than one type, and two shirts both
         // filed as T-Shirt are the same kind of thing whatever else either is.
-        val matches = findDuplicatesAmong(
-            candidate(tags = listOf("casual")).copy(subcategories = listOf("Top", "T-Shirt")),
-            listOf(existing("g1", tags = listOf("casual")).copy(subcategories = listOf("T-Shirt", "Vest"))),
+        assertEquals(
+            listOf("g1"),
+            matchIds(
+                candidate(subcategories = listOf("Top", "T-Shirt")),
+                existing("g1", subcategories = listOf("T-Shirt", "Vest")),
+            ),
         )
-
-        assertEquals(listOf("g1"), matches.map { it.garment.id })
     }
 
     @Test
     fun `a garment with no type is not a duplicate of anything`() {
-        val untyped = candidate(tags = listOf("casual")).copy(subcategories = emptyList())
-
         assertEquals(
             emptyList(),
-            findDuplicatesAmong(untyped, listOf(existing("g1", tags = listOf("casual")))),
+            matchIds(candidate(subcategories = emptyList()), existing("g1")),
             "a garment with no type matched one that has one",
         )
 
         // Including another with none. Two unknowns are not a known.
         assertEquals(
             emptyList(),
-            findDuplicatesAmong(
-                untyped,
-                listOf(existing("g1", tags = listOf("casual")).copy(subcategories = emptyList())),
-            ),
+            matchIds(candidate(subcategories = emptyList()), existing("g1", subcategories = emptyList())),
             "two garments with no type matched each other",
         )
     }
 
     @Test
     fun `the same shirt in two colours is two shirts`() {
-        val matches = findDuplicatesAmong(
-            candidate(tags = listOf("casual", "summer"), color = "#1F3A93"),
-            listOf(existing("g1", tags = listOf("casual", "summer"), color = "#B22222")),
-        )
-
-        assertEquals(emptyList(), matches)
+        assertEquals(emptyList(), matchIds(candidate(), existing("g1", colors = listOf("#B22222"))))
     }
 
     @Test
     fun `two blacks a shade apart are the same black`() {
-        // The reason the gate is a colour distance and not an equal hex string:
-        // these come off two photographs of the same shirt, and equality would
-        // throw away exactly the duplicate worth finding.
-        val matches = findDuplicatesAmong(
-            candidate(tags = listOf("casual"), color = "#000000"),
-            listOf(existing("g1", tags = listOf("casual"), color = "#0A0A0A")),
+        // The reason colour is a distance and not an equal hex string: a
+        // hand-entered or imported colour need not land on a palette entry.
+        assertEquals(
+            listOf("g1"),
+            matchIds(candidate(colors = listOf("#000000")), existing("g1", colors = listOf("#0A0A0A"))),
         )
-
-        assertEquals(listOf("g1"), matches.map { it.garment.id })
     }
 
     @Test
     fun `a colour nothing can read is not a colour to match on`() {
-        // `colorRelationship` answers UNKNOWN rather than guessing, and unknown is
-        // not "the same" -- which is the honest reading of a rule that says a
-        // duplicate must be the same colour.
-        val matches = findDuplicatesAmong(
-            candidate(tags = listOf("casual"), color = "not-a-colour"),
-            listOf(existing("g1", tags = listOf("casual"), color = "not-a-colour")),
+        assertEquals(
+            emptyList(),
+            matchIds(candidate(colors = listOf("not-a-colour")), existing("g1", colors = listOf("not-a-colour"))),
         )
-
-        assertEquals(emptyList(), matches)
     }
-
-    @Test
-    fun `a size is not part of what a garment is`() {
-        // The same shirt in an M and an L is the same shirt, and two different
-        // shirts that happen to both be M are still two shirts. So a size neither
-        // argues for a match nor against one, and these two are duplicates on the
-        // strength of everything else about them.
-        val matches = findDuplicatesAmong(
-            candidate(),
-            listOf(existing("g1", size = "L")),
-        )
-
-        assertEquals(listOf("g1"), matches.map { it.garment.id })
-    }
-
-    @Test
-    fun `sharing most of your tags is not being the same garment`() {
-        // What raising the bar to 0.74 actually removes: three tags of four in
-        // common, everything else alike. 0.733, and now under. Two summer cotton
-        // navy tops are a pair of tops, not one top twice.
-        val matches = findDuplicatesAmong(
-            candidate(tags = listOf("a", "b", "c", "d")),
-            listOf(existing("g1", tags = listOf("a", "b", "c", "e"))),
-        )
-
-        assertEquals(emptyList(), matches)
-    }
-
-    @Test
-    fun `sharing half of them is further still from it`() {
-        val matches = findDuplicatesAmong(
-            candidate(tags = listOf("a", "b", "c")),
-            listOf(existing("g1", tags = listOf("a", "b", "d"), size = "M")),
-        )
-
-        assertEquals(emptyList(), matches)
-    }
-
-    private fun twoTone(id: String, vararg colors: String) = Garment(
-        id = id,
-        category = "tops",
-        subcategories = listOf("T-Shirt"),
-        tags = listOf("casual"),
-        colorPrimary = colors.first(),
-        colorPalette = colors.toList(),
-    )
-
-    private fun twoToneCandidate(vararg colors: String) = DuplicateCandidate(
-        category = "tops",
-        subcategories = listOf("T-Shirt"),
-        tags = listOf("casual"),
-        colorPrimary = colors.first(),
-        colorPalette = colors.toList(),
-    )
 
     @Test
     fun `a black and red shirt is not a red shirt`() {
-        // Comparing only the dominant colour said it was: red leads both palettes
-        // and nothing looked further, so a two-colour garment was reported as a
-        // duplicate of a plain one.
+        val twoTone = listOf("#B22222", "#000000")
+
         assertEquals(
             emptyList(),
-            findDuplicatesAmong(twoToneCandidate("#B22222", "#000000"), listOf(twoTone("g1", "#B22222"))),
+            matchIds(candidate(colors = twoTone), existing("g1", colors = listOf("#B22222"))),
         )
 
         // And the other way round, which is the same mistake with the arguments
         // swapped -- easy to fix in one direction only.
         assertEquals(
             emptyList(),
-            findDuplicatesAmong(twoToneCandidate("#B22222"), listOf(twoTone("g1", "#B22222", "#000000"))),
+            matchIds(candidate(colors = listOf("#B22222")), existing("g1", colors = twoTone)),
         )
     }
 
     @Test
     fun `two black and red shirts are each other`() {
-        val matches = findDuplicatesAmong(
-            twoToneCandidate("#B22222", "#000000"),
-            listOf(twoTone("g1", "#B22222", "#000000")),
-        )
+        val twoTone = listOf("#B22222", "#000000")
 
-        assertEquals(listOf("g1"), matches.map { it.garment.id })
+        assertEquals(listOf("g1"), matchIds(candidate(colors = twoTone), existing("g1", colors = twoTone)))
     }
 
     @Test
     fun `which colour dominates is a fact about the photograph, not the garment`() {
-        // The same two colours, read in the other order. Two pictures of one shirt
-        // can disagree about which of them covers more of it.
-        val matches = findDuplicatesAmong(
-            twoToneCandidate("#B22222", "#000000"),
-            listOf(twoTone("g1", "#000000", "#B22222")),
+        assertEquals(
+            listOf("g1"),
+            matchIds(
+                candidate(colors = listOf("#B22222", "#000000")),
+                existing("g1", colors = listOf("#000000", "#B22222")),
+            ),
         )
-
-        assertEquals(listOf("g1"), matches.map { it.garment.id })
     }
 
     @Test
     fun `a red and black shirt is not a red and white one`() {
         assertEquals(
             emptyList(),
-            findDuplicatesAmong(
-                twoToneCandidate("#B22222", "#000000"),
-                listOf(twoTone("g1", "#B22222", "#FFFFFF")),
+            matchIds(
+                candidate(colors = listOf("#B22222", "#000000")),
+                existing("g1", colors = listOf("#B22222", "#FFFFFF")),
             ),
         )
     }
 
     @Test
     fun `a colour cannot answer for two`() {
-        // Without spending a partner once it is claimed, a garment in two shades
-        // of the same red would match one that is that red twice over -- and a
-        // palette of two would pass as a palette of two while sharing one colour.
-        val matches = findDuplicatesAmong(
-            twoToneCandidate("#B22222", "#B4241F"),
-            listOf(twoTone("g1", "#B22222", "#000000")),
+        // Without spending a partner once claimed, a garment in two shades of the
+        // same red would match one that is that red twice over, and two palettes
+        // of two would agree while sharing a single colour.
+        assertEquals(
+            emptyList(),
+            matchIds(
+                candidate(colors = listOf("#B22222", "#B4241F")),
+                existing("g1", colors = listOf("#B22222", "#000000")),
+            ),
         )
-
-        assertEquals(emptyList(), matches)
     }
 
+    @Test
+    fun `tags have nothing to say about it`() {
+        // They used to carry six tenths of the score. Two garments sharing not one
+        // word are the same garment if they are the same thing in the same colour.
+        assertEquals(
+            listOf("g1"),
+            matchIds(candidate(), existing("g1", tags = listOf("formal", "wool", "winter"))),
+        )
+    }
+
+    @Test
+    fun `a size is not part of what a garment is`() {
+        // The same shirt in an M and an L is the same shirt.
+        assertEquals(listOf("g1"), matchIds(candidate(), existing("g1", size = "XXL")))
+    }
+
+    @Test
+    fun `an empty wardrobe has nothing to match`() {
+        assertEquals(emptyList(), findDuplicatesAmong(candidate(), emptyList()))
+    }
+
+    @Test
+    fun `matches come back in the order they were given`() {
+        // Nothing left to rank by: every match satisfies the same rule to the same
+        // degree, and an order would imply one is more of a duplicate than another.
+        assertEquals(
+            listOf("first", "second", "third"),
+            matchIds(candidate(), existing("first"), existing("second"), existing("third")),
+        )
+    }
+
+    @Test
+    fun `a candidate built from a garment compares by the colours the form would use`() {
+        val garment = Garment(
+            id = "g1",
+            category = "tops",
+            subcategories = listOf("T-Shirt"),
+            colorPrimary = "#000000",
+            colorPalette = listOf("#1F3A93", "#000000"),
+        )
+
+        assertEquals(listOf("#1F3A93", "#000000"), garment.asDuplicateCandidate().colorPalette)
+        assertEquals("#1F3A93", garment.asDuplicateCandidate().colorPrimary)
+    }
 }

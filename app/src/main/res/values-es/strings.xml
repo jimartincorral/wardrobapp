@@ -175,10 +175,6 @@
     <string name="duplicate_title">Puede que ya tengas esta prenda</string>
     <string name="duplicate_add_anyway">Agregar de todas formas</string>
     <string name="duplicate_review">Déjame verla</string>
-    <string name="duplicate_reason_tags">etiquetas parecidas</string>
-    <string name="duplicate_reason_colour">color parecido</string>
-    <string name="duplicate_reason_size">misma talla</string>
-    <string name="duplicate_reason_overall">parecido general</string>
 
     <!-- Statistics -->
     <string name="statistics_title">Estadísticas</string>
