@@ -52,7 +52,6 @@ class DuplicatesTest {
         tags = listOf("cotton", "basic"),
         colorPrimary = "#000000",
         colorPalette = listOf("#000000"),
-        size = "M",
     )
 
     @Test
@@ -83,7 +82,11 @@ class DuplicatesTest {
         val reasons = subject.matching(candidate).single().reasons
 
         assertTrue(DuplicateReason.SIMILAR_TAGS in reasons, "reasons were $reasons")
-        assertTrue(DuplicateReason.SAME_SIZE in reasons, "reasons were $reasons")
+
+        // Not the size, which is no longer looked at, and not the colour, which is
+        // the entry requirement rather than a finding. What is left is what varies.
+        assertTrue(DuplicateReason.SAME_SIZE !in reasons, "reasons were $reasons")
+        assertTrue(DuplicateReason.SIMILAR_COLOR !in reasons, "reasons were $reasons")
     }
 
     @Test

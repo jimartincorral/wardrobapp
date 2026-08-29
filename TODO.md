@@ -75,6 +75,18 @@ One app now: the Kotlin one. Anything below is built once.
   overlap. Tests bracket it on both sides -- lowering fails the tag cases, raising
   fails the size one -- so the next person to move it is told what it costs.
 
+  Then the colour gate became a *palette* gate: a black and red shirt is not a red
+  shirt, and comparing only the dominant colour said it was, since red leads both
+  palettes and nothing looked further. Palettes now have to correspond one to one,
+  order aside -- which of two colours dominates is a fact about the photograph. And
+  size stopped counting at all: the same shirt in an M and an L is the same shirt,
+  and two different shirts that are both M are still two shirts.
+
+  One trap that cost a round: the palette gate and the colour *score* have to agree
+  about which colours they compare. The first version gated on a matched palette and
+  then scored the leading colours positionally, so a reversed palette passed the
+  gate and scored red against black. They are one call now.
+
   A garment with no subcategory is therefore not a duplicate of anything, and
   nothing on screen says so. Deliberate: without knowing what a garment is there is
   no claim to make. If the section ever looks empty on a wardrobe that plainly has

@@ -33,38 +33,33 @@ data class DuplicateCandidate(
     val tags: List<String> = emptyList(),
     val colorPrimary: String,
     val colorPalette: List<String> = emptyList(),
-    val size: String? = null,
 )
 
 /**
  * Score above which a garment is reported as a likely duplicate.
  *
- * It was 0.81 once, then 0.65, and the reason it moved down was that the score is
- * a weighted *average* over whichever signals have data rather than a sum: at 0.81
- * an exact duplicate with no tags peaked at 0.40 and could never fire at all.
+ * It was 0.81 once, then 0.65, then 0.74. The move down was because the score is a
+ * weighted *average* over whichever signals have data rather than a sum: at 0.81 an
+ * exact duplicate with no tags peaked at 0.40 and could never fire at all.
  *
- * 0.74 is not a taste. Once the subcategory and colour gates are passed, the only
- * things left to disagree about are tags and size, and the scores they produce are
- * a short list rather than a continuum:
+ * 0.74 is not a taste. Past the subcategory and palette gates the only thing left
+ * to disagree about is tags, and what that produces is a short list:
  *
  * ```
- *   same type, same colour, only a recorded size differs   0.750
- *   tags 3 of 4 shared, nothing else differs               0.733
- *   tags 2 of 3 shared, same size                          0.700
- *   tags 2 of 3 shared, nothing else                       0.667
+ *   no tags recorded on either            0.819 to 1.000, by how close the colours are
+ *   identical tags                        1.000
+ *   tags 3 of 4 shared                    0.733
+ *   tags 2 of 3 shared                    0.667
  * ```
  *
- * A pair whose only disagreement is a size is one to keep -- that decision is the
- * owner's, and it was made. So the bar sits directly under 0.750, which is the
- * highest it can go without overturning it, and what it actually removes is
- * partial tag overlap: garments sharing half or three-quarters of their tags and
- * otherwise alike.
+ * The bar sits in the gap between sharing most of your tags and sharing all of
+ * them. Anything from 0.734 to 0.819 behaves identically; 0.74 is that band's
+ * near edge, kept from when the number had a tighter constraint to satisfy.
  *
- * The caveat worth stating rather than burying: a size mismatch only clears this
- * when the two colours are near enough identical. At the far edge of what the
- * colour gate admits that same pair scores 0.648, which was already below the old
- * 0.65 -- so the size case has never been kept across the whole colour range, and
- * this does not change that.
+ * What it removes is partial tag overlap -- two summer cotton navy tops are a pair
+ * of tops, not one top twice. What it keeps is a garment whose tags agree, and one
+ * with no tags at all, which the gates alone have already found to be the same kind
+ * of thing in the same colours.
  */
 const val DUPLICATE_THRESHOLD = 0.74
 
@@ -113,10 +108,9 @@ private fun sharesSubcategory(here: List<String>, there: List<String>): Boolean 
  * Whether two garments are the same colour.
  *
  * [ColorRelationship.SAME] rather than an equal hex string, and the difference
- * matters: colours are read off photographs, so two identical black shirts
- * photographed on different days are `#000000` and `#0A0A0A`. Demanding equality
- * would miss exactly the duplicates worth finding, where a deltaE under five is
- * the same colour to an eye.
+ * matters for anything not read off a photograph: a hand-entered or imported
+ * colour need not land on a palette entry, and a deltaE under five is the same
+ * colour to an eye.
  *
  * Anything unparseable, or the multi-colour sentinel, answers `UNKNOWN` and so
  * fails this -- which is the right reading of "must be the same colour" when the
@@ -124,6 +118,51 @@ private fun sharesSubcategory(here: List<String>, there: List<String>): Boolean 
  */
 private fun sameColor(here: String, there: String): Boolean =
     colorRelationship(here, there) == ColorRelationship.SAME
+
+/**
+ * Whether two garments are the same colours -- all of them.
+ *
+ * A black and red shirt is not a red shirt. Comparing only the dominant colour
+ * said it was, because the dominant colour of both is red and nothing looked
+ * further, which is how a two-colour garment came to be reported as a duplicate
+ * of a plain one.
+ *
+ * So the palettes have to correspond: the same number of colours, each with a
+ * partner in the other. Cardinality is a fair thing to insist on here rather than
+ * an accident of extraction -- `dominantGarmentColors` returns at most two, snaps
+ * them to named palette entries, and only admits a second when it covers enough
+ * of the garment to be worth calling a colour. A second entry means the garment
+ * really has two.
+ *
+ * Order is not part of it. Which of two colours dominates can differ between two
+ * photographs of one garment, and that is a fact about the photographs.
+ */
+private fun paletteSimilarity(here: List<String>, there: List<String>): Double? {
+    if (here.size != there.size || here.isEmpty()) return null
+
+    // Each colour claims a partner, and a claimed one is spent: without that, a
+    // garment in two shades of red would match one that is red twice over.
+    val unclaimed = there.toMutableList()
+    var weakest = 1.0
+
+    for (colour in here) {
+        val match = unclaimed.indexOfFirst { sameColor(colour, it) }
+        if (match < 0) return null
+
+        // The weakest pair, not the average: how alike two garments' colours are
+        // is how alike the least alike of them are, and averaging would let a
+        // perfect match carry a barely-passing one.
+        weakest = minOf(weakest, colorSimilarity(colour, unclaimed.removeAt(match)))
+    }
+
+    return weakest
+}
+
+/** The colours to compare a candidate by, falling back as [Garment.palette] does. */
+private val DuplicateCandidate.comparedColors: List<String>
+    get() = colorPalette.filter { it.isNotBlank() }.ifEmpty {
+        listOf(colorPrimary).filter { it.isNotBlank() }
+    }
 
 /**
  * Score a candidate against garments already in the wardrobe.
@@ -146,28 +185,23 @@ fun findDuplicatesAmong(
         // so a black t-shirt and a black jumper with no tags scored exactly 1.0,
         // and no threshold below 1.0 could ever have excluded them.
         if (!sharesSubcategory(newGarment.subcategories, garment.effectiveSubcategories)) continue
-        if (!sameColor(newGarment.colorPrimary, garment.primaryColor)) continue
-
-        // Compare primary against primary. Taking the best match across the whole
-        // palette cross-product meant any shared entry pinned this to 1.0 -- and
-        // '#000000' is the schema default, so a red garment and a blue one that
-        // both happened to list black scored as identical in colour.
-        val colorSim = colorSimilarity(newGarment.colorPrimary, garment.primaryColor)
-
-        val bothSizesKnown = !newGarment.size.isNullOrBlank() && !garment.size.isNullOrBlank()
-        val sizeMatch = if (bothSizesKnown) {
-            if (newGarment.size!!.trim().lowercase() == garment.size!!.trim().lowercase()) 1.0 else 0.0
-        } else {
-            null
-        }
+        // Null when the palettes do not correspond, which is the gate; otherwise
+        // how alike the least alike of the matched pairs are, which is the signal.
+        // One call for both, because a gate and a score that disagreed about which
+        // colours were being compared is exactly the bug this replaced: the gate
+        // matched a reversed palette while the score read red against black.
+        val colorSim = paletteSimilarity(newGarment.comparedColors, garment.palette) ?: continue
 
         val tagSim = jaccardSimilarity(newGarment.tags, garment.tags)
 
+        // No size term. A size is what fits you rather than what a garment is:
+        // the same shirt in an M and an L is the same shirt, and two different
+        // shirts that happen to both be M are still two shirts. It said nothing
+        // either way, so it is gone rather than reweighted.
         val score = weightedAverage(
             listOf(
                 SignalTerm(0.6, tagSim),
                 SignalTerm(0.3, colorSim),
-                SignalTerm(0.1, sizeMatch),
             )
         )
 
@@ -178,7 +212,6 @@ fun findDuplicatesAmong(
         // like explaining that they are all garments. What is left is what varies.
         val reasons = buildList {
             if (tagSim != null && tagSim > 0.5) add(DuplicateReason.SIMILAR_TAGS)
-            if (sizeMatch == 1.0) add(DuplicateReason.SAME_SIZE)
             if (isEmpty()) add(DuplicateReason.OVERALL_SIMILARITY)
         }
 
@@ -203,15 +236,13 @@ fun Garment.asDuplicateCandidate() = DuplicateCandidate(
     tags = tags,
     colorPrimary = primaryColor,
     colorPalette = palette,
-    size = size,
 )
 
 /**
  * Garments that look like each other, gathered.
  *
  * The anchor is first, and [reasons] is what *every* other member shares with it
- * -- so a heading can say "similar colour, same size" and be true of the whole
- * group rather than of one pair inside it.
+ * -- so a heading is true of the whole group rather than of one pair inside it.
  */
 data class DuplicateGroup(
     val garments: List<Garment>,
@@ -235,7 +266,7 @@ data class DuplicateGroup(
  * the whole list to stop being believed.
  *
  * **Category buckets first, and that is not tidiness.** [findDuplicatesAmong]
- * scores tags, colour and size; it never looks at `category` at all. It is right
+ * scores tags and colour; it never looks at `category` at all. It is right
  * today only because [findDuplicatesAmong]'s caller in :data filters the *query*
  * by category. Doing the bucketing here means the trap is shut on this side, where
  * a sweep that forgot would compare socks against shirts and call them identical.

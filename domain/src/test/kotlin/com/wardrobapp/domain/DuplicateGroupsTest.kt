@@ -114,12 +114,16 @@ class DuplicateGroupsTest {
         // this wardrobe would be one group of three and would be telling the
         // reader that a garment sharing no tag with another is the same garment.
         // These three really do chain, which the first version of this test did
-        // not: a and b share three tags of five, so do b and c, but a and c share
-        // only two of six and score below the bar. Anchored, a and b group and c
-        // is left alone; chained, all three arrive as one garment.
-        val a = garment("a", tags = listOf("casual", "summer", "cotton", "blue"))
-        val b = garment("b", tags = listOf("summer", "cotton", "blue", "linen"))
-        val c = garment("c", tags = listOf("cotton", "blue", "linen", "holiday"))
+        // not: neighbours share four tags of six, while a and c share three of
+        // seven and fall under the bar. Anchored, a and b group and c is left
+        // alone; chained, all three arrive as one garment.
+        //
+        // Retuned when the size signal was removed: it used to contribute a tenth
+        // of every score here, and without it the old fixture no longer cleared
+        // the threshold at all.
+        val a = garment("a", tags = listOf("casual", "summer", "cotton", "blue", "light"))
+        val b = garment("b", tags = listOf("summer", "cotton", "blue", "light", "linen"))
+        val c = garment("c", tags = listOf("cotton", "blue", "light", "linen", "holiday"))
 
         val groups = duplicateGroups(listOf(a, b, c))
 
