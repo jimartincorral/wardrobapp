@@ -319,6 +319,28 @@ class StringResourceParityTest {
         }
     }
 
+    @Test
+    fun `no name is defined twice in either language`() {
+        // aapt refuses a resource declared twice, so this is an :app build
+        // failure -- and it is one none of the checks above could see, because
+        // they all read the file into a map and a second entry simply replaces
+        // the first. Which is exactly how one got in: a name that already existed
+        // was added again a dozen lines further down, and every test here passed.
+        for (directory in listOf("values", "values-es")) {
+            val names = names(directory, "string") + names(directory, "plurals")
+            val twice = names.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+
+            assertEquals(emptySet(), twice, "declared more than once in $directory")
+        }
+    }
+
+    /** Every name as it appears, duplicates and all -- which is the point. */
+    private fun names(directory: String, tag: String): List<String> {
+        val nodes = parse(directory).getElementsByTagName(tag)
+
+        return (0 until nodes.length).map { (nodes.item(it) as Element).getAttribute("name") }
+    }
+
     private fun readStrings(directory: String): Map<String, String> {
         val strings = parse(directory).getElementsByTagName("string")
 

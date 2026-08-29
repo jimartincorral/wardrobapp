@@ -7,6 +7,9 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import com.wardrobapp.data.DuplicateGarmentGroup
+import com.wardrobapp.data.normalizeGarmentRow
+import com.wardrobapp.domain.DuplicateReason
 import com.wardrobapp.presentation.BrandSort
 import com.wardrobapp.presentation.Distribution
 import com.wardrobapp.presentation.LifespanEntry
@@ -54,6 +57,7 @@ class StatisticsScreenTest {
     )
 
     private var tapped: StatisticsSection? = null
+    private var opened: String? = null
     private var linked: WardrobeLink? = null
 
     private fun show(
@@ -64,7 +68,7 @@ class StatisticsScreenTest {
                 state = state,
                 onCategoryTapped = {},
                 onLinkRequested = { linked = it },
-                onGarmentOpened = {},
+                onGarmentOpened = { opened = it },
                 onBrandSortChanged = {},
                 onSectionTapped = { tapped = it },
                 onRetry = {},
@@ -205,4 +209,93 @@ class StatisticsScreenTest {
         compose.onNodeWithText("By category").assertDoesNotExist()
         compose.onNodeWithText("How long things lasted").assertDoesNotExist()
     }
+    private fun garment(id: String) = normalizeGarmentRow(
+        mapOf(
+            "id" to id,
+            "image_uri" to "$id.jpg",
+            "image_uris" to """["$id.jpg"]""",
+            "image_uris_nobg" to "[]",
+            "category" to "tops",
+            "subcategories" to """["T-Shirt"]""",
+            "tags" to "[]",
+            "color_primary" to "#000000",
+            "color_palette" to """["#000000"]""",
+            "is_available" to 1,
+        ),
+        "",
+    )
+
+    private fun withDuplicates(open: Boolean) = StatisticsViewModel.State(
+        loading = false,
+        view = view(),
+        openSections = if (open) setOf(StatisticsSection.DUPLICATES) else emptySet(),
+        duplicates = listOf(
+            DuplicateGarmentGroup(
+                garments = listOf(garment("g1"), garment("g2"), garment("g3")),
+                reasons = listOf(DuplicateReason.SIMILAR_COLOR, DuplicateReason.SAME_SIZE),
+            ),
+        ),
+    )
+
+    @Test
+    fun `the duplicates section is offered, and shut like the rest`() {
+        show(withDuplicates(open = false))
+
+        scrollTo("Things you may own twice")
+        compose.onNodeWithText("Things you may own twice").assertIsDisplayed()
+
+        // Shut composes nothing, so the photos are absent rather than merely
+        // scrolled past.
+        compose.onNodeWithTag(duplicateTag("g1")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `an open group says how many and why`() {
+        show(withDuplicates(open = true))
+
+        scrollTo("3 garments")
+
+        // The count and the reasons, and the reasons are the ones that hold for
+        // every member rather than for one pair inside it.
+        compose.onNodeWithText("3 garments \u00b7 similar colour, same size").assertIsDisplayed()
+    }
+
+    @Test
+    fun `every garment in a group is there to be tapped`() {
+        show(withDuplicates(open = true))
+
+        scrollTo("3 garments")
+
+        for (id in listOf("g1", "g2", "g3")) {
+            compose.onNodeWithTag(duplicateTag(id)).assertExists()
+        }
+    }
+
+    @Test
+    fun `tapping a photo opens that garment`() {
+        // The only thing this section does about what it found: retiring and
+        // deleting live on the garment screen, and this does not repeat them.
+        show(withDuplicates(open = true))
+
+        scrollTo("3 garments")
+        compose.onNodeWithTag(duplicateTag("g2")).performClick()
+
+        assertEquals("g2", opened)
+    }
+
+    @Test
+    fun `a wardrobe with nothing alike says so rather than showing an empty heading`() {
+        show(
+            StatisticsViewModel.State(
+                loading = false,
+                view = view(),
+                openSections = setOf(StatisticsSection.DUPLICATES),
+                duplicates = emptyList(),
+            ),
+        )
+
+        scrollTo("Nothing in your wardrobe")
+        compose.onNodeWithText("Nothing in your wardrobe looks much like anything else.").assertIsDisplayed()
+    }
+
 }

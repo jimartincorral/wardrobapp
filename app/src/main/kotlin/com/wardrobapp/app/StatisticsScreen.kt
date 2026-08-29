@@ -6,6 +6,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,14 +43,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.wardrobapp.data.DuplicateGarmentGroup
 import com.wardrobapp.presentation.BrandSort
 import com.wardrobapp.presentation.ColorBar
 import com.wardrobapp.presentation.LifespanBar
@@ -67,8 +73,13 @@ import com.wardrobapp.presentation.paletteColorFor
  */
 fun statFilterTag(value: String) = "statistics-filter-$value"
 
+/** One photo in a duplicate group. Distinct from [statFilterTag]: both are
+ * garment ids, and two sections claiming one tag would leave a test tapping
+ * whichever the tree happened to reach first. */
+fun duplicateTag(garmentId: String) = "statistics-duplicate-$garmentId"
+
 /** The parts of the page that open and shut, all shut to begin with. */
-enum class StatisticsSection { CATEGORY, COLOUR, BRAND, LIFESPAN }
+enum class StatisticsSection { CATEGORY, COLOUR, BRAND, LIFESPAN, DUPLICATES }
 
 /**
  * The scrolling page, for tests that need to reach past the fold.
@@ -136,6 +147,7 @@ fun StatisticsScreen(
 
             else -> Body(
                 view = view,
+                duplicates = state.duplicates,
                 expanded = state.expanded,
                 openSections = state.openSections,
                 brandSort = state.brandSort,
@@ -153,6 +165,7 @@ fun StatisticsScreen(
 @Composable
 private fun Body(
     view: StatisticsView,
+    duplicates: List<DuplicateGarmentGroup>,
     expanded: Set<String>,
     openSections: Set<StatisticsSection>,
     brandSort: BrandSort,
@@ -459,6 +472,103 @@ private fun Body(
                 }
             }
         }
+
+        // Last, because it is the only section that asks you to do something about
+        // what it found rather than just telling you what is there.
+        run {
+            val open = StatisticsSection.DUPLICATES in openSections
+
+            item {
+                SectionHeader(
+                    title = stringResource(R.string.statistics_duplicates),
+                    open = open,
+                    hint = stringResource(R.string.statistics_duplicates_hint),
+                    onClick = { onSectionTapped(StatisticsSection.DUPLICATES) },
+                )
+            }
+
+            if (open) {
+                item {
+                    Chart {
+                        if (duplicates.isEmpty()) {
+                            // Offered even when it finds nothing, for the reason
+                            // the lifespan section is: "nothing looks like anything
+                            // else" is the answer to the question, where a missing
+                            // section reads as the app never having looked.
+                            Text(
+                                stringResource(R.string.statistics_no_duplicates),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                            )
+                        } else {
+                            for (group in duplicates) {
+                                DuplicateRow(group = group, onGarmentOpened = onGarmentOpened)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One group of garments that look like each other.
+ *
+ * The photos, because that is the claim being made and a reader can settle it at a
+ * glance in a way no description would. Tapping one opens it, where retiring and
+ * deleting already live -- this screen deliberately has no destructive action of
+ * its own, since a second one would have to agree with the first about
+ * confirmations and orphaned photos forever.
+ */
+@Composable
+private fun DuplicateRow(group: DuplicateGarmentGroup, onGarmentOpened: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Scrolls sideways, because a group has no ceiling: eight near-identical
+        // pairs of socks is an ordinary thing to own, and eight thumbnails are
+        // wider than a phone. The other axis from the page, so they do not fight.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+        ) {
+            for (garment in group.garments) {
+                // Named, through the resource the lifespan rows already use: three
+                // photos all described as "open this garment" tell a screen reader
+                // nothing about which one it is on.
+                val what = garment.subcategory?.takeIf { it.isNotBlank() }
+                    ?.let { garmentTypeLabel(it) }
+                    ?: categoryLabel(garment.category)
+
+                AsyncImage(
+                    model = garment.displayImage,
+                    contentDescription = stringResource(R.string.statistics_open_garment, what),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .testTag(duplicateTag(garment.id))
+                        // The description names it; a click label as well would
+                        // have a screen reader say the same words twice.
+                        .clickable { onGarmentOpened(garment.id) },
+                )
+            }
+        }
+
+        Text(
+            // The count first, because "3 garments" is what the row is about and
+            // the reasons are why. Through the same wording the add-form warning
+            // uses, so the two never drift into describing this differently.
+            // `map` then join, never `joinToString { it.label() }`: the transform
+            // is a non-inline function value, and a @Composable call cannot go
+            // inside one. It compiles nowhere but CI, so it is worth naming.
+            pluralStringResource(R.plurals.statistics_duplicate_count, group.garments.size, group.garments.size) +
+                " \u00b7 " + group.reasons.map { it.label() }.joinToString(),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

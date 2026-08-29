@@ -3,6 +3,7 @@ package com.wardrobapp.app
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.AnalyticsQueries
+import com.wardrobapp.data.DuplicateGarmentGroup
 import com.wardrobapp.presentation.BrandSort
 import com.wardrobapp.presentation.Distribution
 import com.wardrobapp.presentation.LifespanEntry
@@ -53,6 +54,14 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
          */
         val openSections: Set<StatisticsSection> = emptySet(),
         val brandSort: BrandSort = BrandSort.COUNT,
+        /**
+         * Garments that look like each other.
+         *
+         * Beside the counts rather than inside [StatisticsView], because it is not
+         * arithmetic over the wardrobe: it is a comparison of every garment with
+         * every other, and the pure view builder stays a function of the tallies.
+         */
+        val duplicates: List<DuplicateGarmentGroup> = emptyList(),
     )
 
     /** The counts as read, so re-sorting brands does not re-query for them. */
@@ -101,8 +110,21 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
                     )
                 }
 
+                // On the same trip as the counts rather than a second one. It is
+                // the slowest thing this screen asks for -- every garment against
+                // every other within its category -- and a separate read would
+                // mean the page arriving in two pieces.
+                val duplicates = withContext(Dispatchers.IO) { container.duplicates.groups() }
+
                 counts = read
-                _state.update { it.copy(loading = false, view = read.viewSortedBy(it.brandSort), error = null) }
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        view = read.viewSortedBy(it.brandSort),
+                        duplicates = duplicates,
+                        error = null,
+                    )
+                }
             } catch (e: Exception) {
                 _state.update {
                     it.copy(loading = false, error = e.message ?: e.javaClass.simpleName)

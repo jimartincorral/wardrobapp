@@ -3,6 +3,7 @@ package com.wardrobapp.data
 import com.wardrobapp.domain.DUPLICATE_THRESHOLD
 import com.wardrobapp.domain.DuplicateCandidate
 import com.wardrobapp.domain.DuplicateReason
+import com.wardrobapp.domain.duplicateGroups
 import com.wardrobapp.domain.findDuplicatesAmong
 
 /**
@@ -12,6 +13,12 @@ import com.wardrobapp.domain.findDuplicatesAmong
  * loads the candidates, which is the only part that touches a database -- and
  * which garments are even considered is the decision that lives here.
  */
+
+/** Garments that look like each other, with the photos a list needs to show. */
+data class DuplicateGarmentGroup(
+    val garments: List<GarmentRecord>,
+    val reasons: List<DuplicateReason>,
+)
 
 /** A likely duplicate, with the photos a warning needs to show. */
 data class DuplicateGarment(
@@ -45,6 +52,31 @@ class Duplicates(private val garments: GarmentQueries) {
                 byId[match.garment.id]?.let {
                     DuplicateGarment(garment = it, score = match.score, reasons = match.reasons)
                 }
+            }
+    }
+
+    /**
+     * Sweep the whole wardrobe for garments much the same as each other.
+     *
+     * The other direction from [matching], which asks whether one garment is
+     * already owned. Nothing asks this question at any other time: the warning
+     * fires at the moment of adding, so five near-identical shirts added over a
+     * year have never once been compared with each other.
+     *
+     * Still in use only, for the reason [matching] gives -- something deliberately
+     * put away is not something owned twice. Which garments get compared with
+     * which is [duplicateGroups]'s business, including keeping categories apart.
+     */
+    fun groups(threshold: Double = DUPLICATE_THRESHOLD): List<DuplicateGarmentGroup> {
+        val existing = garments.allGarments(GarmentQueries.Filters(availableOnly = true))
+        val byId = existing.associateBy { it.id }
+
+        return duplicateGroups(existing.map { it.toDomain() }, threshold)
+            .map { group ->
+                DuplicateGarmentGroup(
+                    garments = group.garments.mapNotNull { byId[it.id] },
+                    reasons = group.reasons,
+                )
             }
     }
 }
