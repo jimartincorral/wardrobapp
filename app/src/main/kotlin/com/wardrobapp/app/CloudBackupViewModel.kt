@@ -5,6 +5,8 @@ import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.DriveBackup
+import com.wardrobapp.presentation.BackupFrequency
+import com.wardrobapp.presentation.BackupRetention
 import com.wardrobapp.data.backupFilename
 import com.wardrobapp.data.backupsToPrune
 import java.io.File
@@ -55,8 +57,16 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
         val progress: Float? = null,
         /** What went wrong, in the words of whatever failed. */
         val failure: String? = null,
-        /** Whether the weekly backup is on. Only meaningful while signed in. */
+        /** Whether the scheduled backup is on. Only meaningful while signed in. */
         val scheduled: Boolean = false,
+        /** How often it runs. */
+        val frequency: BackupFrequency = BackupFrequency.WEEKLY,
+        /** How many archives the folder keeps. */
+        val retention: BackupRetention = BackupRetention.FIVE,
+        /** Whether it waits for Wi-Fi. */
+        val wifiOnly: Boolean = true,
+        /** Whether it waits for the battery not to be low. */
+        val batteryNotLow: Boolean = true,
         /** When a backup last finished, successfully or not. Null until one has. */
         val lastRunAt: Long? = null,
         /**
@@ -84,6 +94,10 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
         State(
             signedIn = auth.isSignedIn,
             scheduled = schedule.enabled,
+            frequency = schedule.frequency,
+            retention = schedule.retention,
+            wifiOnly = schedule.wifiOnly,
+            batteryNotLow = schedule.batteryNotLow,
             lastRunAt = schedule.lastRunAt,
             lastRunFailure = schedule.lastFailure,
         ),
@@ -151,7 +165,9 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
      * with something broken in it.
      */
     fun onBackUpRequested() = run(Working.BACKING_UP) {
-        val kept = runner.backUp { sent -> _state.update { it.copy(progress = sent) } }
+        val kept = runner.backUp(schedule.retention) { sent ->
+            _state.update { it.copy(progress = sent) }
+        }
 
         // A backup is a backup: the line on screen says when this wardrobe last
         // reached Drive, and it would be a strange reading of that to count only
@@ -188,10 +204,37 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    /** Turn the weekly backup on or off. */
+    /** Turn the scheduled backup on or off. */
     fun onScheduleChanged(wanted: Boolean) {
         if (wanted) schedule.enable() else schedule.disable()
         _state.update { it.copy(scheduled = schedule.enabled) }
+    }
+
+    /**
+     * The four settings behind it.
+     *
+     * Each writes through [BackupSchedule], which re-queues the job when one
+     * changes: a frequency that was stored and not applied would read as changed
+     * and behave as it did before.
+     */
+    fun onFrequencyChanged(frequency: BackupFrequency) {
+        schedule.frequency = frequency
+        _state.update { it.copy(frequency = schedule.frequency) }
+    }
+
+    fun onRetentionChanged(retention: BackupRetention) {
+        schedule.retention = retention
+        _state.update { it.copy(retention = schedule.retention) }
+    }
+
+    fun onWifiOnlyChanged(wifiOnly: Boolean) {
+        schedule.wifiOnly = wifiOnly
+        _state.update { it.copy(wifiOnly = schedule.wifiOnly) }
+    }
+
+    fun onBatteryChanged(batteryNotLow: Boolean) {
+        schedule.batteryNotLow = batteryNotLow
+        _state.update { it.copy(batteryNotLow = schedule.batteryNotLow) }
     }
 
     /**
@@ -209,7 +252,21 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
     fun onSignOutRequested() {
         schedule.disable()
         auth.signOut()
-        _state.update { State(signedIn = false) }
+
+        // The settings survive: `State()` would reset the pickers to their
+        // defaults, and somebody who reconnects should find the frequency and
+        // retention they chose rather than have them quietly forgotten. Only the
+        // schedule itself is off, which is the one thing disconnecting decides.
+        _state.update {
+            State(
+                signedIn = false,
+                scheduled = false,
+                frequency = schedule.frequency,
+                retention = schedule.retention,
+                wifiOnly = schedule.wifiOnly,
+                batteryNotLow = schedule.batteryNotLow,
+            )
+        }
     }
 
     fun onFailureDismissed() = _state.update { it.copy(failure = null) }

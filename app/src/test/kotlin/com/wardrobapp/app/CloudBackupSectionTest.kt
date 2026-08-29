@@ -1,15 +1,20 @@
 package com.wardrobapp.app
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.assertIsNotEnabled as assertNotEnabled
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.wardrobapp.data.DriveBackup
+import com.wardrobapp.presentation.BackupFrequency
+import com.wardrobapp.presentation.BackupRetention
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -37,6 +42,10 @@ class CloudBackupSectionTest {
 
     private var restoredDismissed = 0
     private var scheduleWanted: Boolean? = null
+    private var frequencyWanted: BackupFrequency? = null
+    private var retentionWanted: BackupRetention? = null
+    private var wifiOnlyWanted: Boolean? = null
+    private var batteryWanted: Boolean? = null
     private var restoreAsked: DriveBackup? = null
 
     private val archive = DriveBackup(
@@ -60,6 +69,10 @@ class CloudBackupSectionTest {
                 onFailureDismissed = {},
                 onRestoredDismissed = { restoredDismissed++ },
                 onScheduleChanged = { scheduleWanted = it },
+                onFrequencyChanged = { frequencyWanted = it },
+                onRetentionChanged = { retentionWanted = it },
+                onWifiOnlyChanged = { wifiOnlyWanted = it },
+                onBatteryChanged = { batteryWanted = it },
             )
         }
     }
@@ -247,5 +260,116 @@ class CloudBackupSectionTest {
         show(CloudBackupViewModel.State(signedIn = false))
 
         compose.onNodeWithTag(CLOUD_SCHEDULE).assertDoesNotExist()
+    }
+
+    // ---- the settings behind it ----------------------------------------------
+
+    @Test
+    fun `the settings are visible before the schedule is switched on`() {
+        // Disabled rather than hidden: somebody deciding whether to turn this on
+        // wants to see what they would be agreeing to, and a row that appears only
+        // afterwards asks them to commit first and read second.
+        show(CloudBackupViewModel.State(signedIn = true, scheduled = false))
+
+        compose.onNodeWithText("Weekly").assertIsDisplayed()
+        compose.onNodeWithText("Weekly").assertNotEnabled()
+    }
+
+    @Test
+    fun `choosing a frequency reports which`() {
+        show(CloudBackupViewModel.State(signedIn = true, scheduled = true))
+
+        compose.onNodeWithText("Daily").performClick()
+
+        assertEquals(BackupFrequency.DAILY, frequencyWanted)
+    }
+
+    @Test
+    fun `choosing how many to keep reports which`() {
+        show(CloudBackupViewModel.State(signedIn = true, scheduled = true))
+
+        compose.onNodeWithText("10").performClick()
+
+        assertEquals(BackupRetention.TEN, retentionWanted)
+    }
+
+    @Test
+    fun `keeping everything is offered as a word rather than a number`() {
+        // "All" is not a count, and spelling it as one -- 999, say -- would be a
+        // number that means "no number".
+        show(CloudBackupViewModel.State(signedIn = true, scheduled = true))
+
+        compose.onNodeWithText("All").performClick()
+
+        assertEquals(BackupRetention.ALL, retentionWanted)
+    }
+
+    @Test
+    fun `keeping one warns about what it gives up`() {
+        // The whole reason the option is uncomfortable: a backup taken after the
+        // damage replaces the one from before it.
+        show(
+            CloudBackupViewModel.State(
+                signedIn = true,
+                scheduled = true,
+                retention = BackupRetention.ONE,
+            ),
+        )
+
+        compose.onNodeWithText("replaces the one from before it", substring = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `that warning is not shown for the other choices`() {
+        show(
+            CloudBackupViewModel.State(
+                signedIn = true,
+                scheduled = true,
+                retention = BackupRetention.FIVE,
+            ),
+        )
+
+        compose.onNodeWithText("replaces the one from before it", substring = true)
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun `turning off the Wi-Fi requirement is reported`() {
+        // It defaults on, so the direction that matters is off: that is the one
+        // that lets a whole-wardrobe upload onto somebody's data plan.
+        show(
+            CloudBackupViewModel.State(signedIn = true, scheduled = true, wifiOnly = true),
+        )
+
+        compose.onNodeWithTag(CLOUD_WIFI_ONLY).assertIsOn()
+        compose.onNodeWithTag(CLOUD_WIFI_ONLY).performClick()
+
+        assertEquals(false, wifiOnlyWanted)
+    }
+
+    @Test
+    fun `turning off the battery requirement is reported`() {
+        show(
+            CloudBackupViewModel.State(signedIn = true, scheduled = true, batteryNotLow = true),
+        )
+
+        compose.onNodeWithTag(CLOUD_BATTERY).performClick()
+
+        assertEquals(false, batteryWanted)
+    }
+
+    @Test
+    fun `the chosen frequency is the one shown as chosen`() {
+        show(
+            CloudBackupViewModel.State(
+                signedIn = true,
+                scheduled = true,
+                frequency = BackupFrequency.MONTHLY,
+            ),
+        )
+
+        compose.onNodeWithText("Monthly").assertIsSelected()
+        compose.onNodeWithText("Weekly").assertIsNotSelected()
     }
 }

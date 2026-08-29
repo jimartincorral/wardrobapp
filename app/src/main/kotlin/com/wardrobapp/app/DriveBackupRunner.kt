@@ -3,20 +3,11 @@ package com.wardrobapp.app
 import android.content.Context
 import com.wardrobapp.data.DriveBackup
 import com.wardrobapp.data.backupFilename
-import com.wardrobapp.data.backupsToPrune
+import com.wardrobapp.presentation.BackupRetention
+import com.wardrobapp.presentation.backupsToRemove
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-
-/**
- * How many archives are kept in Drive.
- *
- * Enough that a backup taken after the damage was done has not pushed out the one
- * from before it, which is the failure a rolling backup is for. Not a setting,
- * because the number that matters is "more than one" and the rest is storage
- * somebody can clear out themselves -- the folder is theirs and they can see it.
- */
-const val KEPT_IN_DRIVE = 5
 
 /**
  * Writing a wardrobe to Drive, once.
@@ -39,10 +30,17 @@ class DriveBackupRunner(
     /**
      * Back up, prune, and say what is left.
      *
+     * [retention] is passed per call rather than held, because it is a setting
+     * somebody can change between one run and the next, and a runner built once at
+     * startup would go on using whatever it was told at the time.
+     *
      * Returns the archives still in the folder afterwards, so a caller with a
      * screen can show them without asking Drive a third time.
      */
-    suspend fun backUp(onProgress: (Float) -> Unit = {}): List<DriveBackup> {
+    suspend fun backUp(
+        retention: BackupRetention,
+        onProgress: (Float) -> Unit = {},
+    ): List<DriveBackup> {
         val folder = drive.folderId()
         val name = backupFilename(System.currentTimeMillis())
         val staged = File(context.cacheDir, name)
@@ -68,7 +66,11 @@ class DriveBackupRunner(
         // upload then failed, leave fewer backups than there were to begin with --
         // and an unattended run is exactly where nobody would notice.
         val listed = drive.list(folder)
-        val pruned = backupsToPrune(listed, KEPT_IN_DRIVE).toSet()
+
+        // Which is where "keep all" is answered: it returns nothing to delete
+        // rather than a number meaning nothing, and :data's counting stays the only
+        // thing that decides *which* when there is a number.
+        val pruned = backupsToRemove(listed, retention).toSet()
 
         for (id in pruned) {
             drive.delete(id)

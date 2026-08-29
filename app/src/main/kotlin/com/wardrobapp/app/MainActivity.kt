@@ -559,6 +559,10 @@ class MainActivity : AppCompatActivity() {
             onFailureDismissed = cloud::onFailureDismissed,
             onRestoredDismissed = cloud::onRestoredDismissed,
             onScheduleChanged = cloud::onScheduleChanged,
+            onFrequencyChanged = cloud::onFrequencyChanged,
+            onRetentionChanged = cloud::onRetentionChanged,
+            onWifiOnlyChanged = cloud::onWifiOnlyChanged,
+            onBatteryChanged = cloud::onBatteryChanged,
         )
     }
 
