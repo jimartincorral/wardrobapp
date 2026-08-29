@@ -269,4 +269,41 @@ class DuplicateDetectionTest {
         assertEquals(emptyList(), matches)
     }
 
+    @Test
+    fun `a size that differs is still the same shirt`() {
+        // The owner's decision, pinned: same type, same colour, and one is an M
+        // and the other an L. This scores 0.750, and the threshold sits directly
+        // under it -- so a test rather than a comment, because the next person to
+        // raise the number needs to be told what it costs.
+        val matches = findDuplicatesAmong(
+            candidate(size = "M"),
+            listOf(existing("g1", size = "L")),
+        )
+
+        assertEquals(listOf("g1"), matches.map { it.garment.id })
+    }
+
+    @Test
+    fun `sharing most of your tags is not being the same garment`() {
+        // What raising the bar to 0.74 actually removes: three tags of four in
+        // common, everything else alike. 0.733, and now under. Two summer cotton
+        // navy tops are a pair of tops, not one top twice.
+        val matches = findDuplicatesAmong(
+            candidate(tags = listOf("a", "b", "c", "d")),
+            listOf(existing("g1", tags = listOf("a", "b", "c", "e"))),
+        )
+
+        assertEquals(emptyList(), matches)
+    }
+
+    @Test
+    fun `sharing half of them is further still from it`() {
+        val matches = findDuplicatesAmong(
+            candidate(tags = listOf("a", "b", "c"), size = "M"),
+            listOf(existing("g1", tags = listOf("a", "b", "d"), size = "M")),
+        )
+
+        assertEquals(emptyList(), matches)
+    }
+
 }

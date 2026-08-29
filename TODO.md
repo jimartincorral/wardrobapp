@@ -68,6 +68,13 @@ One app now: the Kotlin one. Anything below is built once.
   match on a filter value. So the same subcategory and the same colour are now
   conditions rather than signals, and the threshold stayed at 0.65.
 
+  The threshold then moved 0.65 -> 0.74, which is derived rather than chosen: past
+  the gates the only things left to disagree about are tags and size, and a pair
+  differing only in a recorded size scores 0.750. Keeping those is the owner's
+  decision, so the bar sits directly under it, and what it removes is partial tag
+  overlap. Tests bracket it on both sides -- lowering fails the tag cases, raising
+  fails the size one -- so the next person to move it is told what it costs.
+
   A garment with no subcategory is therefore not a duplicate of anything, and
   nothing on screen says so. Deliberate: without knowing what a garment is there is
   no claim to make. If the section ever looks empty on a wardrobe that plainly has
