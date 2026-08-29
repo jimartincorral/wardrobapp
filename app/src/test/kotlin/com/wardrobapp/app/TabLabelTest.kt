@@ -11,6 +11,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * Five tab labels, each on one line, with the whole word showing.
@@ -27,6 +28,12 @@ import org.robolectric.annotation.Config
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h2000dp")
+// Without this the measurements are a fiction: Robolectric's stub metrics give
+// every glyph the same width, so "Home" measured 4px and "Inicio" 6px -- their
+// character counts -- and no word could ever be too wide for anything. Native
+// graphics puts real fonts behind the layout, which is the only way a test can
+// have an opinion about whether twelve Spanish characters fit in 82dp.
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class TabLabelTest {
 
     @get:Rule
@@ -58,15 +65,18 @@ class TabLabelTest {
             // wide is truncated rather than wrapped, so the line count alone would
             // report a fit for a label reading "Estadisti...".
             //
-            // The numbers are in the message because this runs only in CI: a bare
-            // "did not fit" would say nothing about whether it was the width or the
-            // line height, and finding out costs a push either way.
+            // `didOverflowHeight` rather than `hasVisualOverflow`, which was wrong:
+            // it folds in `didOverflowWidth`, and that compares the width the
+            // paragraph was laid out within against the width the text ended up
+            // taking -- so it is true of any label narrower than its slot, which is
+            // every label that fits. Truncation is what "did not fit" means here.
+            //
+            // The numbers are in the message because this runs only in CI, and a
+            // bare "did not fit" costs a push to find out what the layout thought.
             assertFalse(
-                "\"$word\" did not fit: " +
-                    "width=${label.didOverflowWidth} height=${label.didOverflowHeight} " +
-                    "laid out ${label.size} for a paragraph " +
+                "\"$word\" was cut short: laid out ${label.size} within " +
                     "${label.multiParagraph.width}x${label.multiParagraph.height}",
-                label.hasVisualOverflow,
+                label.didOverflowHeight,
             )
         }
     }
