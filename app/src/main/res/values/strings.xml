@@ -579,6 +579,10 @@
     <string name="settings_cloud_restore">Restore</string>
     <string name="settings_cloud_restore_title">Restore from Drive?</string>
     <string name="settings_cloud_restore_body">Everything in this app\'s wardrobe will be replaced by what is in that backup. If it turns out to be unreadable, nothing is changed.</string>
+    <string name="settings_cloud_schedule">Back up weekly</string>
+    <string name="settings_cloud_schedule_hint">Runs about once a week, on Wi-Fi, and not when the battery is low. Older backups are removed as newer ones arrive.</string>
+    <string name="settings_cloud_last_backup">Last backup: %1$s</string>
+    <string name="settings_cloud_last_failed">Last attempt failed: %1$s</string>
     <string name="settings_cloud_disconnect_note">Disconnecting only forgets the permission. The backups stay in your Drive.</string>
 
     <string name="error_drive_signin_incomplete">The sign-in did not finish, so Google Drive was not connected.</string>

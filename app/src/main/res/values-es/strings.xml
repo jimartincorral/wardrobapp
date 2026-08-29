@@ -565,6 +565,10 @@
     <string name="settings_cloud_restore">Restaurar</string>
     <string name="settings_cloud_restore_title">¿Restaurar desde Drive?</string>
     <string name="settings_cloud_restore_body">Todo lo que hay en el armario de esta aplicación se reemplazará por el contenido de esa copia. Si resulta ilegible, no se cambia nada.</string>
+    <string name="settings_cloud_schedule">Copia semanal</string>
+    <string name="settings_cloud_schedule_hint">Se ejecuta aproximadamente una vez por semana, con wifi y si la batería no está baja. Las copias antiguas se eliminan a medida que llegan otras nuevas.</string>
+    <string name="settings_cloud_last_backup">Última copia: %1$s</string>
+    <string name="settings_cloud_last_failed">Falló el último intento: %1$s</string>
     <string name="settings_cloud_disconnect_note">Desconectar solo olvida el permiso. Las copias siguen en tu Drive.</string>
 
     <string name="error_drive_signin_incomplete">El inicio de sesión no ha terminado, así que Google Drive no se ha conectado.</string>

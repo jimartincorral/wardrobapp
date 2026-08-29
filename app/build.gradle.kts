@@ -296,6 +296,12 @@ dependencies {
     // path working on a phone with no Google services at all.
     implementation("net.openid:appauth:0.11.1")
 
+    // The weekly backup. WorkManager rather than an alarm because the job has
+    // conditions -- a network that is not somebody's data plan, and a battery that
+    // is not nearly flat -- and because it has to survive a reboot: a safety net
+    // that forgets it exists after a restart is not one.
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
+
     // Photos are files on disk; Coil loads them without hand-rolled decoding.
     implementation("io.coil-kt:coil-compose:2.7.0")
 

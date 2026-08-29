@@ -558,6 +558,7 @@ class MainActivity : AppCompatActivity() {
             onRestore = cloud::onRestoreRequested,
             onFailureDismissed = cloud::onFailureDismissed,
             onRestoredDismissed = cloud::onRestoredDismissed,
+            onScheduleChanged = cloud::onScheduleChanged,
         )
     }
 
