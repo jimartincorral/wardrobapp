@@ -18,16 +18,6 @@ import kotlinx.coroutines.withContext
 import net.openid.appauth.AuthorizationService
 
 /**
- * How many archives are kept in Drive.
- *
- * Enough that a backup taken after the damage was done has not pushed out the one
- * from before it, which is the failure a rolling backup is for. Not a setting,
- * because the number that matters is "more than one" and the rest is storage
- * somebody can clear out themselves -- the folder is theirs and they can see it.
- */
-private const val KEPT_IN_DRIVE = 5
-
-/**
  * Backing a wardrobe up to somebody's Google Drive, and getting it back.
  *
  * Everything worth deciding is decided elsewhere: :data says which archives are
@@ -65,6 +55,17 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
         val progress: Float? = null,
         /** What went wrong, in the words of whatever failed. */
         val failure: String? = null,
+        /** Whether the weekly backup is on. Only meaningful while signed in. */
+        val scheduled: Boolean = false,
+        /** When a backup last finished, successfully or not. Null until one has. */
+        val lastRunAt: Long? = null,
+        /**
+         * Why the last run failed, or null when it succeeded.
+         *
+         * Separate from [failure], which is a dialog about something just
+         * attempted. This is a line about a job that ran while nobody was here.
+         */
+        val lastRunFailure: String? = null,
         /**
          * Set once a restore has finished, so the screen can say so.
          *

@@ -248,7 +248,7 @@ fun CloudBackupSection(
             // week of silent failure would otherwise look exactly like a week of
             // success.
             state.lastRunAt?.let { at ->
-                val when_ = formatStoredDateTime(
+                val moment = formatStoredDateTime(
                     isoTimestamp(at),
                     TimeZone.getDefault(),
                     Locale.getDefault(),
@@ -257,7 +257,7 @@ fun CloudBackupSection(
                 Text(
                     state.lastRunFailure
                         ?.let { stringResource(R.string.settings_cloud_last_failed, it) }
-                        ?: stringResource(R.string.settings_cloud_last_backup, when_),
+                        ?: stringResource(R.string.settings_cloud_last_backup, moment),
                     style = MaterialTheme.typography.bodySmall,
                     color = if (state.lastRunFailure != null) {
                         MaterialTheme.colorScheme.error
