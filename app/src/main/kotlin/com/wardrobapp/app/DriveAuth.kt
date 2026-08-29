@@ -131,16 +131,22 @@ class DriveAuth(context: Context) {
             "${BuildConfig.APPLICATION_ID}:/oauth2redirect".toUri(),
         )
             .setScope(DRIVE_SCOPE)
-            // Both are what make an unattended backup possible. Without
-            // `access_type=offline` Google returns an access token and no refresh
-            // token, so the app could only ever reach Drive while somebody was
-            // watching -- and a scheduled backup is exactly the case where nobody
-            // is. `prompt=consent` because Google withholds the refresh token on a
-            // re-authorization it considers already granted, which would leave a
-            // second sign-in worse off than the first.
-            .setAdditionalParameters(
-                mapOf("access_type" to "offline", "prompt" to "consent"),
-            )
+            // Google withholds the refresh token on a re-authorization it considers
+            // already granted, which would leave a second sign-in worse off than
+            // the first.
+            //
+            // Through the builder rather than the additional parameters: AppAuth
+            // refuses any parameter it has a method for, and `prompt` is one --
+            // `setAdditionalParameters` threw `IllegalArgumentException` while the
+            // request was still being built, so tapping Connect could never reach a
+            // browser at all.
+            .setPrompt(AuthorizationRequest.Prompt.CONSENT)
+            // No method for this one: it is Google's own extension rather than
+            // something OAuth defines, which is exactly what the additional
+            // parameters are for. Without it Google returns an access token and no
+            // refresh token, so the app could only reach Drive while somebody was
+            // watching -- and a scheduled backup is the case where nobody is.
+            .setAdditionalParameters(mapOf("access_type" to "offline"))
             .build()
 
     private fun readState(): AuthState =
