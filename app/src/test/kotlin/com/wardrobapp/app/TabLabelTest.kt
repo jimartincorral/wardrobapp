@@ -3,7 +3,6 @@ package com.wardrobapp.app
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.text.TextLayoutResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
