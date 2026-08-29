@@ -94,16 +94,15 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
     fun authorizationIntent(): Intent? = try {
         auth.authorizationIntent(service)
     } catch (error: Exception) {
-        // The exception goes on screen with the sentence. An earlier version of
-        // this caught everything and blamed a missing browser, which is the likely
-        // cause but not a known one -- and a message that asserts a cause it has
-        // not checked sends whoever reads it looking in the wrong place. AppAuth
-        // throws `ActivityNotFoundException` with no message at all when it finds
-        // no browser, so the type is the only evidence there is.
+        // The exception goes on screen and the sentence names no cause. Two earlier
+        // versions of this blamed a missing browser, which was wrong: the failure
+        // was an `IllegalArgumentException` from building the request, thrown
+        // before a browser was ever looked for. Saying only what is known is what
+        // found it.
         _state.update {
             it.copy(
                 failure = getApplication<Application>().getString(
-                    R.string.error_drive_no_browser,
+                    R.string.error_drive_signin_unavailable,
                     listOfNotNull(error.javaClass.simpleName, error.message)
                         .joinToString(": "),
                 ),
