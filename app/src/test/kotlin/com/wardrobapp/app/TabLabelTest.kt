@@ -1,11 +1,17 @@
 package com.wardrobapp.app
 
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.text.TextLayoutResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,6 +54,41 @@ class TabLabelTest {
     @Config(qualifiers = "+es-rES")
     fun `every label fits on one line in Spanish`() {
         assertLabelsFit()
+    }
+
+    @Test
+    @Config(qualifiers = "+es-rES")
+    fun `the word really does not fit at Material's own label size`() {
+        // A canary, not a test of the app. Without it "every label fits" would pass
+        // just as happily against a layout that measured nothing -- which is exactly
+        // what it did before native graphics went on, when every glyph came back one
+        // pixel wide and no word could be too wide for anything.
+        //
+        // So this composes the bar as it was, at the size that wrapped, and insists
+        // the environment still says so. If this ever passes quietly, the test above
+        // has stopped meaning anything.
+        compose.setContent {
+            NavigationBar {
+                for (tab in TABS) {
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = {},
+                        icon = { Icon(tab.icon, contentDescription = null) },
+                        label = { Text(stringResource(tab.labelRes)) },
+                    )
+                }
+            }
+        }
+
+        val labels = labelLayouts()
+        val wrapped = labels.filter { it.lineCount > 1 }.map { it.layoutInput.text.text }
+
+        assertTrue(
+            "nothing wrapped at Material's own label size, so this cannot tell a fit " +
+                "from a truncation: " +
+                labels.joinToString { "${it.layoutInput.text.text}=${it.size}" },
+            "Estadísticas" in wrapped,
+        )
     }
 
     private fun assertLabelsFit() {
