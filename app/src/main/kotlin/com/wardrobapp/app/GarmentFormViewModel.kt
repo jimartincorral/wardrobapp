@@ -608,8 +608,9 @@ class GarmentFormViewModel(
         // garment it is about to become.
         tags = mergeStructuredTags(tags, seasons),
         colorPrimary = colorPalette.firstOrNull() ?: GarmentFormState.DEFAULT_COLOR,
+        // Every colour, not just the leading one: a black and red shirt is not a
+        // red shirt, and comparing only the dominant colour said it was.
         colorPalette = colorPalette,
-        size = size.ifBlank { null },
     )
 
     /**

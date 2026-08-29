@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
  * Whether a garment being added is one the wardrobe already has.
  *
  * The score is a weighted average over the signals that have something to say --
- * tags, colour, size -- renormalised over whichever of them are present. That
+ * tags and colour -- renormalised over whichever of them are present. That
  * renormalisation is the interesting part, and the reason the previous version of
  * this could never fire at all: with no tags recorded, the tag term contributed
  * nothing but still consumed 0.6 of the available weight, so an exact duplicate
@@ -40,20 +40,18 @@ class DuplicateDetectionTest {
     private fun candidate(
         tags: List<String> = emptyList(),
         color: String = "#1F3A93",
-        size: String? = null,
         subcategory: String = "T-Shirt",
     ) = DuplicateCandidate(
         category = "tops",
         subcategories = listOf(subcategory),
         tags = tags,
         colorPrimary = color,
-        size = size,
     )
 
     @Test
     fun `an exact duplicate is reported`() {
         val matches = findDuplicatesAmong(
-            candidate(tags = listOf("casual", "summer"), size = "M"),
+            candidate(tags = listOf("casual", "summer")),
             listOf(existing("g1", tags = listOf("casual", "summer"), size = "M")),
         )
 
@@ -75,7 +73,7 @@ class DuplicateDetectionTest {
     @Test
     fun `a garment that shares nothing is not reported`() {
         val matches = findDuplicatesAmong(
-            candidate(tags = listOf("formal"), color = "#C0392B", size = "S"),
+            candidate(tags = listOf("formal"), color = "#C0392B"),
             listOf(existing("g1", tags = listOf("sport"), color = "#2E8B57", size = "XL")),
         )
 
@@ -117,13 +115,14 @@ class DuplicateDetectionTest {
         // nothing.
         assertTrue(DuplicateReason.SIMILAR_COLOR !in tagsAndColour.reasons)
 
-        val sameSize = findDuplicatesAmong(
-            candidate(tags = listOf("casual"), size = "m"),
-            listOf(existing("g1", tags = listOf("casual"), size = "M")),
+        // And never a size, which is no longer looked at: what fits you is not
+        // what a garment is.
+        val differentSizes = findDuplicatesAmong(
+            candidate(tags = listOf("casual")),
+            listOf(existing("g1", tags = listOf("casual"), size = "XXL")),
         ).single()
 
-        // Case and spacing are not a different size.
-        assertTrue(DuplicateReason.SAME_SIZE in sameSize.reasons)
+        assertTrue(DuplicateReason.SAME_SIZE !in differentSizes.reasons)
     }
 
     @Test
@@ -143,7 +142,7 @@ class DuplicateDetectionTest {
     @Test
     fun `the closest is reported first`() {
         val matches = findDuplicatesAmong(
-            candidate(tags = listOf("casual", "summer"), size = "M"),
+            candidate(tags = listOf("casual", "summer")),
             listOf(
                 existing("weaker", tags = listOf("casual"), size = "L"),
                 existing("exact", tags = listOf("casual", "summer"), size = "M"),
@@ -270,13 +269,13 @@ class DuplicateDetectionTest {
     }
 
     @Test
-    fun `a size that differs is still the same shirt`() {
-        // The owner's decision, pinned: same type, same colour, and one is an M
-        // and the other an L. This scores 0.750, and the threshold sits directly
-        // under it -- so a test rather than a comment, because the next person to
-        // raise the number needs to be told what it costs.
+    fun `a size is not part of what a garment is`() {
+        // The same shirt in an M and an L is the same shirt, and two different
+        // shirts that happen to both be M are still two shirts. So a size neither
+        // argues for a match nor against one, and these two are duplicates on the
+        // strength of everything else about them.
         val matches = findDuplicatesAmong(
-            candidate(size = "M"),
+            candidate(),
             listOf(existing("g1", size = "L")),
         )
 
@@ -299,8 +298,89 @@ class DuplicateDetectionTest {
     @Test
     fun `sharing half of them is further still from it`() {
         val matches = findDuplicatesAmong(
-            candidate(tags = listOf("a", "b", "c"), size = "M"),
+            candidate(tags = listOf("a", "b", "c")),
             listOf(existing("g1", tags = listOf("a", "b", "d"), size = "M")),
+        )
+
+        assertEquals(emptyList(), matches)
+    }
+
+    private fun twoTone(id: String, vararg colors: String) = Garment(
+        id = id,
+        category = "tops",
+        subcategories = listOf("T-Shirt"),
+        tags = listOf("casual"),
+        colorPrimary = colors.first(),
+        colorPalette = colors.toList(),
+    )
+
+    private fun twoToneCandidate(vararg colors: String) = DuplicateCandidate(
+        category = "tops",
+        subcategories = listOf("T-Shirt"),
+        tags = listOf("casual"),
+        colorPrimary = colors.first(),
+        colorPalette = colors.toList(),
+    )
+
+    @Test
+    fun `a black and red shirt is not a red shirt`() {
+        // Comparing only the dominant colour said it was: red leads both palettes
+        // and nothing looked further, so a two-colour garment was reported as a
+        // duplicate of a plain one.
+        assertEquals(
+            emptyList(),
+            findDuplicatesAmong(twoToneCandidate("#B22222", "#000000"), listOf(twoTone("g1", "#B22222"))),
+        )
+
+        // And the other way round, which is the same mistake with the arguments
+        // swapped -- easy to fix in one direction only.
+        assertEquals(
+            emptyList(),
+            findDuplicatesAmong(twoToneCandidate("#B22222"), listOf(twoTone("g1", "#B22222", "#000000"))),
+        )
+    }
+
+    @Test
+    fun `two black and red shirts are each other`() {
+        val matches = findDuplicatesAmong(
+            twoToneCandidate("#B22222", "#000000"),
+            listOf(twoTone("g1", "#B22222", "#000000")),
+        )
+
+        assertEquals(listOf("g1"), matches.map { it.garment.id })
+    }
+
+    @Test
+    fun `which colour dominates is a fact about the photograph, not the garment`() {
+        // The same two colours, read in the other order. Two pictures of one shirt
+        // can disagree about which of them covers more of it.
+        val matches = findDuplicatesAmong(
+            twoToneCandidate("#B22222", "#000000"),
+            listOf(twoTone("g1", "#000000", "#B22222")),
+        )
+
+        assertEquals(listOf("g1"), matches.map { it.garment.id })
+    }
+
+    @Test
+    fun `a red and black shirt is not a red and white one`() {
+        assertEquals(
+            emptyList(),
+            findDuplicatesAmong(
+                twoToneCandidate("#B22222", "#000000"),
+                listOf(twoTone("g1", "#B22222", "#FFFFFF")),
+            ),
+        )
+    }
+
+    @Test
+    fun `a colour cannot answer for two`() {
+        // Without spending a partner once it is claimed, a garment in two shades
+        // of the same red would match one that is that red twice over -- and a
+        // palette of two would pass as a palette of two while sharing one colour.
+        val matches = findDuplicatesAmong(
+            twoToneCandidate("#B22222", "#B4241F"),
+            listOf(twoTone("g1", "#B22222", "#000000")),
         )
 
         assertEquals(emptyList(), matches)
