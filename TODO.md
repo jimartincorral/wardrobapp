@@ -48,6 +48,18 @@ One app now: the Kotlin one. Anything below is built once.
   rather than named for the same reason -- a timestamped file name is a date nobody
   reads at a glance.
 
+- Near-duplicates, in both directions. The scoring and the warning when adding a
+  garment were already there; what was missing was ever asking the question about
+  garments already saved, so shirts added on different days had never been compared
+  with each other. Statistics now sweeps the wardrobe and groups what it finds.
+
+  Two decisions worth not rediscovering: groups are anchored rather than chained,
+  because A resembling B and B resembling C does not make A resemble C and one
+  absurd group costs the whole list its credibility; and the sweep buckets by
+  category itself, because `findDuplicatesAmong` scores tags, colour and size and
+  never looks at the category at all -- it is right at the add form only because
+  that caller narrows the *query* first.
+
 ## Not being built
 
 - **The outfit card** — the garment photos composed into one image. Built, tried
@@ -100,26 +112,6 @@ One app now: the Kotlin one. Anything below is built once.
       garment plus one tap for "cold today" would keep this local-first; a forecast
       service would mean network, location and a key, which is a different app.
 
-## Built, waiting on a device rather than on work
-
-- [ ] **Cloud backup sync to Google Drive** -- PR #60, unmerged. Connect an
-      account, back up, list what is there, restore any of it, disconnect.
-      `drive.file` rather than `appDataFolder`, so a backup stays a zip its owner
-      can open without this app. Two OAuth clients are registered and committed,
-      against the release certificate's SHA-1
-      (`c9c04a682b973e52b93edc82d5a39facfea438bf`) and the debug one.
-
-      What is left is the one thing nothing in CI can do: **the sign-in has never
-      run on a phone.** The browser round trip, the redirect scheme, the token
-      exchange and the refresh are all unproven. That is the next step and it is a
-      device step, not a coding one.
-
-      One consequence to remember rather than rediscover: an Android OAuth client
-      is keyed to the application id *and* the signing certificate. A new keystore
-      means updating the release client's fingerprint in Google's console, or Drive
-      sign-in breaks in release only -- debug keeps working and hides it. See
-      Signing in the README.
-
 ## Parked
 
 - [ ] **A local destination for the schedule.** The automatic backup goes to Drive
@@ -133,7 +125,8 @@ One app now: the Kotlin one. Anything below is built once.
    restore have all been through a phone; the schedule has not. Its constraints,
    its interval and its cancellation are argued from the WorkManager API and
    nothing more, and the honest test is a fortnight of the app being installed.
-2. The planning calendar, once its product questions are settled: whether a planned
+2. The planning calendar, whose hold has lifted -- it was waiting on cloud backup
+   working on a phone, and it does -- once its product questions are settled: whether a planned
    outfit is a date on an outfit or a table of its own, whether past plans become
    history or vanish, and whether "what am I wearing Thursday" is a screen or part
    of one. Those shape the schema, which is the expensive thing to get wrong.

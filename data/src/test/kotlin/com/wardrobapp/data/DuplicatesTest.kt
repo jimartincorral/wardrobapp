@@ -123,4 +123,66 @@ class DuplicatesTest {
     fun `finds nothing in an empty wardrobe`() {
         assertEquals(emptyList(), subject.matching(candidate))
     }
+    @Test
+    fun `the sweep gathers garments already saved`() {
+        // Nothing else ever asks: the warning fires when a garment is added, so
+        // three shirts added on three different days have never been compared.
+        addGarment("g1")
+        addGarment("g2")
+        addGarment("g3")
+
+        val groups = subject.groups()
+
+        assertEquals(1, groups.size)
+        assertEquals(listOf("g1", "g2", "g3"), groups.single().garments.map { it.id }.sorted())
+    }
+
+    @Test
+    fun `a retired garment is not something you own twice`() {
+        // The rule `matching` already keeps, for the same reason: a garment
+        // deliberately put away is not a garment sitting in the wardrobe twice.
+        addGarment("kept1")
+        addGarment("kept2")
+        addGarment("retired", available = false)
+
+        val groups = subject.groups()
+
+        assertEquals(listOf("kept1", "kept2"), groups.single().garments.map { it.id }.sorted())
+    }
+
+    @Test
+    fun `the sweep hands back the photos a list has to show`() {
+        // The reason this maps ids back to records at all: the domain works in
+        // garments that have no idea where their pictures live.
+        addGarment("g1")
+        addGarment("g2")
+
+        val shown = subject.groups().single().garments
+
+        assertTrue(shown.all { it.imageUri.isNotBlank() }, "a group came back with nothing to draw")
+    }
+
+    @Test
+    fun `an empty wardrobe sweeps to nothing rather than failing`() {
+        assertEquals(emptyList(), subject.groups())
+    }
+
+    @Test
+    fun `two categories that look alike stay apart`() {
+        // The scoring never looks at the category, so without bucketing these
+        // four would arrive as one group saying socks are shirts.
+        addGarment("shirt1", category = "tops")
+        addGarment("shirt2", category = "tops")
+        addGarment("sock1", category = "socks")
+        addGarment("sock2", category = "socks")
+
+        val groups = subject.groups()
+
+        assertEquals(2, groups.size)
+        assertTrue(
+            groups.all { it.garments.map { g -> g.category }.distinct().size == 1 },
+            "a group spanned two categories",
+        )
+    }
+
 }

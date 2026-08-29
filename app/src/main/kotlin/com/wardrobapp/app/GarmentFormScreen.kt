@@ -63,7 +63,6 @@ import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import com.wardrobapp.data.DuplicateGarment
 import com.wardrobapp.domain.COMMON_SIZES
-import com.wardrobapp.domain.DuplicateReason
 import com.wardrobapp.domain.GARMENT_CATEGORIES
 import com.wardrobapp.domain.SIZE_CHIPS
 import com.wardrobapp.domain.Season
@@ -634,16 +633,6 @@ private fun DuplicateWarning(
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.duplicate_review)) } },
     )
 }
-
-@Composable
-private fun DuplicateReason.label(): String = stringResource(
-    when (this) {
-        DuplicateReason.SIMILAR_TAGS -> R.string.duplicate_reason_tags
-        DuplicateReason.SIMILAR_COLOR -> R.string.duplicate_reason_colour
-        DuplicateReason.SAME_SIZE -> R.string.duplicate_reason_size
-        DuplicateReason.OVERALL_SIMILARITY -> R.string.duplicate_reason_overall
-    }
-)
 
 /**
  * What to show when saving or importing failed.

@@ -221,6 +221,14 @@
     <string name="statistics_no_subcategory">Not specified</string>
     <string name="statistics_lifespan">How long things lasted</string>
     <string name="statistics_no_lifespan">Nothing retired yet. Mark a garment as no longer in use and it appears here.</string>
+    <string name="statistics_duplicates">Things you may own twice</string>
+    <string name="statistics_duplicates_hint">Tap a photo to open that garment</string>
+    <string name="statistics_no_duplicates">Nothing in your wardrobe looks much like anything else.</string>
+    <string name="statistics_open_garment">Open this garment</string>
+    <plurals name="statistics_duplicate_count">
+        <item quantity="one">%d garment</item>
+        <item quantity="other">%d garments</item>
+    </plurals>
     <string name="statistics_days">%1$dd</string>
 
     <!-- Settings -->

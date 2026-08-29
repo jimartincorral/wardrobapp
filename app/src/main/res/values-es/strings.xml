@@ -207,6 +207,15 @@
     <string name="statistics_no_subcategory">Sin especificar</string>
     <string name="statistics_lifespan">Cuánto duraron las prendas</string>
     <string name="statistics_no_lifespan">Aún no has retirado nada. Marca una prenda como que ya no la usas y aparecerá aquí.</string>
+    <string name="statistics_duplicates">Prendas que quizá tengas repetidas</string>
+    <string name="statistics_duplicates_hint">Toca una foto para abrir esa prenda</string>
+    <string name="statistics_no_duplicates">Nada de tu armario se parece demasiado a otra cosa.</string>
+    <string name="statistics_open_garment">Abrir esta prenda</string>
+    <plurals name="statistics_duplicate_count">
+        <item quantity="one">%d prenda</item>
+        <item quantity="many">%d prendas</item>
+        <item quantity="other">%d prendas</item>
+    </plurals>
     <string name="statistics_days">%1$d d</string>
 
     <!-- Settings -->

@@ -116,3 +116,109 @@ fun findDuplicatesAmong(
 
     return matches.sortedByDescending { it.score }
 }
+
+/**
+ * A garment as [findDuplicatesAmong] compares it.
+ *
+ * `primaryColor` rather than `colorPrimary`, so a garment compared against the
+ * wardrobe is compared by the same colour a garment being *added* is: the form
+ * builds its candidate from the head of the palette, and the two would otherwise
+ * disagree about a garment whose palette leads with something other than the
+ * stored primary.
+ */
+fun Garment.asDuplicateCandidate() = DuplicateCandidate(
+    category = category,
+    tags = tags,
+    colorPrimary = primaryColor,
+    colorPalette = palette,
+    size = size,
+)
+
+/**
+ * Garments that look like each other, gathered.
+ *
+ * The anchor is first, and [reasons] is what *every* other member shares with it
+ * -- so a heading can say "similar colour, same size" and be true of the whole
+ * group rather than of one pair inside it.
+ */
+data class DuplicateGroup(
+    val garments: List<Garment>,
+    val reasons: List<DuplicateReason>,
+)
+
+/**
+ * Sweep a wardrobe for garments that are much the same as each other.
+ *
+ * The other direction from [findDuplicatesAmong], which asks whether one garment
+ * is already owned. This asks what is like what, over garments already saved --
+ * five black t-shirts added over a year have never once been compared, because
+ * the only thing that ever asked was the add form, at the moment of adding.
+ *
+ * **Groups are anchored, not chained.** Take the first garment nothing has claimed
+ * yet, gather everything scoring above [threshold] against *it*, set them all
+ * aside, repeat. A resembling B and B resembling C does not make A resemble C, so
+ * a transitive closure would run a black tee to a grey tee to a grey jumper and
+ * offer the three as one garment. A group here means "these are all like this
+ * one", which is how somebody reads it -- and one absurd group is all it takes for
+ * the whole list to stop being believed.
+ *
+ * **Category buckets first, and that is not tidiness.** [findDuplicatesAmong]
+ * scores tags, colour and size; it never looks at `category` at all. It is right
+ * today only because [findDuplicatesAmong]'s caller in :data filters the *query*
+ * by category. Doing the bucketing here means the trap is shut on this side, where
+ * a sweep that forgot would compare socks against shirts and call them identical.
+ */
+fun duplicateGroups(
+    garments: List<Garment>,
+    threshold: Double = DUPLICATE_THRESHOLD,
+): List<DuplicateGroup> = garments
+    .groupBy { it.category }
+    .values
+    .flatMap { groupsWithinOneCategory(it, threshold) }
+
+private fun groupsWithinOneCategory(
+    garments: List<Garment>,
+    threshold: Double,
+): List<DuplicateGroup> {
+    val groups = mutableListOf<DuplicateGroup>()
+
+    // Order is the caller's, and stays it: the same wardrobe has to produce the
+    // same groups twice running, or a list that reshuffles itself between visits
+    // looks like it is finding different things each time.
+    var remaining = garments
+
+    while (remaining.isNotEmpty()) {
+        val anchor = remaining.first()
+        val rest = remaining.drop(1)
+
+        val matches = findDuplicatesAmong(anchor.asDuplicateCandidate(), rest, threshold)
+
+        if (matches.isEmpty()) {
+            // Nothing is like it. It cannot belong to a later group either, since
+            // that group's anchor would have had to match it here.
+            remaining = rest
+            continue
+        }
+
+        val members = matches.map { it.garment }
+
+        groups += DuplicateGroup(
+            garments = listOf(anchor) + members,
+            // What holds for the whole group. A reason true of one pair and not
+            // the others would be a heading that lies about most of what is
+            // under it, so an intersection rather than a union -- and when they
+            // agree on nothing nameable, the honest answer is the one
+            // `findDuplicatesAmong` already gives for that case.
+            reasons = matches
+                .map { it.reasons.toSet() }
+                .reduce { shared, next -> shared intersect next }
+                .toList()
+                .ifEmpty { listOf(DuplicateReason.OVERALL_SIMILARITY) },
+        )
+
+        val claimed = members.mapTo(mutableSetOf()) { it.id }
+        remaining = rest.filterNot { it.id in claimed }
+    }
+
+    return groups
+}
