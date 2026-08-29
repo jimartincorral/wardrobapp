@@ -64,6 +64,11 @@
     <string name="wardrobe_view_options">Change how the wardrobe is shown</string>
     <string name="wardrobe_view_list">List</string>
     <string name="wardrobe_view_grid">Grid of %1$d</string>
+    <string name="wardrobe_view_section_layout">Layout</string>
+    <string name="wardrobe_view_section_show">Show on each</string>
+    <string name="wardrobe_caption_brand">Brand</string>
+    <string name="wardrobe_caption_type">Type</string>
+    <string name="wardrobe_caption_category">Category</string>
 
     <string name="filters_show">Filters</string>
     <string name="filters_show_count">Filters (%1$d)</string>

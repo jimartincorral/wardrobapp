@@ -6,6 +6,7 @@ import com.wardrobapp.data.GarmentQueries
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.WardrobeFacets
 import com.wardrobapp.presentation.WardrobeQuery
 import com.wardrobapp.presentation.WardrobeView
@@ -53,6 +54,14 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
          */
         val view: WardrobeView = WardrobeView(),
         /**
+         * What a grid cell says under its photo.
+         *
+         * Beside [view] and for the same reason: it changes what the same garments
+         * are labelled with, not which ones they are, so it never triggers a
+         * re-read either. Persisted alongside the layout.
+         */
+        val caption: GarmentCaption = GarmentCaption.BRAND,
+        /**
          * What the filter panel has to offer, from what the list holds.
          *
          * Derived when the list is, rather than in the composable: which values a
@@ -74,7 +83,12 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
         val isFilteredEmpty: Boolean get() = isEmpty && query.isNarrowed
     }
 
-    private val _state = MutableStateFlow(State(view = container.wardrobeView.view))
+    private val _state = MutableStateFlow(
+        State(
+            view = container.wardrobeView.view,
+            caption = container.wardrobeView.caption,
+        ),
+    )
     val state: StateFlow<State> = _state.asStateFlow()
 
     /**
@@ -173,10 +187,26 @@ class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
      * Written through as it is chosen, because a preference that is only saved on
      * the way out is a preference that is lost when the app is killed.
      */
-    fun onViewSelected(choice: WardrobeView) = _state.update {
-        val view = it.view.withChoice(choice)
+    fun onViewSelected(choice: WardrobeView) {
+        // Outside the update, not inside it. `update` re-runs its lambda when two
+        // callers race, so a write in there is a write that can happen twice --
+        // harmless for a preference being set to the same value, and the shape
+        // that has already cost this repo two bugs elsewhere.
+        val view = _state.value.view.withChoice(choice)
         container.wardrobeView.view = view
-        it.copy(view = view)
+        _state.update { it.copy(view = view) }
+    }
+
+    /**
+     * Relabel the same cells.
+     *
+     * Not through [narrow], for the reason above: nothing about the query changed,
+     * so re-reading the database to put a different word under the same photos
+     * would be work for nothing.
+     */
+    fun onCaptionSelected(choice: GarmentCaption) {
+        container.wardrobeView.caption = choice
+        _state.update { it.copy(caption = choice) }
     }
 
     fun onSortToggled() = narrow { it.withSortToggled() }

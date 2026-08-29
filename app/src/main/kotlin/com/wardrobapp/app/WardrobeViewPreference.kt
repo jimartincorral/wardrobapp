@@ -2,7 +2,9 @@ package com.wardrobapp.app
 
 import android.content.Context
 import androidx.core.content.edit
+import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.WardrobeView
+import com.wardrobapp.presentation.garmentCaptionFor
 import com.wardrobapp.presentation.storedValue
 import com.wardrobapp.presentation.wardrobeViewFor
 
@@ -45,9 +47,30 @@ class WardrobeViewPreference(context: Context) {
             }
         }
 
+    /**
+     * What a grid cell says under its photo.
+     *
+     * Beside the layout rather than folded into [WardrobeView], because that type's
+     * `withChoice` and `isCurrent` exist to say "picking the list keeps the grid's
+     * width", and a third dimension with nothing to do with either would make both
+     * harder to read for no gain.
+     */
+    var caption: GarmentCaption
+        get() = garmentCaptionFor(preferences.getString(KEY_CAPTION, null))
+        set(value) {
+            preferences.edit {
+                // Stored as the absence of a choice when it is the brand, so an
+                // install that has never chosen and one that chose the brand read
+                // alike -- the same shape the layout uses just above.
+                val stored = value.storedValue
+                if (stored == null) remove(KEY_CAPTION) else putString(KEY_CAPTION, stored)
+            }
+        }
+
     private companion object {
         const val KEY_LAYOUT = "wardrobe_layout"
         const val KEY_COLUMNS = "wardrobe_columns"
+        const val KEY_CAPTION = "wardrobe_caption"
 
         /** Not a possible count, so it can mean "nothing stored". */
         const val NO_COLUMNS = 0

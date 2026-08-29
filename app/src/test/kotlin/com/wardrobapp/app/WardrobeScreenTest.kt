@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.wardrobapp.data.normalizeGarmentRow
+import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.GarmentFilter
 import com.wardrobapp.presentation.WardrobeLayout
 import com.wardrobapp.presentation.WardrobeView
@@ -74,6 +75,7 @@ class WardrobeScreenTest {
         state: WardrobeViewModel.State,
         onColorTapped: (String) -> Unit = {},
         onViewSelected: (WardrobeView) -> Unit = {},
+        onCaptionSelected: (GarmentCaption) -> Unit = {},
         onBrandTapped: (String) -> Unit = {},
     ) {
         compose.setContent {
@@ -96,6 +98,7 @@ class WardrobeScreenTest {
                 onColorTapped = onColorTapped,
                 onRetiredToggled = {},
                 onViewSelected = onViewSelected,
+                onCaptionSelected = onCaptionSelected,
             )
         }
     }
@@ -103,6 +106,7 @@ class WardrobeScreenTest {
     private fun wardrobe(
         filtersExpanded: Boolean = false,
         view: WardrobeView = WardrobeView(),
+        caption: GarmentCaption = GarmentCaption.BRAND,
         garments: List<com.wardrobapp.data.GarmentRecord> = (1..12).map { garment(it) },
     ) = WardrobeViewModel.State(
         loading = false,
@@ -113,6 +117,7 @@ class WardrobeScreenTest {
         facets = wardrobeFacets(garments, com.wardrobapp.presentation.WardrobeQuery()),
         filtersExpanded = filtersExpanded,
         view = view,
+        caption = caption,
     )
 
     @Test
@@ -253,6 +258,75 @@ class WardrobeScreenTest {
         show(wardrobe(view = WardrobeView(WardrobeLayout.GRID, columns = 2)))
 
         compose.onNodeWithText("Brand 01").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a cell says what was asked for rather than always the brand`() {
+        // The whole point of the setting: this garment has a brand, and asking for
+        // the category has to win over it.
+        show(
+            wardrobe(
+                view = WardrobeView(WardrobeLayout.GRID, columns = 2),
+                caption = GarmentCaption.CATEGORY,
+                garments = listOf(garment(1)),
+            ),
+        )
+
+        compose.onNodeWithText("Tops").assertIsDisplayed()
+        compose.onNodeWithText("Brand 01").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a cell asked for the type names it in the reader's language`() {
+        // Through the vocabulary rather than as stored: the row holds "T-Shirt"
+        // whichever language entered it.
+        show(
+            wardrobe(
+                view = WardrobeView(WardrobeLayout.GRID, columns = 2),
+                caption = GarmentCaption.TYPE,
+                garments = listOf(garment(1)),
+            ),
+        )
+
+        compose.onNodeWithText("T-Shirt").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h2000dp")
+    fun `the caption is offered for a grid and not for a list`() {
+        // A row already shows the type as its title and the brand under it, so
+        // there is nothing there to choose between.
+        show(wardrobe(view = WardrobeView(WardrobeLayout.GRID, columns = 2)))
+
+        compose.onNodeWithTag(WARDROBE_VIEW_MENU).performClick()
+
+        compose.onNodeWithText("Brand").assertIsDisplayed()
+        compose.onNodeWithText("Category").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h2000dp")
+    fun `a list is not offered a caption to choose`() {
+        show(wardrobe(view = WardrobeView(WardrobeLayout.LIST)))
+
+        compose.onNodeWithTag(WARDROBE_VIEW_MENU).performClick()
+
+        compose.onNodeWithText("Brand").assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h2000dp")
+    fun `picking a caption asks for that field`() {
+        var picked: GarmentCaption? = null
+        show(
+            wardrobe(view = WardrobeView(WardrobeLayout.GRID, columns = 2)),
+            onCaptionSelected = { picked = it },
+        )
+
+        compose.onNodeWithTag(WARDROBE_VIEW_MENU).performClick()
+        compose.onNodeWithText("Category").performClick()
+
+        assertEquals(GarmentCaption.CATEGORY, picked)
     }
 
     @Test

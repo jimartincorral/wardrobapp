@@ -11,6 +11,7 @@ import com.wardrobapp.domain.OutfitReason
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.UnsafeUrlReason
 import com.wardrobapp.presentation.BackupFrequency
+import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.ThemeChoice
 
@@ -273,6 +274,21 @@ val BackupFrequency.labelRes: Int
         BackupFrequency.DAILY -> R.string.backup_frequency_daily
         BackupFrequency.WEEKLY -> R.string.backup_frequency_weekly
         BackupFrequency.MONTHLY -> R.string.backup_frequency_monthly
+    }
+
+/**
+ * What to call each thing a grid cell can say under a photo.
+ *
+ * Nouns for the field itself rather than sentences: the menu section above them
+ * says what is being chosen, so "Brand" answers it where "Show the brand" would
+ * repeat it three times.
+ */
+@get:StringRes
+val GarmentCaption.labelRes: Int
+    get() = when (this) {
+        GarmentCaption.BRAND -> R.string.wardrobe_caption_brand
+        GarmentCaption.TYPE -> R.string.wardrobe_caption_type
+        GarmentCaption.CATEGORY -> R.string.wardrobe_caption_category
     }
 
 /**

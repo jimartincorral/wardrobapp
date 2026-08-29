@@ -33,6 +33,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.CircularProgressIndicator
@@ -65,6 +66,7 @@ import coil.compose.AsyncImage
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.GarmentSort
 import com.wardrobapp.presentation.paletteColorFor
 import com.wardrobapp.presentation.WardrobeFacets
@@ -72,6 +74,7 @@ import com.wardrobapp.presentation.WARDROBE_VIEW_CHOICES
 import com.wardrobapp.presentation.WardrobeLayout
 import com.wardrobapp.presentation.WardrobeQuery
 import com.wardrobapp.presentation.WardrobeView
+import com.wardrobapp.presentation.captionField
 
 /** The scrolling body of the wardrobe, for tests that need to reach past the fold. */
 const val WARDROBE_LIST = "wardrobe-list"
@@ -126,13 +129,19 @@ fun WardrobeScreen(
     onColorTapped: (String) -> Unit,
     onRetiredToggled: () -> Unit,
     onViewSelected: (WardrobeView) -> Unit,
+    onCaptionSelected: (GarmentCaption) -> Unit,
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.wardrobe_title)) },
                 actions = {
-                    ViewMenu(current = state.view, onSelected = onViewSelected)
+                    ViewMenu(
+                        current = state.view,
+                        caption = state.caption,
+                        onSelected = onViewSelected,
+                        onCaptionSelected = onCaptionSelected,
+                    )
                     AddMenu(onBulkAddRequested)
                 },
             )
@@ -305,6 +314,7 @@ fun WardrobeScreen(
                     if (state.view.layout == WardrobeLayout.GRID) {
                         GarmentCell(
                             garment,
+                            caption = state.caption,
                             modifier = Modifier.padding(8.dp),
                         ) { onGarmentOpened(garment.id) }
                     } else {
@@ -340,7 +350,12 @@ private fun LazyGridScope.fullWidth(content: @Composable () -> Unit) =
  * several megabytes for one glyph -- so the grid one is four boxes, drawn here.
  */
 @Composable
-private fun ViewMenu(current: WardrobeView, onSelected: (WardrobeView) -> Unit) {
+private fun ViewMenu(
+    current: WardrobeView,
+    caption: GarmentCaption,
+    onSelected: (WardrobeView) -> Unit,
+    onCaptionSelected: (GarmentCaption) -> Unit,
+) {
     var open by remember { mutableStateOf(false) }
     val label = stringResource(R.string.wardrobe_view_options)
 
@@ -354,6 +369,8 @@ private fun ViewMenu(current: WardrobeView, onSelected: (WardrobeView) -> Unit) 
         }
 
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            MenuSection(stringResource(R.string.wardrobe_view_section_layout))
+
             for (choice in WARDROBE_VIEW_CHOICES) {
                 DropdownMenuItem(
                     text = { Text(viewChoiceLabel(choice)) },
@@ -370,8 +387,50 @@ private fun ViewMenu(current: WardrobeView, onSelected: (WardrobeView) -> Unit) 
                     },
                 )
             }
+
+            // Only while the grid is in force. A row already shows the type as its
+            // title and the brand under it, so there is nothing there to pick
+            // between, and an entry that changes nothing you can see is worse than
+            // an entry that is not there. The layout is chosen from this same menu,
+            // so the way to it is one tap away.
+            if (current.layout == WardrobeLayout.GRID) {
+                HorizontalDivider()
+                MenuSection(stringResource(R.string.wardrobe_view_section_show))
+
+                for (choice in GarmentCaption.entries) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(choice.labelRes)) },
+                        onClick = {
+                            open = false
+                            onCaptionSelected(choice)
+                        },
+                        trailingIcon = {
+                            if (choice == caption) {
+                                Icon(Icons.Filled.Check, contentDescription = null)
+                            }
+                        },
+                    )
+                }
+            }
         }
     }
+}
+
+/**
+ * A heading inside the menu.
+ *
+ * Needed once there were two things being chosen in it: "List / Grid of 3 / Brand
+ * / Category" in one column reads as one set of alternatives, and picking a
+ * caption would look like it should have replaced the layout.
+ */
+@Composable
+private fun MenuSection(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }
 
 /**
@@ -437,12 +496,23 @@ private fun GridGlyph(modifier: Modifier = Modifier) {
 /**
  * One garment as a cell.
  *
- * The photo at the 3:4 every garment photo in this app is, and the brand under it
- * -- which is how a wall of photos is read, and the one thing a photo does not
- * show. A garment with no brand gets its type instead rather than a blank line.
+ * The photo at the 3:4 every garment photo in this app is, and one line under it.
+ * What that line says is [caption]'s to decide -- the brand was the only answer
+ * for a while, on the reasoning that it is the one thing a photo does not show,
+ * which is true of some wardrobes and not of others.
+ *
+ * Which field a given garment can actually answer with is `captionField`'s, in
+ * :presentation, where a test can hold it: the failure worth guarding against is a
+ * cell whose line comes out blank, and that happens only on the garments missing
+ * the field asked for.
  */
 @Composable
-private fun GarmentCell(garment: GarmentRecord, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun GarmentCell(
+    garment: GarmentRecord,
+    caption: GarmentCaption,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     Column(modifier = modifier.clickable(onClick = onClick)) {
         AsyncImage(
             model = garment.displayImage,
@@ -456,9 +526,13 @@ private fun GarmentCell(garment: GarmentRecord, modifier: Modifier = Modifier, o
         )
 
         Text(
-            garment.brand?.takeIf { it.isNotBlank() }
-                ?: garment.subcategory?.let { garmentTypeLabel(it) }
-                ?: categoryLabel(garment.category),
+            when (garment.captionField(caption)) {
+                // As typed by whoever entered it, where the other two go through
+                // the vocabulary: a brand is not a word this app knows.
+                GarmentCaption.BRAND -> garment.brand.orEmpty()
+                GarmentCaption.TYPE -> garmentTypeLabel(garment.subcategory.orEmpty())
+                GarmentCaption.CATEGORY -> categoryLabel(garment.category)
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,

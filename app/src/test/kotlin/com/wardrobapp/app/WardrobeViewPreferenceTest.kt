@@ -1,6 +1,8 @@
 package com.wardrobapp.app
 
+import android.content.Context
 import com.wardrobapp.presentation.DEFAULT_GRID_COLUMNS
+import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.WardrobeLayout
 import com.wardrobapp.presentation.WardrobeView
 import org.junit.Assert.assertEquals
@@ -27,6 +29,7 @@ class WardrobeViewPreferenceTest {
     @Before
     fun forgetAnyChoice() {
         WardrobeViewPreference(context).view = WardrobeView()
+        WardrobeViewPreference(context).caption = GarmentCaption.BRAND
     }
 
     @Test
@@ -57,6 +60,47 @@ class WardrobeViewPreferenceTest {
         // Stored rather than defaulted, so choosing the grid again is the grid that
         // was left, not the middle one.
         assertEquals(2, stored.columns)
+    }
+
+    @Test
+    fun `a fresh install captions its cells the way this app always has`() {
+        assertEquals(GarmentCaption.BRAND, WardrobeViewPreference(context).caption)
+    }
+
+    @Test
+    fun `a chosen caption is still there for the next launch`() {
+        WardrobeViewPreference(context).caption = GarmentCaption.CATEGORY
+
+        assertEquals(GarmentCaption.CATEGORY, WardrobeViewPreference(context).caption)
+    }
+
+    @Test
+    fun `going back to the brand leaves nothing stored`() {
+        // The brand is recorded as the absence of a choice, so this is the case
+        // where the key has to be removed rather than written: an install that has
+        // never chosen and one that chose the brand have to read alike.
+        val preference = WardrobeViewPreference(context)
+        preference.caption = GarmentCaption.TYPE
+        preference.caption = GarmentCaption.BRAND
+
+        assertEquals(GarmentCaption.BRAND, WardrobeViewPreference(context).caption)
+        assertEquals(
+            null,
+            context
+                .getSharedPreferences(APPEARANCE_PREFERENCES, Context.MODE_PRIVATE)
+                .getString("wardrobe_caption", null),
+        )
+    }
+
+    @Test
+    fun `the caption and the layout do not overwrite each other`() {
+        val preference = WardrobeViewPreference(context)
+        preference.view = WardrobeView(WardrobeLayout.GRID, columns = 4)
+        preference.caption = GarmentCaption.TYPE
+
+        val next = WardrobeViewPreference(context)
+        assertEquals(WardrobeView(WardrobeLayout.GRID, columns = 4), next.view)
+        assertEquals(GarmentCaption.TYPE, next.caption)
     }
 
     @Test

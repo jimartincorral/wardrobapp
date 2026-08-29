@@ -9,24 +9,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -36,8 +25,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.net.toUri
@@ -166,16 +153,7 @@ class MainActivity : AppCompatActivity() {
                     // offer to take you sideways out of it.
                     bottomBar = {
                         if (TABS.any { it.route == route }) {
-                            NavigationBar {
-                                for (tab in TABS) {
-                                    NavigationBarItem(
-                                        selected = route == tab.route,
-                                        onClick = { navigator.switchTo(tab.route) },
-                                        icon = { Icon(tab.icon, contentDescription = null) },
-                                        label = { Text(stringResource(tab.labelRes)) },
-                                    )
-                                }
-                            }
+                            WardrobeBottomBar(route) { navigator.switchTo(it) }
                         }
                     },
                 ) { insets ->
@@ -428,6 +406,7 @@ class MainActivity : AppCompatActivity() {
             onColorTapped = model::onColorTapped,
             onRetiredToggled = model::onRetiredToggled,
             onViewSelected = model::onViewSelected,
+            onCaptionSelected = model::onCaptionSelected,
         )
     }
 
@@ -1079,21 +1058,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // The label is a resource id rather than a string because this list is built
-    // once, outside any composition, and a string would freeze the language it was
-    // built in.
-    private data class Tab(
-        val route: String,
-        @StringRes val labelRes: Int,
-        val icon: ImageVector,
-    )
-
     private companion object {
-        const val HOME = "home"
-        const val WARDROBE = "wardrobe"
-        const val OUTFITS = "outfits"
-        const val STATISTICS = "statistics"
-        const val SETTINGS = "settings"
         const val GARMENT = "garment"
         const val OUTFIT = "outfit"
         const val OUTFIT_ID = "outfitId"
@@ -1122,18 +1087,5 @@ class MainActivity : AppCompatActivity() {
          */
         const val APP_SCHEME = "wardrobapp"
         const val IMPORT_URL = "importUrl"
-
-        val TABS = listOf(
-            Tab(HOME, R.string.tab_home, Icons.Filled.Home),
-            Tab(WARDROBE, R.string.tab_wardrobe, Icons.Filled.List),
-            Tab(OUTFITS, R.string.tab_outfits, Icons.Filled.Star),
-            Tab(STATISTICS, R.string.tab_statistics, Icons.Filled.Info),
-            // A tab rather than somewhere you go and come back from. What is in
-            // it -- the theme, the language, backups, storage -- is not a
-            // detour off one screen, and it was reached through a gear on the
-            // wardrobe's bar, which put it behind a screen it has nothing to do
-            // with.
-            Tab(SETTINGS, R.string.tab_settings, Icons.Filled.Settings),
-        )
     }
 }

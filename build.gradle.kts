@@ -33,7 +33,13 @@ subprojects {
         tasks.withType<Test>().configureEach {
             dependsOn(verifyTestSourcesExist)
             useJUnitPlatform()
-            testLogging { events("failed") }
+            testLogging {
+                events("failed")
+                // The message, not just the line number. :app's tests run nowhere
+                // but CI, so a failure that says only "AssertionError at line 60"
+                // costs a whole round trip to find out what it was asserting.
+                exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+            }
 
             afterSuite(
                 KotlinClosure2<TestDescriptor, TestResult, Unit>({ descriptor, result ->
@@ -73,7 +79,13 @@ subprojects {
 
         tasks.withType<Test>().configureEach {
             dependsOn(verifyAndroidTestSourcesExist)
-            testLogging { events("failed") }
+            testLogging {
+                events("failed")
+                // The message, not just the line number. :app's tests run nowhere
+                // but CI, so a failure that says only "AssertionError at line 60"
+                // costs a whole round trip to find out what it was asserting.
+                exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+            }
 
             afterSuite(
                 KotlinClosure2<TestDescriptor, TestResult, Unit>({ descriptor, result ->
