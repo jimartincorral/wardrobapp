@@ -35,6 +35,11 @@ private const val KEPT_IN_DRIVE = 5
  * moves the bytes, and [AppContainer] writes and reads the archive itself. What is
  * left here is the order they happen in and what the screen is told.
  *
+ * These run on `viewModelScope`, which dispatches on the main thread. Nothing here
+ * may block it, and nothing here has to: each collaborator moves its own work off,
+ * which is the only arrangement that does not depend on every future caller
+ * remembering to.
+ *
  * An [AuthorizationService] holds a browser binding, so it is created once and
  * closed in [onCleared]; leaking one leaks the connection behind it.
  */
@@ -150,7 +155,10 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
                 _state.update { it.copy(progress = sent) }
             }
         } finally {
-            staged.delete()
+            // Small, but still a file touched from a coroutine that runs on the
+            // main thread: the Drive calls move themselves off it, and this would
+            // otherwise be the last piece of I/O left on it.
+            withContext(Dispatchers.IO) { staged.delete() }
         }
 
         // Only after one has arrived. Pruning first would, on a run where the
@@ -191,7 +199,7 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
 
             _state.update { it.copy(restored = true) }
         } finally {
-            downloaded.delete()
+            withContext(Dispatchers.IO) { downloaded.delete() }
         }
     }
 

@@ -18,6 +18,8 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Long enough for a slow connection to finish a request, short enough to give up on a dead one. */
 private const val TIMEOUT_MS = 30_000
@@ -60,22 +62,24 @@ class AndroidDriveBackups(
      * should not put a folder in somebody's Drive before they have ever asked for
      * a backup.
      */
-    suspend fun existingFolderId(): String? =
+    suspend fun existingFolderId(): String? = withContext(Dispatchers.IO) {
         parseDriveFolderId(get(driveFindFolderUrl()))
+    }
 
-    private suspend fun createdFolderId(): String {
+    private suspend fun createdFolderId(): String = withContext(Dispatchers.IO) {
         val created = postJson(
             url = "https://www.googleapis.com/drive/v3/files",
             body = driveFolderMetadata(),
         )
 
-        return parseDriveFileId(created)
+        parseDriveFileId(created)
             ?: throw IOException(context.getString(R.string.error_drive_no_folder))
     }
 
     /** What is in the folder, newest first. */
-    suspend fun list(folderId: String): List<DriveBackup> =
+    suspend fun list(folderId: String): List<DriveBackup> = withContext(Dispatchers.IO) {
         parseDriveBackups(get(driveListUrl(folderId)))
+    }
 
     /**
      * Send an archive up.
@@ -93,7 +97,7 @@ class AndroidDriveBackups(
         name: String,
         folderId: String,
         onProgress: (Float) -> Unit = {},
-    ): String {
+    ): String = withContext(Dispatchers.IO) {
         val session = openUploadSession(name, folderId, archive.length())
 
         if (!isTrustedDriveEndpoint(session)) {
@@ -105,7 +109,7 @@ class AndroidDriveBackups(
         connection.setFixedLengthStreamingMode(archive.length())
         connection.doOutput = true
 
-        return try {
+        try {
             archive.inputStream().use { source ->
                 connection.outputStream.use { sink ->
                     val buffer = ByteArray(CHUNK)
@@ -143,7 +147,11 @@ class AndroidDriveBackups(
      * decision, and it already stages, verifies and rolls back. A half-written
      * download is deleted rather than left looking like an archive.
      */
-    suspend fun download(fileId: String, destination: File, onProgress: (Float?) -> Unit = {}) {
+    suspend fun download(
+        fileId: String,
+        destination: File,
+        onProgress: (Float?) -> Unit = {},
+    ) = withContext(Dispatchers.IO) {
         val connection = open(driveDownloadUrl(fileId), "GET")
 
         try {
@@ -174,7 +182,7 @@ class AndroidDriveBackups(
     }
 
     /** Remove one. Used by pruning, which decides *which* in :data. */
-    suspend fun delete(fileId: String) {
+    suspend fun delete(fileId: String) = withContext(Dispatchers.IO) {
         val connection = open(driveDeleteUrl(fileId), "DELETE")
 
         try {
@@ -183,7 +191,7 @@ class AndroidDriveBackups(
             // to let them do -- the file is gone, which is what was asked for, and
             // failing the whole prune over it would leave the rest unpruned.
             val code = connection.responseCode
-            if (code == HttpURLConnection.HTTP_NOT_FOUND) return
+            if (code == HttpURLConnection.HTTP_NOT_FOUND) return@withContext
 
             if (code != HttpURLConnection.HTTP_NO_CONTENT && code != HttpURLConnection.HTTP_OK) {
                 throw IOException(context.getString(R.string.error_drive_refused, code))
