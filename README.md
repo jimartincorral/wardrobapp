@@ -123,6 +123,41 @@ CI decodes the keystore and passes the rest to Gradle as
 passwords out of your shell history and out of the repository. Use forward slashes in
 that path: a `.properties` file reads a backslash as an escape.
 
+### Google Drive sign-in
+
+Backing up to Drive needs an OAuth client, and there are three settings that are
+easy to get wrong and give errors that do not name themselves. All three are in the
+Google Cloud console under **APIs & Services → Credentials**; none of them are in
+this repository.
+
+**One client per build type, because Google keys an Android client on the
+application id *and* the signing certificate.** A debug build differs in both, so
+one client cannot cover both. The ids are committed in `app/build.gradle.kts`
+rather than kept as secrets: an Android client has no secret, the id ships inside
+the APK, and what stops somebody else using it is the pair Google checks it
+against.
+
+| | application id | certificate |
+|---|---|---|
+| release | `com.anonymous.wardrobapp` | the release key, SHA-1 `c9c04a682b973e52b93edc82d5a39facfea438bf` |
+| debug | `com.anonymous.wardrobapp.debug` | the committed debug key |
+
+**Custom URI schemes must be switched on, per client.** Google disables them by
+default on Android clients created since 2022. Without it the browser opens, the
+sign-in page loads, and Google refuses with *"Custom URI scheme is not enabled for
+your Android client"* — which reads like a bug in the app and is not. The toggle is
+under **Advanced settings** on the client itself, and takes a few minutes to take
+effect.
+
+**A new keystore means updating the release client's fingerprint.** Sign-in then
+breaks in release only, while debug keeps working and hides it.
+
+The redirect URI is not registered anywhere: Google derives it from the package
+name, and the app builds the matching one from `BuildConfig.APPLICATION_ID`
+(`com.anonymous.wardrobapp:/oauth2redirect`). `appAuthRedirectScheme` in
+`app/build.gradle.kts` has to match that per build type, or the browser will not
+find its way back.
+
 ## Project structure
 
 ```
