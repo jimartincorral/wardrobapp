@@ -57,7 +57,17 @@ class TabLabelTest {
             // The one that catches an ellipsis. `maxLines = 1` means a word too
             // wide is truncated rather than wrapped, so the line count alone would
             // report a fit for a label reading "Estadisti...".
-            assertFalse("\"$word\" was cut short to fit", label.hasVisualOverflow)
+            //
+            // The numbers are in the message because this runs only in CI: a bare
+            // "did not fit" would say nothing about whether it was the width or the
+            // line height, and finding out costs a push either way.
+            assertFalse(
+                "\"$word\" did not fit: " +
+                    "width=${label.didOverflowWidth} height=${label.didOverflowHeight} " +
+                    "laid out ${label.size} for a paragraph " +
+                    "${label.multiParagraph.width}x${label.multiParagraph.height}",
+                label.hasVisualOverflow,
+            )
         }
     }
 
