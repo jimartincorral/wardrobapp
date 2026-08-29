@@ -19,14 +19,19 @@ import kotlin.test.assertTrue
  */
 class DuplicateDetectionTest {
 
+    // Every fixture carries a type, because a garment without one is now not a
+    // duplicate of anything -- so a fixture that omitted it would test the gate
+    // rather than whatever the test is named for.
     private fun existing(
         id: String,
         tags: List<String> = emptyList(),
         color: String = "#1F3A93",
         size: String? = null,
+        subcategory: String = "T-Shirt",
     ) = Garment(
         id = id,
         category = "tops",
+        subcategories = listOf(subcategory),
         tags = tags,
         colorPrimary = color,
         size = size,
@@ -36,8 +41,10 @@ class DuplicateDetectionTest {
         tags: List<String> = emptyList(),
         color: String = "#1F3A93",
         size: String? = null,
+        subcategory: String = "T-Shirt",
     ) = DuplicateCandidate(
         category = "tops",
+        subcategories = listOf(subcategory),
         tags = tags,
         colorPrimary = color,
         size = size,
@@ -103,7 +110,12 @@ class DuplicateDetectionTest {
         ).single()
 
         assertTrue(DuplicateReason.SIMILAR_TAGS in tagsAndColour.reasons)
-        assertTrue(DuplicateReason.SIMILAR_COLOR in tagsAndColour.reasons)
+
+        // And never the colour, which is now the entry requirement rather than a
+        // finding: every garment that gets this far is the same colour, so saying
+        // so would be a reason given for everything, which is a reason for
+        // nothing.
+        assertTrue(DuplicateReason.SIMILAR_COLOR !in tagsAndColour.reasons)
 
         val sameSize = findDuplicatesAmong(
             candidate(tags = listOf("casual"), size = "m"),
@@ -174,4 +186,87 @@ class DuplicateDetectionTest {
 
         assertEquals(emptyList(), findDuplicatesAmong(red, listOf(blue)))
     }
+    @Test
+    fun `two kinds of thing are never the same thing`() {
+        // The comparison that made the wardrobe-wide sweep unusable. These score
+        // 1.0 on everything that is measured -- same category, same colour, same
+        // tags, same size -- and no threshold below 1.0 could ever have separated
+        // them, because nothing was looking at what they are.
+        val matches = findDuplicatesAmong(
+            candidate(subcategory = "T-Shirt", tags = listOf("casual")),
+            listOf(existing("g1", subcategory = "Jumper", tags = listOf("casual"))),
+        )
+
+        assertEquals(emptyList(), matches)
+    }
+
+    @Test
+    fun `one type in common is enough`() {
+        // A garment can be filed under more than one type, and two shirts both
+        // filed as T-Shirt are the same kind of thing whatever else either is.
+        val matches = findDuplicatesAmong(
+            candidate(tags = listOf("casual")).copy(subcategories = listOf("Top", "T-Shirt")),
+            listOf(existing("g1", tags = listOf("casual")).copy(subcategories = listOf("T-Shirt", "Vest"))),
+        )
+
+        assertEquals(listOf("g1"), matches.map { it.garment.id })
+    }
+
+    @Test
+    fun `a garment with no type is not a duplicate of anything`() {
+        val untyped = candidate(tags = listOf("casual")).copy(subcategories = emptyList())
+
+        assertEquals(
+            emptyList(),
+            findDuplicatesAmong(untyped, listOf(existing("g1", tags = listOf("casual")))),
+            "a garment with no type matched one that has one",
+        )
+
+        // Including another with none. Two unknowns are not a known.
+        assertEquals(
+            emptyList(),
+            findDuplicatesAmong(
+                untyped,
+                listOf(existing("g1", tags = listOf("casual")).copy(subcategories = emptyList())),
+            ),
+            "two garments with no type matched each other",
+        )
+    }
+
+    @Test
+    fun `the same shirt in two colours is two shirts`() {
+        val matches = findDuplicatesAmong(
+            candidate(tags = listOf("casual", "summer"), color = "#1F3A93"),
+            listOf(existing("g1", tags = listOf("casual", "summer"), color = "#B22222")),
+        )
+
+        assertEquals(emptyList(), matches)
+    }
+
+    @Test
+    fun `two blacks a shade apart are the same black`() {
+        // The reason the gate is a colour distance and not an equal hex string:
+        // these come off two photographs of the same shirt, and equality would
+        // throw away exactly the duplicate worth finding.
+        val matches = findDuplicatesAmong(
+            candidate(tags = listOf("casual"), color = "#000000"),
+            listOf(existing("g1", tags = listOf("casual"), color = "#0A0A0A")),
+        )
+
+        assertEquals(listOf("g1"), matches.map { it.garment.id })
+    }
+
+    @Test
+    fun `a colour nothing can read is not a colour to match on`() {
+        // `colorRelationship` answers UNKNOWN rather than guessing, and unknown is
+        // not "the same" -- which is the honest reading of a rule that says a
+        // duplicate must be the same colour.
+        val matches = findDuplicatesAmong(
+            candidate(tags = listOf("casual"), color = "not-a-colour"),
+            listOf(existing("g1", tags = listOf("casual"), color = "not-a-colour")),
+        )
+
+        assertEquals(emptyList(), matches)
+    }
+
 }

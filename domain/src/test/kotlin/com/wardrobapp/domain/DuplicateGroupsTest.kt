@@ -18,12 +18,14 @@ class DuplicateGroupsTest {
     private fun garment(
         id: String,
         category: String = "tops",
+        subcategory: String = "T-Shirt",
         tags: List<String> = listOf("casual", "summer"),
         color: String = "#1F3A93",
         size: String? = "M",
     ) = Garment(
         id = id,
         category = category,
+        subcategories = listOf(subcategory),
         tags = tags,
         colorPrimary = color,
         size = size,
@@ -188,4 +190,32 @@ class DuplicateGroupsTest {
 
         assertEquals("#1F3A93", garment.asDuplicateCandidate().colorPrimary)
     }
+    @Test
+    fun `a shirt and a jumper are not each other, however alike the rest of them is`() {
+        // What the sweep was reporting before there was a gate: same category,
+        // same colour, same tags, same size, and one of them is a jumper.
+        val groups = duplicateGroups(
+            listOf(
+                garment("shirt1", subcategory = "T-Shirt"),
+                garment("shirt2", subcategory = "T-Shirt"),
+                garment("jumper", subcategory = "Jumper"),
+            ),
+        )
+
+        assertEquals(
+            listOf(listOf("shirt1", "shirt2")),
+            groups.map { group -> group.garments.map { it.id }.sorted() },
+        )
+    }
+
+    @Test
+    fun `garments with no type recorded are left out entirely`() {
+        // Not an empty group and not a group of one: they never enter. The cost of
+        // the rule, and the reason a wardrobe with no types recorded reports
+        // nothing at all.
+        val groups = duplicateGroups((1..3).map { garment("g$it").copy(subcategories = emptyList()) })
+
+        assertEquals(emptyList(), groups)
+    }
+
 }

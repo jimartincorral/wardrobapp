@@ -599,6 +599,11 @@ class GarmentFormViewModel(
 
     private fun GarmentFormState.asDuplicateCandidate() = DuplicateCandidate(
         category = category,
+        // A duplicate has to be the same kind of thing, so what kind of thing this
+        // is about to be has to travel with it. Without this every garment saved
+        // would look untyped, and untyped is never a duplicate -- the warning
+        // would go quiet rather than wrong, which is worse.
+        subcategories = subcategories,
         // The same tags that will be stored, so the candidate is compared as the
         // garment it is about to become.
         tags = mergeStructuredTags(tags, seasons),

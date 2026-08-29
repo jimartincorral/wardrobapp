@@ -29,6 +29,7 @@ enum class DuplicateReason {
 /** The subset of a garment duplicate detection actually compares. */
 data class DuplicateCandidate(
     val category: String,
+    val subcategories: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val colorPrimary: String,
     val colorPalette: List<String> = emptyList(),
@@ -66,6 +67,43 @@ private fun weightedAverage(terms: List<SignalTerm>): Double? {
 }
 
 /**
+ * Whether two garments are the same kind of thing.
+ *
+ * Sharing one is enough: a garment can carry more than one type, and two shirts
+ * both filed under "T-Shirt" are the same kind of thing whatever else either of
+ * them is also filed under.
+ *
+ * **Neither side may be empty.** A garment whose type was never recorded is not a
+ * duplicate of anything, including another garment with no type: without knowing
+ * what a garment is, there is no claim to make about it being the same as
+ * something else. The cost is that such garments never appear, and nothing says
+ * so -- accepted deliberately over the alternative of matching them on colour
+ * alone, which is the comparison this whole change exists to stop making.
+ */
+private fun sharesSubcategory(here: List<String>, there: List<String>): Boolean {
+    val ours = here.mapNotNullTo(mutableSetOf()) { it.trim().lowercase().ifEmpty { null } }
+    if (ours.isEmpty()) return false
+
+    return there.any { it.trim().lowercase().let { other -> other.isNotEmpty() && other in ours } }
+}
+
+/**
+ * Whether two garments are the same colour.
+ *
+ * [ColorRelationship.SAME] rather than an equal hex string, and the difference
+ * matters: colours are read off photographs, so two identical black shirts
+ * photographed on different days are `#000000` and `#0A0A0A`. Demanding equality
+ * would miss exactly the duplicates worth finding, where a deltaE under five is
+ * the same colour to an eye.
+ *
+ * Anything unparseable, or the multi-colour sentinel, answers `UNKNOWN` and so
+ * fails this -- which is the right reading of "must be the same colour" when the
+ * colour is not known.
+ */
+private fun sameColor(here: String, there: String): Boolean =
+    colorRelationship(here, there) == ColorRelationship.SAME
+
+/**
  * Score a candidate against garments already in the wardrobe.
  *
  * Pure: the caller supplies what to compare against. Returns matches scoring
@@ -79,6 +117,15 @@ fun findDuplicatesAmong(
     val matches = mutableListOf<DuplicateMatch>()
 
     for (garment in existing) {
+        // Two conditions before any of the scoring, and they are conditions rather
+        // than evidence: a garment failing either is not a near-duplicate however
+        // well the rest of it scores. Weighing them instead is what produced the
+        // wardrobe-wide nonsense -- the score renormalises over whatever has data,
+        // so a black t-shirt and a black jumper with no tags scored exactly 1.0,
+        // and no threshold below 1.0 could ever have excluded them.
+        if (!sharesSubcategory(newGarment.subcategories, garment.effectiveSubcategories)) continue
+        if (!sameColor(newGarment.colorPrimary, garment.primaryColor)) continue
+
         // Compare primary against primary. Taking the best match across the whole
         // palette cross-product meant any shared entry pinned this to 1.0 -- and
         // '#000000' is the schema default, so a red garment and a blue one that
@@ -104,9 +151,11 @@ fun findDuplicatesAmong(
 
         if (score == null || score <= threshold) continue
 
+        // No SIMILAR_COLOR, and its absence is deliberate. Colour is now the gate
+        // above, so it holds of everything that reaches here: saying it would be
+        // like explaining that they are all garments. What is left is what varies.
         val reasons = buildList {
             if (tagSim != null && tagSim > 0.5) add(DuplicateReason.SIMILAR_TAGS)
-            if (colorSim > 0.7) add(DuplicateReason.SIMILAR_COLOR)
             if (sizeMatch == 1.0) add(DuplicateReason.SAME_SIZE)
             if (isEmpty()) add(DuplicateReason.OVERALL_SIMILARITY)
         }
@@ -128,6 +177,7 @@ fun findDuplicatesAmong(
  */
 fun Garment.asDuplicateCandidate() = DuplicateCandidate(
     category = category,
+    subcategories = effectiveSubcategories,
     tags = tags,
     colorPrimary = primaryColor,
     colorPalette = palette,
