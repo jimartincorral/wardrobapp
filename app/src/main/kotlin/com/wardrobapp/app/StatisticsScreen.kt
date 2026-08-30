@@ -165,7 +165,7 @@ fun StatisticsScreen(
 @Composable
 private fun Body(
     view: StatisticsView,
-    duplicates: List<DuplicateGarmentGroup>,
+    duplicates: List<DuplicateGarmentGroup>?,
     expanded: Set<String>,
     openSections: Set<StatisticsSection>,
     brandSort: BrandSort,
@@ -490,20 +490,30 @@ private fun Body(
             if (open) {
                 item {
                     Chart {
-                        if (duplicates.isEmpty()) {
+                        when {
+                            // Null is "still looking", and it has to read as that:
+                            // the sweep is the one thing on this page that takes
+                            // long enough to notice, and showing "nothing looks
+                            // like anything else" while it runs would tell somebody
+                            // their wardrobe is clean before anything had checked.
+                            duplicates == null -> Box(
+                                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                                contentAlignment = Alignment.Center,
+                            ) { CircularProgressIndicator(modifier = Modifier.size(24.dp)) }
+
                             // Offered even when it finds nothing, for the reason
                             // the lifespan section is: "nothing looks like anything
                             // else" is the answer to the question, where a missing
                             // section reads as the app never having looked.
-                            Text(
+                            duplicates.isEmpty() -> Text(
                                 stringResource(R.string.statistics_no_duplicates),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth().padding(8.dp),
                             )
-                        } else {
-                            for (group in duplicates) {
+
+                            else -> for (group in duplicates) {
                                 DuplicateRow(group = group, onGarmentOpened = onGarmentOpened)
                             }
                         }

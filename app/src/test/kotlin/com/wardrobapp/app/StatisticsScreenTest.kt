@@ -295,4 +295,23 @@ class StatisticsScreenTest {
         compose.onNodeWithText("Nothing in your wardrobe looks much like anything else.").assertIsDisplayed()
     }
 
+    @Test
+    fun `a section that has not looked yet does not claim the wardrobe is clean`() {
+        // The sweep is asked for when the section opens, so there is a moment with
+        // no answer. Saying "nothing looks like anything else" then would be a
+        // verdict delivered before anything had been examined.
+        show(
+            StatisticsViewModel.State(
+                loading = false,
+                view = view(),
+                openSections = setOf(StatisticsSection.DUPLICATES),
+                duplicates = null,
+            ),
+        )
+
+        scrollTo("Things you may own twice")
+        compose.onNodeWithText("Nothing in your wardrobe looks much like anything else.")
+            .assertDoesNotExist()
+    }
+
 }

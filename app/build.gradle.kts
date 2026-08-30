@@ -204,7 +204,18 @@ android {
         }
 
         release {
-            isMinifyEnabled = false
+            // R8 on. Worth knowing what this is and is not verified by: CI runs
+            // `assembleRelease`, so a rule that strips something the build can see
+            // fails there -- but nothing in CI ever *runs* the APK, so anything
+            // reached by name at runtime is only as safe as `proguard-rules.pro`
+            // says it is. The four that matter are the Drive sign-in, background
+            // removal, cropping, and the scheduled backup.
+            //
+            // Resource shrinking is deliberately not on with it. It is a second
+            // question with its own failure mode, and answering two at once means
+            // not knowing which one broke.
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("String", "DRIVE_CLIENT_ID", RELEASE_DRIVE_CLIENT_ID)
             manifestPlaceholders["appAuthRedirectScheme"] = "com.anonymous.wardrobapp"
             // A real keystore when one is configured; otherwise the committed

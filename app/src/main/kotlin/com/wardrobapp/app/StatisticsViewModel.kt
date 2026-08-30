@@ -10,6 +10,7 @@ import com.wardrobapp.presentation.LifespanEntry
 import com.wardrobapp.presentation.StatisticsView
 import com.wardrobapp.presentation.statisticsView
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,13 +56,18 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
         val openSections: Set<StatisticsSection> = emptySet(),
         val brandSort: BrandSort = BrandSort.COUNT,
         /**
-         * Garments that look like each other.
+         * Garments that look like each other, or null before anyone has asked.
          *
          * Beside the counts rather than inside [StatisticsView], because it is not
          * arithmetic over the wardrobe: it is a comparison of every garment with
          * every other, and the pure view builder stays a function of the tallies.
+         *
+         * Null rather than empty, and the difference is the whole reason this is
+         * lazy: "nobody has looked yet" and "nothing in your wardrobe matches" are
+         * different answers, and showing the second while the first is true tells
+         * somebody their wardrobe is clean when nothing has checked.
          */
-        val duplicates: List<DuplicateGarmentGroup> = emptyList(),
+        val duplicates: List<DuplicateGarmentGroup>? = null,
     )
 
     /** The counts as read, so re-sorting brands does not re-query for them. */
@@ -110,18 +116,18 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
                     )
                 }
 
-                // On the same trip as the counts rather than a second one. It is
-                // the slowest thing this screen asks for -- every garment against
-                // every other within its category -- and a separate read would
-                // mean the page arriving in two pieces.
-                val duplicates = withContext(Dispatchers.IO) { container.duplicates.groups() }
-
                 counts = read
                 _state.update {
                     it.copy(
                         loading = false,
                         view = read.viewSortedBy(it.brandSort),
-                        duplicates = duplicates,
+                        // Dropped rather than recomputed. This runs on every return
+                        // to the tab, and the sweep is by far the most expensive
+                        // thing the screen can ask for: it loads every garment and
+                        // compares each against every other in its category. Doing
+                        // that to fill in a section nobody has opened made the whole
+                        // page wait for an answer most visits never look at.
+                        duplicates = null,
                         error = null,
                     )
                 }
@@ -135,14 +141,48 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
 
     /** Open or close one section of the page. */
     fun onSectionTapped(section: StatisticsSection) {
+        val opening = section !in _state.value.openSections
+
         _state.update {
             it.copy(
-                openSections = if (section in it.openSections) {
-                    it.openSections - section
-                } else {
+                openSections = if (opening) {
                     it.openSections + section
+                } else {
+                    it.openSections - section
                 }
             )
+        }
+
+        // The only section that has to go and find its answer. Asked for here
+        // rather than in `refresh` so that the cost falls on opening it, and only
+        // the first time it is opened between one read of the wardrobe and the
+        // next.
+        if (opening && section == StatisticsSection.DUPLICATES && _state.value.duplicates == null) {
+            sweepForDuplicates()
+        }
+    }
+
+    /**
+     * The sweep in flight, so shutting and reopening the section does not start a
+     * second one. It stays null while nothing is running, which is also how
+     * [sweepForDuplicates] knows a previous one finished or failed.
+     */
+    private var sweep: Job? = null
+
+    private fun sweepForDuplicates() {
+        if (sweep?.isActive == true) return
+
+        sweep = viewModelScope.launch {
+            try {
+                val groups = withContext(Dispatchers.IO) { container.duplicates.groups() }
+                _state.update { it.copy(duplicates = groups) }
+            } catch (e: Exception) {
+                // Deliberately not `error`: the counts are on screen and correct,
+                // and turning a page that mostly worked into an error page would be
+                // a worse answer than one section that did not fill in. Leaving it
+                // null means opening the section again tries again.
+                _state.update { it.copy(duplicates = null) }
+            }
         }
     }
 
