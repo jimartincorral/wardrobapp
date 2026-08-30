@@ -78,6 +78,9 @@ class AppContainer(context: Context) {
      */
     val wardrobeView = WardrobeViewPreference(context)
 
+    /** What a backup carries about how the app is set up, and what puts it back. */
+    val appSettings = AppSettings(context)
+
     /** Where photos are decoded, scaled and written. */
     val photos = AndroidPhotoStore(context)
 
@@ -142,8 +145,14 @@ class AppContainer(context: Context) {
      * with something worth showing the user if the archive cannot be restored --
      * and in that case nothing has changed.
      */
-    fun restoreFrom(archive: InputStream) {
-        database.whileClosed { restore.restoreFromZip(archive) }
+    fun restoreFrom(archive: InputStream, applySettings: Boolean = false) {
+        val settings = database.whileClosed { restore.restoreFromZip(archive) }
+
+        // Outside `whileClosed`, and after it: preferences have nothing to do with
+        // the database connection, and applying the language restarts activities.
+        // Doing that while the connection is closed would have the app come back
+        // up and read a database that is not open yet.
+        if (applySettings && settings != null) appSettings.apply(settings)
     }
 
     /**
@@ -163,8 +172,13 @@ class AppContainer(context: Context) {
         onImageCopied: (Int, Int) -> Unit,
     ): BackupSummary {
         val staged = database.whileClosed { backup.stageDatabase() }
+
+        // Read here rather than inside the writer, so that :data stays a module
+        // that knows the archive format and nothing about Android preferences.
+        val settings = appSettings.capture()
+
         return try {
-            backup.writeArchive(openDestination, staged, onImageCopied)
+            backup.writeArchive(openDestination, staged, settings, onImageCopied)
         } finally {
             backup.discardStaging()
         }

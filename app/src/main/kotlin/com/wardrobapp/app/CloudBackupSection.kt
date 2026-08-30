@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
@@ -25,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.data.DriveBackup
 import com.wardrobapp.data.isoTimestamp
@@ -62,7 +65,7 @@ fun CloudBackupSection(
     onDisconnect: () -> Unit,
     onBackUp: () -> Unit,
     onRefresh: () -> Unit,
-    onRestore: (DriveBackup) -> Unit,
+    onRestore: (DriveBackup, withSettings: Boolean) -> Unit,
     onFailureDismissed: () -> Unit,
     onRestoredDismissed: () -> Unit,
     onScheduleChanged: (Boolean) -> Unit,
@@ -103,6 +106,11 @@ fun CloudBackupSection(
     }
 
     confirming?.let { backup ->
+        // Keyed on the archive, so the box is clear again each time one is picked:
+        // a tick left over from a dialog somebody cancelled is a decision they did
+        // not make.
+        var withSettings by remember(backup.id) { mutableStateOf(false) }
+
         AlertDialog(
             onDismissRequest = { confirming = null },
             title = { Text(stringResource(R.string.settings_cloud_restore_title)) },
@@ -123,6 +131,30 @@ fun CloudBackupSection(
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                     )
+                    // Offered without knowing whether this archive has any: that
+                    // takes reading the zip, and the zip is downloaded after this
+                    // dialog is answered. Ticking it for an archive with no
+                    // settings restores the wardrobe and nothing else, which is
+                    // what it would have done anyway.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .testTag(RESTORE_WITH_SETTINGS)
+                            .toggleable(
+                                value = withSettings,
+                                onValueChange = { withSettings = it },
+                                role = Role.Checkbox,
+                            ),
+                    ) {
+                        Checkbox(checked = withSettings, onCheckedChange = null)
+                        Text(
+                            stringResource(R.string.restore_preview_settings),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+
                     Text(
                         stringResource(R.string.settings_cloud_restore_body),
                         style = MaterialTheme.typography.bodySmall,
@@ -135,7 +167,7 @@ fun CloudBackupSection(
                 TextButton(
                     onClick = {
                         confirming = null
-                        onRestore(backup)
+                        onRestore(backup, withSettings)
                     },
                 ) {
                     Text(stringResource(R.string.settings_cloud_restore))

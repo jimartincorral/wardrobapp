@@ -92,7 +92,7 @@ class ArchiveBackupTest {
         val backup = backup()
         val staged = backup.stageDatabase()
         val out = ByteArrayOutputStream()
-        val summary = backup.writeArchive({ out }, staged, onImageCopied)
+        val summary = backup.writeArchive({ out }, staged, onImageCopied = onImageCopied)
         backup.discardStaging()
         return out.toByteArray() to summary
     }

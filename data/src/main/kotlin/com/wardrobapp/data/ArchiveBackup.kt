@@ -95,6 +95,19 @@ class ArchiveBackup(
     fun writeArchive(
         openDestination: () -> OutputStream,
         stagedDatabase: File,
+        /**
+         * How the app is set up, or null to write nothing about it.
+         *
+         * Optional in the format rather than required: an archive without it is
+         * still a valid archive, which is what lets a build that predates this
+         * read one that does not, and this build read one written before it.
+         *
+         * Before [onImageCopied] rather than after, and that is not cosmetic: a
+         * parameter added after a function type steals the trailing lambda from
+         * it. Every caller written as `writeArchive(dest, staged) { ... }` would
+         * quietly start passing its progress callback as the settings.
+         */
+        settings: ArchiveSettings? = null,
         onImageCopied: (copied: Int, total: Int) -> Unit = { _, _ -> },
     ): BackupSummary {
         // Before anything is opened, so a caller that skipped staging has
@@ -154,6 +167,16 @@ class ArchiveBackup(
                     }
                     copied++
                     onImageCopied(copied, images.size)
+                }
+
+                // Before the manifest and after the photos, which is arbitrary:
+                // nothing reads it during extraction, and a settings file that
+                // failed to write should not cost somebody the wardrobe sitting
+                // in the entries above it.
+                if (settings != null && !settings.isEmpty) {
+                    zip.putNextEntry(ZipEntry(SETTINGS_NAME))
+                    zip.write(writeArchiveSettings(settings).toByteArray())
+                    zip.closeEntry()
                 }
 
                 // Last, because it has to state how many photos are actually in

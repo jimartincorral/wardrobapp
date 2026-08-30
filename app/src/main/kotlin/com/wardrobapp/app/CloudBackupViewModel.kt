@@ -186,7 +186,7 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
      * document picker uses, which stages, verifies and rolls back -- so an archive
      * that arrives damaged replaces nothing.
      */
-    fun onRestoreRequested(backup: DriveBackup) = run(Working.RESTORING) {
+    fun onRestoreRequested(backup: DriveBackup, withSettings: Boolean) = run(Working.RESTORING) {
         val downloaded = File(getApplication<Application>().cacheDir, backup.name)
 
         try {
@@ -195,7 +195,7 @@ class CloudBackupViewModel(application: Application) : AndroidViewModel(applicat
             }
 
             withContext(Dispatchers.IO) {
-                downloaded.inputStream().use { container.restoreFrom(it) }
+                downloaded.inputStream().use { container.restoreFrom(it, withSettings) }
             }
 
             _state.update { it.copy(restored = true) }
