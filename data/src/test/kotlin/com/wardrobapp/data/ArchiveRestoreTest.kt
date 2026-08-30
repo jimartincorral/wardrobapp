@@ -13,6 +13,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -87,6 +88,7 @@ class ArchiveRestoreTest {
         includeDatabase: Boolean = true,
         databaseBytes: ByteArray? = null,
         prefix: String = "",
+        settings: String? = null,
     ): ByteArray {
         val staged = File(workDir, "build-archive").also { it.deleteRecursively(); it.mkdirs() }
         val entries = mutableMapOf<String, ByteArray>()
@@ -102,6 +104,7 @@ class ArchiveRestoreTest {
         for (photo in photos) {
             entries["${prefix}$ARCHIVE_IMAGES_DIRNAME/$photo"] = "bytes of $photo".toByteArray()
         }
+        settings?.let { entries["${prefix}$SETTINGS_NAME"] = it.toByteArray() }
 
         staged.deleteRecursively()
         return zipOf(entries)
@@ -130,10 +133,9 @@ class ArchiveRestoreTest {
         archive: ByteArray,
         check: StagedDatabaseCheck = realCheck,
         move: (File, File) -> Unit = ::renameOrThrow,
-    ) {
+    ): ArchiveSettings? =
         ArchiveRestore(files, workDir, check, move)
             .restoreFromZip(ByteArrayInputStream(archive))
-    }
 
     /** Asserts the wardrobe is exactly as `givenLiveWardrobe` left it. */
     private fun assertWardrobeUntouched() {
@@ -637,4 +639,48 @@ class ArchiveRestoreTest {
 
         assertWardrobeUntouched()
     }
+    @Test
+    fun `an archive that carries settings hands them back`() {
+        givenLiveWardrobe()
+
+        val settings = restore(
+            currentArchive(
+                settings = """{"language":"es","preferences":{"appearance":{"theme_mode":{"type":"string","value":"dark"}}}}""",
+            ),
+        )
+
+        assertEquals("es", settings?.language)
+        assertEquals(
+            mapOf("theme_mode" to SettingValue.Text("dark")),
+            settings?.preferences?.get("appearance"),
+        )
+    }
+
+    @Test
+    fun `an archive written before settings existed restores without them`() {
+        // Every backup anybody already has. The wardrobe is the point, and it
+        // still arrives.
+        givenLiveWardrobe()
+
+        assertNull(restore(currentArchive()))
+        assertEquals(listOf("restored-garment"), garmentIdsInLiveDatabase())
+    }
+
+    @Test
+    fun `settings this build cannot read cost nobody their wardrobe`() {
+        // The trade this is here to pin: an unreadable theme is not a reason to
+        // fail a restore that has the photos in it.
+        givenLiveWardrobe()
+
+        assertNull(restore(currentArchive(settings = "{ not json at all")))
+        assertEquals(listOf("restored-garment"), garmentIdsInLiveDatabase())
+    }
+
+    @Test
+    fun `settings recorded as empty are the same as none`() {
+        givenLiveWardrobe()
+
+        assertNull(restore(currentArchive(settings = """{"preferences":{}}""")))
+    }
+
 }

@@ -498,7 +498,7 @@ class MainActivity : AppCompatActivity() {
             // at all. Filtering on the type would hide the user's own backup
             // from them, so every type is offered and the archive decides.
             onRestoreConfirmed = { opener.launch(arrayOf("*/*")) },
-            onArchiveConfirmed = model::onRestoreConfirmed,
+            onArchiveConfirmed = { withSettings -> model.onRestoreConfirmed(withSettings) },
             onRestoreDismissed = model::onRestoreDismissed,
             onTidyRequested = model::onTidyRequested,
             onTidyDismissed = model::onTidyDismissed,
@@ -534,7 +534,7 @@ class MainActivity : AppCompatActivity() {
             onDisconnect = cloud::onSignOutRequested,
             onBackUp = cloud::onBackUpRequested,
             onRefresh = cloud::refresh,
-            onRestore = cloud::onRestoreRequested,
+            onRestore = { backup, withSettings -> cloud.onRestoreRequested(backup, withSettings) },
             onFailureDismissed = cloud::onFailureDismissed,
             onRestoredDismissed = cloud::onRestoredDismissed,
             onScheduleChanged = cloud::onScheduleChanged,

@@ -237,6 +237,7 @@
     <string name="restore_preview_title">¿Restaurar esta copia?</string>
     <string name="restore_preview_made">Creada el %1$s</string>
     <string name="restore_preview_undated">Esta copia no registró cuándo se creó.</string>
+    <string name="restore_preview_settings">Restaurar también mis ajustes</string>
     <string name="restore_preview_restore">Restaurar</string>
     <string name="restore_running_title">Restaurando</string>
     <string name="restore_running_body">Descomprimiendo y comprobando la copia.</string>

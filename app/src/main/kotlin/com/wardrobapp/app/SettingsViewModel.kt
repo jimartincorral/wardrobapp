@@ -319,14 +319,14 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
      * class breaks equality, and a state that is never equal to itself makes a
      * StateFlow emit on every update.
      */
-    fun onRestoreConfirmed() {
+    fun onRestoreConfirmed(withSettings: Boolean) {
         val openArchive = pendingArchive ?: return
 
         _state.update { it.copy(restore = Restore.Running) }
 
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
-                runCatching { openArchive().use { container.restoreFrom(it) } }
+                runCatching { openArchive().use { container.restoreFrom(it, withSettings) } }
             }
 
             // Reload either way: a refused archive changes nothing, but the

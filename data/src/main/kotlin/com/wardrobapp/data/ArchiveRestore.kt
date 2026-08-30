@@ -140,7 +140,7 @@ class ArchiveRestore(
      * The stream is consumed once, so callers hand over a freshly opened one --
      * on Android, whatever the document picker's `content://` URI resolves to.
      */
-    fun restoreFromZip(archive: InputStream) {
+    fun restoreFromZip(archive: InputStream): ArchiveSettings? {
         val work = resetDirectory(File(workRoot, WORK_DIRNAME))
         try {
             extractZip(archive, work)
@@ -159,9 +159,30 @@ class ArchiveRestore(
                     UnrestorableReason.ManifestNotFound(MANIFEST_NAME)
                 )
             }
+
+            // Read after the wardrobe is in, and handed back rather than applied:
+            // whether these are wanted is the caller's question, and it is asked
+            // of a person. Returned rather than left on disk because the working
+            // directory is deleted in the `finally` below.
+            return settingsIn(root)
         } finally {
             work.deleteRecursively()
         }
+    }
+
+    /**
+     * What the archive said about how the app was set up, if anything.
+     *
+     * Absent, unreadable and empty all come back as null, and none of them is an
+     * error: an archive written before settings existed has no such file, and one
+     * whose settings this build cannot parse still has the wardrobe that a restore
+     * was actually for.
+     */
+    private fun settingsIn(root: File): ArchiveSettings? {
+        val file = File(root, SETTINGS_NAME).takeIf { it.isFile } ?: return null
+        val text = runCatching { file.readText() }.getOrNull() ?: return null
+
+        return readArchiveSettings(text)?.takeIf { !it.isEmpty }
     }
 
     /**

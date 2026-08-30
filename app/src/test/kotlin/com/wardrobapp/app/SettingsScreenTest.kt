@@ -3,6 +3,7 @@ package com.wardrobapp.app
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.wardrobapp.data.ArchivePreview
@@ -45,6 +46,7 @@ class SettingsScreenTest {
 
     /** Counts agreement to restore *this* archive, as opposed to opening the picker. */
     private var archiveConfirmed = 0
+    private var confirmedWithSettings: Boolean? = null
 
     private fun show(
         state: SettingsViewModel.State,
@@ -63,7 +65,7 @@ class SettingsScreenTest {
                 onBackupDismissed = {},
                 onRestoreRequested = {},
                 onRestoreConfirmed = {},
-                onArchiveConfirmed = { archiveConfirmed++ },
+                onArchiveConfirmed = { withSettings -> archiveConfirmed++; confirmedWithSettings = withSettings },
                 onRestoreDismissed = {},
                 onTidyRequested = {},
                 onTidyDismissed = {},
@@ -304,4 +306,48 @@ class SettingsScreenTest {
 
         assertEquals(1, archiveConfirmed)
     }
+    private fun previewing(hasSettings: Boolean) = loaded().copy(
+        restore = SettingsViewModel.Restore.Previewing(
+            ArchivePreview(
+                version = 3,
+                createdAt = "2026-08-28T09:00:00.000Z",
+                presentImages = 3,
+                hasDatabase = true,
+                hasSettings = hasSettings,
+            ),
+        ),
+    )
+
+    @Test
+    fun `an archive with no settings is not asked about them`() {
+        // Every backup made before this existed. A checkbox with one possible
+        // outcome is a question that wastes the reader's attention.
+        show(previewing(hasSettings = false))
+
+        compose.onNodeWithTag(RESTORE_WITH_SETTINGS).assertDoesNotExist()
+    }
+
+    @Test
+    fun `an archive with settings offers them, unticked`() {
+        // Unticked matters: somebody restoring is usually recovering from
+        // something going wrong, and the wardrobe is what they came for. Changing
+        // their theme and their backup schedule as well should be asked for.
+        show(previewing(hasSettings = true))
+
+        compose.onNodeWithTag(RESTORE_WITH_SETTINGS).assertIsDisplayed()
+        compose.onNodeWithText("Restore").performClick()
+
+        assertEquals(false, confirmedWithSettings)
+    }
+
+    @Test
+    fun `ticking the box asks for the settings too`() {
+        show(previewing(hasSettings = true))
+
+        compose.onNodeWithTag(RESTORE_WITH_SETTINGS).performClick()
+        compose.onNodeWithText("Restore").performClick()
+
+        assertEquals(true, confirmedWithSettings)
+    }
+
 }

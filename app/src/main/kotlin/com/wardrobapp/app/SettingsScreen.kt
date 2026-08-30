@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -28,13 +30,20 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.data.ArchiveDetail
+import com.wardrobapp.data.ArchivePreview
 import com.wardrobapp.data.UnrestorableReason
 import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.ThemeChoice
@@ -72,7 +81,7 @@ fun SettingsScreen(
     /** Agreed to restore in principle: opens the file picker. */
     onRestoreConfirmed: () -> Unit,
     /** Agreed to restore *this* archive, having been shown what is in it. */
-    onArchiveConfirmed: () -> Unit,
+    onArchiveConfirmed: (withSettings: Boolean) -> Unit,
     onRestoreDismissed: () -> Unit,
     onTidyRequested: () -> Unit,
     onTidyDismissed: () -> Unit,
@@ -351,13 +360,98 @@ private fun BackupDialog(
  * restore except wait for it -- and the work continues whether the dialog is
  * there or not.
  */
+/** The checkbox deciding whether an archive's settings come along. */
+const val RESTORE_WITH_SETTINGS = "restore-with-settings"
+
+/**
+ * What an archive holds, before anything is replaced.
+ *
+ * Its own composable rather than a branch of [RestoreDialog], because it is the
+ * only one of them with a decision in it: whether the archive's settings come
+ * along. A `when` expression has nowhere to remember that.
+ */
+@Composable
+private fun RestorePreviewDialog(
+    preview: ArchivePreview,
+    onConfirmRestore: (withSettings: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var withSettings by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.restore_preview_title)) },
+        text = {
+            Column {
+                Text(
+                    preview.createdAt?.let { made ->
+                        stringResource(
+                            R.string.restore_preview_made,
+                            formatStoredDateTime(made, TimeZone.getDefault(), Locale.getDefault()),
+                        )
+                    } ?: stringResource(R.string.restore_preview_undated),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    pluralStringResource(
+                        R.plurals.restore_preview_photos,
+                        preview.presentImages,
+                        preview.presentImages,
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                // Offered only when the archive has any, so the question is never
+                // asked where it has one answer. Off to begin with: somebody
+                // restoring is usually recovering from something going wrong, and
+                // the wardrobe is what they came for -- changing their theme and
+                // their backup schedule as well should be asked for rather than
+                // arrived at by not reading a dialog.
+                if (preview.hasSettings) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .testTag(RESTORE_WITH_SETTINGS)
+                            .toggleable(
+                                value = withSettings,
+                                onValueChange = { withSettings = it },
+                                role = Role.Checkbox,
+                            ),
+                    ) {
+                        Checkbox(checked = withSettings, onCheckedChange = null)
+                        Text(
+                            stringResource(R.string.restore_preview_settings),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                }
+
+                Text(
+                    stringResource(R.string.restore_confirm_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirmRestore(withSettings) }) {
+                Text(stringResource(R.string.restore_preview_restore))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
 @Composable
 private fun RestoreDialog(
     restore: SettingsViewModel.Restore,
     /** Opens the file picker. */
     onConfirm: () -> Unit,
-    /** Applies the archive already picked and described. */
-    onConfirmRestore: () -> Unit,
+    /** Applies the archive already picked and described, with or without its settings. */
+    onConfirmRestore: (withSettings: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) = when (restore) {
     is SettingsViewModel.Restore.Confirming -> AlertDialog(
@@ -381,44 +475,8 @@ private fun RestoreDialog(
      * formats did not have the field, and that is a fact about the backup rather
      * than a gap in the screen.
      */
-    is SettingsViewModel.Restore.Previewing -> AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.restore_preview_title)) },
-        text = {
-            Column {
-                Text(
-                    restore.preview.createdAt?.let { made ->
-                        stringResource(
-                            R.string.restore_preview_made,
-                            formatStoredDateTime(made, TimeZone.getDefault(), Locale.getDefault()),
-                        )
-                    } ?: stringResource(R.string.restore_preview_undated),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    pluralStringResource(
-                        R.plurals.restore_preview_photos,
-                        restore.preview.presentImages,
-                        restore.preview.presentImages,
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-                Text(
-                    stringResource(R.string.restore_confirm_body),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 12.dp),
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirmRestore) {
-                Text(stringResource(R.string.restore_preview_restore))
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
+    is SettingsViewModel.Restore.Previewing ->
+        RestorePreviewDialog(restore.preview, onConfirmRestore, onDismiss)
 
     is SettingsViewModel.Restore.Running -> AlertDialog(
         onDismissRequest = {},

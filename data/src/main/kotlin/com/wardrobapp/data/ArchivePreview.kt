@@ -37,6 +37,14 @@ data class ArchivePreview(
     val hasDatabase: Boolean,
     /** True for the v1/v2 shape, whose database was base64 inside `backup.json`. */
     val legacy: Boolean = false,
+    /**
+     * Whether the archive carries how the app was set up.
+     *
+     * Reported so the choice about restoring them can be offered only when there
+     * is something to restore: an archive written before settings existed has
+     * none, and asking about them anyway is a question with one answer.
+     */
+    val hasSettings: Boolean = false,
 ) {
     /**
      * Whether the archive is short of photos its manifest promised.
@@ -102,6 +110,7 @@ private fun folderPreview(manifestText: String, names: List<String>): ArchivePre
 
     val hasDatabase = names.any { nameWithinArchive(it) == ARCHIVE_DB_FILENAME }
     val presentImages = names.count { isImageEntry(it) }
+    val hasSettings = names.any { nameWithinArchive(it) == SETTINGS_NAME }
 
     checkArchiveCompleteness(manifest, hasDatabase = hasDatabase, imageCount = presentImages)
 
@@ -111,6 +120,7 @@ private fun folderPreview(manifestText: String, names: List<String>): ArchivePre
         declaredImages = manifest.imageCount,
         presentImages = presentImages,
         hasDatabase = true,
+        hasSettings = hasSettings,
     )
 }
 

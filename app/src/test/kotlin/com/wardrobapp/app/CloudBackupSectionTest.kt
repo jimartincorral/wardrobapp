@@ -47,6 +47,7 @@ class CloudBackupSectionTest {
     private var wifiOnlyWanted: Boolean? = null
     private var batteryWanted: Boolean? = null
     private var restoreAsked: DriveBackup? = null
+    private var restoreWithSettings: Boolean? = null
 
     private val archive = DriveBackup(
         id = "abc",
@@ -65,7 +66,7 @@ class CloudBackupSectionTest {
                 onDisconnect = {},
                 onBackUp = {},
                 onRefresh = {},
-                onRestore = { restoreAsked = it },
+                onRestore = { backup, settings -> restoreAsked = backup; restoreWithSettings = settings },
                 onFailureDismissed = {},
                 onRestoredDismissed = { restoredDismissed++ },
                 onScheduleChanged = { scheduleWanted = it },

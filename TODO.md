@@ -85,6 +85,28 @@ One app now: the Kotlin one. Anything below is built once.
   garment is there is no claim to make. If the section ever looks empty on a
   wardrobe that plainly has twins, missing types are the first thing to check.
 
+- App settings in the backup, and a choice about restoring them. The wardrobe was
+  always what a backup was for, and settings were deliberately left out on the
+  grounds that they are facts about a phone -- which is still true, and is why
+  restoring them is a box somebody ticks rather than something that happens to
+  them. Off by default: a restore is usually a recovery, and the wardrobe is what
+  the person came for.
+
+  **`wardrobapp_drive` is not in it, and that is the point of the design.** The
+  list in `AppSettings` is an allowlist rather than a denylist, because that file
+  holds an OAuth refresh token for a Google account and an archive is a zip that
+  gets uploaded, downloaded, copied and shared. Forgetting to add a file to an
+  allowlist means a setting does not travel; forgetting to exclude one from a
+  denylist means a credential ends up in somebody's Drive. Only the second is
+  unrecoverable.
+
+  Two things worth not rediscovering: values carry their type, because
+  SharedPreferences is typed and reading a column count back as a Long throws at
+  whichever screen asks for it as an Int; and **nothing in the settings reader
+  throws** -- an unreadable theme must never cost somebody the photos in the same
+  archive. The format version stayed at 3, so builds that predate this can still
+  restore archives that have settings, ignoring them.
+
 ## Not being built
 
 - **The outfit card** — the garment photos composed into one image. Built, tried

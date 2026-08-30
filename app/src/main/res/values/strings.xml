@@ -250,6 +250,7 @@
     <string name="restore_preview_title">Restore this backup?</string>
     <string name="restore_preview_made">Made %1$s</string>
     <string name="restore_preview_undated">This backup did not record when it was made.</string>
+    <string name="restore_preview_settings">Also restore my settings</string>
     <string name="restore_preview_restore">Restore</string>
     <string name="restore_running_title">Restoring</string>
     <string name="restore_running_body">Unpacking and checking the backup.</string>
