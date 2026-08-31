@@ -6,6 +6,7 @@ import com.wardrobapp.data.ArchiveBackup
 import com.wardrobapp.data.ArchiveRestore
 import com.wardrobapp.data.BackupSummary
 import com.wardrobapp.data.Duplicates
+import com.wardrobapp.data.Gaps
 import com.wardrobapp.data.GarmentQueries
 import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.MaintenanceSummary
@@ -69,6 +70,7 @@ class AppContainer(context: Context) {
     val analytics = AnalyticsQueries(database)
     val suggestions = Suggestions(garments, outfits)
     val duplicates = Duplicates(garments)
+    val gaps = Gaps(garments, outfits)
 
     /**
      * How the wardrobe is drawn, and where that survives a restart.

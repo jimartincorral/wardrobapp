@@ -37,6 +37,24 @@ One app now: the Kotlin one. Anything below is built once.
 - Versioned backups with validation and migration safety: the format carries a
   version, a restore refuses an archive it cannot read and says why, and it stages,
   verifies and rolls back rather than overwriting in place.
+
+- Wardrobe gaps: what the wardrobe cannot finish, and what would finish it. Two
+  halves. Coverage is counted exactly -- the templates are known and a template's
+  combinations are the product of its slots, so "one more pair of shoes completes
+  36 work outfits" is arithmetic rather than an estimate. Which garment to want is
+  sampled, by seeding a garment that does not exist into the suggestion engine:
+  occasion and season are both derived from a garment's type, so a category, a
+  type and a colour is a complete garment as far as scoring is concerned, and no
+  price, shop or wear log is needed. A gap card shows the outfits it would finish,
+  made of the reader's own clothes with one empty frame in them, and closes into
+  the add form already filled in.
+
+  Two decisions worth stating, so they are not rediscovered as bugs: an occasion
+  nothing is dressed for is *not* a gap -- ranked purely by coverage the advice
+  became a cocktail dress and a track suit for a wardrobe of casual clothes with
+  no shoes -- and tied garment types are reported as ties, because with nothing
+  rated heels, flats and loafers fill a work-shoe slot identically and naming one
+  would be naming the order of GARMENT_CATEGORIES as advice.
 - Backing up to Google Drive, and doing it on a schedule: connect an account, back
   up by hand or automatically, see what is in the folder, restore from any of it,
   disconnect. How often, how many to keep, whether to wait for Wi-Fi and whether to
