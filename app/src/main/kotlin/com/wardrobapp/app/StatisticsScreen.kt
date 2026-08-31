@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,10 +43,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -55,6 +61,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.wardrobapp.data.DuplicateGarmentGroup
+import com.wardrobapp.data.GapOutfit
+import com.wardrobapp.data.GapWithPhotos
+import com.wardrobapp.domain.GapEvidence
+import com.wardrobapp.domain.MIN_WARDROBE_FOR_GAPS
+import com.wardrobapp.domain.OutfitSlot
+import com.wardrobapp.domain.PhantomGarment
 import com.wardrobapp.presentation.BrandSort
 import com.wardrobapp.presentation.ColorBar
 import com.wardrobapp.presentation.LifespanBar
@@ -79,7 +91,10 @@ fun statFilterTag(value: String) = "statistics-filter-$value"
 fun duplicateTag(garmentId: String) = "statistics-duplicate-$garmentId"
 
 /** The parts of the page that open and shut, all shut to begin with. */
-enum class StatisticsSection { CATEGORY, COLOUR, BRAND, LIFESPAN, DUPLICATES }
+enum class StatisticsSection { CATEGORY, COLOUR, BRAND, LIFESPAN, GAPS, DUPLICATES }
+
+/** One gap's card, keyed on the slot it is about rather than on its position. */
+fun gapTag(slot: OutfitSlot) = "statistics-gap-$slot"
 
 /**
  * The scrolling page, for tests that need to reach past the fold.
@@ -116,6 +131,7 @@ fun StatisticsScreen(
     onGarmentOpened: (String) -> Unit,
     onBrandSortChanged: (BrandSort) -> Unit,
     onSectionTapped: (StatisticsSection) -> Unit,
+    onGapAddRequested: (PhantomGarment) -> Unit,
     onRetry: () -> Unit,
 ) {
     // No back arrow: this is a tab now, not a screen reached from one.
@@ -148,6 +164,7 @@ fun StatisticsScreen(
             else -> Body(
                 view = view,
                 duplicates = state.duplicates,
+                gaps = state.gaps,
                 expanded = state.expanded,
                 openSections = state.openSections,
                 brandSort = state.brandSort,
@@ -157,6 +174,7 @@ fun StatisticsScreen(
                 onGarmentOpened = onGarmentOpened,
                 onBrandSortChanged = onBrandSortChanged,
                 onSectionTapped = onSectionTapped,
+                onGapAddRequested = onGapAddRequested,
             )
         }
     }
@@ -166,6 +184,7 @@ fun StatisticsScreen(
 private fun Body(
     view: StatisticsView,
     duplicates: List<DuplicateGarmentGroup>?,
+    gaps: List<GapWithPhotos>?,
     expanded: Set<String>,
     openSections: Set<StatisticsSection>,
     brandSort: BrandSort,
@@ -175,6 +194,7 @@ private fun Body(
     onGarmentOpened: (String) -> Unit,
     onBrandSortChanged: (BrandSort) -> Unit,
     onSectionTapped: (StatisticsSection) -> Unit,
+    onGapAddRequested: (PhantomGarment) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.testTag(STATISTICS_PAGE).padding(insets),
@@ -473,8 +493,65 @@ private fun Body(
             }
         }
 
-        // Last, because it is the only section that asks you to do something about
-        // what it found rather than just telling you what is there.
+        // The last two sections ask you to do something about what they found,
+        // rather than telling you what is there. This one first, because adding a
+        // garment you are missing is a happier errand than deciding which of two
+        // near-identical shirts to get rid of.
+        run {
+            val open = StatisticsSection.GAPS in openSections
+
+            item {
+                SectionHeader(
+                    title = stringResource(R.string.statistics_gaps),
+                    open = open,
+                    hint = stringResource(R.string.statistics_gaps_hint),
+                    onClick = { onSectionTapped(StatisticsSection.GAPS) },
+                )
+            }
+
+            if (open) {
+                item {
+                    Chart {
+                        when {
+                            // "Still looking", and it has to read as that: this is
+                            // the slowest thing the app computes, and "nothing is
+                            // missing" shown while it runs would be a claim made
+                            // before anything had checked.
+                            gaps == null -> Box(
+                                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                                contentAlignment = Alignment.Center,
+                            ) { CircularProgressIndicator(modifier = Modifier.size(24.dp)) }
+
+                            // Two different silences, told apart. A wardrobe too
+                            // small to reason about gets no advice by design, and
+                            // saying "nothing is missing" to somebody with six
+                            // garments would be the app declining to answer while
+                            // sounding like it had.
+                            gaps.isEmpty() && view.inUse < MIN_WARDROBE_FOR_GAPS -> Text(
+                                stringResource(R.string.statistics_gaps_too_few),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                            )
+
+                            gaps.isEmpty() -> Text(
+                                stringResource(R.string.statistics_no_gaps),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                            )
+
+                            else -> for (gap in gaps) {
+                                GapRow(gap = gap, onAdd = onGapAddRequested)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         run {
             val open = StatisticsSection.DUPLICATES in openSections
 
@@ -576,6 +653,203 @@ private fun DuplicateRow(group: DuplicateGarmentGroup, onGarmentOpened: (String)
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/**
+ * What to call a garment: its type, or its category when no type is recorded.
+ *
+ * The same fallback the duplicate rows use, asked for often enough on a gap card
+ * -- the garment wanted, the one retired, and every tied alternative -- to be
+ * worth naming once.
+ */
+@Composable
+private fun typeLabel(category: String, subcategory: String?): String =
+    subcategory?.takeIf { it.isNotBlank() }?.let { garmentTypeLabel(it) }
+        ?: categoryLabel(category)
+
+/**
+ * One gap: what is missing, why that is the answer, and the outfits it would
+ * finish.
+ *
+ * The outfits are the point of the card rather than decoration. "You are missing
+ * black work shoes" is an assertion; the same claim with three outfits made of
+ * the reader's own clothes and one empty frame in them is something they can
+ * check at a glance -- and the empty frame is why those outfits are not simply
+ * suggestions, since it is the one thing in them they cannot put on.
+ *
+ * This is also as close as the app comes to the outfit card it deliberately does
+ * not build. The photos are a row of thumbnails, not a composed flat-lay: the
+ * same decision, for the same reason, and nothing here reads as a picture of an
+ * outfit because nothing here is trying to be one.
+ */
+@Composable
+private fun GapRow(gap: GapWithPhotos, onAdd: (PhantomGarment) -> Unit) {
+    val want = gap.gap.want
+    val type = typeLabel(want.category, want.subcategory)
+
+    // The colour is named only when the palette has a name for it. A hex reads as
+    // a serial number in the middle of a sentence, and the frame below is already
+    // filled with the colour -- so the honest fallback is to show it rather than
+    // spell it.
+    val colourName = paletteColorFor(want.colorPrimary)?.first?.let { paletteLabel(it) }
+    val title = if (colourName != null) {
+        stringResource(R.string.gap_want, colourName, type)
+    } else {
+        type
+    }
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag(gapTag(gap.gap.slot)),
+    ) {
+        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+
+        Text(
+            when (gap.gap.evidence) {
+                // Names the garment rather than the slot, because this claim is
+                // about something that actually happened to this wardrobe and the
+                // reader will remember the shoes.
+                GapEvidence.RETIRED_UNREPLACED -> stringResource(
+                    R.string.gap_because_retired,
+                    typeLabel(
+                        gap.replaces?.category ?: want.category,
+                        gap.replaces?.subcategory,
+                    ),
+                )
+
+                // The occasion leads the sentence as a label rather than being
+                // dropped into the middle of one. "A work day" reads well in
+                // English and its Spanish equivalent does not -- "un dia trabajo"
+                // is not a phrase -- and no amount of lowercasing fixes a language
+                // where the noun has to be declined to sit there.
+                GapEvidence.NOTHING_FITS -> stringResource(
+                    R.string.gap_because_nothing_fits,
+                    stringResource(gap.gap.occasion.labelRes),
+                )
+
+                GapEvidence.RAISES_THE_BAR -> stringResource(R.string.gap_because_better)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        // Exact, and from the counting rather than from the sampling below it, so
+        // it is not capped by how many outfits happened to be drawn.
+        Text(
+            pluralStringResource(
+                R.plurals.gap_unlocks,
+                gap.gap.outfitsUnlocked.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                gap.gap.outfitsUnlocked,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        for (example in gap.examples) {
+            GapExample(example = example, colour = want.colorPrimary, ghostLabel = title)
+        }
+
+        // Only when the arithmetic genuinely could not choose. Naming one type as
+        // the answer where three tied would be showing the order of the catalogue
+        // as advice.
+        if (gap.gap.alternatives.isNotEmpty()) {
+            // Resolved before they are joined: `joinToString` takes its transform
+            // as a nullable parameter, so it cannot be inlined and nothing
+            // composable may be called inside it. `map` can.
+            val alternatives = gap.gap.alternatives.map {
+                typeLabel(it.category, it.subcategory)
+            }
+
+            Text(
+                stringResource(R.string.gap_alternatives, alternatives.joinToString(", ")),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        // The whole point of the section being actionable: the gap closes into the
+        // add form, already filled in with what it just spent all that work
+        // deciding. Anything less and the reader has to retype the answer.
+        Button(
+            onClick = { onAdd(want) },
+            modifier = Modifier.padding(top = 2.dp),
+        ) { Text(stringResource(R.string.gap_add)) }
+    }
+}
+
+/**
+ * One outfit the gap would finish: real photographs, and one empty frame.
+ *
+ * Scrolls sideways for the same reason a duplicate group does -- an outfit can be
+ * four or five garments and the thumbnails are wider than a phone -- and on the
+ * other axis from the page, so the two do not fight.
+ */
+@Composable
+private fun GapExample(example: GapOutfit, colour: String, ghostLabel: String) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+    ) {
+        for (garment in example.garments) {
+            if (garment == null) {
+                GhostTile(colour = colour, label = ghostLabel)
+            } else {
+                AsyncImage(
+                    model = garment.displayImage,
+                    // Null rather than a description: these are the outfit's
+                    // supporting cast, already counted in the line above, and a
+                    // screen reader announcing four garments per example three
+                    // times over would bury the one thing the card is saying.
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The garment that is not there.
+ *
+ * Dashed rather than solid, and filled with the colour being suggested rather
+ * than with a placeholder grey: among photographs of real clothes an outline
+ * reads as absence in a way no icon does, and the fill is what makes it "a black
+ * one goes here" rather than "something goes here".
+ *
+ * Faded, because at full strength a flat rectangle of colour beside photographs
+ * looks like a garment photographed against itself.
+ */
+@Composable
+private fun GhostTile(colour: String, label: String) {
+    val outline = MaterialTheme.colorScheme.outline
+    val fill = colour.toComposeColor() ?: MaterialTheme.colorScheme.surfaceVariant
+    val description = stringResource(R.string.gap_ghost, label)
+
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(fill.copy(alpha = 0.35f))
+            .drawBehind {
+                drawRoundRect(
+                    color = outline,
+                    cornerRadius = CornerRadius(6.dp.toPx()),
+                    style = Stroke(
+                        width = 2.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(
+                            floatArrayOf(5.dp.toPx(), 4.dp.toPx()),
+                        ),
+                    ),
+                )
+            }
+            // Described, unlike the photographs beside it: this is the one tile in
+            // the row that is the answer rather than the evidence for it.
+            .semantics { contentDescription = description },
+    )
 }
 
 /**

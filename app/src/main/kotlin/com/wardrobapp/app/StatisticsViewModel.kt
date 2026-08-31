@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.AnalyticsQueries
 import com.wardrobapp.data.DuplicateGarmentGroup
+import com.wardrobapp.data.GapWithPhotos
+import com.wardrobapp.domain.seasonOfMonth
 import com.wardrobapp.presentation.BrandSort
 import com.wardrobapp.presentation.Distribution
 import com.wardrobapp.presentation.LifespanEntry
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Calendar
 
 /**
  * What the wardrobe is made of, and how long the things you stop wearing lasted.
@@ -68,6 +71,21 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
          * somebody their wardrobe is clean when nothing has checked.
          */
         val duplicates: List<DuplicateGarmentGroup>? = null,
+        /**
+         * What the wardrobe cannot finish, or null before anyone has asked.
+         *
+         * Lazy and null-until-asked for the same reasons as [duplicates], only
+         * more so: the analysis runs the suggestion engine once per candidate
+         * garment, which is the most expensive thing this app computes. Paying
+         * for it on every return to the tab, to fill in a section most visits
+         * never open, would make the whole page wait.
+         *
+         * Null rather than empty because the two are different answers, and the
+         * wrong one is worse here than anywhere else on the page: "your wardrobe
+         * has no gaps" is a claim, and showing it before anything has looked
+         * would be making that claim on no evidence.
+         */
+        val gaps: List<GapWithPhotos>? = null,
     )
 
     /** The counts as read, so re-sorting brands does not re-query for them. */
@@ -117,6 +135,7 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
                 }
 
                 counts = read
+                val reopening = _state.value.openSections
                 _state.update {
                     it.copy(
                         loading = false,
@@ -128,9 +147,22 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
                         // that to fill in a section nobody has opened made the whole
                         // page wait for an answer most visits never look at.
                         duplicates = null,
+                        // Dropped alongside the duplicates, and for the same
+                        // reason: the wardrobe has just been re-read, so an
+                        // answer computed from the previous read is stale.
+                        gaps = null,
                         error = null,
                     )
                 }
+
+                // Both sections above were just emptied, and nothing else would
+                // ever ask for them again: they fill in when a section is opened,
+                // and these are already open. This runs on every return to the tab
+                // -- see RefreshOnReturn -- so without it, opening a section,
+                // tapping through to a garment and coming back left it spinning
+                // forever with nothing on the way.
+                if (StatisticsSection.DUPLICATES in reopening) sweepForDuplicates()
+                if (StatisticsSection.GAPS in reopening) lookForGaps()
             } catch (e: Exception) {
                 _state.update {
                     it.copy(loading = false, error = e.message ?: e.javaClass.simpleName)
@@ -160,6 +192,10 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
         if (opening && section == StatisticsSection.DUPLICATES && _state.value.duplicates == null) {
             sweepForDuplicates()
         }
+
+        if (opening && section == StatisticsSection.GAPS && _state.value.gaps == null) {
+            lookForGaps()
+        }
     }
 
     /**
@@ -182,6 +218,38 @@ class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
                 // a worse answer than one section that did not fill in. Leaving it
                 // null means opening the section again tries again.
                 _state.update { it.copy(duplicates = null) }
+            }
+        }
+    }
+
+    /**
+     * The gap analysis in flight, so shutting and reopening the section does not
+     * start a second one. Its own field rather than shared with [sweep]: the two
+     * sections are independent, and one cancelling the other would leave whichever
+     * lost the race showing a spinner forever.
+     */
+    private var search: Job? = null
+
+    private fun lookForGaps() {
+        if (search?.isActive == true) return
+
+        search = viewModelScope.launch {
+            try {
+                val found = withContext(Dispatchers.IO) {
+                    container.gaps.analyze(
+                        // Read here because this is the layer allowed a clock. The
+                        // analysis only ever sees the answer, which is what lets
+                        // the same wardrobe be told the same thing twice.
+                        currentSeason = seasonOfMonth(Calendar.getInstance().get(Calendar.MONTH)),
+                    )
+                }
+                _state.update { it.copy(gaps = found) }
+            } catch (e: Exception) {
+                // Not `error`, exactly as the duplicate sweep does not: the counts
+                // above are on screen and correct, and turning a page that mostly
+                // worked into an error page is a worse answer than one section
+                // that did not fill in. Null means opening it again tries again.
+                _state.update { it.copy(gaps = null) }
             }
         }
     }

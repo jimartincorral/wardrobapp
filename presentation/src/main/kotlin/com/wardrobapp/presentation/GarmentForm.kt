@@ -135,6 +135,34 @@ data class GarmentFormState(
     )
 
     /**
+     * The form as a gap analysis would have it filled in.
+     *
+     * A garment the wardrobe was told it was missing arrives already described --
+     * a category, a type and a colour -- and making somebody retype that is making
+     * them do the work the app just did.
+     *
+     * [colorsChosen] stays false, which looks wrong and is the point: a suggested
+     * colour is what would *work*, not what the garment in your hand actually is.
+     * Leaving it unchosen lets detection from the photo replace it, so somebody
+     * told "a black one would go with everything" who comes home with a charcoal
+     * one gets charcoal recorded. Tapping any swatch still makes it a choice, the
+     * same as anywhere else.
+     */
+    fun prefilledFor(
+        category: String,
+        subcategory: String?,
+        colour: String?,
+        seasonsFor: (List<String>) -> List<Season>,
+    ): GarmentFormState = copy(
+        category = category,
+        colorPalette = listOfNotNull(colour?.takeIf { it.isNotBlank() })
+            .ifEmpty { listOf(DEFAULT_COLOR) },
+        colorsChosen = false,
+    )
+        .withSubcategories(listOfNotNull(subcategory?.takeIf { it.isNotBlank() }), seasonsFor)
+        .normalized()
+
+    /**
      * Collapse the photos into what gets stored.
      *
      * A slot whose background was removed stores the cut-out in *both* columns

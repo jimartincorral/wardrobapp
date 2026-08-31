@@ -36,12 +36,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.canhub.cropper.CropImageContract
 import com.wardrobapp.data.backupFilename
+import com.wardrobapp.domain.PhantomGarment
 import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.WardrobeLink
@@ -267,6 +270,18 @@ class MainActivity : AppCompatActivity() {
                         composable(STATISTICS) {
                             Statistics(
                                 container = container,
+                                // The gap closes into an add. Encoded because a
+                                // colour is a hex and `#` ends a URL otherwise --
+                                // the form would open on the right type in the
+                                // wrong colour, which is the kind of wrong that
+                                // looks like a bad recommendation.
+                                onGapAddRequested = { wanted ->
+                                    navigator.navigate(
+                                        "$GARMENT_ADD?$WANTED_CATEGORY=${Uri.encode(wanted.category)}" +
+                                            "&$WANTED_TYPE=${Uri.encode(wanted.subcategory.orEmpty())}" +
+                                            "&$WANTED_COLOUR=${Uri.encode(wanted.colorPrimary)}"
+                                    )
+                                },
                                 // A number counted here, shown as the garments
                                 // behind it. What each link means is
                                 // `WardrobeQuery.showing`'s business.
@@ -275,11 +290,45 @@ class MainActivity : AppCompatActivity() {
                             )
                         }
 
-                        composable(GARMENT_ADD) {
+                        composable(
+                            route = "$GARMENT_ADD?$WANTED_CATEGORY={$WANTED_CATEGORY}" +
+                                "&$WANTED_TYPE={$WANTED_TYPE}&$WANTED_COLOUR={$WANTED_COLOUR}",
+                            arguments = listOf(
+                                navArgument(WANTED_CATEGORY) {
+                                    type = NavType.StringType
+                                    nullable = true
+                                    defaultValue = null
+                                },
+                                navArgument(WANTED_TYPE) {
+                                    type = NavType.StringType
+                                    nullable = true
+                                    defaultValue = null
+                                },
+                                navArgument(WANTED_COLOUR) {
+                                    type = NavType.StringType
+                                    nullable = true
+                                    defaultValue = null
+                                },
+                            ),
+                        ) { backStackEntry ->
+                            val arguments = backStackEntry.arguments
+
                             GarmentForm(
                                 container = container,
                                 garmentId = null,
                                 navigator = navigator,
+                                // Only a category makes a prefill: the type and the
+                                // colour are both optional on a garment, and a
+                                // category is the one field the form cannot start
+                                // without. Absent, this is the empty form it has
+                                // always been.
+                                wanted = arguments?.getString(WANTED_CATEGORY)?.let { category ->
+                                    PhantomGarment(
+                                        category = category,
+                                        subcategory = arguments.getString(WANTED_TYPE),
+                                        colorPrimary = arguments.getString(WANTED_COLOUR).orEmpty(),
+                                    )
+                                },
                                 // Taken rather than read: an address is offered
                                 // once, and a second visit to this screen should
                                 // not re-open the confirmation for a link that has
@@ -600,12 +649,14 @@ class MainActivity : AppCompatActivity() {
         container: AppContainer,
         garmentId: String?,
         navigator: NavHostController,
+        /** What a gap suggested, when the form was opened from one. */
+        wanted: PhantomGarment? = null,
         /** An address from outside, waiting to be offered. Null when adding normally. */
         sharedLink: MutableState<String?>? = null,
     ) {
         val model: GarmentFormViewModel = viewModel(
             factory = viewModelFactory {
-                initializer { GarmentFormViewModel(container, garmentId) }
+                initializer { GarmentFormViewModel(container, garmentId, wanted) }
             }
         )
         val state by model.state.collectAsStateWithLifecycle()
@@ -841,6 +892,7 @@ class MainActivity : AppCompatActivity() {
         container: AppContainer,
         onLinkRequested: (WardrobeLink?) -> Unit,
         onGarmentOpened: (String) -> Unit,
+        onGapAddRequested: (PhantomGarment) -> Unit,
     ) {
         val model: StatisticsViewModel = viewModel(
             factory = viewModelFactory { initializer { StatisticsViewModel(container) } }
@@ -859,6 +911,7 @@ class MainActivity : AppCompatActivity() {
             onGarmentOpened = onGarmentOpened,
             onBrandSortChanged = model::onBrandSortChanged,
             onSectionTapped = model::onSectionTapped,
+            onGapAddRequested = onGapAddRequested,
             onRetry = model::refresh,
         )
     }
@@ -1077,6 +1130,18 @@ class MainActivity : AppCompatActivity() {
         const val GARMENT_BULK_ADD = "add-garments"
         const val GARMENT_EDIT = "edit-garment"
         const val GARMENT_ID = "garmentId"
+
+        /**
+         * What a gap suggested, carried to the add form.
+         *
+         * Query parameters rather than path segments, so plain `add-garment` still
+         * matches the same destination: every existing way into this screen -- the
+         * home button, the wardrobe's plus, a shared link -- navigates without
+         * them and gets an empty form, which is what it always got.
+         */
+        const val WANTED_CATEGORY = "wantedCategory"
+        const val WANTED_TYPE = "wantedType"
+        const val WANTED_COLOUR = "wantedColour"
 
         /**
          * The scheme and parameter the app this replaced already answers to.

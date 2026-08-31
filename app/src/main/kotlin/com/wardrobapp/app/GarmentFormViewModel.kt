@@ -14,6 +14,7 @@ import com.wardrobapp.domain.DuplicateCandidate
 import com.wardrobapp.domain.GarmentImportException
 import com.wardrobapp.domain.ImportFailureReason
 import com.wardrobapp.domain.ImportWarning
+import com.wardrobapp.domain.PhantomGarment
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.UnsafeUrlException
 import com.wardrobapp.domain.UnsafeUrlReason
@@ -50,6 +51,14 @@ class GarmentFormViewModel(
     private val container: AppContainer,
     /** Null when adding. */
     private val garmentId: String?,
+    /**
+     * What a gap suggested, when the form was opened from one.
+     *
+     * The same type the statistics page emitted, carried through the route rather
+     * than re-derived: whatever the analysis decided is what the form should say,
+     * and a second guess at it here could disagree with the card the reader tapped.
+     */
+    private val wanted: PhantomGarment? = null,
 ) : ViewModel() {
 
     data class State(
@@ -167,7 +176,22 @@ class GarmentFormViewModel(
 
     init {
         loadBrands()
-        if (garmentId != null) load(garmentId)
+        if (garmentId != null) {
+            load(garmentId)
+        } else if (wanted != null) {
+            // Only when adding. A prefill on an edit would overwrite the garment
+            // being edited with a description of a different one.
+            _state.update {
+                it.copy(
+                    form = it.form.prefilledFor(
+                        category = wanted.category,
+                        subcategory = wanted.subcategory,
+                        colour = wanted.colorPrimary,
+                        seasonsFor = ::seasonsForSubcategories,
+                    )
+                )
+            }
+        }
     }
 
     // ---- the form itself ----------------------------------------------------

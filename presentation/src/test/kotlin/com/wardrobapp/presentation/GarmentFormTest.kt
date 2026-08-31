@@ -4,6 +4,7 @@ import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.seasonsForSubcategories
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -277,5 +278,77 @@ class GarmentFormTest {
             GarmentFormState.BRAND_SUGGESTION_LIMIT,
             brandSuggestions((1..20).map { "Brand $it" }, "").size,
         )
+    }
+
+    // ---- Filled in from a gap ------------------------------------------------
+
+    @Test
+    fun `a prefill puts the analysis's answer in the form`() {
+        val form = GarmentFormState().prefilledFor(
+            category = "shoes",
+            subcategory = "Loafers",
+            colour = "#6B4423",
+            seasonsFor = ::seasonsForSubcategories,
+        )
+
+        assertEquals("shoes", form.category)
+        assertEquals(listOf("Loafers"), form.subcategories)
+        assertEquals(listOf("#6B4423"), form.colorPalette)
+    }
+
+    /**
+     * A suggested colour is what would *work*, not what the garment in your hand
+     * is. Left unchosen, detection from the photo still replaces it -- so somebody
+     * told "a black one would go with everything" who comes home with a charcoal
+     * one gets charcoal recorded.
+     */
+    @Test
+    fun `a suggested colour is not a choice`() {
+        val form = GarmentFormState().prefilledFor(
+            category = "shoes",
+            subcategory = "Loafers",
+            colour = "#000000",
+            seasonsFor = ::seasonsForSubcategories,
+        )
+
+        assertFalse(form.colorsChosen)
+    }
+
+    @Test
+    fun `a prefilled type brings the seasons it implies`() {
+        val form = GarmentFormState().prefilledFor(
+            category = "outerwear",
+            subcategory = "Parka",
+            colour = null,
+            seasonsFor = ::seasonsForSubcategories,
+        )
+
+        assertEquals(listOf(Season.WINTER), form.seasons)
+    }
+
+    @Test
+    fun `a prefill with no colour keeps the palette a garment must have`() {
+        val form = GarmentFormState().prefilledFor(
+            category = "tops",
+            subcategory = null,
+            colour = null,
+            seasonsFor = ::seasonsForSubcategories,
+        )
+
+        assertEquals(listOf(GarmentFormState.DEFAULT_COLOR), form.colorPalette)
+        assertEquals(emptyList(), form.subcategories)
+    }
+
+    @Test
+    fun `a blank type or colour is not a value`() {
+        val form = GarmentFormState().prefilledFor(
+            category = "tops",
+            subcategory = "   ",
+            colour = "",
+            seasonsFor = ::seasonsForSubcategories,
+        )
+
+        assertEquals(emptyList(), form.subcategories)
+        assertEquals(listOf(GarmentFormState.DEFAULT_COLOR), form.colorPalette)
     }
 }

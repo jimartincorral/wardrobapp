@@ -213,6 +213,24 @@
     </plurals>
     <string name="statistics_days">%1$d d</string>
 
+    <!-- Gaps: what the wardrobe cannot finish, and what would finish it. -->
+    <string name="statistics_gaps">Lo que te falta</string>
+    <string name="statistics_gaps_hint">Prendas que completarían conjuntos que aún no puedes armar</string>
+    <string name="statistics_no_gaps">No falta nada evidente. Tu armario puede completar todos los tipos de día para los que se viste.</string>
+    <string name="statistics_gaps_too_few">Aún no hay suficiente. Con un armario de este tamaño falta de todo, así que esto espera a tener algo con qué comparar.</string>
+    <string name="gap_want">%2$s (%1$s)</string>
+    <string name="gap_because_nothing_fits">%1$s: no tienes nada apropiado.</string>
+    <string name="gap_because_retired">Retiraste tu %1$s y no la reemplazaste.</string>
+    <string name="gap_because_better">Combinaría con más de lo que tienes que cualquier cosa que puedas juntar ahora.</string>
+    <string name="gap_alternatives">O bien: %1$s</string>
+    <string name="gap_add">Agregarla</string>
+    <string name="gap_ghost">Dónde iría %1$s</string>
+    <plurals name="gap_unlocks">
+        <item quantity="one">%d conjunto que hoy no puedes armar</item>
+        <item quantity="many">%d conjuntos que hoy no puedes armar</item>
+        <item quantity="other">%d conjuntos que hoy no puedes armar</item>
+    </plurals>
+
     <!-- Settings -->
     <string name="settings_title">Configuración</string>
     <string name="settings_section_storage">Almacenamiento</string>

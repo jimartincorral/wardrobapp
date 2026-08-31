@@ -9,6 +9,17 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.wardrobapp.data.DuplicateGarmentGroup
 import com.wardrobapp.data.normalizeGarmentRow
+import com.wardrobapp.domain.PhantomGarment
+import androidx.compose.ui.test.onNodeWithContentDescription
+import com.wardrobapp.data.GapOutfit
+import com.wardrobapp.data.GapWithPhotos
+import com.wardrobapp.data.GarmentRecord
+import com.wardrobapp.domain.GapEvidence
+import com.wardrobapp.domain.MIN_WARDROBE_FOR_GAPS
+import com.wardrobapp.domain.Occasion
+import com.wardrobapp.domain.OutfitSlot
+import com.wardrobapp.domain.Season
+import com.wardrobapp.domain.WardrobeGap
 import com.wardrobapp.presentation.BrandSort
 import com.wardrobapp.presentation.Distribution
 import com.wardrobapp.presentation.LifespanEntry
@@ -58,6 +69,7 @@ class StatisticsScreenTest {
     private var tapped: StatisticsSection? = null
     private var opened: String? = null
     private var linked: WardrobeLink? = null
+    private var wanted: PhantomGarment? = null
 
     private fun show(
         state: StatisticsViewModel.State = StatisticsViewModel.State(loading = false, view = view()),
@@ -70,6 +82,7 @@ class StatisticsScreenTest {
                 onGarmentOpened = { opened = it },
                 onBrandSortChanged = {},
                 onSectionTapped = { tapped = it },
+                onGapAddRequested = { wanted = it },
                 onRetry = {},
             )
         }
@@ -314,4 +327,190 @@ class StatisticsScreenTest {
             .assertDoesNotExist()
     }
 
+    // ---- What you are missing ----------------------------------------------
+
+    /** A garment record, for the photographs an example outfit is made of. */
+    private fun record(id: String, category: String, subcategory: String) =
+        normalizeGarmentRow(
+            mapOf(
+                "id" to id,
+                "image_uri" to "$id.jpg",
+                "image_uris" to "[]",
+                "category" to category,
+                "subcategory" to subcategory,
+                "subcategories" to "[\"$subcategory\"]",
+                "tags" to "[]",
+                "color_primary" to "#000000",
+                "color_palette" to "[]",
+                "is_available" to 1L,
+                "created_at" to "2026-01-01",
+                "updated_at" to "2026-01-01",
+            ),
+            "file:///photos/",
+        )
+
+    private fun gap(
+        evidence: GapEvidence = GapEvidence.NOTHING_FITS,
+        want: PhantomGarment = PhantomGarment("shoes", "Loafers", "#000000"),
+        unlocked: Long = 36,
+        alternatives: List<PhantomGarment> = emptyList(),
+        replaces: GarmentRecord? = null,
+        examples: List<GapOutfit> = listOf(
+            GapOutfit(
+                name = "Loafers and a shirt",
+                // The hole is a null, exactly as the data layer hands it over.
+                garments = listOf(null, record("top-1", "tops", "Shirt")),
+            )
+        ),
+    ) = GapWithPhotos(
+        gap = WardrobeGap(
+            want = want,
+            slot = OutfitSlot.SHOES,
+            occasion = Occasion.WORK,
+            season = Season.FALL,
+            outfitsUnlocked = unlocked,
+            examples = emptyList(),
+            evidence = evidence,
+            replaces = null,
+            alternatives = alternatives,
+        ),
+        examples = examples,
+        replaces = replaces,
+    )
+
+    private fun showingGaps(
+        gaps: List<GapWithPhotos>?,
+        inUse: Long = 20,
+    ) = StatisticsViewModel.State(
+        loading = false,
+        view = view(inUse = inUse),
+        openSections = setOf(StatisticsSection.GAPS),
+        gaps = gaps,
+    )
+
+    @Test
+    fun `the gaps section is shut until it is asked for`() {
+        show()
+
+        scrollTo("What you are missing")
+        compose.onNodeWithText("What you are missing").performClick()
+
+        assertEquals(StatisticsSection.GAPS, tapped)
+    }
+
+    @Test
+    fun `a gap says what is missing and how much it would unlock`() {
+        show(showingGaps(listOf(gap())))
+
+        scrollTo("Loafers")
+        compose.onNodeWithText("Black Loafers").assertIsDisplayed()
+        compose.onNodeWithText("36 outfits you cannot make today").assertIsDisplayed()
+        compose.onNodeWithText("Work: nothing you own is dressed for it.").assertIsDisplayed()
+    }
+
+    /**
+     * The card's whole argument is an outfit with a hole in it, and the hole has to
+     * be described: a screen reader given four undescribed images and a sentence
+     * would be told everything except the one thing being said.
+     */
+    @Test
+    fun `the garment that is missing is described where it would go`() {
+        show(showingGaps(listOf(gap())))
+
+        scrollTo("Loafers")
+        compose.onNodeWithContentDescription("Where Black Loafers would go").assertIsDisplayed()
+    }
+
+    @Test
+    fun `tapping add asks for the garment the card was about`() {
+        val want = PhantomGarment("shoes", "Loafers", "#000000")
+        show(showingGaps(listOf(gap(want = want))))
+
+        scrollTo("Loafers")
+        compose.onNodeWithText("Add it").performClick()
+
+        assertEquals(want, wanted)
+    }
+
+    @Test
+    fun `a retired garment nothing replaced is named rather than described`() {
+        show(
+            showingGaps(
+                listOf(
+                    gap(
+                        evidence = GapEvidence.RETIRED_UNREPLACED,
+                        replaces = record("gone", "shoes", "Boots"),
+                    )
+                )
+            )
+        )
+
+        scrollTo("Loafers")
+        compose.onNodeWithText("You retired your Boots and nothing replaced it.").assertIsDisplayed()
+    }
+
+    /**
+     * Ties are the normal case in a wardrobe with nothing rated, and naming one
+     * type as the answer would be showing the order of the catalogue as advice.
+     */
+    @Test
+    fun `types that would do just as well are offered`() {
+        show(
+            showingGaps(
+                listOf(
+                    gap(
+                        alternatives = listOf(
+                            PhantomGarment("shoes", "Flats", "#000000"),
+                            PhantomGarment("shoes", "Heels", "#000000"),
+                        )
+                    )
+                )
+            )
+        )
+
+        scrollTo("Loafers")
+        compose.onNodeWithText("Or: Flats, Heels").assertIsDisplayed()
+    }
+
+    @Test
+    fun `no alternatives line when one candidate genuinely won`() {
+        show(showingGaps(listOf(gap(alternatives = emptyList()))))
+
+        scrollTo("Loafers")
+        compose.onNodeWithText("Or:", substring = true).assertDoesNotExist()
+    }
+
+    /**
+     * The two silences, told apart. A wardrobe too small to reason about gets no
+     * advice by design, and telling its owner that nothing is missing would be the
+     * app declining to answer while sounding like it had answered.
+     */
+    @Test
+    fun `a wardrobe too small to reason about is not told it is complete`() {
+        show(showingGaps(gaps = emptyList(), inUse = MIN_WARDROBE_FOR_GAPS - 1L))
+
+        scrollTo("Not enough to go on")
+        compose.onNodeWithText("Nothing obvious is missing.", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a wardrobe with nothing missing is told so`() {
+        show(showingGaps(gaps = emptyList(), inUse = 40))
+
+        scrollTo("Nothing obvious is missing")
+        compose.onNodeWithText("Nothing obvious is missing.", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a section that has not looked yet does not claim the wardrobe is complete`() {
+        // The analysis is asked for when the section opens, so there is a moment
+        // with no answer. It is the slowest thing the app computes, which makes
+        // this moment long enough to see -- and "nothing is missing" shown in it
+        // would be a verdict delivered before anything had been looked at.
+        show(showingGaps(gaps = null))
+
+        scrollTo("What you are missing")
+        compose.onNodeWithText("Nothing obvious is missing.", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Not enough to go on", substring = true).assertDoesNotExist()
+    }
 }

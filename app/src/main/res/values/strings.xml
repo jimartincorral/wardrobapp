@@ -226,6 +226,23 @@
     </plurals>
     <string name="statistics_days">%1$dd</string>
 
+    <!-- Gaps: what the wardrobe cannot finish, and what would finish it. -->
+    <string name="statistics_gaps">What you are missing</string>
+    <string name="statistics_gaps_hint">Garments that would finish outfits you cannot make yet</string>
+    <string name="statistics_no_gaps">Nothing obvious is missing. Every kind of day your wardrobe dresses for, it can finish.</string>
+    <string name="statistics_gaps_too_few">Not enough to go on yet. With a wardrobe this size everything is missing, so this waits until there is something to compare against.</string>
+    <string name="gap_want">%1$s %2$s</string>
+    <string name="gap_because_nothing_fits">%1$s: nothing you own is dressed for it.</string>
+    <string name="gap_because_retired">You retired your %1$s and nothing replaced it.</string>
+    <string name="gap_because_better">It would go with more of what you own than anything you can pair up now.</string>
+    <string name="gap_alternatives">Or: %1$s</string>
+    <string name="gap_add">Add it</string>
+    <string name="gap_ghost">Where %1$s would go</string>
+    <plurals name="gap_unlocks">
+        <item quantity="one">%d outfit you cannot make today</item>
+        <item quantity="other">%d outfits you cannot make today</item>
+    </plurals>
+
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_section_storage">Storage</string>
