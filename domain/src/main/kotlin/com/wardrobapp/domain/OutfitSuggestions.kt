@@ -24,7 +24,7 @@ enum class OutfitSlot {
 }
 
 /** Which category slots make a valid outfit. Order is part of the behaviour. */
-private val OUTFIT_TEMPLATES: List<List<OutfitSlot>> = listOf(
+internal val OUTFIT_TEMPLATES: List<List<OutfitSlot>> = listOf(
     listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS),
     listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS, OutfitSlot.OUTERWEAR),
     listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS, OutfitSlot.ACCESSORIES),
@@ -106,7 +106,7 @@ fun pairKey(idA: String, idB: String): String =
 /** Squash the open-ended ranking score into a stable 0..1 display value. */
 private fun normalizeOutfitScore(rawScore: Double): Double = 1 / (1 + exp(-rawScore / 2))
 
-private fun garmentSlots(garment: Garment): List<OutfitSlot> {
+internal fun garmentSlots(garment: Garment): List<OutfitSlot> {
     val sub = (garment.subcategory ?: "").lowercase()
 
     return when (garment.category) {
@@ -169,7 +169,7 @@ data class GenerateSuggestionsOptions(
 )
 
 /** Whether a garment's tags match the season in play. */
-private fun matchesSeason(
+internal fun matchesSeason(
     garment: Garment,
     currentSeason: Season,
     seasons: List<Season>?,
