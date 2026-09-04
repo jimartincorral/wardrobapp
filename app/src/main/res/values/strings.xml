@@ -58,21 +58,32 @@
     <string name="wardrobe_no_match_search">Nothing matches "%1$s".</string>
     <string name="sort_newest">Newest</string>
     <string name="sort_oldest">Oldest</string>
+    <!-- The sort button is a glyph, so which order is in force is said here. -->
+    <string name="wardrobe_sort_current">Sort: %1$s</string>
+    <string name="wardrobe_search_clear">Clear the search</string>
 
     <!-- Filters -->
     <!-- How the wardrobe is drawn: the menu in the top bar, and its choices. -->
     <string name="wardrobe_view_options">Change how the wardrobe is shown</string>
     <string name="wardrobe_view_list">List</string>
-    <string name="wardrobe_view_grid">Grid of %1$d</string>
-    <string name="wardrobe_view_section_layout">Layout</string>
     <string name="wardrobe_view_section_show">Show on each</string>
+    <string name="wardrobe_size_menu">Grid size</string>
+    <string name="wardrobe_size_large">Large</string>
+    <string name="wardrobe_size_medium">Medium</string>
+    <string name="wardrobe_size_small">Small</string>
+    <!--
+        "Large - 2 per row". The name and the number, because neither is the whole
+        answer on its own. Not a plural: the counts on offer are two, three and
+        four, so "1 per row" is a form this string can never take.
+    -->
+    <string name="wardrobe_size_per_row" tools:ignore="PluralsCandidate">%1$s — %2$d per row</string>
     <string name="wardrobe_caption_brand">Brand</string>
     <string name="wardrobe_caption_type">Type</string>
     <string name="wardrobe_caption_category">Category</string>
 
     <string name="filters_show">Filters</string>
-    <string name="filters_show_count">Filters (%1$d)</string>
-    <string name="filters_hide">Hide filters</string>
+    <string name="filters_title">Filters</string>
+    <string name="filter_remove">Remove this filter</string>
     <string name="action_clear_filters">Clear all</string>
     <string name="filter_brand">Brand</string>
     <string name="filter_size">Size</string>
@@ -88,6 +99,8 @@
     <string name="outfits_subtitle">Suggestions are built from what you own, and learn from what you rate.</string>
     <string name="outfits_filter_any">Any</string>
     <string name="outfits_suggest">Suggest outfits</string>
+    <!-- After the first press: what it does then is replace three you have read. -->
+    <string name="outfits_suggest_again">Suggest again</string>
     <string name="outfits_building_around">Building around</string>
     <string name="outfits_use_whole_wardrobe">Whole wardrobe</string>
     <string name="outfits_suggesting">Building outfits…</string>
@@ -108,6 +121,11 @@
     <plurals name="outfits_show_rated">
         <item quantity="one">Show %1$d rated-only outfit</item>
         <item quantity="other">Show %1$d rated-only outfits</item>
+    </plurals>
+    <!-- What a star does, announced rather than read out as a glyph. -->
+    <plurals name="outfit_rate_stars">
+        <item quantity="one">Rate %1$d star</item>
+        <item quantity="other">Rate %1$d stars</item>
     </plurals>
     <string name="outfit_saved_badge">Saved</string>
     <string name="action_save">Save</string>
@@ -543,6 +561,14 @@
     <plurals name="garment_count">
         <item quantity="one">%d garment</item>
         <item quantity="other">%d garments</item>
+    </plurals>
+    <plurals name="filters_applied">
+        <item quantity="one">%d filter applied</item>
+        <item quantity="other">%d filters applied</item>
+    </plurals>
+    <plurals name="filters_show_results">
+        <item quantity="one">Show %d garment</item>
+        <item quantity="other">Show %d garments</item>
     </plurals>
     <plurals name="photo_count">
         <item quantity="one">%d photo</item>

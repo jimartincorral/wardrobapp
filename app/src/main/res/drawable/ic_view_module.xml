@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    view_module from Material Icons, Apache License 2.0.
+    https://github.com/google/material-design-icons : src/action/view_module/materialicons/24px.svg
+
+    Vendored as a drawable rather than reached for through
+    material-icons-extended, which carries every glyph Google has drawn in order
+    to hand this app one. Tinted at the call site, so the fill here is white and
+    means nothing.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M14.67,5v6.5H9.33V5H14.67z M15.67,11.5H21V5h-5.33V11.5z M14.67,19v-6.5H9.33V19H14.67z M15.67,12.5V19H21v-6.5H15.67z M8.33,12.5H3V19h5.33V12.5z M8.33,11.5V5H3v6.5H8.33z" />
+</vector>

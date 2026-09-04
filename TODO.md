@@ -125,6 +125,40 @@ One app now: the Kotlin one. Anything below is built once.
   archive. The format version stayed at 3, so builds that predate this can still
   restore archives that have settings, ignoring them.
 
+- A motion, dark-mode and iconography pass over the whole app, from a design
+  handoff. One spring carries everything -- `Motion.kt` -- rather than a duration
+  chosen per screen: press states, the nav pill's icon pop, the star pop, the
+  staggered arrival of suggestion cards, the statistics bars growing in order, and
+  a garment opening by scaling up rather than sliding in.
+
+  Two structural changes came with it. The wardrobe's filter panel is a modal
+  bottom sheet instead of an item inside the same scroll as the garments, which
+  is the shape of the bug that shipped twice; and what is currently narrowing the
+  list is a row of chips above it, each of which undoes itself, which is what let
+  "Filters (2)" become a badged glyph without losing the count.
+
+  Three things worth not rediscovering:
+
+  - **`animateFloatAsState` is handed its target on the frame it is created**, so
+    anything asked to animate *to* its resting value simply appears there. Every
+    entrance here starts at zero and flips a flag one frame later. The statistics
+    bars had this bug before this pass and it is why they only ever grew once.
+  - **The icons are vendored, not depended on.** Twenty-two of the glyphs the
+    design names live only in `material-icons-extended`, which carries every icon
+    Google has drawn. They are committed under `res/drawable` instead, from the
+    same Apache-licensed sources -- about four kilobytes against tens of
+    megabytes, and `Glyphs.kt` names them so a call site reads as a glyph rather
+    than as a resource id.
+  - **A photo does not sit on `surfaceVariant` in dark.** `photoSurface()` answers
+    `surfaceContainerHigh` there, so a cream shirt is brighter than its own frame
+    rather than being the dark part of the cell.
+
+  Not done: the garment detail opens by scaling, but it is not a true shared
+  element -- the destination does not grow from the tapped cell's own position.
+  That needs the cell's bounds carried across the navigation and a transition
+  scope threaded through `WardrobeScreen`, and the scale is the part of it a
+  reader perceives.
+
 ## Not being built
 
 - **The outfit card** — the garment photos composed into one image. Built, tried

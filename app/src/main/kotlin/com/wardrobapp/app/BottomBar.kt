@@ -1,6 +1,7 @@
 package com.wardrobapp.app
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
@@ -13,10 +14,18 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 
 // The bar, and the five places it goes. Out of MainActivity so that it can be
 // composed on its own, which is what its test does: the point of measuring the
@@ -52,15 +61,59 @@ internal val TABS = listOf(
 internal fun WardrobeBottomBar(route: String?, onTabSelected: (String) -> Unit) {
     NavigationBar {
         for (tab in TABS) {
+            val selected = route == tab.route
+
             NavigationBarItem(
-                selected = route == tab.route,
+                selected = selected,
                 onClick = { onTabSelected(tab.route) },
-                icon = { Icon(tab.icon, contentDescription = null) },
+                icon = { TabIcon(tab.icon, selected) },
                 label = { TabLabel(stringResource(tab.labelRes)) },
             )
         }
     }
 }
+
+/**
+ * A tab's icon, which pops when the tab becomes the one you are on.
+ *
+ * The pill behind it already slides across, and Material animates that for free.
+ * What the slide cannot say is *which* icon it arrived at -- it is one continuous
+ * shape moving through four other tabs -- so the destination answers by growing a
+ * fifth and settling back. It fires on becoming selected rather than on every
+ * composition, so returning to a tab you were already on does nothing.
+ */
+@Composable
+private fun TabIcon(icon: ImageVector, selected: Boolean) {
+    var popping by remember { mutableStateOf(false) }
+    // What it was last time, so this fires on *becoming* selected. Keyed on
+    // selection alone it would also fire on the frame the bar is first composed,
+    // and the app would open with the home tab's icon bouncing at nothing.
+    var wasSelected by remember { mutableStateOf(selected) }
+
+    LaunchedEffect(selected) {
+        val justSelected = selected && !wasSelected
+        wasSelected = selected
+        if (!justSelected) return@LaunchedEffect
+        popping = true
+        delay(POP_MILLIS)
+        popping = false
+    }
+
+    val scale by animateFloatAsState(
+        targetValue = if (popping) 1.2f else 1f,
+        animationSpec = springPop(),
+        label = "tab-pop",
+    )
+
+    Icon(
+        icon,
+        contentDescription = null,
+        modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale },
+    )
+}
+
+/** How long the icon stays large. Long enough to be seen under the pill's slide. */
+private const val POP_MILLIS = 180L
 
 /**
  * A tab's label, on one line.

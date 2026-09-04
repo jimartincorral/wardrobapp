@@ -11,6 +11,10 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -361,7 +365,24 @@ class MainActivity : AppCompatActivity() {
                             )
                         }
 
-                        composable("$GARMENT/{$GARMENT_ID}") { backStackEntry ->
+                        composable(
+                            "$GARMENT/{$GARMENT_ID}",
+                            // A garment opens by growing rather than by sliding in
+                            // from the side. What you tapped was the photo, and the
+                            // screen that arrives is that photo made large -- so
+                            // the motion says "this got bigger", which is the one
+                            // thing a slide cannot say. Back reverses it.
+                            //
+                            // Not a true shared element: that would need the tapped
+                            // cell's bounds carried across the navigation, and every
+                            // screen between here and the cell rewritten to hand a
+                            // transition scope down. The scale is the part of it a
+                            // reader actually perceives.
+                            enterTransition = { scaleIn(springGentle(), 0.9f) + fadeIn(springGentle()) },
+                            exitTransition = { fadeOut(springGentle()) },
+                            popExitTransition = { scaleOut(springGentle(), 0.9f) + fadeOut(springGentle()) },
+                            popEnterTransition = { fadeIn(springGentle()) },
+                        ) { backStackEntry ->
                             // Absent only if a route were built wrong, which the
                             // call sites rule out -- but a crash on a malformed
                             // link is not the answer either, so the detail model

@@ -2,6 +2,7 @@ package com.wardrobapp.app
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -85,6 +86,48 @@ class OutfitsScreenTest {
                 onBuildRequested = {},
             )
         }
+    }
+
+    @Test
+    fun `a star says which rating it gives, not which glyph it is`() {
+        // The stars were two text characters until the design replaced them with
+        // icons, and a screen reader read the character: five controls that
+        // announced "white star" and gave five different ratings. This is the part
+        // of that swap worth holding on to.
+        show(OutfitsViewModel.State(suggestions = listOf(suggestion(emptyList()))))
+
+        compose.onNodeWithContentDescription("Rate 1 star").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Rate 4 stars").assertIsDisplayed()
+    }
+
+    @Test
+    fun `before anything has been asked for, the button offers to suggest`() {
+        show(OutfitsViewModel.State(hasGenerated = false))
+
+        compose.onNodeWithText("Suggest outfits").assertIsDisplayed()
+    }
+
+    @Test
+    fun `once it has been asked, the button offers to ask again`() {
+        // Same button, different job: the first press fills an empty list, and
+        // every one after it replaces three outfits that have already been read.
+        // Two tests rather than one, because the rule composes once.
+        show(OutfitsViewModel.State(hasGenerated = true))
+
+        compose.onNodeWithText("Suggest again").assertIsDisplayed()
+        compose.onNodeWithText("Suggest outfits").assertDoesNotExist()
+    }
+
+    @Test
+    fun `an arriving suggestion is on screen rather than animating from nowhere`() {
+        // The cards land one at a time, which is a transform over content that is
+        // already composed. Worth a test because the other way of writing it --
+        // withholding each card until its turn -- looks identical on a phone and
+        // makes the card unreachable to anything that does not wait out an
+        // animation, this suite included.
+        show(OutfitsViewModel.State(suggestions = listOf(suggestion(emptyList()))))
+
+        compose.onNodeWithText("Shirt + Jeans").assertIsDisplayed()
     }
 
     @Test

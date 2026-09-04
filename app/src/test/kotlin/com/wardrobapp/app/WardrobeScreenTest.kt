@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.wardrobapp.data.normalizeGarmentRow
+import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.GarmentFilter
 import com.wardrobapp.presentation.WardrobeLayout
@@ -108,17 +109,75 @@ class WardrobeScreenTest {
         view: WardrobeView = WardrobeView(),
         caption: GarmentCaption = GarmentCaption.BRAND,
         garments: List<com.wardrobapp.data.GarmentRecord> = (1..12).map { garment(it) },
+        query: com.wardrobapp.presentation.WardrobeQuery = com.wardrobapp.presentation.WardrobeQuery(),
     ) = WardrobeViewModel.State(
         loading = false,
         garments = garments,
+        query = query,
         // Through the real facet rule, because the panel now draws what the
         // wardrobe holds: a chip nothing in this list wears must not appear, and a
         // test that hand-wrote the facets would not notice either way.
-        facets = wardrobeFacets(garments, com.wardrobapp.presentation.WardrobeQuery()),
+        facets = wardrobeFacets(garments, query),
         filtersExpanded = filtersExpanded,
         view = view,
         caption = caption,
     )
+
+    @Test
+    fun `what is narrowing the list is on screen with the sheet shut`() {
+        // The bar says "how many" on a badge and nothing else. With the sheet
+        // closed this row is the only thing on the screen that says the list is
+        // fourteen garments out of a hundred rather than a hundred -- and it is
+        // the whole reason the old spelled-out "Filters (2)" button could be
+        // replaced by a glyph.
+        show(
+            wardrobe(
+                query = com.wardrobapp.presentation.WardrobeQuery(
+                    category = "tops",
+                    season = Season.SUMMER,
+                ),
+            ),
+        )
+
+        compose.onNodeWithTag(appliedFilterTag("Tops")).assertIsDisplayed()
+        compose.onNodeWithTag(appliedFilterTag("Summer")).assertIsDisplayed()
+    }
+
+    @Test
+    fun `an applied chip undoes the filter it names`() {
+        // Tapping the chip is the short way back, and it has to send the same
+        // value the sheet would: the callbacks are what the wardrobe re-reads on.
+        var dropped: String? = null
+        show(
+            wardrobe(query = com.wardrobapp.presentation.WardrobeQuery(brand = "Uniqlo")),
+            onBrandTapped = { dropped = it },
+        )
+
+        compose.onNodeWithTag(appliedFilterTag("Uniqlo")).performClick()
+
+        assertEquals("Uniqlo", dropped)
+    }
+
+    @Test
+    fun `nothing narrowing the list means no chips at all`() {
+        // A row that is always there, empty, is a row that costs a line of the
+        // screen to say nothing.
+        show(wardrobe())
+
+        compose.onNodeWithTag(appliedFilterTag("Tops")).assertDoesNotExist()
+        compose.onNodeWithText("Clear all").assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h2000dp")
+    fun `the sheet says how many garments are behind it`() {
+        // The footer button is the sheet's own dismissal *and* the answer to what
+        // the filters did. A count that disagreed with the list would make the
+        // button a lie, so it is the same list the screen is drawing.
+        show(wardrobe(filtersExpanded = true, garments = (1..3).map { garment(it) }))
+
+        compose.onNodeWithText("Show 3 garments").assertIsDisplayed()
+    }
 
     @Test
     fun `garments can be reached with the filters open`() {
@@ -140,7 +199,7 @@ class WardrobeScreenTest {
         // the screen made retiring a one-way door for a second time.
         show(wardrobe(filtersExpanded = true))
 
-        compose.onNodeWithTag(WARDROBE_LIST)
+        compose.onNodeWithTag(WARDROBE_FILTER_SHEET)
             .performScrollToNode(hasText("Include things I no longer wear"))
 
         compose.onNodeWithText("Include things I no longer wear").assertIsDisplayed()
@@ -164,7 +223,7 @@ class WardrobeScreenTest {
             onColorTapped = { picked = it },
         )
 
-        compose.onNodeWithTag(WARDROBE_LIST)
+        compose.onNodeWithTag(WARDROBE_FILTER_SHEET)
             .performScrollToNode(hasTestTag(colorSwatchTag("#DAA520")))
         compose.onNodeWithTag(colorSwatchTag("#DAA520")).performClick()
 
@@ -211,7 +270,7 @@ class WardrobeScreenTest {
         // without already knowing what you are looking for.
         show(wardrobe(filtersExpanded = true, garments = listOf(garment(1, palette = "#000080"))))
 
-        compose.onNodeWithTag(WARDROBE_LIST)
+        compose.onNodeWithTag(WARDROBE_FILTER_SHEET)
             .performScrollToNode(hasTestTag(colorSwatchTag("#000080")))
         compose.onNodeWithTag(colorSwatchTag("#000080")).assertIsDisplayed()
         compose.onNodeWithText("Navy").assertIsDisplayed()
@@ -229,24 +288,34 @@ class WardrobeScreenTest {
     }
 
     @Test
+    @Config(qualifiers = "w411dp-h2000dp")
     fun `the view menu offers the list and every grid width`() {
         show(wardrobe())
 
         compose.onNodeWithTag(WARDROBE_VIEW_MENU).performClick()
 
-        compose.onNodeWithText("List").assertIsDisplayed()
-        compose.onNodeWithText("Grid of 2").assertIsDisplayed()
-        compose.onNodeWithText("Grid of 3").assertIsDisplayed()
-        compose.onNodeWithText("Grid of 4").assertIsDisplayed()
+        // A row per density, tagged by how many cells it asks for -- a list being
+        // zero of them. By tag rather than by label, because a label is now two
+        // resources joined ("Large - 2 per row") and a test that hard-codes the
+        // join is testing the format string rather than the menu.
+        compose.onNodeWithTag(wardrobeSizeTag(0)).assertIsDisplayed()
+        compose.onNodeWithTag(wardrobeSizeTag(2)).assertIsDisplayed()
+        compose.onNodeWithTag(wardrobeSizeTag(3)).assertIsDisplayed()
+        compose.onNodeWithTag(wardrobeSizeTag(4)).assertIsDisplayed()
+
+        // And one of them read out in full, so the join is checked once rather
+        // than not at all.
+        compose.onNodeWithText("Large — 2 per row").assertIsDisplayed()
     }
 
     @Test
+    @Config(qualifiers = "w411dp-h2000dp")
     fun `picking a grid asks for that many columns`() {
         var picked: WardrobeView? = null
         show(wardrobe(), onViewSelected = { picked = it })
 
         compose.onNodeWithTag(WARDROBE_VIEW_MENU).performClick()
-        compose.onNodeWithText("Grid of 2").performClick()
+        compose.onNodeWithTag(wardrobeSizeTag(2)).performClick()
 
         assertEquals(WardrobeView(WardrobeLayout.GRID, columns = 2), picked)
     }
