@@ -3,6 +3,7 @@ package com.wardrobapp.app
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -77,7 +78,12 @@ class GarmentFormScreenTest {
         show(isEditing = false)
 
         compose.onNodeWithText("Import from a link").assertIsDisplayed()
-        compose.onNodeWithText("Import URL").assertIsDisplayed()
+        // The field, and the fetch beside it. The fetch is a glyph now, so it is
+        // asked for by what it announces rather than by a label it no longer
+        // draws -- which is the assertion that matters either way: an icon button
+        // with no description is a button a screen reader cannot name.
+        compose.onNodeWithText("Product link").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Import URL").assertIsDisplayed()
     }
 
     @Test

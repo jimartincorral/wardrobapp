@@ -1,35 +1,60 @@
 package com.wardrobapp.app
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -188,50 +213,83 @@ private fun LazyListScope.draftItems(
     onSkip: () -> Unit,
 ) {
     item {
-        Text(
-            stringResource(R.string.bulk_add_progress, queue.position, queue.total),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.testTag(BULK_ADD_PROGRESS),
-        )
-    }
-
-    item {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            AsyncImage(
-                model = draft.displayUri,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth(0.6f)
-                    .aspectRatio(3f / 4f)
-                    .clip(RoundedCornerShape(12.dp)),
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                stringResource(R.string.bulk_add_progress, queue.position, queue.total),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(BULK_ADD_PROGRESS),
             )
 
-            // What was read off the photo, shown rather than asked about: a palette
-            // worth arguing with is worth the garment's own form, and stopping to
-            // argue is what this screen exists to avoid.
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (hex in draft.colorPalette) {
-                    hex.toComposeColor()?.let { ColorSwatch(it, size = 24.dp) }
-                }
-            }
+            // "4 of 12" is a fact; the bar is how much is left, which is the thing
+            // somebody halfway through a drawerful actually wants to know.
+            LinearProgressIndicator(
+                progress = { (queue.position - 1).toFloat() / queue.total.coerceAtLeast(1) },
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                drawStopIndicator = {},
+                modifier = Modifier.fillMaxWidth().height(4.dp),
+            )
+
+            Filmstrip(queue)
         }
     }
 
     item {
-        PhotoActions(
-            hasCutout = draft.cutoutUri.isNotEmpty(),
-            busy = saving,
-            removingBackground = removingBackground,
-            onCrop = onCrop,
-            onRemoveBackground = onRemoveBackground,
-            onUndoBackground = onUndoBackground,
-        )
+        // Keyed on the photo, so advancing the queue slides the finished garment
+        // out to the left and lands the next one from the right. Without it the
+        // photo simply becomes a different photo, and the one thing this screen
+        // has to make obvious -- that a garment was written and the queue moved --
+        // is invisible.
+        AnimatedContent(
+            targetState = draft.displayUri,
+            transitionSpec = {
+                (slideInHorizontally(springGentle()) { it / 3 } + fadeIn(springGentle()))
+                    .togetherWith(
+                        slideOutHorizontally(springGentle()) { -(it * 7) / 10 } +
+                            scaleOut(springGentle(), targetScale = 0.8f) +
+                            fadeOut(springGentle())
+                    )
+            },
+            label = "bulk-advance",
+        ) { uri ->
+            Box(modifier = Modifier.fillMaxWidth()) {
+                AsyncImage(
+                    model = uri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(3f / 4f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(photoSurface()),
+                )
+
+                // On the photo rather than under it. These two act on the picture,
+                // and the picture is the biggest thing on the screen: a row of
+                // words below it read as belonging to the category chips.
+                PhotoActions(
+                    hasCutout = draft.cutoutUri.isNotEmpty(),
+                    busy = saving,
+                    removingBackground = removingBackground,
+                    onCrop = onCrop,
+                    onRemoveBackground = onRemoveBackground,
+                    onUndoBackground = onUndoBackground,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                )
+
+                // What was read off the photo, shown rather than asked about: a
+                // palette worth arguing with is worth the garment's own form, and
+                // stopping to argue is what this screen exists to avoid.
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                ) {
+                    for (hex in draft.colorPalette) {
+                        hex.toComposeColor()?.let { ColorSwatch(it, size = 24.dp) }
+                    }
+                }
+            }
+        }
     }
 
     item {
@@ -267,17 +325,96 @@ private fun LazyListScope.draftItems(
     }
 
     item {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Side by side, and different weights, because they are not two versions
+        // of the same move: one writes a garment and one throws a photo away.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            OutlinedButton(
+                onClick = onSkip,
+                enabled = !saving,
+                modifier = Modifier.height(44.dp),
+            ) {
+                Icon(Glyph.SkipNext, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(
+                    stringResource(R.string.bulk_add_skip),
+                    modifier = Modifier.padding(start = 6.dp),
+                )
+            }
+
+            val press = remember { MutableInteractionSource() }
+
             Button(
                 onClick = onSave,
                 enabled = !saving,
-                modifier = Modifier.fillMaxWidth().testTag(BULK_ADD_SAVE),
+                interactionSource = press,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(CTA_HEIGHT)
+                    .pressScale(press)
+                    .testTag(BULK_ADD_SAVE),
             ) {
-                Text(stringResource(R.string.bulk_add_save))
+                Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                Text(
+                    stringResource(R.string.bulk_add_save),
+                    style = ctaLabel(),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
             }
+        }
+    }
+}
 
-            TextButton(onClick = onSkip, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.bulk_add_skip))
+/**
+ * The queue, as a strip of frames.
+ *
+ * The point is that a drawerful has an end. "4 of 12" says so in words; twelve
+ * frames say so at a glance, with the one being worked on larger than the rest.
+ *
+ * The finished ones are drawn as empty frames rather than as their photos, and
+ * that is a limit of the state rather than a choice: the queue holds what is
+ * *left*, and a draft is dropped the moment it becomes a garment. Dimmed to a
+ * third, an empty frame reads as "done" -- which is what it is -- and keeping
+ * every photo alive to grey it out afterwards would mean holding a drawerful of
+ * bitmaps to decorate a progress bar.
+ */
+@Composable
+private fun Filmstrip(queue: BulkAddState) {
+    val done = queue.position - 1
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+    ) {
+        repeat(queue.total) { index ->
+            val current = index == done
+            val frame = Modifier
+                .width(30.dp)
+                .aspectRatio(3f / 4f)
+                .clip(RoundedCornerShape(4.dp))
+
+            Box(
+                modifier = if (current) {
+                    // The one on screen, a fifth again as large and outlined, so
+                    // the strip has a position in it and not just a length.
+                    frame
+                        .graphicsLayer { scaleX = 1.22f; scaleY = 1.22f }
+                        .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                } else {
+                    frame.alpha(if (index < done) 0.32f else 1f)
+                }.background(photoSurface()),
+            ) {
+                queue.drafts.getOrNull(index - done)?.let { draft ->
+                    AsyncImage(
+                        model = draft.displayUri,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
     }
@@ -299,34 +436,74 @@ private fun PhotoActions(
     onCrop: () -> Unit,
     onRemoveBackground: () -> Unit,
     onUndoBackground: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     if (removingBackground) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CircularProgressIndicator(modifier = Modifier.size(18.dp))
+        GlassChip(modifier = modifier) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp))
             Text(
                 stringResource(R.string.background_cutting),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 12.dp),
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(start = 8.dp),
             )
         }
         return
     }
 
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TextButton(onClick = onCrop, enabled = !busy, modifier = Modifier.testTag(BULK_ADD_CROP)) {
-            Text(stringResource(R.string.bulk_add_crop))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
+        GlassChip(
+            onClick = onCrop.takeIf { !busy },
+            modifier = Modifier.testTag(BULK_ADD_CROP),
+        ) {
+            Icon(Glyph.Crop, contentDescription = null, modifier = Modifier.size(16.dp))
+            Text(
+                stringResource(R.string.bulk_add_crop),
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(start = 6.dp),
+            )
         }
 
-        if (hasCutout) {
-            TextButton(onClick = onUndoBackground, enabled = !busy) {
-                Text(stringResource(R.string.background_undo))
-            }
-        } else {
-            TextButton(onClick = onRemoveBackground, enabled = !busy) {
-                Text(stringResource(R.string.background_remove))
-            }
+        GlassChip(
+            onClick = (if (hasCutout) onUndoBackground else onRemoveBackground).takeIf { !busy },
+        ) {
+            Icon(Glyph.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
+            Text(
+                stringResource(
+                    if (hasCutout) R.string.background_undo else R.string.background_remove
+                ),
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(start = 6.dp),
+            )
         }
+    }
+}
+
+/**
+ * A control that sits on top of a photo.
+ *
+ * Its own surface rather than a plain text button, because what is behind it is a
+ * photograph: a label with no ground under it is legible over a white shirt and
+ * gone over a black coat. `surfaceContainerHigh` at nine tenths keeps some of the
+ * photo visible through it, which is what says the chip belongs to the picture
+ * and not to the form below it.
+ */
+@Composable
+private fun GlassChip(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shape = CircleShape,
+        modifier = if (onClick == null) modifier else modifier.clickable(onClick = onClick),
+    ) {
+        Row(
+            modifier = Modifier.height(36.dp).padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content,
+        )
     }
 }
 

@@ -3,6 +3,7 @@ package com.wardrobapp.app
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -42,13 +44,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -112,7 +114,12 @@ fun GarmentDetailScreen(
                     // Only once there is something to edit: a garment that failed
                     // to load or is not there has nothing to open.
                     if (state.view != null) {
-                        TextButton(onClick = onEdit) { Text(stringResource(R.string.action_edit)) }
+                        IconButton(onClick = onEdit) {
+                            Icon(
+                                Icons.Filled.Edit,
+                                contentDescription = stringResource(R.string.action_edit),
+                            )
+                        }
                     }
                 },
             )
@@ -322,29 +329,46 @@ private fun Actions(
     onReturnToWardrobe: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Column(modifier = Modifier.padding(top = 32.dp)) {
+    Column(
+        modifier = Modifier.padding(top = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         // Only while the garment is in use: an outfit is something to wear, and
         // suggestions are drawn from the available wardrobe, so offering this on a
         // retired garment would be offering a button that answers with nothing.
         if (isAvailable) {
+            val press = remember { MutableInteractionSource() }
+
             Button(
                 onClick = onBuildOutfit,
                 enabled = !working,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                interactionSource = press,
+                modifier = Modifier.fillMaxWidth().height(CTA_HEIGHT).pressScale(press),
             ) {
-                Text(stringResource(R.string.garment_build_outfit))
+                Icon(Glyph.AutoAwesome, contentDescription = null, modifier = Modifier.size(20.dp))
+                Text(
+                    stringResource(R.string.garment_build_outfit),
+                    style = ctaLabel(),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
             }
         }
+
+        val retirePress = remember { MutableInteractionSource() }
 
         OutlinedButton(
             onClick = if (isAvailable) onRetire else onReturnToWardrobe,
             enabled = !working,
-            modifier = Modifier.fillMaxWidth(),
+            interactionSource = retirePress,
+            modifier = Modifier.fillMaxWidth().height(CTA_HEIGHT).pressScale(retirePress),
         ) {
+            Icon(Glyph.Archive, contentDescription = null, modifier = Modifier.size(20.dp))
             Text(
                 stringResource(
                     if (isAvailable) R.string.garment_retire else R.string.garment_unretire
-                )
+                ),
+                style = ctaLabel(),
+                modifier = Modifier.padding(start = 8.dp),
             )
         }
 
@@ -354,9 +378,14 @@ private fun Actions(
             colors = ButtonDefaults.textButtonColors(
                 contentColor = MaterialTheme.colorScheme.error,
             ),
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            modifier = Modifier.fillMaxWidth().height(CTA_HEIGHT),
         ) {
-            Text(stringResource(R.string.garment_delete))
+            Icon(Glyph.DeleteOutline, contentDescription = null, modifier = Modifier.size(20.dp))
+            Text(
+                stringResource(R.string.garment_delete),
+                style = ctaLabel(),
+                modifier = Modifier.padding(start = 8.dp),
+            )
         }
 
         // Room to scroll clear of the gesture area.
@@ -403,18 +432,28 @@ private fun ConfirmationDialog(
     )
 }
 
+/**
+ * The garment, large.
+ *
+ * Three to four, which is the shape every garment photo in this app already is:
+ * they are cropped to it on the way in, and every other frame that holds one --
+ * a grid cell, an outfit thumb, the bulk-add filmstrip -- is 3:4 as well. A
+ * fixed height was the old rule and it was wrong in both directions: 55% of a
+ * tall phone letterboxes a 3:4 photo, and on a short one it crops the garment.
+ *
+ * Fit rather than Crop inside that frame. The design asks for Crop on the
+ * grounds that the photos are 3:4 already, which is true of every photo this app
+ * took -- but not of one that arrived with an imported garment, and cropping the
+ * hem off a coat on the one screen whose job is to show the whole garment is the
+ * worse failure of the two. On an in-app photo the two are identical.
+ */
 @Composable
 private fun Photo(uri: String?) {
-    // Two-thirds of the screen height, so a garment fills the view the way it
-    // does in the React Native app without a fixed dp that crops on a small
-    // phone and floats on a tablet.
-    val height = (LocalConfiguration.current.screenHeightDp * 0.55f).dp
-
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(height)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .aspectRatio(3f / 4f)
+            .background(photoSurface()),
         contentAlignment = Alignment.Center,
     ) {
         if (uri == null) {
@@ -423,8 +462,6 @@ private fun Photo(uri: String?) {
             AsyncImage(
                 model = uri,
                 contentDescription = null,
-                // Fit, not Crop: this is the one place the whole garment should
-                // be visible, whatever shape the photo is.
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -449,7 +486,7 @@ private fun Thumbnail(entry: GalleryEntry, onClick: () -> Unit) {
             .aspectRatio(0.75f)
             .clip(RoundedCornerShape(8.dp))
             .border(2.dp, border, RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .background(photoSurface())
             .clickable(onClick = onClick),
     )
 }
@@ -490,7 +527,7 @@ private fun Property(label: String, value: @Composable () -> Unit) {
             )
             value()
         }
-        HorizontalDivider()
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 

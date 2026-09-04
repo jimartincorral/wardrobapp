@@ -3,6 +3,7 @@ package com.wardrobapp.app
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,15 +27,18 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -297,17 +302,23 @@ fun GarmentFormScreen(
             }
 
             item {
+                val press = remember { MutableInteractionSource() }
+
                 Button(
                     onClick = onSave,
                     enabled = !state.saving && !state.loading,
-                    modifier = Modifier.fillMaxWidth(),
+                    interactionSource = press,
+                    modifier = Modifier.fillMaxWidth().height(CTA_HEIGHT).pressScale(press),
                 ) {
+                    Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(20.dp))
                     Text(
                         when {
                             state.saving -> stringResource(R.string.form_saving)
                             isEditing -> stringResource(R.string.form_save_edit)
                             else -> stringResource(R.string.form_save_add)
-                        }
+                        },
+                        style = ctaLabel(),
+                        modifier = Modifier.padding(start = 8.dp),
                     )
                 }
             }
@@ -349,11 +360,30 @@ private fun BackgroundControl(
                     modifier = Modifier.padding(start = 12.dp),
                 )
             }
-            action == BackgroundAction.REMOVE ->
-                TextButton(onClick = onRemove) { Text(stringResource(R.string.background_remove)) }
-            action == BackgroundAction.UNDO ->
-                TextButton(onClick = onUndo) { Text(stringResource(R.string.background_undo)) }
+            // Outlined chips rather than bare words: they sit under a row of
+            // photos, and text alone there reads as a caption on the last one.
+            action == BackgroundAction.REMOVE -> CutOutChip(
+                label = stringResource(R.string.background_remove),
+                onClick = onRemove,
+            )
+            action == BackgroundAction.UNDO -> CutOutChip(
+                label = stringResource(R.string.background_undo),
+                onClick = onUndo,
+            )
         }
+    }
+}
+
+/** The cut-out offer, under the photo row: a 36dp outlined chip with its glyph. */
+@Composable
+private fun CutOutChip(label: String, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        modifier = Modifier.height(36.dp),
+    ) {
+        Icon(Glyph.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
+        Text(label, modifier = Modifier.padding(start = 6.dp))
     }
 }
 
@@ -396,6 +426,7 @@ internal fun <T> Chips(
                 selected = option in selected,
                 onClick = { onTap(option) },
                 label = { Text(label(option)) },
+                shape = RoundedCornerShape(8.dp),
             )
         }
     }
@@ -430,7 +461,7 @@ private fun Photos(
                             },
                             RoundedCornerShape(8.dp),
                         )
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .background(photoSurface())
                         .clickable { onSelect(index) },
                 )
 
@@ -453,19 +484,26 @@ private fun Photos(
         }
 
         item {
+            // Outlined rather than filled, and the only frame in the row that is:
+            // an empty tile the same grey as a photo's backing reads as a photo
+            // that failed to load. A border says the tile is a slot.
             Box(
                 modifier = Modifier
                     .width(96.dp)
                     .aspectRatio(0.75f)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
                     .clickable(enabled = !busy, onClick = onAdd),
                 contentAlignment = Alignment.Center,
             ) {
                 if (busy) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                 } else {
-                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.form_add_photo))
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.form_add_photo),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -494,6 +532,7 @@ private fun Colors(selected: Set<String>, onToggle: (String) -> Unit) {
                 onClick = { onToggle(hex) },
                 label = { Text(paletteLabel(key)) },
                 leadingIcon = { ColorSwatch(color) },
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.testTag(colorSwatchTag(hex)),
             )
         }
@@ -664,36 +703,52 @@ private fun ImportFromLink(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        OutlinedTextField(
-            value = state.url,
-            onValueChange = onUrlChanged,
-            label = { Text(stringResource(R.string.import_url_label)) },
-            singleLine = true,
-            enabled = !state.running,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+        // The field and the button it feeds, on one line. A full-width button
+        // under a full-width box read as two steps; a box with a fetch beside it
+        // reads as one, which is what it is.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        )
+        ) {
+            OutlinedTextField(
+                value = state.url,
+                onValueChange = onUrlChanged,
+                label = { Text(stringResource(R.string.import_url_label)) },
+                leadingIcon = { Icon(Glyph.Link, contentDescription = null) },
+                singleLine = true,
+                enabled = !state.running,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                modifier = Modifier.weight(1f),
+            )
+
+            if (state.running) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            } else {
+                FilledIconButton(
+                    onClick = onImport,
+                    enabled = state.url.isNotBlank(),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                    modifier = Modifier.size(48.dp),
+                ) {
+                    Icon(
+                        Glyph.Download,
+                        contentDescription = stringResource(R.string.import_action),
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+        }
 
         if (state.running) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 12.dp),
-            ) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                Text(
-                    stringResource(R.string.import_running),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 12.dp),
-                )
-            }
-        } else {
-            OutlinedButton(
-                onClick = onImport,
-                enabled = state.url.isNotBlank(),
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            ) {
-                Text(stringResource(R.string.import_action))
-            }
+            Text(
+                stringResource(R.string.import_running),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp),
+            )
         }
 
         // What happened, once it has. The count and the shop are separate lines

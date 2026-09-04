@@ -1,25 +1,29 @@
 package com.wardrobapp.app
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -34,13 +38,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -50,6 +60,7 @@ import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.occasionChips
 import com.wardrobapp.presentation.seasonChips
+import kotlinx.coroutines.delay
 
 /** The "building around this garment" banner, for a test that asks whether it is there. */
 const val OUTFIT_SEED = "outfit-seed"
@@ -115,7 +126,7 @@ private fun BuildingAround(seed: GarmentRecord, onCleared: () -> Unit) {
  * Layout only. Which chips are on, what the engine suggested and in what order
  * the saved outfits appear were all decided before anything reached here.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OutfitsScreen(
     state: OutfitsViewModel.State,
@@ -221,23 +232,7 @@ fun OutfitsScreen(
                 item { BuildingAround(seed, onSeedCleared) }
             }
 
-            item {
-                Button(
-                    onClick = onGenerate,
-                    enabled = !state.generating,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        stringResource(
-                            if (state.generating) {
-                                R.string.outfits_suggesting
-                            } else {
-                                R.string.outfits_suggest
-                            }
-                        )
-                    )
-                }
-            }
+            item { SuggestButton(state, onGenerate) }
 
             state.error?.let { error ->
                 item {
@@ -257,13 +252,19 @@ fun OutfitsScreen(
                 }
             }
 
-            items(state.suggestions, key = { "suggestion-${it.id}" }) { suggestion ->
-                SuggestionCard(
-                    suggestion = suggestion,
-                    onSave = { onSave(suggestion) },
-                    onRate = { rating -> onRate(suggestion, rating) },
-                    onGarmentOpened = onGarmentOpened,
-                )
+            itemsIndexed(state.suggestions, key = { _, it -> "suggestion-${it.id}" }) { index, suggestion ->
+                // Three cards that land one at a time rather than three that are
+                // suddenly there. Tapping suggest twice otherwise produces a list
+                // that changes without appearing to move, and there is no way to
+                // tell a fresh batch from the one already on screen.
+                Arriving(index = index, key = suggestion.id) {
+                    SuggestionCard(
+                        suggestion = suggestion,
+                        onSave = { onSave(suggestion) },
+                        onRate = { rating -> onRate(suggestion, rating) },
+                        onGarmentOpened = onGarmentOpened,
+                    )
+                }
             }
 
             // "Nothing came back" and "nothing has been asked for" are different
@@ -327,10 +328,21 @@ fun OutfitsScreen(
     }
 }
 
+/** How many garments a suggestion card draws across. */
+private const val THUMBNAILS_ACROSS = 4
+
 /** One chip, ready to draw: its label, whether it is on, and what it does. */
 private data class Chip(val label: String, val active: Boolean, val onTap: () -> Unit)
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+/**
+ * A row of choices: a heading, then one line you scroll sideways.
+ *
+ * A wrapping row was what this was, and on a wardrobe with every occasion in it
+ * the two rows here took four lines between them -- so the button they exist to
+ * narrow was off the bottom of the screen before anything had been suggested.
+ * One line each keeps both headings and the button in view at once.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChipRow(label: String, chips: List<Chip>) {
     Column {
@@ -339,18 +351,109 @@ private fun ChipRow(label: String, chips: List<Chip>) {
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier.padding(bottom = 8.dp),
         )
-        FlowRow(
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             for (chip in chips) {
                 FilterChip(
                     selected = chip.active,
                     onClick = chip.onTap,
                     label = { Text(chip.label) },
+                    shape = RoundedCornerShape(8.dp),
                 )
             }
         }
+    }
+}
+
+/**
+ * A suggestion, landing.
+ *
+ * The resting transform is the real one and a flag flips a frame after the card
+ * is composed, rather than the card being drawn small and then keyframed into
+ * place. The difference matters when the animation never runs -- a phone with
+ * animations turned off, or a screenshot test -- because a keyframe leaves the
+ * card pinned at its starting transform and this leaves it where it belongs.
+ *
+ * [key] is the suggestion's id so a fresh batch re-runs the arrival: the whole
+ * point is that a second tap on Suggest looks like something happened.
+ */
+@Composable
+private fun Arriving(index: Int, key: Any, content: @Composable () -> Unit) {
+    var landed by remember(key) { mutableStateOf(false) }
+
+    LaunchedEffect(key) {
+        delay(index * ARRIVAL_STAGGER_MILLIS)
+        landed = true
+    }
+
+    val progress by animateFloatAsState(
+        targetValue = if (landed) 1f else 0f,
+        animationSpec = springGentle(),
+        label = "arrival",
+    )
+
+    Box(
+        modifier = Modifier.graphicsLayer {
+            alpha = progress
+            translationY = (1f - progress) * 18.dp.toPx()
+            val scale = 0.96f + 0.04f * progress
+            scaleX = scale
+            scaleY = scale
+        },
+    ) { content() }
+}
+
+/** How far apart the cards land. The design's 120ms. */
+private const val ARRIVAL_STAGGER_MILLIS = 120L
+
+/**
+ * Ask the engine, and ask it again.
+ *
+ * The label changes after the first press because the button is doing a different
+ * thing by then: the first press fills an empty list, and every one after it
+ * replaces three outfits you have just looked at. The glyph turns half a circle
+ * per press, which is the only part of "these are new" that is visible while the
+ * cards are still arriving.
+ */
+@Composable
+private fun SuggestButton(state: OutfitsViewModel.State, onGenerate: () -> Unit) {
+    var spins by remember { mutableStateOf(0) }
+    val press = remember { MutableInteractionSource() }
+
+    val angle by animateFloatAsState(
+        targetValue = spins * 180f,
+        animationSpec = springGentle(),
+        label = "suggest-spin",
+    )
+
+    Button(
+        onClick = {
+            spins += 1
+            onGenerate()
+        },
+        enabled = !state.generating,
+        interactionSource = press,
+        modifier = Modifier.fillMaxWidth().height(CTA_HEIGHT).pressScale(press),
+    ) {
+        Icon(
+            Glyph.AutoAwesome,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = angle },
+        )
+        Text(
+            stringResource(
+                when {
+                    state.generating -> R.string.outfits_suggesting
+                    state.hasGenerated -> R.string.outfits_suggest_again
+                    else -> R.string.outfits_suggest
+                }
+            ),
+            style = ctaLabel(),
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }
 
@@ -361,9 +464,40 @@ private fun SuggestionCard(
     onRate: (Int) -> Unit,
     onGarmentOpened: (String) -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Text(suggestion.outfit.name, style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    suggestion.outfit.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+
+                // A bookmark that fills in rather than a word that becomes a
+                // different word. Saved is a state of the card, and the filled
+                // glyph is that state -- "Saved" as a label sat where the button
+                // had been, which reads as the button having moved.
+                IconButton(
+                    onClick = onSave,
+                    enabled = !suggestion.saved,
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        if (suggestion.saved) Glyph.Bookmark else Glyph.BookmarkBorder,
+                        contentDescription = stringResource(
+                            if (suggestion.saved) R.string.outfit_saved_badge else R.string.action_save
+                        ),
+                        tint = if (suggestion.saved) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
 
             // Why it came up. A score of 0.81 tells nobody anything; "you rated
             // these together" and "the colours work" are the parts of that number
@@ -379,9 +513,13 @@ private fun SuggestionCard(
                 )
             }
 
+            // Three to four and sharing the width, like every other frame in the
+            // app that holds a garment. Square thumbs at a fixed 72dp cropped the
+            // garment differently here than in the grid, so the same coat was two
+            // different photos on two screens.
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
             ) {
                 for (garment in suggestion.outfit.garments) {
                     AsyncImage(
@@ -389,11 +527,19 @@ private fun SuggestionCard(
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(72.dp)
+                            .weight(1f)
+                            .aspectRatio(3f / 4f)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .background(photoSurface())
                             .clickable { onGarmentOpened(garment.id) },
                     )
+                }
+
+                // A four-up row stays four-up on an outfit of three, so a
+                // three-garment card does not draw wider photos than the card
+                // above it.
+                repeat(THUMBNAILS_ACROSS - suggestion.outfit.garments.size) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
 
@@ -402,15 +548,14 @@ private fun SuggestionCard(
 
                 Box(modifier = Modifier.weight(1f))
 
-                if (suggestion.saved) {
-                    Text(
-                        stringResource(R.string.outfit_saved_badge),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    TextButton(onClick = onSave) { Text(stringResource(R.string.action_save)) }
-                }
+                // What the row is for, said once and to the right of it, where the
+                // save button used to be. The stars are five glyphs; nothing else
+                // on the card says they are a question.
+                Text(
+                    stringResource(R.string.outfit_rate),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -464,18 +609,31 @@ private fun SavedOutfitRow(
                 )
             }
 
-            // A pin is a toggle, so it says which state tapping it reaches.
-            TextButton(onClick = onPinToggled) {
-                Text(
-                    stringResource(if (outfit.isPinned) R.string.action_unpin else R.string.action_pin)
+            // A pin is a toggle, and the glyph says which way it is set rather
+            // than which state a tap reaches: the row is one of a list, and a
+            // column of buttons reading "Pin / Unpin / Pin" is a column nobody
+            // can scan. The description still says what the tap does.
+            IconButton(onClick = onPinToggled, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    Glyph.PushPin,
+                    contentDescription = stringResource(
+                        if (outfit.isPinned) R.string.action_unpin else R.string.action_pin
+                    ),
+                    tint = if (outfit.isPinned) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.size(20.dp),
                 )
             }
 
-            IconButton(onClick = onDelete) {
+            IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
                 Icon(
-                    Icons.Filled.Delete,
+                    Glyph.DeleteOutline,
                     contentDescription = stringResource(R.string.outfit_delete),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }

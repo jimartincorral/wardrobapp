@@ -286,6 +286,10 @@ dependencies {
     // Used directly by the analytics bars, so depended on directly rather than
     // reached through whatever material3 happens to expose.
     implementation("androidx.compose.animation:animation-core")
+    // And the transitions themselves -- scaleIn, fadeOut and the rest -- which the
+    // navigation graph names when a garment opens. Navigation brings this in
+    // anyway; declared here because this module calls it by name.
+    implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")

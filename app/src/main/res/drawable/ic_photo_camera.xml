@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    photo_camera from Material Icons, Apache License 2.0.
+    https://github.com/google/material-design-icons : src/image/photo_camera/materialicons/24px.svg
+
+    Vendored as a drawable rather than reached for through
+    material-icons-extended, which carries every glyph Google has drawn in order
+    to hand this app one. Tinted at the call site, so the fill here is white and
+    means nothing.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M8.8,12.0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" />
+</vector>

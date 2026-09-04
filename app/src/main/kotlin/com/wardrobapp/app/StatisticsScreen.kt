@@ -1,13 +1,9 @@
 package com.wardrobapp.app
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,10 +19,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -38,22 +39,27 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -76,6 +82,7 @@ import com.wardrobapp.presentation.StatBar
 import com.wardrobapp.presentation.StatisticsView
 import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.paletteColorFor
+import kotlinx.coroutines.delay
 
 /**
  * The "show these in the wardrobe" button on one row.
@@ -302,14 +309,15 @@ private fun Body(
             if (open) {
                 item {
                     Chart {
-                        for (bar in view.categories) {
+                        for ((index, bar) in view.categories.withIndex()) {
                             val isOpen = bar.key in expanded
 
                             BarRow(
                                 label = categoryLabel(bar.key),
                                 fraction = bar.fraction,
+                                index = index,
                                 value = "${bar.count}",
-                                chevron = if (isOpen) "▾" else "▸",
+                                chevronTurn = if (isOpen) 180f else 0f,
                                 onClick = { onCategoryTapped(bar.key) },
                                 // What tapping does, for a screen reader, which the
                                 // chevron only says visually.
@@ -359,12 +367,13 @@ private fun Body(
             if (open) {
                 item {
                     Chart {
-                        for (bar in view.colors) {
+                        for ((index, bar) in view.colors.withIndex()) {
                             val label = bar.colorLabel()
 
                             BarRow(
                                 label = label,
                                 fraction = bar.fraction,
+                                index = index,
                                 value = "${bar.count}",
                                 swatch = { Swatch(bar.swatch) },
                                 action = {
@@ -416,13 +425,14 @@ private fun Body(
 
                 item {
                     Chart {
-                        for (bar in view.brands) {
+                        for ((index, bar) in view.brands.withIndex()) {
                             // A brand is what the wearer typed, so it is shown as
                             // typed rather than capitalized -- and filtered by the
                             // same string.
                             BarRow(
                                 label = bar.key,
                                 fraction = bar.fraction,
+                                index = index,
                                 value = "${bar.count}",
                                 action = {
                                     ShowInWardrobe(
@@ -465,12 +475,13 @@ private fun Body(
                                 modifier = Modifier.fillMaxWidth().padding(8.dp),
                             )
                         } else {
-                            for (bar in view.lifespans) {
+                            for ((index, bar) in view.lifespans.withIndex()) {
                                 val label = bar.label()
 
                                 BarRow(
                                     label = label,
                                     fraction = bar.fraction,
+                                    index = index,
                                     value = stringResource(R.string.statistics_days, bar.days),
                                     // Wider than a count: "365d" does not fit where
                                     // a two-digit tally does.
@@ -889,10 +900,20 @@ private fun SectionHeader(
             }
         }
 
-        Text(
-            if (open) "▾" else "▸",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        // One glyph that turns, not two that swap. A swap is instant however long
+        // the section takes to open, so the arrow arrives before the thing it is
+        // describing; a rotation lasts as long as the opening does.
+        val turn by animateFloatAsState(
+            targetValue = if (open) 180f else 0f,
+            animationSpec = springGentle(),
+            label = "section-chevron",
+        )
+
+        Icon(
+            Glyph.ExpandMore,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.graphicsLayer { rotationZ = turn },
         )
     }
 }
@@ -905,13 +926,19 @@ private fun LifespanBar.label(): String =
 
 @Composable
 private fun Chart(bars: @Composable () -> Unit) {
-    Card {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        shape = RoundedCornerShape(16.dp),
+    ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) { bars() }
     }
 }
+
+/** How far behind its predecessor each bar starts growing. The design's 60ms. */
+private const val BAR_STAGGER_MILLIS = 60L
 
 @Composable
 private fun Tile(
@@ -986,12 +1013,13 @@ private fun Subcategories(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            for (bar in bars) {
+            for ((index, bar) in bars.withIndex()) {
                 val type = bar.subcategoryName(category)
 
                 BarRow(
                     label = bar.subcategoryLabel(category),
                     fraction = bar.fraction,
+                    index = index,
                     value = "${bar.count}",
                     labelWidth = 88.dp,
                     fill = MaterialTheme.colorScheme.primaryContainer,
@@ -1023,19 +1051,41 @@ private fun BarRow(
     fraction: Double,
     value: String,
     swatch: (@Composable () -> Unit)? = null,
-    chevron: String? = null,
+    /** Degrees for a trailing chevron, or null for a row that opens nothing. */
+    chevronTurn: Float? = null,
     onClick: (() -> Unit)? = null,
     clickLabel: String? = null,
     /** A control at the end of the row, outside whatever [onClick] does. */
     action: (@Composable () -> Unit)? = null,
-    labelWidth: Dp = 104.dp,
+    /** Where in its chart this row sits, which is how far behind the first it grows. */
+    index: Int = 0,
+    labelWidth: Dp = 96.dp,
     valueWidth: Dp = 32.dp,
     fill: Color = MaterialTheme.colorScheme.primary,
     height: Dp = 20.dp,
 ) {
     // Grown into place rather than appearing at full length, which makes the
-    // comparison between bars easier to read as the chart settles.
-    val width by animateFloatAsState(targetValue = fraction.toFloat(), label = "bar")
+    // comparison between bars easier to read as the chart settles -- and one
+    // after another, sixty milliseconds apart, so the eye is walked down the
+    // chart in the order the rows are sorted in.
+    //
+    // The flag is what makes this happen on *every* open rather than once.
+    // `animateFloatAsState` starts at whatever it is first handed, so a panel
+    // recomposed from scratch when its section is expanded would draw every bar
+    // at full length with nothing to animate from. Starting at zero and flipping
+    // a frame later is the whole trick.
+    var grown by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        delay(index * BAR_STAGGER_MILLIS)
+        grown = true
+    }
+
+    val width by animateFloatAsState(
+        targetValue = if (grown) fraction.toFloat() else 0f,
+        animationSpec = springGentle(),
+        label = "bar",
+    )
 
     Row(
         modifier = Modifier
@@ -1094,13 +1144,20 @@ private fun BarRow(
             modifier = Modifier.width(valueWidth),
         )
 
-        if (chevron != null) {
-            Text(
-                chevron,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.End,
-                modifier = Modifier.width(20.dp),
+        if (chevronTurn != null) {
+            val turn by animateFloatAsState(
+                targetValue = chevronTurn,
+                animationSpec = springGentle(),
+                label = "row-chevron",
+            )
+
+            Icon(
+                Glyph.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .size(20.dp)
+                    .graphicsLayer { rotationZ = turn },
             )
         }
 
