@@ -38,6 +38,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wardrobapp.presentation.FirstStep
+import com.wardrobapp.presentation.FirstSteps
 
 /**
  * Where the app opens: what you own, and the way to everywhere else.
@@ -48,6 +50,15 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun HomeScreen(
     state: HomeViewModel.State,
+    /**
+     * The first-steps card, or null when it does not belong here -- dismissed,
+     * every job done, or a wardrobe that arrived whole from a backup. Whether
+     * that is so is [com.wardrobapp.presentation.FirstSteps]'s answer, not this
+     * screen's.
+     */
+    firstSteps: FirstSteps?,
+    onFirstStepsDismissed: () -> Unit,
+    onFirstStep: (FirstStep) -> Unit,
     onAddRequested: () -> Unit,
     onWardrobeRequested: () -> Unit,
     onArchivedRequested: () -> Unit,
@@ -62,6 +73,19 @@ fun HomeScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // Above the subtitle and the counts, because it is the only thing on
+            // this screen with work in it: everything below says what the wardrobe
+            // is, and this says what it does not have yet.
+            if (firstSteps != null) {
+                item {
+                    FirstStepsCard(
+                        steps = firstSteps,
+                        onDismiss = onFirstStepsDismissed,
+                        onStep = onFirstStep,
+                    )
+                }
+            }
+
             item {
                 Text(
                     stringResource(R.string.home_subtitle),

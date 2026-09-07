@@ -23,6 +23,45 @@
     <string name="action_back">Atrás</string>
     <string name="count_unknown">—</string>
 
+    <!-- First launch: the three screens before Home. -->
+    <string name="w_title">Bienvenido a Wardrobapp</string>
+    <string name="w_body">Tu armario vive en este teléfono. Sin cuenta, sin servidor y sin registrarse.</string>
+    <string name="w_start">Empezar de cero</string>
+    <string name="w_restore">Restaurar una copia</string>
+    <string name="w_restore_hint">¿Vienes de otro teléfono? Elige tu copia de seguridad y tráete el armario entero.</string>
+    <string name="w_skip">Ahora no</string>
+
+    <string name="a_title">Agregar una prenda es una foto</string>
+    <string name="a_body">Apunta la cámara o elige una foto que ya tengas. La app rellena lo que puede y te pregunta el resto.</string>
+    <string name="a_s1">Una foto, de la cámara o de la galería</string>
+    <string name="a_s1_detail">Se recorta a 3:4 al entrar, que es la forma en la que todas las pantallas muestran una prenda.</string>
+    <string name="a_s2">Los colores se rellenan solos</string>
+    <string name="a_s2_detail">Se leen de la foto — y se vuelven a leer si le quitas el fondo.</string>
+    <string name="a_s3">Tú eliges la categoría</string>
+    <string name="a_s3_detail">Lo único que una foto no puede decir. Marca, talla y etiquetas son opcionales.</string>
+    <string name="a_note">¿Un cajón entero? Agrega varias fotos a la vez y responde una categoría para cada una.</string>
+    <string name="a_next">Siguiente</string>
+
+    <string name="l_title">Aprende lo que te gusta</string>
+    <string name="l_body">Valora un atuendo y la app recuerda tres cosas: qué prendas combinan, cómo funciona cada una por su cuenta y qué mezclas de color te pones de verdad.</string>
+    <string name="l_note">Nada que configurar. Las sugerencias mejoran cuanto más valoras.</string>
+    <string name="l_next">Entendido</string>
+
+    <!-- The demo card on the third screen. Fixed copy; there is no outfit yet. -->
+    <string name="onboarding_demo_name">Chaqueta vaquera, camiseta blanca, chinos</string>
+    <string name="onboarding_demo_reasons">Los colores funcionan · Adecuado para la temporada</string>
+
+    <!-- The First steps card at the top of Home. -->
+    <string name="first_steps_title">Primeros pasos</string>
+    <string name="first_steps_dismiss">Descartar</string>
+    <string name="first_steps_garment">Agrega tu primera prenda</string>
+    <string name="first_steps_bulk">Agrega varias a la vez</string>
+    <string name="first_steps_rate">Valora una idea de atuendo</string>
+    <!-- Where each row goes, for a screen reader. -->
+    <string name="first_steps_open_garment">Abrir el formulario de una prenda nueva</string>
+    <string name="first_steps_open_bulk">Abrir agregar varias prendas a la vez</string>
+    <string name="first_steps_open_outfits">Abrir la pestaña de atuendos</string>
+
     <!-- Home -->
     <string name="home_title">Mi Armario</string>
     <string name="home_subtitle">Lleva el control de todo lo que vistes.</string>

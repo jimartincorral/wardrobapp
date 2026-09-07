@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    radio_button_unchecked from Material Icons, Apache License 2.0.
+    https://github.com/google/material-design-icons : src/toggle/radio_button_unchecked/materialicons/24px.svg
+
+    Vendored as a drawable rather than reached for through
+    material-icons-extended, which carries every glyph Google has drawn in order
+    to hand this app one. Tinted at the call site, so the fill here is white and
+    means nothing.
+
+    Paired with Icons.Filled.CheckCircle, which Material's core set does carry:
+    the two are the done and not-done states of a first-steps row, and they are
+    the same circle at the same weight so a column of them reads as one control.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
+</vector>

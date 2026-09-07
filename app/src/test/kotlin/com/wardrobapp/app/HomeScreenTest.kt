@@ -33,6 +33,12 @@ class HomeScreenTest {
         compose.setContent {
             HomeScreen(
                 state = state,
+                // No card: these tests are about the two counts, and a checklist
+                // above them would be four more rows for a text lookup to match.
+                // What the card shows is FirstStepsCardTest's business.
+                firstSteps = null,
+                onFirstStepsDismissed = {},
+                onFirstStep = {},
                 onAddRequested = {},
                 onWardrobeRequested = { wardrobe++ },
                 onArchivedRequested = { archived++ },
