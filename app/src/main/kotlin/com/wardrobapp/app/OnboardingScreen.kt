@@ -211,7 +211,9 @@ private fun Welcome(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, top = 12.dp),
+            // Narrower than the screen's own 24dp sides, which is what keeps this
+            // one line from running the full width and reading as body text.
+            modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 12.dp),
         )
 
         // Skipping is offered on this screen only. The two after it are one button
