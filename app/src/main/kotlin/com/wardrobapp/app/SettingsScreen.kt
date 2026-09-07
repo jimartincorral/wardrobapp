@@ -445,8 +445,15 @@ private fun RestorePreviewDialog(
     )
 }
 
+/**
+ * Internal rather than private because the onboarding flow offers a restore too,
+ * on its first screen, and the design asks for this path unchanged: the same
+ * preview, the same confirmation, the same four dialogs. A second copy of them
+ * would be a second place for the sentence about replacing a whole wardrobe to
+ * drift.
+ */
 @Composable
-private fun RestoreDialog(
+internal fun RestoreDialog(
     restore: SettingsViewModel.Restore,
     /** Opens the file picker. */
     onConfirm: () -> Unit,

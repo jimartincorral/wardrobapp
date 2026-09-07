@@ -328,8 +328,14 @@ fun OutfitsScreen(
     }
 }
 
-/** How many garments a suggestion card draws across. */
-private const val THUMBNAILS_ACROSS = 4
+/**
+ * How many garments a suggestion card draws across.
+ *
+ * Internal rather than private because the onboarding flow draws a picture of
+ * this card, and the whole point of that picture is that it is the same width
+ * arithmetic -- a four-up row on an outfit of three.
+ */
+internal const val THUMBNAILS_ACROSS = 4
 
 /** One chip, ready to draw: its label, whether it is on, and what it does. */
 private data class Chip(val label: String, val active: Boolean, val onTap: () -> Unit)

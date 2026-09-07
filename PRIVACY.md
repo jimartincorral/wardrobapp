@@ -20,6 +20,10 @@ Everything you put into Wardrobapp stays on your device:
   app's private storage.
 - Your photos, as files in the app's own documents directory.
 - Your settings, including your theme and language choice.
+- Three flags about the app itself rather than about you: whether the welcome
+  screens have run, whether the "First steps" card has been dismissed, and
+  whether you have ever added several garments at once. They exist so the app
+  stops asking, and they are the only reason any of it is remembered.
 
 None of it is sent anywhere by default. Uninstalling the app removes all of it.
 

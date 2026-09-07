@@ -52,6 +52,25 @@ class OutfitQueries(private val driver: SqlDriver) {
         .firstOrNull()
         ?.let(::toRecord)
 
+    /**
+     * How many ratings have ever been given.
+     *
+     * For the one question Home's first-steps card asks about outfits: has
+     * anybody rated one yet. Counted over the ratings rather than over the
+     * outfits that have one, because that is the same answer and the row it
+     * counts is the one being asked about -- a rating exists or it does not.
+     *
+     * Archived outfits are included, deliberately. An outfit is archived by being
+     * rated and not kept, so excluding them would un-tick the row for exactly the
+     * person who used the feature most honestly.
+     */
+    fun ratedCount(): Long = driver
+        .query("SELECT COUNT(*) AS total FROM outfit_ratings")
+        .firstOrNull()
+        ?.get("total")
+        ?.let { (it as Number).toLong() }
+        ?: 0L
+
     fun rating(outfitId: String): RatingRecord? = driver.query(
         "SELECT * FROM outfit_ratings WHERE outfit_id = ? ORDER BY rated_at DESC",
         listOf(outfitId),

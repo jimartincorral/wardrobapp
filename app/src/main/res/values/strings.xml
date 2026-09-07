@@ -31,6 +31,68 @@
     <string name="action_back">Back</string>
     <string name="count_unknown">—</string>
 
+    <!--
+        First launch: the three screens before Home.
+
+        Short names because these are the only strings in the file that belong to
+        one screen each and are read nowhere else. The theme and language headings
+        are Settings' own (settings_theme, settings_language) — the same words for
+        the same two settings — while the hints under them deliberately are not:
+        those explain a settings screen, and this one is asking rather than
+        documenting.
+    -->
+    <string name="w_title">Welcome to Wardrobapp</string>
+    <string name="w_body">Your wardrobe lives on this phone. No account, no server, nothing to sign up for.</string>
+    <string name="w_start">Start fresh</string>
+    <string name="w_restore">Restore a backup</string>
+    <string name="w_restore_hint">Coming from another phone? Pick your backup and bring the whole wardrobe with you.</string>
+    <string name="w_skip">Not now</string>
+
+    <string name="a_title">Adding a garment is one photo</string>
+    <string name="a_body">Point the camera at it, or pick a photo you already have. The app fills in what it can and asks you for the rest.</string>
+    <string name="a_s1">A photo, from the camera or the gallery</string>
+    <string name="a_s1_detail">Cropped to 3:4 on the way in, which is the shape every screen shows a garment in.</string>
+    <string name="a_s2">The colours fill themselves in</string>
+    <string name="a_s2_detail">Read from the photo — and read again if you remove its background.</string>
+    <string name="a_s3">You pick the category</string>
+    <string name="a_s3_detail">The one thing a photo cannot say. Brand, size and tags are optional.</string>
+    <string name="a_note">A whole drawerful? Add several photos at once and answer a category for each.</string>
+    <string name="a_next">Next</string>
+
+    <string name="l_title">It learns what you like</string>
+    <string name="l_body">Give an outfit a rating and the app remembers three things: which garments go together, how each one does on its own, and which colour pairings you actually wear.</string>
+    <string name="l_note">Nothing to set up. The suggestions get better the more you rate.</string>
+    <string name="l_next">Got it</string>
+
+    <!--
+        The demo card on the third screen.
+
+        Fixed copy, not generated: the flow runs before there is a wardrobe to
+        build a suggestion from, so there is no outfit to name. The separator is
+        the app's own — the same middle dot the real card joins its reasons with.
+    -->
+    <string name="onboarding_demo_name">Denim jacket, white tee, chinos</string>
+    <string name="onboarding_demo_reasons">The colours work · Right for the season</string>
+
+    <!--
+        The First steps card at the top of Home.
+
+        Three rows rather than the four the design drew. The fourth asked for
+        access to your photos, and this app holds no such permission: every photo
+        comes in through the system photo picker and every backup through the
+        document picker, so there is nothing to grant and nothing to ask for.
+        A row that could never tick is a job nobody can finish.
+    -->
+    <string name="first_steps_title">First steps</string>
+    <string name="first_steps_dismiss">Dismiss</string>
+    <string name="first_steps_garment">Add your first garment</string>
+    <string name="first_steps_bulk">Add several at once</string>
+    <string name="first_steps_rate">Rate an outfit idea</string>
+    <!-- Where each row goes, for a screen reader. The label above says the job. -->
+    <string name="first_steps_open_garment">Open the form for a new garment</string>
+    <string name="first_steps_open_bulk">Open adding several garments at once</string>
+    <string name="first_steps_open_outfits">Open the outfits tab</string>
+
     <!-- Home -->
     <string name="home_title">My Wardrobe</string>
     <string name="home_subtitle">Keep track of everything you wear.</string>
