@@ -11,7 +11,20 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # `ref_name` rather than `ref`, so that the push and the pull request for one
+  # branch land in the same group and the second cancels the first. They did not
+  # before: a push is `refs/heads/claude/x` and its pull request is
+  # `refs/pull/N/merge`, two names for one branch, so both ran to the end and
+  # every branch with a pull request open was built twice. `head_ref` is the
+  # branch name on a pull request and empty everywhere else; `ref_name` is the
+  # same name without the `refs/heads/` in front, which is what makes the two
+  # match.
+  #
+  # The pull request run is the one that survives, since it starts second, and it
+  # is also the one worth keeping: it builds the merge commit rather than the
+  # branch tip. A branch with no pull request open still runs on its own push,
+  # which is the point of the trigger above.
+  group: ci-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -25,11 +38,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Whole history, not the default single commit: the release published below
-      # carries a changelog, and a changelog is a range of commits.
+      # The default single commit. This job runs tests and nothing else reads
+      # history here; the changelog that needs a range of commits is built in the
+      # job below, which is where `fetch-depth: 0` now lives. It used to be here,
+      # where it did nothing.
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -58,7 +71,18 @@ jobs:
       contents: write
 
     steps:
+      # Whole history, not the default single commit: the release published below
+      # carries a changelog, and a changelog is a range of commits.
+      #
+      # This sat on the Kotlin job instead, which reads no history at all, so
+      # this job -- the only one that does -- ran at depth 1. At that depth the
+      # commit named by the previous `latest.json` is not in the clone, the
+      # `git cat-file -e` guard below fails, and the range is never taken: every
+      # release published took the one-entry fallback. The dedup, the merge
+      # subject parsing and the fifty-line bound underneath it had never run.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -69,39 +93,17 @@ jobs:
       - name: Cache Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # The debug variant by name, not `:app:test`, which would also run these
-      # against release. They cannot run there: `ui-test-manifest` supplies the
-      # activity the Compose tests compose into and Google ships it as a
-      # debug-only artifact, on purpose -- so in release there is no activity to
-      # launch and all of them fail at once. Nothing in these tests is
-      # variant-dependent, so debug is the whole story.
-      - name: Test
-        run: ./gradlew :app:testDebugUnitTest --console=plain
-
-      # Every check lint has, with warnings failing the build. There is no
-      # baseline file: the backlog was cleared rather than frozen.
-      - name: Lint
-        run: ./gradlew :app:lintDebug --console=plain
-
-      # Every finding on one line each, since a warning now fails the build and
-      # the full report is mostly explanation. Information too: the version
-      # checks are downgraded to it rather than switched off, and this is where
-      # they get read. `if: always()`, because the run that matters most is the
-      # one where lint failed.
-      - name: Show the lint findings
-        if: always()
-        run: |
-          report=app/build/reports/lint-results-debug.txt
-          [ -f "$report" ] || exit 0
-          grep -E '^/.*(Warning|Error|Information):' "$report" \
-            | sed "s|$PWD/||" || true
-          tail -1 "$report"
-
       # Signing is opt-in on the secret. Without it the release build is signed
       # with the committed `app/debug.keystore` -- the key every published build
       # of this app has carried, which is what keeps a release an upgrade of the
       # app people have installed rather than a collision with it. See the
       # `signingConfigs` block in app/build.gradle.kts.
+      #
+      # Ahead of the build rather than after the tests, which is where it used to
+      # sit: the assemble below reads the ORG_GRADLE_PROJECT_* variables this
+      # writes, so once assembling joined the same Gradle invocation as the tests
+      # this had to come first. It builds nothing itself, so there is no cost to
+      # running it before the build finds out whether there is anything to sign.
       - name: Decode the release keystore
         id: signing
         env:
@@ -129,8 +131,55 @@ jobs:
           } >> "$GITHUB_ENV"
           echo 'signed=true' >> "$GITHUB_OUTPUT"
 
-      - name: Assemble
-        run: ./gradlew :app:assembleRelease --console=plain
+      # One Gradle invocation for all three, rather than the three it used to be.
+      # The daemon already survived between them and up-to-date checks already
+      # stopped the debug sources compiling twice, so what this actually saves is
+      # two configuration phases of an Android project -- worth something, not
+      # worth a great deal. The reason to prefer it anyway is that Gradle gets the
+      # whole task graph at once and can decide the order itself.
+      #
+      # Tests first in the list, because a task list is also the order the
+      # failures arrive in and a failing test is the more useful thing to be told
+      # about. Gradle stops at the first failure: there is no `--continue` here,
+      # so a red test means lint and the assemble never run.
+      #
+      # `:app:testDebugUnitTest`, the debug variant by name, not `:app:test`,
+      # which would also run these against release. They cannot run there:
+      # `ui-test-manifest` supplies the activity the Compose tests compose into
+      # and Google ships it as a debug-only artifact, on purpose -- so in release
+      # there is no activity to launch and all of them fail at once. Nothing in
+      # these tests is variant-dependent, so debug is the whole story.
+      #
+      # `:app:lintDebug` is every check lint has, with warnings failing the
+      # build. There is no baseline file: the backlog was cleared rather than
+      # frozen.
+      #
+      # `:app:assembleRelease` is the only thing that ever exercises R8, since
+      # `isMinifyEnabled` is on for release and nothing else here builds that
+      # variant. It stays on every run for that reason: a `proguard-rules.pro`
+      # that strips something wanted is worth discovering on the branch rather
+      # than at the merge.
+      - name: Build, test and lint
+        run: |
+          ./gradlew \
+            :app:testDebugUnitTest \
+            :app:lintDebug \
+            :app:assembleRelease \
+            --console=plain
+
+      # Every finding on one line each, since a warning now fails the build and
+      # the full report is mostly explanation. Information too: the version
+      # checks are downgraded to it rather than switched off, and this is where
+      # they get read. `if: always()`, because the run that matters most is the
+      # one where lint failed.
+      - name: Show the lint findings
+        if: always()
+        run: |
+          report=app/build/reports/lint-results-debug.txt
+          [ -f "$report" ] || exit 0
+          grep -E '^/.*(Warning|Error|Information):' "$report" \
+            | sed "s|$PWD/||" || true
+          tail -1 "$report"
 
       # The check the upgrade path rests on. An app can only be replaced by a
       # build signed with the same key, so a release signed with something else
