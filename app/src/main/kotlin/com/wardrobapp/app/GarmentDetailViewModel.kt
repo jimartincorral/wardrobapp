@@ -35,6 +35,7 @@ class GarmentDetailViewModel(
 ) : ViewModel() {
 
     data class State(
+        val garmentId: String = "",
         val loading: Boolean = true,
         val view: GarmentDetailView? = null,
         /**
@@ -78,7 +79,7 @@ class GarmentDetailViewModel(
      */
     enum class Confirm { RETIRE, DELETE }
 
-    private val _state = MutableStateFlow(State())
+    private val _state = MutableStateFlow(State(garmentId = garmentId))
     val state: StateFlow<State> = _state.asStateFlow()
 
     /**

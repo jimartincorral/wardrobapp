@@ -909,6 +909,7 @@ private fun GarmentCell(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(3f / 4f)
+                .garmentSharedElement(garment.id)
                 .clip(RoundedCornerShape(8.dp))
                 .background(photoSurface()),
         )
@@ -1277,6 +1278,7 @@ private fun GarmentRow(garment: GarmentRecord, modifier: Modifier = Modifier, on
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(64.dp)
+                    .garmentSharedElement(garment.id)
                     .clip(RoundedCornerShape(8.dp))
                     .background(photoSurface()),
             )

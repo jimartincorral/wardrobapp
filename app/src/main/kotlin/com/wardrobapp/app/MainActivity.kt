@@ -12,6 +12,8 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -22,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
@@ -217,70 +220,75 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
-                    NavHost(
-                        navController = navigator,
-                        startDestination = if (opensOnOnboarding) ONBOARDING else HOME,
-                        modifier = Modifier.padding(insets),
-                    ) {
-                        // Before Home, and only on a first launch. The bottom bar
-                        // does not appear here and needs no telling: `TABS` does
-                        // not carry this route.
-                        composable(ONBOARDING) {
-                            Onboarding(
-                                container = container,
-                                onboarding = onboarding,
-                                theme = theme,
-                                onThemeSelected = { choice ->
-                                    // The same pair Settings writes, and for the
-                                    // same reason: the preference is what the next
-                                    // launch reads, the state is what this
-                                    // composition draws from.
-                                    appearance.choice = choice
-                                    theme = choice
-                                },
-                                onFinished = {
-                                    // Replaced rather than pushed: back from Home
-                                    // should leave the app, not re-open a flow that
-                                    // has just been agreed to.
-                                    navigator.navigate(HOME) {
-                                        popUpTo(ONBOARDING) { inclusive = true }
+                    @OptIn(ExperimentalSharedTransitionApi::class)
+                    SharedTransitionLayout {
+                        CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+                            NavHost(
+                                navController = navigator,
+                                startDestination = if (opensOnOnboarding) ONBOARDING else HOME,
+                                modifier = Modifier.padding(insets),
+                            ) {
+                                // Before Home, and only on a first launch. The bottom bar
+                                // does not appear here and needs no telling: `TABS` does
+                                // not carry this route.
+                                composable(ONBOARDING) {
+                                    Onboarding(
+                                        container = container,
+                                        onboarding = onboarding,
+                                        theme = theme,
+                                        onThemeSelected = { choice ->
+                                            // The same pair Settings writes, and for the
+                                            // same reason: the preference is what the next
+                                            // launch reads, the state is what this
+                                            // composition draws from.
+                                            appearance.choice = choice
+                                            theme = choice
+                                        },
+                                        onFinished = {
+                                            // Replaced rather than pushed: back from Home
+                                            // should leave the app, not re-open a flow that
+                                            // has just been agreed to.
+                                            navigator.navigate(HOME) {
+                                                popUpTo(ONBOARDING) { inclusive = true }
+                                            }
+                                        },
+                                    )
+                                }
+
+                                composable(HOME) {
+                                    Home(
+                                        container = container,
+                                        onboarding = onboarding,
+                                        onAddRequested = { navigator.navigate(GARMENT_ADD) },
+                                        onBulkAddRequested = { navigator.navigate(GARMENT_BULK_ADD) },
+                                        // The plain wardrobe for what is in use, and the
+                                        // wardrobe with retired garments shown for the
+                                        // number that counts exactly those.
+                                        onWardrobeRequested = { openWardrobe(WardrobeQuery.showing(null)) },
+                                        onArchivedRequested = {
+                                            openWardrobe(WardrobeQuery.showing(WardrobeLink.Retired))
+                                        },
+                                        // Tabs are switched to, not pushed: pushing one
+                                        // would stack a second copy of a screen the bar
+                                        // is already showing as selected.
+                                        onOutfitsRequested = { navigator.switchTo(OUTFITS) },
+                                        onStatisticsRequested = { navigator.switchTo(STATISTICS) },
+                                        onSettingsRequested = { navigator.switchTo(SETTINGS) },
+                                    )
+                                }
+
+                                composable(WARDROBE) {
+                                    CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                                        Wardrobe(
+                                            container = container,
+                                            arrival = arrival,
+                                            onArrivalApplied = { arrival = null },
+                                            onGarmentOpened = { navigator.openGarment(it) },
+                                            onAddRequested = { navigator.navigate(GARMENT_ADD) },
+                                            onBulkAddRequested = { navigator.navigate(GARMENT_BULK_ADD) },
+                                        )
                                     }
-                                },
-                            )
-                        }
-
-                        composable(HOME) {
-                            Home(
-                                container = container,
-                                onboarding = onboarding,
-                                onAddRequested = { navigator.navigate(GARMENT_ADD) },
-                                onBulkAddRequested = { navigator.navigate(GARMENT_BULK_ADD) },
-                                // The plain wardrobe for what is in use, and the
-                                // wardrobe with retired garments shown for the
-                                // number that counts exactly those.
-                                onWardrobeRequested = { openWardrobe(WardrobeQuery.showing(null)) },
-                                onArchivedRequested = {
-                                    openWardrobe(WardrobeQuery.showing(WardrobeLink.Retired))
-                                },
-                                // Tabs are switched to, not pushed: pushing one
-                                // would stack a second copy of a screen the bar
-                                // is already showing as selected.
-                                onOutfitsRequested = { navigator.switchTo(OUTFITS) },
-                                onStatisticsRequested = { navigator.switchTo(STATISTICS) },
-                                onSettingsRequested = { navigator.switchTo(SETTINGS) },
-                            )
-                        }
-
-                        composable(WARDROBE) {
-                            Wardrobe(
-                                container = container,
-                                arrival = arrival,
-                                onArrivalApplied = { arrival = null },
-                                onGarmentOpened = { navigator.openGarment(it) },
-                                onAddRequested = { navigator.navigate(GARMENT_ADD) },
-                                onBulkAddRequested = { navigator.navigate(GARMENT_BULK_ADD) },
-                            )
-                        }
+                                }
 
                         composable(SETTINGS) {
                             Settings(
@@ -300,45 +308,51 @@ class MainActivity : AppCompatActivity() {
                         }
 
                         composable(OUTFITS) {
-                            Outfits(
-                                seedGarmentId = outfitSeed,
-                                onSeedApplied = { outfitSeed = null },
-                                container = container,
-                                onGarmentOpened = { navigator.openGarment(it) },
-                                onOutfitOpened = { navigator.navigate("$OUTFIT/${Uri.encode(it)}") },
-                                onBuildRequested = { navigator.navigate(OUTFIT_BUILD) },
-                            )
+                            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                                Outfits(
+                                    seedGarmentId = outfitSeed,
+                                    onSeedApplied = { outfitSeed = null },
+                                    container = container,
+                                    onGarmentOpened = { navigator.openGarment(it) },
+                                    onOutfitOpened = { navigator.navigate("$OUTFIT/${Uri.encode(it)}") },
+                                    onBuildRequested = { navigator.navigate(OUTFIT_BUILD) },
+                                )
+                            }
                         }
 
                         composable("$OUTFIT/{$OUTFIT_ID}") { backStackEntry ->
-                            OutfitDetail(
-                                container = container,
-                                outfitId = backStackEntry.arguments?.getString(OUTFIT_ID).orEmpty(),
-                                navigator = navigator,
-                            )
+                            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                                OutfitDetail(
+                                    container = container,
+                                    outfitId = backStackEntry.arguments?.getString(OUTFIT_ID).orEmpty(),
+                                    navigator = navigator,
+                                )
+                            }
                         }
 
                         composable(STATISTICS) {
-                            Statistics(
-                                container = container,
-                                // The gap closes into an add. Encoded because a
-                                // colour is a hex and `#` ends a URL otherwise --
-                                // the form would open on the right type in the
-                                // wrong colour, which is the kind of wrong that
-                                // looks like a bad recommendation.
-                                onGapAddRequested = { wanted ->
-                                    navigator.navigate(
-                                        "$GARMENT_ADD?$WANTED_CATEGORY=${Uri.encode(wanted.category)}" +
-                                            "&$WANTED_TYPE=${Uri.encode(wanted.subcategory.orEmpty())}" +
-                                            "&$WANTED_COLOUR=${Uri.encode(wanted.colorPrimary)}"
-                                    )
-                                },
-                                // A number counted here, shown as the garments
-                                // behind it. What each link means is
-                                // `WardrobeQuery.showing`'s business.
-                                onLinkRequested = { openWardrobe(WardrobeQuery.showing(it)) },
-                                onGarmentOpened = { navigator.openGarment(it) },
-                            )
+                            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                                Statistics(
+                                    container = container,
+                                    // The gap closes into an add. Encoded because a
+                                    // colour is a hex and `#` ends a URL otherwise --
+                                    // the form would open on the right type in the
+                                    // wrong colour, which is the kind of wrong that
+                                    // looks like a bad recommendation.
+                                    onGapAddRequested = { wanted ->
+                                        navigator.navigate(
+                                            "$GARMENT_ADD?$WANTED_CATEGORY=${Uri.encode(wanted.category)}" +
+                                                "&$WANTED_TYPE=${Uri.encode(wanted.subcategory.orEmpty())}" +
+                                                "&$WANTED_COLOUR=${Uri.encode(wanted.colorPrimary)}"
+                                        )
+                                    },
+                                    // A number counted here, shown as the garments
+                                    // behind it. What each link means is
+                                    // `WardrobeQuery.showing`'s business.
+                                    onLinkRequested = { openWardrobe(WardrobeQuery.showing(it)) },
+                                    onGarmentOpened = { navigator.openGarment(it) },
+                                )
+                            }
                         }
 
                         composable(
@@ -418,37 +432,34 @@ class MainActivity : AppCompatActivity() {
 
                         composable(
                             "$GARMENT/{$GARMENT_ID}",
-                            // A garment opens by growing rather than by sliding in
-                            // from the side. What you tapped was the photo, and the
-                            // screen that arrives is that photo made large -- so
-                            // the motion says "this got bigger", which is the one
-                            // thing a slide cannot say. Back reverses it.
-                            //
-                            // Not a true shared element: that would need the tapped
-                            // cell's bounds carried across the navigation, and every
-                            // screen between here and the cell rewritten to hand a
-                            // transition scope down. The scale is the part of it a
-                            // reader actually perceives.
-                            enterTransition = { scaleIn(springGentle(), 0.9f) + fadeIn(springGentle()) },
+                            // A garment opens with a true shared element transition: the photo
+                            // smoothly expands and translates from its exact position in the
+                            // wardrobe cell to the hero frame at the top of the detail screen.
+                            // The non-shared screen contents gently fade in/out on the same spring.
+                            enterTransition = { fadeIn(springGentle()) },
                             exitTransition = { fadeOut(springGentle()) },
-                            popExitTransition = { scaleOut(springGentle(), 0.9f) + fadeOut(springGentle()) },
+                            popExitTransition = { fadeOut(springGentle()) },
                             popEnterTransition = { fadeIn(springGentle()) },
                         ) { backStackEntry ->
                             // Absent only if a route were built wrong, which the
                             // call sites rule out -- but a crash on a malformed
                             // link is not the answer either, so the detail model
                             // reports it as a garment that is not there.
-                            GarmentDetail(
-                                container = container,
-                                garmentId = backStackEntry.arguments?.getString(GARMENT_ID).orEmpty(),
-                                navigator = navigator,
-                                onBuildOutfit = { buildOutfitAround(it) },
-                            )
+                            CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+                                GarmentDetail(
+                                    container = container,
+                                    garmentId = backStackEntry.arguments?.getString(GARMENT_ID).orEmpty(),
+                                    navigator = navigator,
+                                    onBuildOutfit = { buildOutfitAround(it) },
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
     }
 
     /**

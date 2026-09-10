@@ -153,6 +153,7 @@ fun GarmentDetailScreen(
             }
 
             else -> GarmentBody(
+                garmentId = state.garmentId,
                 view = view,
                 insets = insets,
                 working = state.working,
@@ -171,6 +172,7 @@ fun GarmentDetailScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GarmentBody(
+    garmentId: String,
     view: GarmentDetailView,
     insets: PaddingValues,
     working: Boolean,
@@ -188,7 +190,7 @@ private fun GarmentBody(
             .padding(insets)
             .verticalScroll(rememberScrollState()),
     ) {
-        Photo(view.displayedImage)
+        Photo(garmentId, view.displayedImage)
 
         if (view.showsGallery) {
             LazyRow(
@@ -448,7 +450,7 @@ private fun ConfirmationDialog(
  * worse failure of the two. On an in-app photo the two are identical.
  */
 @Composable
-private fun Photo(uri: String?) {
+private fun Photo(garmentId: String, uri: String?) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -463,7 +465,9 @@ private fun Photo(uri: String?) {
                 model = uri,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .garmentSharedElement(garmentId),
             )
         }
     }

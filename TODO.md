@@ -153,11 +153,10 @@ One app now: the Kotlin one. Anything below is built once.
     `surfaceContainerHigh` there, so a cream shirt is brighter than its own frame
     rather than being the dark part of the cell.
 
-  Not done: the garment detail opens by scaling, but it is not a true shared
-  element -- the destination does not grow from the tapped cell's own position.
-  That needs the cell's bounds carried across the navigation and a transition
-  scope threaded through `WardrobeScreen`, and the scale is the part of it a
-  reader perceives.
+  - **True shared element transition**: the garment detail opens by expanding
+    directly from the tapped cell's bounds in the wardrobe grid or list into the
+    hero photo frame using Compose's `SharedTransitionLayout` and `springGentle()`
+    motion curve, and glides back on pop/back.
 
 ## Not being built
 
