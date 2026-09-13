@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<resources>
+    <!--
+        The same window on a dark phone: a warm near-black rather than a neutral
+        one, so the frame before the first composition belongs to the same palette
+        as the icon that was just tapped.
+
+        Chosen against the icon rather than against the app's colours, which are
+        Material's own and, from Android 12, the wallpaper's — there is nothing
+        fixed there to match.
+    -->
+    <color name="splash_background">#211D1A</color>
+</resources>

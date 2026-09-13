@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <resources>
     <!--
-        The icon's background, and the splash screen's.
+        The icon's background: the cream the logo is printed on.
 
-        The app's own primary colour, from src/constants/theme.ts, rather than the
-        #E6F4FE in app.json: that value is the Expo template's default and was never
-        chosen, and a pale blue behind a white glyph is a white glyph on nothing. At
-        cutover it is app.json that should follow this, not the reverse.
+        It was the React Native app's primary violet, #6C63FF, which was the right
+        answer while the foreground was a white t-shirt and is the wrong one now —
+        the mark is a taupe thread on cream, and putting it on violet would be
+        using the logo's shape and none of the rest of it.
+
+        Not a night variant, and it must not become one. This colour is read by the
+        adaptive icon, and an icon that changed with the system theme would be a
+        different icon on the same launcher twice a day. The splash screen, which
+        does want to follow the theme, has its own colour next door in
+        splash_background.xml.
     -->
-    <color name="ic_launcher_background">#6C63FF</color>
+    <color name="ic_launcher_background">#F3EDE3</color>
 </resources>

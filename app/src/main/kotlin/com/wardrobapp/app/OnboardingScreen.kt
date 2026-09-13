@@ -37,6 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -137,6 +139,20 @@ private fun Welcome(
     onRestoreRequested: () -> Unit,
 ) {
     OnboardingShell {
+        // The logo, on the one screen that is an introduction rather than a place
+        // to get something done. Decorative to a screen reader: the headline
+        // underneath is the app's name in words, and a mark that announced
+        // "Wardrobapp" above it would say it twice.
+        //
+        // The monogram alone, without the wordmark it is printed with, for the same
+        // reason -- the name is already the next line down.
+        Icon(
+            painterResource(R.drawable.ic_monogram),
+            contentDescription = null,
+            tint = colorResource(R.color.brand_ink),
+            modifier = Modifier.padding(bottom = 8.dp).size(44.dp),
+        )
+
         Text(
             stringResource(R.string.w_title),
             style = MaterialTheme.typography.headlineLarge,

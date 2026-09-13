@@ -20,13 +20,19 @@
             between the launcher and the first composition, which was otherwise a
             white flash on the way into a dark app.
 
+            @color/splash_background rather than @color/ic_launcher_background,
+            which is what this used to name. The two hold the same cream in
+            values/, so a light phone sees exactly what it saw before: the icon on
+            its own background. They part company in values-night/, where the
+            splash goes dark and the icon may not — see the comment on each.
+
             androidx.core:core-splashscreen would backport the animated version to
             Android 7. Deliberately not used: it is a dependency and a documented
             interaction with AppCompatActivity — which this is, for the per-app
             language — in exchange for an icon on a coloured rectangle, which is
             what this already gives.
         -->
-        <item name="android:windowBackground">@color/ic_launcher_background</item>
+        <item name="android:windowBackground">@color/splash_background</item>
     </style>
 
     <!--

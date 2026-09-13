@@ -1,41 +1,46 @@
 #!/usr/bin/env python3
 """
-Draw the port's legacy launcher icons.
+Draw the legacy launcher icons from the vector the adaptive icon already uses.
 
 Android 8 and up use the adaptive icon in `mipmap-anydpi-v26`, which is a pair of
 vectors and needs nothing generating. Android 7 has no adaptive icons at all, and
 this app supports it (minSdk 24), so it needs a raster per density -- which is what
 this writes.
 
-Kept as a script rather than as five PNGs with no history, because the artwork was
-drawn rather than commissioned: without this the next person to touch the icon has
-a binary and no idea what it is made of. Run it after changing
-`res/drawable/ic_launcher_foreground.xml`, and keep the geometry below in step
-with that file -- the two are the same drawing, and this is the copy that cannot
-be a vector.
-
     python3 scripts/generate-launcher-icons.py
 
-No dependencies on purpose. Pillow is not in this project's toolchain and adding an
-image library to draw two lines and an arc would be a strange trade.
+The artwork is read out of `res/drawable/ic_launcher_foreground.xml` rather than
+written down again here, so there is one drawing and not two. That is a change
+from the first version of this script, which carried its own copy of the t-shirt's
+outline and a comment asking the next person to keep the two in step. The monogram
+that replaced the t-shirt is fifteen curves and a needle; a second hand-maintained
+copy of it would have been wrong within a week.
+
+What that costs is a path parser and a stroker, below. Both are small because they
+only have to handle what this one file contains: absolute `M`, `C`, `L` and `Z`,
+one stroke colour, round caps. Anything else raises rather than guessing, so a
+drawing this cannot render fails here instead of silently coming out different
+from the vector.
+
+No dependencies on purpose. Pillow is not in this project's toolchain, and an
+image library is a strange thing to add to a repository that draws its own icon.
 """
 
 from __future__ import annotations
 
+import math
+import re
 import struct
+import xml.etree.ElementTree as ElementTree
 import zlib
 from pathlib import Path
 
 RES = Path(__file__).resolve().parent.parent / 'app' / 'src' / 'main' / 'res'
 
-# The adaptive icon's canvas, so the geometry below is the same numbers as the
-# vector's pathData.
-VIEWPORT = 108.0
+ANDROID = '{http://schemas.android.com/apk/res/android}'
 
-# The app's primary colour, from src/constants/theme.ts. Also
-# `ic_launcher_background` in res/values.
-BACKGROUND = (0x6C, 0x63, 0xFF)
-GLYPH = (0xFF, 0xFF, 0xFF)
+FOREGROUND = RES / 'drawable' / 'ic_launcher_foreground.xml'
+BACKGROUND_COLOUR = RES / 'values' / 'ic_launcher_background.xml'
 
 # The densities Android asks for, and the size each expects.
 DENSITIES = {
@@ -50,38 +55,116 @@ DENSITIES = {
 # smooth edges without a rasterizer that understands them.
 SUPERSAMPLE = 4
 
+# How much of the square's half-width the corner radius takes on the plain icon.
+# Enough that the corners are visibly transparent: a launcher icon that fills
+# every pixel of its square reads as a coloured tile, and lint says so
+# (IconLauncherShape).
+CORNER_RADIUS = 0.18
 
-def shirt_outline() -> list[tuple[float, float]]:
+
+# --------------------------------------------------------------------------
+# Reading the drawing
+# --------------------------------------------------------------------------
+
+
+def parse_colour(value: str) -> tuple[int, int, int]:
+    """`#RRGGBB` or `#AARRGGBB` as a triple. Alpha is read and dropped."""
+    digits = value.strip().lstrip('#')
+    if len(digits) == 8:
+        digits = digits[2:]
+    if len(digits) != 6:
+        raise ValueError(f'not a colour this script can read: {value}')
+    return tuple(int(digits[at:at + 2], 16) for at in (0, 2, 4))
+
+
+def background_colour() -> tuple[int, int, int]:
+    """The icon's background, from the colour resource the adaptive icon names."""
+    for element in ElementTree.parse(BACKGROUND_COLOUR).getroot().iter('color'):
+        if element.get('name') == 'ic_launcher_background':
+            return parse_colour(element.text or '')
+    raise ValueError(f'no ic_launcher_background in {BACKGROUND_COLOUR}')
+
+
+def subpaths(path_data: str) -> list[list[tuple[float, float]]]:
     """
-    The t-shirt, as one closed polygon.
+    A `pathData` string as polylines, one per subpath, curves flattened.
 
-    The same outline as `ic_launcher_foreground.xml`, with the collar's curve
-    flattened into segments -- this renderer fills polygons and knows nothing about
-    cubics, and a collar is the one place the vector needs one.
+    Only the commands the foreground uses, and only in their absolute form: `M`
+    starts a subpath, `L` and `C` extend it, `Z` closes it. An unsupported command
+    raises -- see the module docstring.
     """
-    corners = [
-        (42.0, 26.0),  # left of the collar
-        (30.0, 30.0),  # left shoulder
-        (22.0, 46.0),  # left cuff, outer
-        (34.0, 52.0),  # left cuff, inner
-        (34.0, 82.0),  # left hem
-        (74.0, 82.0),  # right hem
-        (74.0, 52.0),
-        (86.0, 46.0),
-        (78.0, 30.0),
-        (66.0, 26.0),  # right of the collar
-    ]
+    tokens = re.findall(r'[A-Za-z]|-?\d*\.?\d+(?:[eE][-+]?\d+)?', path_data)
 
-    # The collar: a cubic from the right of the neck back round to the left, dipping
-    # to about y=32 in the middle. Twenty-four segments is past the point where more
-    # changes a pixel at 192px.
-    collar = []
-    start, control_one, control_two, end = (66.0, 26.0), (62.0, 34.0), (46.0, 34.0), (42.0, 26.0)
-    steps = 24
-    for step in range(1, steps):
+    shapes: list[list[tuple[float, float]]] = []
+    points: list[tuple[float, float]] = []
+    at = 0
+    command = ''
+
+    def number() -> float:
+        nonlocal at
+        value = float(tokens[at])
+        at += 1
+        return value
+
+    while at < len(tokens):
+        if re.fullmatch(r'[A-Za-z]', tokens[at]):
+            command = tokens[at]
+            at += 1
+        elif not command:
+            raise ValueError(f'pathData begins with a number: {path_data[:32]}')
+
+        if command == 'M':
+            if points:
+                shapes.append(points)
+            points = [(number(), number())]
+            # A second pair after an M is an implicit lineto, which is what a
+            # repeated command means everywhere in this syntax.
+            command = 'L'
+        elif command == 'L':
+            points.append((number(), number()))
+        elif command == 'C':
+            control_one = (number(), number())
+            control_two = (number(), number())
+            end = (number(), number())
+            points.extend(flatten(points[-1], control_one, control_two, end))
+        elif command == 'Z':
+            if points and points[0] != points[-1]:
+                points.append(points[0])
+            shapes.append(points)
+            points = []
+        else:
+            raise ValueError(f'pathData command {command!r} is not supported')
+
+    if points:
+        shapes.append(points)
+    return shapes
+
+
+def flatten(
+    start: tuple[float, float],
+    control_one: tuple[float, float],
+    control_two: tuple[float, float],
+    end: tuple[float, float],
+) -> list[tuple[float, float]]:
+    """
+    A cubic as points, the first of which is dropped because it is already there.
+
+    The number of steps comes from the control polygon's length rather than being
+    fixed: the monogram's curves range from a two-unit hook to a forty-unit sweep,
+    and the same count for both is either coarse on one or pointless on the other.
+    Half a viewport unit per step is under a pixel at every density here.
+    """
+    length = sum(
+        math.dist(a, b)
+        for a, b in zip((start, control_one, control_two), (control_one, control_two, end))
+    )
+    steps = max(8, min(96, int(length * 2)))
+
+    points = []
+    for step in range(1, steps + 1):
         t = step / steps
         inverse = 1 - t
-        collar.append((
+        points.append((
             inverse ** 3 * start[0]
             + 3 * inverse ** 2 * t * control_one[0]
             + 3 * inverse * t ** 2 * control_two[0]
@@ -91,17 +174,59 @@ def shirt_outline() -> list[tuple[float, float]]:
             + 3 * inverse * t ** 2 * control_two[1]
             + t ** 3 * end[1],
         ))
+    return points
 
-    return corners + collar
+
+def drawing() -> tuple[float, tuple[int, int, int], list[tuple[list[list[tuple[float, float]]], float]]]:
+    """
+    The foreground vector: its viewport, its colour, and its shapes.
+
+    Each shape is its subpaths and the width to stroke them with -- zero meaning
+    fill. One colour for the whole drawing, because the icon is a monogram in a
+    single ink and a raster in two colours is all the background blend below can
+    do; a second colour raises rather than being quietly painted in the first.
+    """
+    root = ElementTree.parse(FOREGROUND).getroot()
+    viewport = float(root.get(f'{ANDROID}viewportWidth'))
+    if float(root.get(f'{ANDROID}viewportHeight')) != viewport:
+        raise ValueError('the foreground viewport is not square')
+
+    colour: tuple[int, int, int] | None = None
+    shapes = []
+
+    for element in root.iter('path'):
+        stroke = element.get(f'{ANDROID}strokeColor')
+        fill = element.get(f'{ANDROID}fillColor')
+        ink = stroke or fill
+        if ink is None:
+            raise ValueError('a <path> has neither a fill nor a stroke')
+
+        ink = parse_colour(ink)
+        if colour is not None and ink != colour:
+            raise ValueError('the foreground uses more than one colour')
+        colour = ink
+
+        width = float(element.get(f'{ANDROID}strokeWidth', 0)) if stroke else 0.0
+        shapes.append((subpaths(element.get(f'{ANDROID}pathData')), width))
+
+    if colour is None:
+        raise ValueError(f'no <path> in {FOREGROUND}')
+    return viewport, colour, shapes
+
+
+# --------------------------------------------------------------------------
+# Turning it into pixels
+# --------------------------------------------------------------------------
 
 
 def fill_polygon(target: bytearray, width: int, polygon: list[tuple[float, float]]) -> None:
     """
-    Scanline-fill a closed polygon.
+    Scanline-fill a closed polygon into the coverage mask.
 
     One crossing list per row, sorted, filled in pairs -- the standard even-odd
-    rule. The shirt is a simple outline that never crosses itself, so even-odd and
-    non-zero winding agree and the simpler one is enough.
+    rule. Coverage is a union rather than a paint: every polygon here is the same
+    ink, so a stroke that crosses itself (which this monogram does, twice) must
+    come out solid rather than punching a hole where it overlaps.
     """
     top = max(0, int(min(y for _, y in polygon)))
     bottom = min(width - 1, int(max(y for _, y in polygon)) + 1)
@@ -128,24 +253,67 @@ def fill_polygon(target: bytearray, width: int, polygon: list[tuple[float, float
                 target[row + x] = 1
 
 
-# How much of the square's half-width the corner radius takes on the plain icon.
-# Enough that the corners are visibly transparent: a launcher icon that fills
-# every pixel of its square reads as a coloured tile, and lint says so
-# (IconLauncherShape).
-CORNER_RADIUS = 0.18
+# How many sides the discs at the joins get. Twelve is invisible from a segment of
+# a circle at 192px and a third of the work of twenty-four.
+DISC_SIDES = 12
 
 
-def render(size: int, mask: str) -> bytes:
+def stroke_polyline(
+    target: bytearray,
+    width: int,
+    polyline: list[tuple[float, float]],
+    radius: float,
+) -> None:
+    """
+    Draw a polyline with a round cap at each end and a round join at each vertex.
+
+    A quadrilateral per segment, offset either side by the radius, plus a disc at
+    every point. The discs are what make the joins and the caps: a stroker that
+    mitres corners has to decide what to do with a spike, and this drawing is all
+    curves -- every "corner" is a flattening artefact of a smooth line, where a
+    round join is not an approximation but the right answer.
+    """
+    for point in polyline:
+        fill_polygon(target, width, [
+            (
+                point[0] + radius * math.cos(math.tau * side / DISC_SIDES),
+                point[1] + radius * math.sin(math.tau * side / DISC_SIDES),
+            )
+            for side in range(DISC_SIDES)
+        ])
+
+    for (x_start, y_start), (x_end, y_end) in zip(polyline, polyline[1:]):
+        length = math.hypot(x_end - x_start, y_end - y_start)
+        if length == 0:
+            continue
+        # The segment's normal, scaled to the radius.
+        offset_x = -(y_end - y_start) / length * radius
+        offset_y = (x_end - x_start) / length * radius
+        fill_polygon(target, width, [
+            (x_start + offset_x, y_start + offset_y),
+            (x_end + offset_x, y_end + offset_y),
+            (x_end - offset_x, y_end - offset_y),
+            (x_start - offset_x, y_start - offset_y),
+        ])
+
+
+def render(size: int, mask: str, art: tuple, background: tuple[int, int, int]) -> bytes:
     """One icon, as RGBA rows. `mask` is 'rounded' or 'circle'."""
-    scale = size * SUPERSAMPLE / VIEWPORT
+    viewport, glyph_colour, shapes = art
+    scale = size * SUPERSAMPLE / viewport
     big = size * SUPERSAMPLE
 
     # Coverage of the glyph, 0 or 1 per supersampled pixel. A byte each rather than
     # a bitfield: this runs once, and clarity is worth more than the memory.
     glyph = bytearray(big * big)
 
-    polygon = [(x * scale, y * scale) for x, y in shirt_outline()]
-    fill_polygon(glyph, big, polygon)
+    for polylines, stroke_width in shapes:
+        for polyline in polylines:
+            scaled = [(x * scale, y * scale) for x, y in polyline]
+            if stroke_width:
+                stroke_polyline(glyph, big, scaled, stroke_width * scale / 2)
+            else:
+                fill_polygon(glyph, big, scaled)
 
     # A circle for the round variant, so a launcher that asks for one gets a disc
     # rather than a square with rounded corners drawn on top of it.
@@ -195,7 +363,7 @@ def render(size: int, mask: str) -> bytes:
             # instead of stepped.
             glyph_share = glyph_hits / block
             colour = tuple(
-                round(GLYPH[channel] * glyph_share + BACKGROUND[channel] * (1 - glyph_share))
+                round(glyph_colour[channel] * glyph_share + background[channel] * (1 - glyph_share))
                 for channel in range(3)
             )
             rows.extend(colour)
@@ -221,10 +389,13 @@ def write_png(path: Path, size: int, rows: bytes) -> None:
 
 
 def main() -> None:
+    art = drawing()
+    background = background_colour()
+
     for folder, size in DENSITIES.items():
         for name, mask in (('ic_launcher', 'rounded'), ('ic_launcher_round', 'circle')):
             path = RES / folder / f'{name}.png'
-            write_png(path, size, render(size, mask))
+            write_png(path, size, render(size, mask, art, background))
             print(f'{path.relative_to(RES.parent.parent.parent.parent)}: {size}x{size}')
 
 

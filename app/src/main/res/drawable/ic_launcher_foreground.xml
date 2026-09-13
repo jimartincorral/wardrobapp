@@ -1,24 +1,28 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-    The launcher icon's foreground: a t-shirt.
+    The launcher icon's foreground: the W monogram, threaded.
 
-    Drawn here rather than imported because there was nothing to import. Every icon
-    asset in the app this replaced was a 1x1 transparent placeholder — the Expo
-    template's, never replaced — so generating densities from those would have
-    produced one blank PNG per density.
+    One continuous stroke for the letter and a second for the needle, because that
+    is what the mark is — a length of thread that happens to spell a W, ending at
+    the eye of the needle that drew it. Strokes rather than a filled silhouette for
+    the same reason: a filled outline of a thread is a drawing of a ribbon.
 
-    A filled silhouette, and a garment rather than a wardrobe or a hanger, because
-    the size that matters is 48dp. A cupboard at 48dp is a grey rectangle; a hanger
-    is worse, because its hook comes out about three pixels across and reads as a
-    blob on a stick — which is what the first draft of this file did. A shape with
-    an outline and a collar notch still reads at that size.
+    It replaces the t-shirt this file used to hold, which was drawn here because
+    there was nothing to import — every icon in the app this project is a port of
+    was a 1x1 transparent placeholder left over from the Expo template.
 
-    The 108x108 viewport is the adaptive-icon canvas. Only the middle 72x72 is
-    guaranteed to be visible — the launcher masks the rest and may animate within
-    it — so the artwork stays inside 18..90 on both axes.
+    The 108x108 viewport is the adaptive-icon canvas, of which very little is
+    promised. The launcher masks it to a shape of its own choosing — a circle, a
+    squircle, a teardrop — and each of those fits inside a circle of radius 36
+    about the centre, so that circle, rather than the 72x72 square, is what the
+    artwork has to stay within. The geometry below was fitted to it: the drawing is
+    as large as it can be and still survive a round mask, which is why the numbers
+    are not round ones. LauncherIconTest checks that it still is, and says how.
 
-    Keep this in step with scripts/generate-launcher-icons.py, which draws the same
-    outline for the Android 7 rasters.
+    Keep the same drawing in ic_launcher_monochrome.xml; the test holds the two
+    files to each other. scripts/generate-launcher-icons.py reads this file and
+    draws the Android 7 rasters from it, so those need nothing kept in step by
+    hand — run it after changing anything here.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -26,7 +30,36 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
+    <!--
+        The thread: the tail, the loop, the two valleys of the W, and the rise into
+        the needle. Round caps and joins throughout — a thread has no corners. The
+        tail ending in one of those caps rather than in a taper is the one liberty
+        taken with the drawing, and it is deliberate: a taper is a filled shape,
+        and everything here is a stroke.
+    -->
     <path
-        android:pathData="M42,26 L30,30 L22,46 L34,52 L34,82 L74,82 L74,52 L86,46 L78,30 L66,26 C62,34 46,34 42,26 Z"
-        android:fillColor="#FFFFFF" />
+        android:pathData="M23.3,65.9 C32.5,68.2 40.1,59.8 44.0,48.3 C47.0,39.1 37.8,30.7 31.7,36.8 C25.6,42.2 26.4,52.1 32.5,60.6 C36.3,67.5 38.6,75.1 44.0,79.0 C49.3,82.0 52.4,68.2 53.9,52.9 C55.5,42.9 60.1,42.2 60.8,52.9 C61.6,64.4 62.4,74.4 66.2,79.0 C70.0,82.8 75.4,77.4 76.9,66.7 C77.7,61.3 76.9,57.5 76.9,55.2"
+        android:strokeColor="#96795E"
+        android:strokeWidth="4.9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!--
+        The needle: the eye as a closed loop, then the shaft out of the top of it to
+        the point. Thinner than the thread, which is what says one of them is steel.
+
+        The eye is a stroked oval rather than a hole punched through a filled shape,
+        so what shows through it is simply the background — there is no fill rule to
+        get right and nothing to go wrong when the system tints the monochrome copy.
+
+        At 48dp the eye closes up into a dot. That is the size at which the letter
+        has to carry the icon alone, and it does; the needle is what the mark has at
+        192dp and in the app, where there are pixels to spend on it.
+    -->
+    <path
+        android:pathData="M80.5,45.1 C82.2,45.7 82.8,48.3 81.9,50.9 C81.0,53.5 78.9,55.1 77.2,54.5 C75.5,53.9 74.9,51.4 75.8,48.8 C76.7,46.2 78.8,44.5 80.5,45.1 Z M80.5,45.1 L83.4,36.8"
+        android:strokeColor="#96795E"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
 </vector>
