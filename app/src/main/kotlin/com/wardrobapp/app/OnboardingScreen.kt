@@ -1,5 +1,6 @@
 package com.wardrobapp.app
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -37,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -144,13 +144,20 @@ private fun Welcome(
         // underneath is the app's name in words, and a mark that announced
         // "Wardrobapp" above it would say it twice.
         //
-        // The monogram alone, without the wordmark it is printed with, for the same
-        // reason -- the name is already the next line down.
-        Icon(
-            painterResource(R.drawable.ic_monogram),
+        // `Image` rather than `Icon`, and the launcher icon rather than a drawable
+        // of its own. Both follow from the same thing: the mark is letterpressed,
+        // so it is a picture and not a glyph. `Icon` would tint it flat and throw
+        // away the pressing, and the highlights that do the pressing are lighter
+        // than the card they are on -- which means the mark needs its own cream
+        // underneath it to read, on a dark theme as much as a light one. The
+        // launcher icon is exactly that: the monogram on its card.
+        //
+        // The monogram alone, without the wordmark it is printed with, because the
+        // name is already the next line down.
+        Image(
+            painterResource(R.mipmap.ic_launcher),
             contentDescription = null,
-            tint = colorResource(R.color.brand_ink),
-            modifier = Modifier.padding(bottom = 8.dp).size(44.dp),
+            modifier = Modifier.padding(bottom = 8.dp).size(56.dp),
         )
 
         Text(

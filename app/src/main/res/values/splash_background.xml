@@ -6,11 +6,16 @@
         on.
 
         The icon's own cream, so that on a light phone the splash and the icon are
-        one surface and there is no seam between them. values-night/ answers the
-        other half: a cream window on a dark phone is the white flash this setting
-        exists to prevent, and it is the reason this colour is separate from
-        ic_launcher_background at all — the icon may not follow the system theme,
-        and this must.
+        one surface and there is no seam between them. That means this value has to
+        follow ic_launcher_background.xml, which is written by
+        scripts/generate-launcher-icons.py from the logo itself — so when the logo
+        changes, this changes too. LauncherIconTest holds the two together rather
+        than leaving it to be noticed.
+
+        values-night/ answers the other half: a cream window on a dark phone is the
+        white flash this setting exists to prevent, and it is the reason this colour
+        is separate from the icon's at all — the icon may not follow the system
+        theme, and this must.
     -->
-    <color name="splash_background">#F3EDE3</color>
+    <color name="splash_background">#F1ECE1</color>
 </resources>

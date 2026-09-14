@@ -198,9 +198,9 @@ domain/        The algorithms: outfit suggestion, duplicate detection, pair
                product page.
 data/          SQLite queries and row mapping, photo references, reading and
                writing backup archives.
-scripts/       generate-launcher-icons.py — renders the Android 7 launcher
-               rasters from the same vector the adaptive icon uses, with no
-               dependencies.
+art/           logo.png — the logo, as delivered. Every icon the app ships
+               is cut from this file.
+scripts/       generate-launcher-icons.py — cuts them, with no dependencies.
 ```
 
 ## Architecture

@@ -1,18 +1,19 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <resources>
     <!--
-        The icon's background: the cream the logo is printed on.
+        The card the logo is printed on, sampled from art/logo.png.
 
-        It was the React Native app's primary violet, #6C63FF, which was the right
-        answer while the foreground was a white t-shirt and is the wrong one now —
-        the mark is a taupe thread on cream, and putting it on violet would be
-        using the logo's shape and none of the rest of it.
+        Written by scripts/generate-launcher-icons.py, which takes the
+        median of every pixel of the card the mark does not touch — edit
+        the logo rather than this number. It is the adaptive icon's
+        background layer, and what the monogram was drawn to sit on: the
+        artwork is letterpressed, so its highlights are lighter than the
+        paper and only read as highlights against this exact colour.
 
-        Not a night variant, and it must not become one. This colour is read by the
-        adaptive icon, and an icon that changed with the system theme would be a
-        different icon on the same launcher twice a day. The splash screen, which
-        does want to follow the theme, has its own colour next door in
-        splash_background.xml.
+        Not a night variant, and it must not become one. An icon that
+        changed with the system theme would be a different icon on the
+        same launcher twice a day. The splash screen, which does want to
+        follow the theme, has its own colour in splash_background.xml.
     -->
-    <color name="ic_launcher_background">#F3EDE3</color>
+    <color name="ic_launcher_background">#F1ECE1</color>
 </resources>
