@@ -428,37 +428,45 @@ class Logo:
         ys = [y for _, y in present]
         return min(xs), min(ys), max(xs), max(ys)
 
-    def enclosing_circle(self) -> tuple[float, float, float]:
+    def visual_centre(self) -> tuple[float, float, float]:
         """
-        The smallest circle round the monogram's ink, as (x, y, radius).
+        Where the mark looks centred, and how far it reaches from there.
 
-        This, rather than the bounding box, is what the artwork has to be fitted
-        by: the mask a launcher applies is round, and a box fitted to a circle
-        wastes the corners it does not have.
+        The point to hang the artwork on, as (x, y, radius), and it is the centre
+        of the ink's mass rather than of the smallest circle that encloses it.
+
+        Those are not the same point and the difference is visible. The needle is
+        thin and faint and reaches further up and right than anything else, so it
+        barely moves the mass and moves the enclosing circle a great deal: fitting
+        by that circle put its centre high, which pushed the heavy body of the W
+        low and left. On a launcher that masks to a circle the mark sat visibly
+        below the middle -- six of the canvas's hundred and eight units, which is
+        not subtle at 48dp.
+
+        Mass is the right measure because it is what the eye does: it weighs the
+        ink, and a hairline that strays into a corner is not weighed the same as
+        the stroke of a letter. The bounding box's centre happens to agree with
+        this one to within a pixel here, which is a useful check -- the mark is
+        not lopsided, it was simply being measured by its extremes.
+
+        The radius is then the furthest ink from that centre, so the fit still
+        answers the question the mask asks. It is a little larger than the minimum
+        enclosing radius, which costs about one percent of the mark's size. That
+        is the price of being centred rather than packed, and it is worth it.
         """
         left, top, right, bottom = self.monogram
         points = [
-            (x, y)
+            (x, y, self.mark[y * self.width + x])
             for y in range(top, bottom + 1)
             for x in range(left, right + 1)
             if self.mark[y * self.width + x] > 0.15
         ]
 
-        # Move towards whatever is furthest, by less each time. Converges on the
-        # minimum enclosing circle closely enough for a drawing.
-        cx = sum(x for x, _ in points) / len(points)
-        cy = sum(y for _, y in points) / len(points)
-        step = 40.0
-        for _ in range(4000):
-            far, distance = max(
-                ((p, math.hypot(p[0] - cx, p[1] - cy)) for p in points),
-                key=lambda pair: pair[1],
-            )
-            cx += (far[0] - cx) * step / distance
-            cy += (far[1] - cy) * step / distance
-            step *= 0.997
+        mass = sum(weight for _, _, weight in points)
+        cx = sum(x * weight for x, _, weight in points) / mass
+        cy = sum(y * weight for _, y, weight in points) / mass
 
-        radius = max(math.hypot(x - cx, y - cy) for x, y in points)
+        radius = max(math.hypot(x - cx, y - cy) for x, y, _ in points)
         return cx, cy, radius
 
 
@@ -607,10 +615,10 @@ def write_background(colour: tuple[int, int, int]) -> None:
 
 def main() -> None:
     logo = Logo(SOURCE)
-    cx, cy, radius = logo.enclosing_circle()
+    cx, cy, radius = logo.visual_centre()
     left, top, right, bottom = logo.monogram
     print(f'monogram: {right - left + 1}x{bottom - top + 1}px at ({left}, {top}), '
-          f'within {radius:.0f}px of ({cx:.0f}, {cy:.0f})')
+          f'centred on ({cx:.0f}, {cy:.0f}), reaching {radius:.0f}px')
 
     write_background(logo.paper_colour)
 
