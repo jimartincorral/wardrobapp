@@ -309,44 +309,26 @@ jobs:
             previous=$(python3 -c "import json;print(json.load(open('previous.json')).get('commit',''))")
           fi
 
-          # Subject and body per commit, record-separated, because a merge commit's
-          # subject is "Merge pull request #37 from ..." and its body's first line is
-          # the pull request title -- which is the line worth showing.
-          log_format='%s%x1f%b%x1e'
-
+          # The lines themselves come from Release-Note: trailers on the commits in
+          # the range -- see scripts/release-notes.py, which explains why they are
+          # written by hand rather than taken from the pull request titles as this
+          # used to do. Its warnings name any change that carried no trailer, and
+          # show up in the run's annotations.
           if [ -n "$previous" ] && git cat-file -e "$previous^{commit}" 2>/dev/null; then
-            git log --first-parent --format="$log_format" "$previous..$GITHUB_SHA" > changes.txt
+            from="$previous"
           else
             # No previous document, or a commit no longer in this history (a force
-            # push, a rebuilt workflow). One entry is honest; a fabricated list is not.
-            git log --first-parent --format="$log_format" -1 "$GITHUB_SHA" > changes.txt
+            # push, a rebuilt workflow). This build alone is honest; a fabricated
+            # list is not.
+            from="$GITHUB_SHA^"
           fi
+          python3 scripts/release-notes.py "$from" "$GITHUB_SHA" > changes.json
 
           VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER)) \
           VERSION_NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts) \
           python3 - <<'PY' > latest.json
           import json
           import os
-
-          def headline(subject, body):
-              """What this commit says it did, in one line."""
-              if subject.startswith('Merge pull request') or subject.startswith('Merge branch'):
-                  # The pull request's title, which is what the merge is called
-                  # everywhere a person reads it.
-                  for line in body.splitlines():
-                      if line.strip():
-                          return line.strip()
-                  return ''
-              return subject.strip()
-
-          changes = []
-          for record in open('changes.txt').read().split('\x1e'):
-              if not record.strip():
-                  continue
-              subject, _, body = record.strip('\n').partition('\x1f')
-              line = headline(subject, body)
-              if line and line not in changes:
-                  changes.append(line)
 
           print(json.dumps({
               'version_code': int(os.environ['VERSION_CODE']),
@@ -356,9 +338,7 @@ jobs:
                   f"https://github.com/{os.environ['GITHUB_REPOSITORY']}"
                   '/releases/download/nightly/wardrobapp.apk'
               ),
-              # Bounded: the document is fetched by every phone at every launch, and
-              # nobody reads the fiftieth line of a changelog.
-              'changes': changes[:50],
+              'changes': json.load(open('changes.json')),
           }, indent=2))
           PY
 
