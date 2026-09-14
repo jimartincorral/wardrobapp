@@ -144,18 +144,22 @@ private fun Welcome(
         // underneath is the app's name in words, and a mark that announced
         // "Wardrobapp" above it would say it twice.
         //
-        // `Image` rather than `Icon`, and the launcher icon rather than a drawable
-        // of its own. Both follow from the same thing: the mark is letterpressed,
-        // so it is a picture and not a glyph. `Icon` would tint it flat and throw
-        // away the pressing, and the highlights that do the pressing are lighter
-        // than the card they are on -- which means the mark needs its own cream
-        // underneath it to read, on a dark theme as much as a light one. The
-        // launcher icon is exactly that: the monogram on its card.
+        // `Image` rather than `Icon`, because the mark is letterpressed: it is a
+        // picture and not a glyph, and `Icon` would tint it flat and throw the
+        // pressing away. The highlights that do the pressing are lighter than the
+        // card they sit on, so the mark carries that card with it rather than
+        // being cut out -- which is also what lets it read on a dark theme.
+        //
+        // `ic_brand_mark` and not `R.mipmap.ic_launcher`, which is the same
+        // picture and was the first thing tried here. From Android 8 that name
+        // resolves to the adaptive icon's XML, and `painterResource` loads bitmaps
+        // and vectors but not `<adaptive-icon>`: it throws while composing, which
+        // is what OnboardingScreenTest found.
         //
         // The monogram alone, without the wordmark it is printed with, because the
         // name is already the next line down.
         Image(
-            painterResource(R.mipmap.ic_launcher),
+            painterResource(R.drawable.ic_brand_mark),
             contentDescription = null,
             modifier = Modifier.padding(bottom = 8.dp).size(56.dp),
         )

@@ -59,26 +59,41 @@ class LauncherIconTest {
             )
 
             for ((name, size) in expected) {
-                val file = File(File(resourceDirectory(), folder), name)
-                if (!file.isFile) {
-                    failures += "$folder/$name is missing"
-                    continue
-                }
-
-                val actual = pngSize(file)
-                if (actual == null) {
-                    failures += "$folder/$name is not a PNG"
-                } else if (actual.first != size || actual.second != size) {
-                    failures += "$folder/$name is ${actual.first}x${actual.second}, expected " +
-                        "${size}x$size"
-                }
+                check(File(File(resourceDirectory(), folder), name), size, folder, failures)
             }
+
+            // Not a launcher icon, but cut from the same logo by the same script
+            // and able to go stale in the same silence: the mark the Welcome
+            // screen draws, at 56dp.
+            val drawable = "drawable-${folder.substringAfter('-')}"
+            check(
+                File(File(resourceDirectory(), drawable), "ic_brand_mark.png"),
+                legacy * 56 / 48,
+                drawable,
+                failures,
+            )
         }
 
         assertTrue(
             failures.isEmpty(),
             "run scripts/generate-launcher-icons.py:\n  " + failures.joinToString("\n  "),
         )
+    }
+
+    /** One file, at the size the folder it is in means. */
+    private fun check(file: File, size: Int, folder: String, failures: MutableList<String>) {
+        if (!file.isFile) {
+            failures += "$folder/${file.name} is missing"
+            return
+        }
+
+        val actual = pngSize(file)
+        if (actual == null) {
+            failures += "$folder/${file.name} is not a PNG"
+        } else if (actual.first != size || actual.second != size) {
+            failures += "$folder/${file.name} is ${actual.first}x${actual.second}, expected " +
+                "${size}x$size"
+        }
     }
 
     @Test
