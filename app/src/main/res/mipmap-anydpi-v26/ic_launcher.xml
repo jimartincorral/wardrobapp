@@ -3,12 +3,15 @@
     The adaptive icon, from Android 8 onwards: two layers the launcher masks into
     whatever shape it uses, and a third the system may repaint in its own colours.
 
-    `mipmap-anydpi-v26` rather than a density folder because the layers are vectors
-    and a vector has no density. The raster icons alongside are for Android 7,
-    which this app still supports and which has no adaptive icons at all.
+    The layers are bitmaps rather than vectors, and live in the density folders
+    alongside the legacy icons rather than here — `mipmap-anydpi-v26` is where a
+    drawable with no density belongs, and these have one. They are cut from
+    art/logo.png by scripts/generate-launcher-icons.py: the logo is a photograph
+    of a letterpress, and the shading that makes it look pressed into the card is
+    not something a path can carry.
 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
-    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
 </adaptive-icon>

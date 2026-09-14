@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <resources>
     <!--
-        The icon's background, and the splash screen's.
+        The card the logo is printed on, sampled from art/logo.png.
 
-        The app's own primary colour, from src/constants/theme.ts, rather than the
-        #E6F4FE in app.json: that value is the Expo template's default and was never
-        chosen, and a pale blue behind a white glyph is a white glyph on nothing. At
-        cutover it is app.json that should follow this, not the reverse.
+        Written by scripts/generate-launcher-icons.py, which takes the
+        median of every pixel of the card the mark does not touch — edit
+        the logo rather than this number. It is the adaptive icon's
+        background layer, and what the monogram was drawn to sit on: the
+        artwork is letterpressed, so its highlights are lighter than the
+        paper and only read as highlights against this exact colour.
+
+        Not a night variant, and it must not become one. An icon that
+        changed with the system theme would be a different icon on the
+        same launcher twice a day. The splash screen, which does want to
+        follow the theme, has its own colour in splash_background.xml.
     -->
-    <color name="ic_launcher_background">#6C63FF</color>
+    <color name="ic_launcher_background">#F1ECE1</color>
 </resources>

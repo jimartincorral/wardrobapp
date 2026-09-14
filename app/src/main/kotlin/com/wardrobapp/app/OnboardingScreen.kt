@@ -1,5 +1,6 @@
 package com.wardrobapp.app
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -137,6 +139,31 @@ private fun Welcome(
     onRestoreRequested: () -> Unit,
 ) {
     OnboardingShell {
+        // The logo, on the one screen that is an introduction rather than a place
+        // to get something done. Decorative to a screen reader: the headline
+        // underneath is the app's name in words, and a mark that announced
+        // "Wardrobapp" above it would say it twice.
+        //
+        // `Image` rather than `Icon`, because the mark is letterpressed: it is a
+        // picture and not a glyph, and `Icon` would tint it flat and throw the
+        // pressing away. The highlights that do the pressing are lighter than the
+        // card they sit on, so the mark carries that card with it rather than
+        // being cut out -- which is also what lets it read on a dark theme.
+        //
+        // `ic_brand_mark` and not `R.mipmap.ic_launcher`, which is the same
+        // picture and was the first thing tried here. From Android 8 that name
+        // resolves to the adaptive icon's XML, and `painterResource` loads bitmaps
+        // and vectors but not `<adaptive-icon>`: it throws while composing, which
+        // is what OnboardingScreenTest found.
+        //
+        // The monogram alone, without the wordmark it is printed with, because the
+        // name is already the next line down.
+        Image(
+            painterResource(R.drawable.ic_brand_mark),
+            contentDescription = null,
+            modifier = Modifier.padding(bottom = 8.dp).size(56.dp),
+        )
+
         Text(
             stringResource(R.string.w_title),
             style = MaterialTheme.typography.headlineLarge,
