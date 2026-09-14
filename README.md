@@ -201,7 +201,36 @@ data/          SQLite queries and row mapping, photo references, reading and
 art/           logo.png — the logo, as delivered. Every icon the app ships
                is cut from this file.
 scripts/       generate-launcher-icons.py — cuts them, with no dependencies.
+               release-notes.py — the changelog the update dialog shows.
 ```
+
+### Writing the changelog
+
+The update dialog's list is not the pull request titles. It is written by hand, one
+line at a time, as a trailer on the commit that does the work:
+
+```
+Release-Note: An outfit you have rated keeps its rating when you edit it.
+```
+
+A pull request title names the change, for somebody about to read the diff. A
+changelog line names what is different, for somebody deciding whether to spend a
+download on it. They are different sentences, and a change that has only the first
+one says so:
+
+```
+Release-Note: none
+```
+
+It belongs in the trailer block at the end of the message, beside `Co-Authored-By`
+and the rest — git's own definition of a trailer, which is what stops a commit that
+merely discusses the convention from being read as carrying one.
+
+Several trailers in one branch become several lines; the trailer may be on any
+commit the merge brings in, so it can be written when the work is done rather than
+remembered at merge time. A change that carries neither contributes nothing and is
+named in a warning on the release run — silence and "nothing to say" look the same
+in a changelog, and only one of them is deliberate.
 
 ## Architecture
 
