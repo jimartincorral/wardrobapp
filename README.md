@@ -40,13 +40,14 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 - JDK 17
 - The Android SDK, with platform 36 (Android Studio, or `sdkmanager`)
 
-Three of the four modules need neither — see [Architecture](#architecture).
+Four of the five modules need neither — see [Architecture](#architecture).
 
 ```bash
 git clone https://github.com/jimartincorral/wardrobapp.git
 cd wardrobapp
 
-# The pure modules: the algorithms, the data mapping, the view logic.
+# The pure modules: the algorithms, the data mapping, the view logic, and
+# URL import's requests.
 # No Android SDK needed, and finishes in seconds.
 ./gradlew test
 
@@ -196,6 +197,8 @@ presentation/  What a screen shows, as pure functions over records: list
 domain/        The algorithms: outfit suggestion, duplicate detection, pair
                learning, colour comparison, occasions, URL safety, reading a
                product page.
+net/           URL import's requests: a product page and its images, with
+               every redirect checked before it is followed.
 data/          SQLite queries and row mapping, photo references, reading and
                writing backup archives.
 art/           logo.png — the logo, as delivered. Every icon the app ships
@@ -234,11 +237,12 @@ in a changelog, and only one of them is deliberate.
 
 ## Architecture
 
-One Android module and three plain Kotlin/JVM ones. `settings.gradle.kts` includes `:app` only when an Android SDK is present, which is what lets the other three be built and tested on any machine — and proves they need nothing but a JDK, rather than merely claiming it.
+One Android module and four plain Kotlin/JVM ones. `settings.gradle.kts` includes `:app` only when an Android SDK is present, which is what lets the other four be built and tested on any machine — and proves they need nothing but a JDK, rather than merely claiming it.
 
 - **`domain/`** — no database, no filesystem, no clock, no Android. Everything arrives as an argument: the suggestion engine takes its randomness as a parameter, so a run is reproducible and a bug can be reported.
 - **`presentation/`** — the decisions a screen makes, taken out of the screen. Chart widths, what counts as an active filter, which photo the strip has selected. Compose renders the answers; it does not compute them.
 - **`data/`** — reaches SQLite through a small `SqlDriver` interface rather than depending on `androidx.sqlite`. On Android that wraps a `SupportSQLiteDatabase`; in tests it wraps JDBC. Both run the same SQL against the same schema, which is what lets the queries be exercised without an emulator.
+- **`net/`** — the one pure module that does I/O: the requests URL import makes. It holds no decisions — whether an address may be fetched is `:domain`'s — and it is separate from `:app` so that what a request actually reaches can be tested against a real server without an SDK.
 - **`app/`** — layout, navigation, and the platform. Thin on purpose: a ViewModel here loads data, calls a pure function and holds the result.
 
 `WardrobeSchema` is applied on every open — `CREATE TABLE IF NOT EXISTS`, then additive `ALTER`s, then the indexes over them — so there is no migration version to get out of step. Two shapes of database exist on real phones as a result, and both are tested; see Limitations.

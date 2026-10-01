@@ -258,6 +258,9 @@ kotlin {
 
 dependencies {
     implementation(project(":presentation"))
+    // URL import's requests. Plain JVM, so it is tested without an SDK; see its
+    // build file.
+    implementation(project(":net"))
 
     implementation("androidx.core:core-ktx:1.15.0")
     // A photo from a camera roll records which way up it is in EXIF rather than
