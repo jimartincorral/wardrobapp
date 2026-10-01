@@ -14,6 +14,14 @@ package com.wardrobapp.domain
  * hole these checks close: only publicly routable hosts, and the check is
  * re-applied after redirects, since a permitted URL can redirect anywhere.
  *
+ * Those checks read an address as it is *written*, and a name can be written
+ * publicly and resolve privately: `192.168.1.1.nip.io` is a public domain whose
+ * whole purpose is to answer with the address in its name, and anybody with a
+ * domain can point it anywhere. So the address a name *resolves* to is judged
+ * as well, by [isPublicAddress] -- at connect time, in :net, because only the
+ * code making the connection knows which address it is about to use. Reading it
+ * from a lookup made here would judge one answer and connect to another.
+ *
  * A port of `src/utils/url-safety.ts` in the app this replaced, and covered by
  * `UrlSafetyTest` -- 180
  * cases covering every private range on both sides of its edge, the addresses
@@ -208,6 +216,71 @@ fun isPubliclyRoutableHost(hostname: String): Boolean {
     }
 
     return true
+}
+
+/**
+ * True when an address a name resolved to is somewhere on the public internet.
+ *
+ * The counterpart of [isPubliclyRoutableHost] for the bytes a resolver returns
+ * rather than the text a URL carries, and deliberately built on the same IPv4
+ * table: a range refused when written as a literal must be refused when it
+ * arrives from DNS, or the two checks disagree about what "local" means and the
+ * gap between them is the hole.
+ *
+ * Four bytes or sixteen; anything else is refused, in keeping with the rule
+ * above that what cannot be categorised is not fetched.
+ */
+fun isPublicAddress(address: ByteArray): Boolean = when (address.size) {
+    4 -> !isPrivateIpv4(address.map { it.toInt() and 0xff })
+    16 -> isPublicIpv6(IntArray(16) { address[it].toInt() and 0xff })
+    else -> false
+}
+
+/**
+ * The IPv6 half of [isPublicAddress].
+ *
+ * Wider than the literal check in [isPrivateIpv6], which mirrors the TypeScript
+ * it was ported from and is pinned by that port's cases. A resolver can hand
+ * back anything, so this covers the ranges that check never needed to: multicast,
+ * the deprecated site-local block, and IPv4 addresses travelling inside IPv6.
+ */
+private fun isPublicIpv6(b: IntArray): Boolean {
+    // Judged as the IPv4 address it carries, which also settles `::` and `::1`:
+    // they carry 0.0.0.0 and 0.0.0.1, both inside "this network".
+    embeddedIpv4(b)?.let { return !isPrivateIpv4(it) }
+
+    return when {
+        b[0] == 0xff -> false                                   // multicast, ff00::/8
+        b[0] == 0xfe && (b[1] and 0xc0) == 0x80 -> false        // link-local, fe80::/10
+        b[0] == 0xfe && (b[1] and 0xc0) == 0xc0 -> false        // site-local, fec0::/10
+        (b[0] and 0xfe) == 0xfc -> false                        // unique-local, fc00::/7
+        // NAT64's local-use prefix, 64:ff9b:1::/48. Unlike the well-known prefix
+        // below it is an operator's own, and what it translates to is whatever
+        // that operator decides -- so it is refused rather than guessed at.
+        b[0] == 0x00 && b[1] == 0x64 && b[2] == 0xff && b[3] == 0x9b &&
+            b[4] == 0x00 && b[5] == 0x01 -> false
+        else -> true
+    }
+}
+
+/**
+ * The IPv4 address an IPv6 address stands for, if it stands for one.
+ *
+ *  - `::a.b.c.d` and `::ffff:a.b.c.d`, compatible and mapped: the same host,
+ *    written in the other family.
+ *  - `64:ff9b::a.b.c.d`, NAT64's well-known prefix. On an IPv6-only network --
+ *    some mobile carriers run them -- DNS64 answers every IPv4-only site with one
+ *    of these, so refusing the prefix would refuse most of the web there. What
+ *    it reaches is the IPv4 address at the end, so that is what is judged.
+ *  - `2002:wwxx:yyzz::`, 6to4, whose next 32 bits are the IPv4 address.
+ */
+private fun embeddedIpv4(b: IntArray): List<Int>? = when {
+    (0..9).all { b[it] == 0 } &&
+        ((b[10] == 0 && b[11] == 0) || (b[10] == 0xff && b[11] == 0xff)) -> b.slice(12..15)
+    b[0] == 0x00 && b[1] == 0x64 && b[2] == 0xff && b[3] == 0x9b &&
+        (4..11).all { b[it] == 0 } -> b.slice(12..15)
+    b[0] == 0x20 && b[1] == 0x02 -> b.slice(2..5)
+    else -> null
 }
 
 /**

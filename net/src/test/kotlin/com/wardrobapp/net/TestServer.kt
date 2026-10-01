@@ -29,8 +29,14 @@ internal class TestServer : AutoCloseable {
         server.start()
     }
 
-    /** The address of [path] on this server, by loopback literal. */
-    fun url(path: String): String = "http://127.0.0.1:$port$path"
+    /**
+     * The address of [path] on this server.
+     *
+     * By a test name by default, which the tests' lookup answers with loopback --
+     * so a request goes through name resolution the way a real one does. Pass
+     * `127.0.0.1` for the literal, which goes through no lookup at all.
+     */
+    fun url(path: String, host: String = "shop.test"): String = "http://$host:$port$path"
 
     /** How many times [path] was requested. */
     fun hits(path: String): Int = hits[path]?.get() ?: 0
