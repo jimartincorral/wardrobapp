@@ -235,6 +235,11 @@ remembered at merge time. A change that carries neither contributes nothing and 
 named in a warning on the release run — silence and "nothing to say" look the same
 in a changelog, and only one of them is deliberate.
 
+Every line is published with the build it arrived in, and the last fifty travel
+forward from one release to the next, so the dialog lists everything since the
+build on the phone rather than only what the newest build added. A phone that
+missed a few launches is told about all of them.
+
 ## Architecture
 
 One Android module and four plain Kotlin/JVM ones. `settings.gradle.kts` includes `:app` only when an Android SDK is present, which is what lets the other four be built and tested on any machine — and proves they need nothing but a JDK, rather than merely claiming it.

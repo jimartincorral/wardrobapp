@@ -314,8 +314,18 @@ jobs:
           # written by hand rather than taken from the pull request titles as this
           # used to do. Its warnings name any change that carried no trailer, and
           # show up in the run's annotations.
+          #
+          # The history is those same notes with the build each arrived in, plus
+          # what the previous document carried, so a phone several builds behind
+          # can be told everything since its own build rather than since the last
+          # one published. Carried forward only from a document whose commit is
+          # in this history: after a force push its notes may describe work that
+          # is gone, and starting again from this build is the honest answer.
+          version_code=$((1000 + GITHUB_RUN_NUMBER))
+          carry=''
           if [ -n "$previous" ] && git cat-file -e "$previous^{commit}" 2>/dev/null; then
             from="$previous"
+            carry='previous.json'
           else
             # No previous document, or a commit no longer in this history (a force
             # push, a rebuilt workflow). This build alone is honest; a fabricated
@@ -323,8 +333,10 @@ jobs:
             from="$GITHUB_SHA^"
           fi
           python3 scripts/release-notes.py "$from" "$GITHUB_SHA" > changes.json
+          # $carry unquoted on purpose: empty means no previous document at all.
+          python3 scripts/release-notes.py "$from" "$GITHUB_SHA" --history "$version_code" $carry > history.json
 
-          VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER)) \
+          VERSION_CODE=$version_code \
           VERSION_NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts) \
           python3 - <<'PY' > latest.json
           import json
@@ -338,7 +350,10 @@ jobs:
                   f"https://github.com/{os.environ['GITHUB_REPOSITORY']}"
                   '/releases/download/nightly/wardrobapp.apk'
               ),
+              # Read by every build ever published, which expects strings; new
+              # builds read the history beside it instead. See AppUpdates.kt.
               'changes': json.load(open('changes.json')),
+              'history': json.load(open('history.json')),
           }, indent=2))
           PY
 

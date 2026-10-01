@@ -111,4 +111,154 @@ class AppUpdatesTest {
         // But the next build is a new decision, not a settled one.
         assertEquals(release, updateWorthOffering(installed = 1000, skipped = 1119, release = release))
     }
+
+    /*
+     * The changelog since the phone's own build. Every merge publishes a build,
+     * and each build's document used to carry only its own notes -- so a phone
+     * two builds behind was told about the newest change and nothing before it.
+     */
+
+    private val withHistory = """
+        {
+          "version_code": 1123,
+          "version_name": "1.1.0",
+          "apk_url": "https://github.com/jimartincorral/wardrobapp/releases/download/nightly/wardrobapp.apk",
+          "changes": ["Outfits keep their rating when edited."],
+          "history": [
+            {"build": 1123, "text": "Outfits keep their rating when edited."},
+            {"build": 1122, "text": "The grid remembers how many columns you chose."},
+            {"build": 1120, "text": "Photos import the right way up."},
+            {"build": 1120, "text": "Brands sort the way you read them."}
+          ]
+        }
+    """.trimIndent()
+
+    @Test
+    fun `history is read with the build each note arrived in`() {
+        val release = parseAppRelease(withHistory)!!
+
+        assertEquals(4, release.history.size)
+        assertEquals(ReleaseNote(1122, "The grid remembers how many columns you chose."), release.history[1])
+    }
+
+    @Test
+    fun `a phone several builds behind is told everything since its own build`() {
+        val offered = updateWorthOffering(installed = 1119, skipped = 0, release = parseAppRelease(withHistory))!!
+
+        assertEquals(
+            listOf(
+                "Outfits keep their rating when edited.",
+                "The grid remembers how many columns you chose.",
+                "Photos import the right way up.",
+                "Brands sort the way you read them.",
+            ),
+            offered.changes,
+        )
+    }
+
+    @Test
+    fun `a phone is not told about the builds it already has`() {
+        val offered = updateWorthOffering(installed = 1120, skipped = 0, release = parseAppRelease(withHistory))!!
+
+        assertEquals(
+            listOf("Outfits keep their rating when edited.", "The grid remembers how many columns you chose."),
+            offered.changes,
+        )
+    }
+
+    @Test
+    fun `a skipped build does not hide its notes from the next offer`() {
+        // Skipping 1122 was "not that one", and the phone is still on 1119: what
+        // 1122 brought is still something installing 1123 would bring.
+        val offered = updateWorthOffering(installed = 1119, skipped = 1122, release = parseAppRelease(withHistory))!!
+
+        assertTrue("The grid remembers how many columns you chose." in offered.changes)
+    }
+
+    @Test
+    fun `a document from before history existed keeps its own changes`() {
+        // Every document published until this change -- and the one the first
+        // build after it replaces -- has no history. Its changes are the best
+        // there is, and must not be thrown away for want of a build number.
+        val offered = updateWorthOffering(installed = 1000, skipped = 0, release = parseAppRelease(published))!!
+
+        assertEquals(listOf("Read a garment's colours by themselves", "Remove the garment-type suggestions"), offered.changes)
+    }
+
+    @Test
+    fun `when nothing since the phone's build had a note, the published line still says so`() {
+        // Builds whose merges all said "Release-Note: none" carry no history
+        // entries; the published changes then hold the sentence saying there is
+        // nothing to notice, and that is better than an empty dialog.
+        val quiet = """
+            {
+              "version_code": 1125,
+              "apk_url": "https://github.com/jimartincorral/wardrobapp/releases/download/nightly/wardrobapp.apk",
+              "changes": ["Fixes and groundwork. Nothing you should notice."],
+              "history": [{"build": 1120, "text": "Photos import the right way up."}]
+            }
+        """.trimIndent()
+
+        val offered = updateWorthOffering(installed = 1123, skipped = 0, release = parseAppRelease(quiet))!!
+
+        assertEquals(listOf("Fixes and groundwork. Nothing you should notice."), offered.changes)
+    }
+
+    @Test
+    fun `a note claiming a build newer than the one offered is not believed`() {
+        val ahead = withHistory.replace(""""build": 1123""", """"build": 1999""")
+
+        val offered = updateWorthOffering(installed = 1121, skipped = 0, release = parseAppRelease(ahead))!!
+
+        assertEquals(listOf("The grid remembers how many columns you chose."), offered.changes)
+    }
+
+    @Test
+    fun `a malformed history entry is a line fewer, not a release fewer`() {
+        val messy = """
+            {
+              "version_code": 1123,
+              "apk_url": "https://github.com/jimartincorral/wardrobapp/releases/download/nightly/wardrobapp.apk",
+              "changes": ["Kept."],
+              "history": [
+                {"build": "1123", "text": "A build number written as a string still counts."},
+                {"build": 1122},
+                {"text": "No build at all."},
+                {"build": 1121, "text": "   "},
+                {"build": 1121, "text": 42},
+                "not an entry",
+                {"build": 1120, "text": "Kept too."}
+              ]
+            }
+        """.trimIndent()
+
+        val release = parseAppRelease(messy)
+
+        assertEquals(
+            listOf(
+                ReleaseNote(1123, "A build number written as a string still counts."),
+                ReleaseNote(1120, "Kept too."),
+            ),
+            release?.history,
+        )
+    }
+
+    @Test
+    fun `the same line arriving in two builds is told once`() {
+        val repeated = """
+            {
+              "version_code": 1123,
+              "apk_url": "https://github.com/jimartincorral/wardrobapp/releases/download/nightly/wardrobapp.apk",
+              "changes": ["Photos import the right way up."],
+              "history": [
+                {"build": 1123, "text": "Photos import the right way up."},
+                {"build": 1121, "text": "Photos import the right way up."}
+              ]
+            }
+        """.trimIndent()
+
+        val offered = updateWorthOffering(installed = 1100, skipped = 0, release = parseAppRelease(repeated))!!
+
+        assertEquals(listOf("Photos import the right way up."), offered.changes)
+    }
 }
