@@ -106,10 +106,34 @@ class HardcodedStringTest {
             Text("${'$'}value")
             Text("${'$'}{count} ")
             Text("\u203a")
+            /* nested /* comments */ Text("still inside the outer one") */
             """.trimIndent()
         )
 
         assertEquals(emptyList(), found)
+    }
+
+    @Test
+    fun `a string that looks like a comment hides nothing`() {
+        // The shapes that fooled the regexes this used to strip comments with:
+        // a MIME glob opening a "block comment" that a later string closes, a
+        // URL's `//` read as a line comment, and a quote character read as the
+        // start of a string.
+        val found = userFacingLiterals(
+            """
+            launcher.launch(arrayOf("image/*"))
+            Text("after the glob")
+            val close = "*/"
+            Text("see https://example.com for more")
+            val quote = '"'
+            Text("after a quote character")
+            """.trimIndent()
+        )
+
+        assertEquals(
+            listOf("after the glob", "see https://example.com for more", "after a quote character"),
+            found,
+        )
     }
 
     /**
@@ -130,9 +154,7 @@ class HardcodedStringTest {
         }
 
     private fun userFacingLiterals(source: String): List<String> {
-        val code = source
-            .replace(Regex("/\\*.*?\\*/", RegexOption.DOT_MATCHES_ALL), "")
-            .replace(Regex("//[^\n]*"), "")
+        val code = withoutComments(source)
 
         val patterns = listOf(
             // Text("..."), including the form where the text is on its own line.
@@ -152,6 +174,104 @@ class HardcodedStringTest {
         return patterns.flatMap { pattern ->
             pattern.findAll(code).map { it.groupValues[1] }
         }.filter { hasWords(it) }
+    }
+
+    /**
+     * [source] with its comments taken out and everything else kept as written.
+     *
+     * One pass over the characters, because regexes applied in turn cannot tell a
+     * comment from a string that contains one. The two this replaced read the
+     * slash-star inside MainActivity's MIME type for images as the start of a
+     * block comment and hid everything up to the next star-slash -- fifty lines,
+     * with Text calls in them -- from the check, which reported them clean.
+     * Strings are kept, templates and all, since they are what the patterns look
+     * for; comments nest, as they do in Kotlin. (Which is also why this comment
+     * spells the delimiters out: written as symbols they would open a nested
+     * comment inside it.)
+     */
+    private fun withoutComments(source: String): String = CommentStripper(source).run()
+
+    private class CommentStripper(private val source: String) {
+        private val out = StringBuilder()
+        private var i = 0
+
+        fun run(): String {
+            code(insideTemplate = false)
+            return out.toString()
+        }
+
+        /** Code, up to the end or -- inside a `${...}` -- the brace that closes it. */
+        private fun code(insideTemplate: Boolean) {
+            var depth = 0
+            while (i < source.length) {
+                val c = source[i]
+                when {
+                    source.startsWith("//", i) ->
+                        while (i < source.length && source[i] != '\n') i++
+                    source.startsWith("/*", i) -> blockComment()
+                    c == '"' -> string()
+                    c == '\'' -> charLiteral()
+                    insideTemplate && c == '}' && depth == 0 -> return
+                    else -> {
+                        if (c == '{') depth++
+                        if (c == '}') depth--
+                        out.append(c)
+                        i++
+                    }
+                }
+            }
+        }
+
+        private fun blockComment() {
+            var depth = 0
+            do {
+                when {
+                    source.startsWith("/*", i) -> { depth++; i += 2 }
+                    source.startsWith("*/", i) -> { depth--; i += 2 }
+                    else -> i++
+                }
+            } while (depth > 0 && i < source.length)
+            out.append(' ')
+        }
+
+        private fun string() {
+            val raw = source.startsWith("\"\"\"", i)
+            val quote = if (raw) "\"\"\"" else "\""
+            out.append(quote)
+            i += quote.length
+            while (i < source.length) {
+                when {
+                    raw && source.startsWith("\"\"\"", i) -> {
+                        // A raw string may end in more quotes than three; they are its own.
+                        while (i < source.length && source[i] == '"') out.append(source[i++])
+                        return
+                    }
+                    !raw && source[i] == '\\' && i + 1 < source.length -> {
+                        out.append(source, i, i + 2)
+                        i += 2
+                    }
+                    !raw && source[i] == '"' -> {
+                        out.append(source[i++])
+                        return
+                    }
+                    source.startsWith("\${", i) -> {
+                        out.append("\${")
+                        i += 2
+                        code(insideTemplate = true)
+                        if (i < source.length) out.append(source[i++])
+                    }
+                    else -> out.append(source[i++])
+                }
+            }
+        }
+
+        /** `'"'` is a character, not the start of a string. */
+        private fun charLiteral() {
+            val end = source.indexOf('\'', if (source.startsWith("\\", i + 1)) i + 3 else i + 2)
+            val stop = if (end < 0) source.length else end + 1
+            out.append(source, i, stop)
+            i = stop
+        }
     }
 
     /**
