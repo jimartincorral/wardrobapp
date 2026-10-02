@@ -35,6 +35,7 @@ import com.wardrobapp.presentation.BackupRetention
 import com.wardrobapp.presentation.formatMegabytes
 import com.wardrobapp.presentation.formatStoredDateTime
 import com.wardrobapp.presentation.keep
+import com.wardrobapp.ui.RESTORE_WITH_SETTINGS
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_cancel
 import com.wardrobapp.ui.resources.action_close

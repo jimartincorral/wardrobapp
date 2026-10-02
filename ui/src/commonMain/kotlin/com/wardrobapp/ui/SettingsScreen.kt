@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -44,8 +44,7 @@ import com.wardrobapp.data.UnrestorableReason
 import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.SettingsScreenState
 import com.wardrobapp.presentation.ThemeChoice
-import com.wardrobapp.presentation.formatStoredDateTime
-import com.wardrobapp.ui.labelRes
+import com.wardrobapp.presentation.formatStoredDateTimeForReader
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_cancel
 import com.wardrobapp.ui.resources.action_close
@@ -117,8 +116,6 @@ import com.wardrobapp.ui.resources.tidy_nothing_title
 import com.wardrobapp.ui.resources.tidy_reclaimed_body
 import com.wardrobapp.ui.resources.tidy_running_body
 import com.wardrobapp.ui.resources.tidy_running_title
-import java.util.Locale
-import java.util.TimeZone
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -458,7 +455,7 @@ private fun RestorePreviewDialog(
                     preview.createdAt?.let { made ->
                         stringResource(
                             Res.string.restore_preview_made,
-                            formatStoredDateTime(made, TimeZone.getDefault(), Locale.getDefault()),
+                            formatStoredDateTimeForReader(made),
                         )
                     } ?: stringResource(Res.string.restore_preview_undated),
                     style = MaterialTheme.typography.bodyMedium,
@@ -524,7 +521,7 @@ private fun RestorePreviewDialog(
  * drift.
  */
 @Composable
-internal fun RestoreDialog(
+fun RestoreDialog(
     restore: SettingsScreenState.Restore,
     /** Opens the file picker. */
     onConfirm: () -> Unit,

@@ -12,6 +12,9 @@ import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.SettingsScreenState
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.settingsView
+import com.wardrobapp.ui.AppVersion
+import com.wardrobapp.ui.RESTORE_WITH_SETTINGS
+import com.wardrobapp.ui.SettingsScreen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

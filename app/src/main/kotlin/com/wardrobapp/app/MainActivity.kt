@@ -68,13 +68,16 @@ import com.wardrobapp.presentation.languageTag
 import com.wardrobapp.presentation.next
 import com.wardrobapp.presentation.previous
 import com.wardrobapp.presentation.usesDarkColors
+import com.wardrobapp.ui.AppVersion
 import com.wardrobapp.ui.HOME
 import com.wardrobapp.ui.HomeScreen
 import com.wardrobapp.ui.LocalNavAnimatedVisibilityScope
 import com.wardrobapp.ui.LocalSharedTransitionScope
 import com.wardrobapp.ui.OUTFITS
+import com.wardrobapp.ui.RestoreDialog
 import com.wardrobapp.ui.SETTINGS
 import com.wardrobapp.ui.STATISTICS
+import com.wardrobapp.ui.SettingsScreen
 import com.wardrobapp.ui.TABS
 import com.wardrobapp.ui.WARDROBE
 import com.wardrobapp.ui.WardrobeBottomBar
