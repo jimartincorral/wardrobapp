@@ -112,12 +112,23 @@ subprojects {
             )
         }
 
-        // Registered after the module's own build file has run, and only if
-        // nothing else has: :ui is also an Android library, and the Android plugin
-        // brings a `test` of its own -- its unit tests, of which :ui has none. Two
-        // tasks cannot share the name, so there the existing one is given the JVM
-        // tests to run as well.
-        project.afterEvaluate {
+        // Registered only if nothing else has: :ui is also an Android library, and
+        // the Android plugin brings a `test` of its own -- its unit tests, of which
+        // :ui has none. Two tasks cannot share the name, so there the existing one
+        // is given the JVM tests to run as well.
+        //
+        // Once every project is evaluated, not in this one's afterEvaluate, which
+        // is what this first did and what broke CI. The Android plugin creates its
+        // `test` in an afterEvaluate hook of its own, and those hooks run in the
+        // order they were added: :ui applies the multiplatform plugin first, so
+        // this check ran before the Android plugin's, found no `test`, registered
+        // one, and the Android plugin then failed adding its own with "Cannot add
+        // task 'test' as a task with that name already exists". projectsEvaluated
+        // runs after every afterEvaluate in the build, so what it sees no longer
+        // depends on the order a module lists its plugins in. Tasks can still be
+        // registered then: nothing has built the task graph yet.
+        gradle.projectsEvaluated {
+            val tasks = project.tasks
             val runs = tasks.matching { it.name == "jvmTest" || it.name == "compileKotlinWasmJs" }
             if (tasks.findByName("test") == null) {
                 tasks.register("test") {
