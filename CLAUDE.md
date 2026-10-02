@@ -57,7 +57,7 @@ which explains the rest, and the README section it points at.
 - **The launcher icons are generated, not drawn.** They are cut from
   `art/logo.png` by `scripts/generate-launcher-icons.py`; run it after changing
   the logo rather than editing any PNG under `res/mipmap-*` or the brand mark
-  under `res/drawable-*`.
+  under `ui/.../composeResources/drawable-*`.
 
 - **So are the glyphs.** `ui/.../GlyphVectors.kt` is written by
   `scripts/generate-glyphs.py` from `art/glyphs/*.svg`. Change or add an SVG

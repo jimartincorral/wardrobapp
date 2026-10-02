@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -38,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,13 +46,6 @@ import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.MAX_RATING
 import com.wardrobapp.presentation.OnboardingStep
 import com.wardrobapp.presentation.ThemeChoice
-import com.wardrobapp.ui.CTA_HEIGHT
-import com.wardrobapp.ui.Glyph
-import com.wardrobapp.ui.THUMBNAILS_ACROSS
-import com.wardrobapp.ui.ctaLabel
-import com.wardrobapp.ui.labelRes
-import com.wardrobapp.ui.photoSurface
-import com.wardrobapp.ui.pressScale
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.a_body
 import com.wardrobapp.ui.resources.a_next
@@ -65,6 +57,7 @@ import com.wardrobapp.ui.resources.a_s2_detail
 import com.wardrobapp.ui.resources.a_s3
 import com.wardrobapp.ui.resources.a_s3_detail
 import com.wardrobapp.ui.resources.a_title
+import com.wardrobapp.ui.resources.ic_brand_mark
 import com.wardrobapp.ui.resources.l_body
 import com.wardrobapp.ui.resources.l_next
 import com.wardrobapp.ui.resources.l_note
@@ -80,6 +73,7 @@ import com.wardrobapp.ui.resources.w_restore_hint
 import com.wardrobapp.ui.resources.w_skip
 import com.wardrobapp.ui.resources.w_start
 import com.wardrobapp.ui.resources.w_title
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -187,12 +181,14 @@ private fun Welcome(
         // picture and was the first thing tried here. From Android 8 that name
         // resolves to the adaptive icon's XML, and `painterResource` loads bitmaps
         // and vectors but not `<adaptive-icon>`: it throws while composing, which
-        // is what OnboardingScreenTest found.
+        // is what OnboardingScreenTest found. A Compose Multiplatform resource
+        // now, cut by the same script into :ui's own drawables, so the browser
+        // draws the same picture.
         //
         // The monogram alone, without the wordmark it is printed with, because the
         // name is already the next line down.
         Image(
-            painterResource(R.drawable.ic_brand_mark),
+            painterResource(Res.drawable.ic_brand_mark),
             contentDescription = null,
             modifier = Modifier.padding(bottom = 8.dp).size(56.dp),
         )

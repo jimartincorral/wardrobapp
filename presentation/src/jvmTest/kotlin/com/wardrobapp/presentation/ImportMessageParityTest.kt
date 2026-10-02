@@ -234,7 +234,7 @@ class ImportMessageParityTest {
     }
 
     private fun parse(locale: String): org.w3c.dom.Document {
-        val resDir = screenStringsDirectory()
+        val resDir = screenResourcesDirectory()
         val file = File(File(resDir, locale), "strings.xml")
         assertTrue(file.isFile, "expected string resources at $file")
 

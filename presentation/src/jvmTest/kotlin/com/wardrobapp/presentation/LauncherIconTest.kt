@@ -64,10 +64,11 @@ class LauncherIconTest {
 
             // Not a launcher icon, but cut from the same logo by the same script
             // and able to go stale in the same silence: the mark the Welcome
-            // screen draws, at 56dp.
+            // screen draws, at 56dp. Among the screens' own resources in :ui,
+            // since the screen is shared with the browser.
             val drawable = "drawable-${folder.substringAfter('-')}"
             check(
-                File(File(resourceDirectory(), drawable), "ic_brand_mark.png"),
+                File(File(screenResourcesDirectory(), drawable), "ic_brand_mark.png"),
                 legacy * 56 / 48,
                 drawable,
                 failures,

@@ -77,6 +77,7 @@ import com.wardrobapp.ui.HomeScreen
 import com.wardrobapp.ui.LocalNavAnimatedVisibilityScope
 import com.wardrobapp.ui.LocalSharedTransitionScope
 import com.wardrobapp.ui.OUTFITS
+import com.wardrobapp.ui.OnboardingScreen
 import com.wardrobapp.ui.OutfitDetailScreen
 import com.wardrobapp.ui.OutfitEditScreen
 import com.wardrobapp.ui.OutfitsScreen

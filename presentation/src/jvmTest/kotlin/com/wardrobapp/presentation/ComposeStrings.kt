@@ -33,8 +33,11 @@ internal fun String.asComposeWouldLoadIt(): String {
         .replace("\\\\", "\\")
 }
 
-/** Where :ui keeps the screens' strings; see presentation/build.gradle.kts. */
-internal fun screenStringsDirectory(): File = File(
+/**
+ * Where :ui keeps the screens' resources: their strings, and the brand mark the
+ * launcher icon script cuts for the welcome screen. See presentation/build.gradle.kts.
+ */
+internal fun screenResourcesDirectory(): File = File(
     System.getProperty("uiResDir")
         ?: error("uiResDir was not set; see presentation/build.gradle.kts"),
 )

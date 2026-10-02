@@ -149,7 +149,7 @@ class ArchiveMessageParityTest {
     }
 
     private fun readStrings(): Map<String, String> {
-        val resDir = screenStringsDirectory()
+        val resDir = screenResourcesDirectory()
         val file = File(resDir, "values/strings.xml")
         assertTrue(file.isFile, "expected string resources at $file")
 

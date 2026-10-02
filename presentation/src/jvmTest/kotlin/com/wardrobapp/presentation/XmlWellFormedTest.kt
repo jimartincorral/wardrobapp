@@ -58,7 +58,7 @@ class XmlWellFormedTest {
         // `--` in a comment fails that the way it fails the manifest merger.
         // Every header in these files was rewritten during the move, which is
         // when this is easiest to get wrong.
-        val resDir = screenStringsDirectory()
+        val resDir = screenResourcesDirectory()
 
         val files = resDir.walkTopDown().filter { it.isFile && it.extension == "xml" }.toList()
 
