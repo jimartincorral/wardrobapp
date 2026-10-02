@@ -27,11 +27,11 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 
 ## Tech stack
 
-- **UI:** Jetpack Compose, Material 3, single activity, Navigation Compose
+- **UI:** Compose Multiplatform 1.7 — Jetpack Compose itself on Android — Material 3, single activity, Navigation Compose
 - **Language:** Kotlin 2.1, JVM target 17, `minSdk` 24 / `targetSdk` 36
 - **Storage:** SQLite through a small `SqlDriver` interface — `SupportSQLiteDatabase` on a device, JDBC in tests; photos as files under `<documents>/garment-images/`, referenced from the database by filename
-- **Build:** Gradle with AGP 8.9, four modules, no code generation
-- **Dependencies:** AndroidX, ML Kit, Coil for loading photos, and the same crop screen Expo's image picker used. No dependency injection framework, no ORM.
+- **Build:** Gradle with AGP 8.9, six modules; the only generated code is Compose Multiplatform's accessors for the screens' resources
+- **Dependencies:** AndroidX, ML Kit, Coil 3 for loading photos, and the same crop screen Expo's image picker used. No dependency injection framework, no ORM.
 
 ## Getting started
 
@@ -40,7 +40,7 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 - JDK 17
 - The Android SDK, with platform 36 (Android Studio, or `sdkmanager`)
 
-Four of the five modules need neither — see [Architecture](#architecture).
+Four of the six modules need neither — see [Architecture](#architecture).
 
 ```bash
 git clone https://github.com/jimartincorral/wardrobapp.git
@@ -249,13 +249,14 @@ missed a few launches is told about all of them.
 
 ## Architecture
 
-One Android module and four that need nothing but a JDK — `:domain`, `:data` and `:presentation`, which are Kotlin Multiplatform, and `:net`, which is plain Kotlin/JVM. `settings.gradle.kts` includes `:app` only when an Android SDK is present, which is what lets the other four be built and tested on any machine — and proves they need nothing but a JDK, rather than merely claiming it.
+Two modules that build only where there is an Android SDK — `:app`, and `:ui`, the screens — and four that need nothing but a JDK: `:domain`, `:data` and `:presentation`, which are Kotlin Multiplatform, and `:net`, which is plain Kotlin/JVM. `settings.gradle.kts` includes `:app` and `:ui` only when an SDK is present, which is what lets the other four be built and tested on any machine — and proves they need nothing but a JDK, rather than merely claiming it.
 
 - **`domain/`** — no database, no filesystem, no clock, no Android. Everything arrives as an argument: the suggestion engine takes its randomness as a parameter, so a run is reproducible and a bug can be reported. Common code that also compiles for the browser, apart from URL import, which only runs where a page is fetched and stays on the JVM. `./gradlew test` compiles the Wasm target as well as running the tests, so code that only builds on the JVM fails there rather than in the browser build.
 - **`presentation/`** — the decisions a screen makes, taken out of the screen. Chart widths, what counts as an active filter, which photo the strip has selected. Compose renders the answers; it does not compute them. Common code, so the browser's screens make the same decisions; sorting by name uses each platform's own collator.
 - **`data/`** — reaches SQLite through a small `SqlDriver` interface rather than depending on `androidx.sqlite`. On Android that wraps a `SupportSQLiteDatabase`; in tests it wraps JDBC. Both run the same SQL against the same schema, which is what lets the queries be exercised without an emulator. The records, queries, writes and schema are common code; the backup archive, file locations, Drive requests and write timestamps stay on the JVM, where the phone and the Home Assistant server run them.
 - **`net/`** — the one pure module that does I/O: the requests URL import makes. It holds no decisions — whether an address may be fetched is `:domain`'s — and it is separate from `:app` so that what a request actually reaches can be tested against a real server without an SDK.
-- **`app/`** — layout, navigation, and the platform. Thin on purpose: a ViewModel here loads data, calls a pure function and holds the result.
+- **`ui/`** — the screens, in Compose Multiplatform: every layout, the strings in both languages, the glyphs and the brand mark. Common code, for the phone and the browser alike; where the platforms genuinely differ — Android 12's dynamic colour, how tall the window is — it is an `expect` with each platform's answer. Needs the SDK only because Compose Multiplatform's Android and desktop artifacts are androidx's, on Google's Maven. The Robolectric tests in `:app` exercise these screens, and `:app`'s lint checks them.
+- **`app/`** — navigation and the platform: `MainActivity`, the ViewModels that fill each screen's state, the photo pipeline, Drive, and updates. Thin on purpose: a ViewModel here loads data, calls a pure function and holds the result.
 
 `WardrobeSchema` is applied on every open — `CREATE TABLE IF NOT EXISTS`, then additive `ALTER`s, then the indexes over them — so there is no migration version to get out of step. Two shapes of database exist on real phones as a result, and both are tested; see Limitations.
 
@@ -268,13 +269,13 @@ Two things it left behind, both deliberate. Comments across this codebase explai
 ## Testing
 
 ```bash
-./gradlew test                    # 600 tests, no Android SDK, seconds
-./gradlew :app:testDebugUnitTest  # 108 more, needs the SDK — no emulator
+./gradlew test                    # 833 tests, no Android SDK, seconds
+./gradlew :app:testDebugUnitTest  # 192 more, needs the SDK — no emulator
 ```
 
-The 600 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
+The 833 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, and both languages' string resources against each other.
 
-The 108 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
+The 192 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 
 ```bash
 ./gradlew :app:testDebugUnitTest
