@@ -10,7 +10,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * Reading a garment out of a product page.
  *
  * A port of the extraction half of `src/services/url-import-service.ts`. The
- * fetch is not here -- it needs a network client, so it lives in :app -- and
+ * fetch is not here -- it needs a network client, so it lives in :net -- and
  * everything that decides *what a page says* is, where it can be tested against
  * real pages without one.
  *
@@ -30,63 +30,6 @@ import kotlinx.serialization.json.JsonPrimitive
  * for being logos or not images at all, and the order the whole thing comes out
  * in.
  */
-
-/** Which parser produced the images. */
-enum class ImportParser {
-    OPEN_GRAPH,
-    JSON_LD,
-    HTML_IMAGES,
-    MIXED,
-    NONE,
-}
-
-/** Something worth saying about an import that still succeeded. */
-sealed interface ImportWarning {
-
-    /** A `ld+json` block that was not JSON. */
-    data object StructuredDataUnreadable : ImportWarning
-
-    /** The page listed more images than the app will take. */
-    data class ImagesCapped(val listed: Int, val used: Int) : ImportWarning
-
-    /** Images pointing somewhere the app will not fetch. */
-    data class ImagesBlocked(val count: Int) : ImportWarning
-
-    /** Images that were allowed but did not arrive. */
-    data class ImagesFailed(val count: Int) : ImportWarning
-}
-
-/**
- * The sentence each warning has always produced.
- *
- * Byte-for-byte the TypeScript's, so the fixture can compare the English while
- * :app renders the same thing from a string resource. The singular and plural are
- * spelled out here for the same reason the messages are: this is the copy the
- * fixture compares, and Android's own plural rules take over in the app.
- */
-fun ImportWarning.englishMessage(): String = when (this) {
-    ImportWarning.StructuredDataUnreadable ->
-        "Some structured product data could not be parsed."
-
-    is ImportWarning.ImagesCapped ->
-        "That page listed $listed images; the first $used were used."
-
-    is ImportWarning.ImagesBlocked ->
-        "$count image${if (count == 1) "" else "s"} pointed somewhere this app will not fetch."
-
-    is ImportWarning.ImagesFailed ->
-        "$count image${if (count == 1) "" else "s"} could not be downloaded."
-}
-
-/** What a page turned out to say about a garment. */
-data class ImportedGarmentData(
-    val sourceUrl: String,
-    val title: String?,
-    val brand: String?,
-    val imageUrls: List<String>,
-    val warnings: List<ImportWarning>,
-    val parser: ImportParser,
-)
 
 /** Image URLs that are furniture rather than the product. */
 private val IMAGE_BLOCKLIST = listOf(
