@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
- * Every XML file :app ships, parsed.
+ * Every XML file :app ships, parsed, and the screens' strings in :ui.
  *
  * Here for the same reason [StringResourceParityTest] is: :app needs the Android
  * SDK and this module does not, so without this the first thing to read these
@@ -44,6 +44,21 @@ class XmlWellFormedTest {
             System.getProperty("appResDir")
                 ?: error("appResDir was not set; see presentation/build.gradle.kts"),
         )
+
+        val files = resDir.walkTopDown().filter { it.isFile && it.extension == "xml" }.toList()
+
+        assertTrue(files.isNotEmpty(), "no XML resources found under ${resDir.path}")
+        for (file in files) parseOrFail(file)
+    }
+
+    @Test
+    fun `every screen resource file is well-formed XML`() {
+        // The screens' strings moved to :ui, and the trap moved with them: the
+        // Compose resources plugin parses these files to generate `Res`, and a
+        // `--` in a comment fails that the way it fails the manifest merger.
+        // Every header in these files was rewritten during the move, which is
+        // when this is easiest to get wrong.
+        val resDir = screenStringsDirectory()
 
         val files = resDir.walkTopDown().filter { it.isFile && it.extension == "xml" }.toList()
 

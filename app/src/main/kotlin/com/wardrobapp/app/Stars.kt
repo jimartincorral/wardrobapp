@@ -19,11 +19,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.presentation.MAX_RATING
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.outfit_rate_stars
 import kotlinx.coroutines.delay
+import org.jetbrains.compose.resources.pluralStringResource
 
 /**
  * One star, by the rating it gives.
@@ -98,7 +100,7 @@ internal fun Stars(rating: Int?, onRate: (Int) -> Unit) {
             ) {
                 // The description is the rating this star gives, not the shape:
                 // "three stars" is what the control does.
-                val description = pluralStringResource(R.plurals.outfit_rate_stars, star, star)
+                val description = pluralStringResource(Res.plurals.outfit_rate_stars, star, star)
                 val tint = if (filled) {
                     MaterialTheme.colorScheme.primary
                 } else {

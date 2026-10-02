@@ -57,10 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -77,6 +74,52 @@ import com.wardrobapp.presentation.GARMENT_COLORS
 import com.wardrobapp.presentation.GarmentFormScreenState
 import com.wardrobapp.presentation.backgroundActionFor
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.action_back
+import com.wardrobapp.ui.resources.action_close
+import com.wardrobapp.ui.resources.background_cutting
+import com.wardrobapp.ui.resources.background_remove
+import com.wardrobapp.ui.resources.background_undo
+import com.wardrobapp.ui.resources.duplicate_add_anyway
+import com.wardrobapp.ui.resources.duplicate_review
+import com.wardrobapp.ui.resources.duplicate_title
+import com.wardrobapp.ui.resources.filter_brand
+import com.wardrobapp.ui.resources.filter_section_category
+import com.wardrobapp.ui.resources.filter_section_season
+import com.wardrobapp.ui.resources.filter_section_type
+import com.wardrobapp.ui.resources.filter_size
+import com.wardrobapp.ui.resources.form_add_photo
+import com.wardrobapp.ui.resources.form_detecting_colors
+import com.wardrobapp.ui.resources.form_remove_photo
+import com.wardrobapp.ui.resources.form_remove_tag
+import com.wardrobapp.ui.resources.form_save_add
+import com.wardrobapp.ui.resources.form_save_edit
+import com.wardrobapp.ui.resources.form_saving
+import com.wardrobapp.ui.resources.form_section_photos
+import com.wardrobapp.ui.resources.form_section_tags
+import com.wardrobapp.ui.resources.form_size_custom
+import com.wardrobapp.ui.resources.form_tag_hint
+import com.wardrobapp.ui.resources.form_take_photo
+import com.wardrobapp.ui.resources.form_title_add
+import com.wardrobapp.ui.resources.form_title_edit
+import com.wardrobapp.ui.resources.garment_missing
+import com.wardrobapp.ui.resources.import_action
+import com.wardrobapp.ui.resources.import_failed_title
+import com.wardrobapp.ui.resources.import_hint
+import com.wardrobapp.ui.resources.import_invalid_url
+import com.wardrobapp.ui.resources.import_notes
+import com.wardrobapp.ui.resources.import_running
+import com.wardrobapp.ui.resources.import_section
+import com.wardrobapp.ui.resources.import_source
+import com.wardrobapp.ui.resources.import_success
+import com.wardrobapp.ui.resources.import_url_label
+import com.wardrobapp.ui.resources.property_colours
+import com.wardrobapp.ui.resources.shared_link_body
+import com.wardrobapp.ui.resources.shared_link_cancel
+import com.wardrobapp.ui.resources.shared_link_confirm
+import com.wardrobapp.ui.resources.shared_link_title
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 /** The scrolling body of the form, for tests that need to reach past the fold. */
 const val GARMENT_FORM_LIST = "garment-form-list"
@@ -137,7 +180,7 @@ fun GarmentFormScreen(
             onDismissRequest = onErrorDismissed,
             title = { Text(stringResource(state.errorTitle.labelRes)) },
             text = { Text(error) },
-            confirmButton = { TextButton(onClick = onErrorDismissed) { Text(stringResource(R.string.action_close)) } },
+            confirmButton = { TextButton(onClick = onErrorDismissed) { Text(stringResource(Res.string.action_close)) } },
         )
     }
 
@@ -147,13 +190,13 @@ fun GarmentFormScreen(
                 title = {
                     Text(
                         stringResource(
-                            if (isEditing) R.string.form_title_edit else R.string.form_title_add
+                            if (isEditing) Res.string.form_title_edit else Res.string.form_title_add
                         )
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
                     }
                 },
             )
@@ -163,7 +206,7 @@ fun GarmentFormScreen(
             Box(
                 modifier = Modifier.fillMaxSize().padding(insets),
                 contentAlignment = Alignment.Center,
-            ) { Text(stringResource(R.string.garment_missing)) }
+            ) { Text(stringResource(Res.string.garment_missing)) }
             return@Scaffold
         }
 
@@ -183,7 +226,7 @@ fun GarmentFormScreen(
             // reason.
             if (!isEditing) {
                 item {
-                    Section(stringResource(R.string.import_section)) {
+                    Section(stringResource(Res.string.import_section)) {
                         ImportFromLink(
                             state = state.urlImport,
                             onUrlChanged = onImportUrlChanged,
@@ -194,7 +237,7 @@ fun GarmentFormScreen(
             }
 
             item {
-                Section(stringResource(R.string.form_section_photos)) {
+                Section(stringResource(Res.string.form_section_photos)) {
                     Column {
                         Photos(
                             uris = form.galleryItems().map { it.uri },
@@ -213,7 +256,7 @@ fun GarmentFormScreen(
                             enabled = !state.saving,
                             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         ) {
-                            Text(stringResource(R.string.form_take_photo))
+                            Text(stringResource(Res.string.form_take_photo))
                         }
 
                         // No button: the colours are read when a photo arrives and
@@ -240,7 +283,7 @@ fun GarmentFormScreen(
             }
 
             item {
-                Section(stringResource(R.string.filter_section_category)) {
+                Section(stringResource(Res.string.filter_section_category)) {
                     Chips(GARMENT_CATEGORIES.map { it.id }, setOf(form.category), { categoryLabel(it) }) {
                         onCategorySelected(it)
                     }
@@ -249,7 +292,7 @@ fun GarmentFormScreen(
 
             garmentCategory(form.category)?.let { category ->
                 item {
-                    Section(stringResource(R.string.filter_section_type)) {
+                    Section(stringResource(Res.string.filter_section_type)) {
                         Chips(category.subcategories, form.subcategories.toSet(), { garmentTypeLabel(it) }) {
                             onSubcategoryToggled(it)
                         }
@@ -258,7 +301,7 @@ fun GarmentFormScreen(
             }
 
             item {
-                Section(stringResource(R.string.filter_section_season)) {
+                Section(stringResource(Res.string.filter_section_season)) {
                     Chips(Season.entries.toList(), form.seasons.toSet(), { stringResource(it.labelRes) }) {
                         onSeasonToggled(it)
                     }
@@ -266,25 +309,25 @@ fun GarmentFormScreen(
             }
 
             item {
-                Section(stringResource(R.string.property_colours)) {
+                Section(stringResource(Res.string.property_colours)) {
                     Colors(form.colorPalette.toSet(), onColorToggled)
                 }
             }
 
             item {
-                Section(stringResource(R.string.form_section_tags)) {
+                Section(stringResource(Res.string.form_section_tags)) {
                     Tags(form.tags, onTagsChanged)
                 }
             }
 
             item {
-                Section(stringResource(R.string.filter_brand)) {
+                Section(stringResource(Res.string.filter_brand)) {
                     Brand(form.brand, brandSuggestions(form.brand), onBrandChanged)
                 }
             }
 
             item {
-                Section(stringResource(R.string.filter_size)) {
+                Section(stringResource(Res.string.filter_size)) {
                     Column {
                         Chips(
                             COMMON_SIZES.take(SIZE_CHIPS),
@@ -295,7 +338,7 @@ fun GarmentFormScreen(
                         OutlinedTextField(
                             value = form.size,
                             onValueChange = onSizeChanged,
-                            label = { Text(stringResource(R.string.form_size_custom)) },
+                            label = { Text(stringResource(Res.string.form_size_custom)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         )
@@ -315,9 +358,9 @@ fun GarmentFormScreen(
                     Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(20.dp))
                     Text(
                         when {
-                            state.saving -> stringResource(R.string.form_saving)
-                            isEditing -> stringResource(R.string.form_save_edit)
-                            else -> stringResource(R.string.form_save_add)
+                            state.saving -> stringResource(Res.string.form_saving)
+                            isEditing -> stringResource(Res.string.form_save_edit)
+                            else -> stringResource(Res.string.form_save_add)
                         },
                         style = ctaLabel(),
                         modifier = Modifier.padding(start = 8.dp),
@@ -356,7 +399,7 @@ private fun BackgroundControl(
             running -> {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp))
                 Text(
-                    stringResource(R.string.background_cutting),
+                    stringResource(Res.string.background_cutting),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 12.dp),
@@ -365,11 +408,11 @@ private fun BackgroundControl(
             // Outlined chips rather than bare words: they sit under a row of
             // photos, and text alone there reads as a caption on the last one.
             action == BackgroundAction.REMOVE -> CutOutChip(
-                label = stringResource(R.string.background_remove),
+                label = stringResource(Res.string.background_remove),
                 onClick = onRemove,
             )
             action == BackgroundAction.UNDO -> CutOutChip(
-                label = stringResource(R.string.background_undo),
+                label = stringResource(Res.string.background_undo),
                 onClick = onUndo,
             )
         }
@@ -477,7 +520,7 @@ private fun Photos(
                     IconButton(onClick = { onRemove(index) }, modifier = Modifier.size(28.dp)) {
                         Icon(
                             Icons.Filled.Clear,
-                            contentDescription = stringResource(R.string.form_remove_photo),
+                            contentDescription = stringResource(Res.string.form_remove_photo),
                             modifier = Modifier.size(16.dp),
                         )
                     }
@@ -503,7 +546,7 @@ private fun Photos(
                 } else {
                     Icon(
                         Icons.Filled.Add,
-                        contentDescription = stringResource(R.string.form_add_photo),
+                        contentDescription = stringResource(Res.string.form_add_photo),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -559,7 +602,7 @@ private fun Tags(tags: List<String>, onChange: (List<String>) -> Unit) {
                         trailingIcon = {
                             Icon(
                                 Icons.Filled.Clear,
-                                contentDescription = stringResource(R.string.form_remove_tag),
+                                contentDescription = stringResource(Res.string.form_remove_tag),
                                 modifier = Modifier.size(16.dp),
                             )
                         },
@@ -587,7 +630,7 @@ private fun Tags(tags: List<String>, onChange: (List<String>) -> Unit) {
                     draft = text
                 }
             },
-            label = { Text(stringResource(R.string.form_tag_hint)) },
+            label = { Text(stringResource(Res.string.form_tag_hint)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -600,7 +643,7 @@ private fun Brand(brand: String, suggestions: List<String>, onChange: (String) -
         OutlinedTextField(
             value = brand,
             onValueChange = onChange,
-            label = { Text(stringResource(R.string.filter_brand)) },
+            label = { Text(stringResource(Res.string.filter_brand)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -633,7 +676,7 @@ private fun DuplicateWarning(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.duplicate_title)) },
+        title = { Text(stringResource(Res.string.duplicate_title)) },
         text = {
             Column {
                 for (match in matches.take(3)) {
@@ -669,8 +712,8 @@ private fun DuplicateWarning(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onSaveAnyway) { Text(stringResource(R.string.duplicate_add_anyway)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.duplicate_review)) } },
+        confirmButton = { TextButton(onClick = onSaveAnyway) { Text(stringResource(Res.string.duplicate_add_anyway)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.duplicate_review)) } },
     )
 }
 
@@ -700,7 +743,7 @@ private fun ImportFromLink(
 ) {
     Column {
         Text(
-            stringResource(R.string.import_hint),
+            stringResource(Res.string.import_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -716,7 +759,7 @@ private fun ImportFromLink(
             OutlinedTextField(
                 value = state.url,
                 onValueChange = onUrlChanged,
-                label = { Text(stringResource(R.string.import_url_label)) },
+                label = { Text(stringResource(Res.string.import_url_label)) },
                 leadingIcon = { Icon(Glyph.Link, contentDescription = null) },
                 singleLine = true,
                 enabled = !state.running,
@@ -738,7 +781,7 @@ private fun ImportFromLink(
                 ) {
                     Icon(
                         Glyph.Download,
-                        contentDescription = stringResource(R.string.import_action),
+                        contentDescription = stringResource(Res.string.import_action),
                         modifier = Modifier.size(22.dp),
                     )
                 }
@@ -747,7 +790,7 @@ private fun ImportFromLink(
 
         if (state.running) {
             Text(
-                stringResource(R.string.import_running),
+                stringResource(Res.string.import_running),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 8.dp),
             )
@@ -758,7 +801,7 @@ private fun ImportFromLink(
         // photos while naming no brand at all.
         state.imported?.let { count ->
             Text(
-                pluralStringResource(R.plurals.import_success, count, count),
+                pluralStringResource(Res.plurals.import_success, count, count),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 8.dp),
             )
@@ -766,18 +809,20 @@ private fun ImportFromLink(
 
         state.source?.let { source ->
             Text(
-                stringResource(R.string.import_source, source),
+                stringResource(Res.string.import_source, source),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
         if (state.warnings.isNotEmpty()) {
-            val context = LocalContext.current
             Text(
                 stringResource(
-                    R.string.import_notes,
-                    state.warnings.joinToString(" ") { context.importWarningText(it) },
+                    Res.string.import_notes,
+                    // `map` rather than joinToString's own transform, because the
+                    // warnings are composable to read now and only an inline
+                    // lambda can make a composable call.
+                    state.warnings.map { importWarningText(it) }.joinToString(" "),
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -803,13 +848,13 @@ private fun SharedLinkConfirmation(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.shared_link_title)) },
-        text = { Text(stringResource(R.string.shared_link_body, hostOf(url))) },
+        title = { Text(stringResource(Res.string.shared_link_title)) },
+        text = { Text(stringResource(Res.string.shared_link_body, hostOf(url))) },
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text(stringResource(R.string.shared_link_confirm)) }
+            TextButton(onClick = onConfirm) { Text(stringResource(Res.string.shared_link_confirm)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.shared_link_cancel)) }
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.shared_link_cancel)) }
         },
     )
 }
@@ -820,21 +865,20 @@ private fun ImportProblemDialog(
     problem: GarmentFormScreenState.ImportProblem,
     onDismiss: () -> Unit,
 ) {
-    val context = LocalContext.current
     val message = when (problem) {
-        is GarmentFormScreenState.ImportProblem.Unsafe -> context.unsafeUrlText(problem.reason)
-        is GarmentFormScreenState.ImportProblem.Failed -> context.importFailureText(problem.reason)
+        is GarmentFormScreenState.ImportProblem.Unsafe -> unsafeUrlText(problem.reason)
+        is GarmentFormScreenState.ImportProblem.Failed -> importFailureText(problem.reason)
         // The network's own words, or nothing useful at all -- in which case the
         // app says what it was trying to do instead of showing an empty dialog.
         is GarmentFormScreenState.ImportProblem.Foreign ->
-            problem.text ?: stringResource(R.string.import_invalid_url)
+            problem.text ?: stringResource(Res.string.import_invalid_url)
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.import_failed_title)) },
+        title = { Text(stringResource(Res.string.import_failed_title)) },
         text = { Text(message) },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_close)) } },
     )
 }
 
@@ -865,7 +909,7 @@ private fun DetectingColors() {
     ) {
         CircularProgressIndicator(modifier = Modifier.size(18.dp))
         Text(
-            stringResource(R.string.form_detecting_colors),
+            stringResource(Res.string.form_detecting_colors),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 12.dp),

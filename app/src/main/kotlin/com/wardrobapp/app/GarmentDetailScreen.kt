@@ -50,7 +50,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -61,8 +60,42 @@ import com.wardrobapp.presentation.GarmentDetailView
 import com.wardrobapp.presentation.PaletteEntry
 import com.wardrobapp.presentation.formatStoredDate
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.action_back
+import com.wardrobapp.ui.resources.action_cancel
+import com.wardrobapp.ui.resources.action_close
+import com.wardrobapp.ui.resources.action_delete
+import com.wardrobapp.ui.resources.action_edit
+import com.wardrobapp.ui.resources.action_keep
+import com.wardrobapp.ui.resources.action_retry
+import com.wardrobapp.ui.resources.background_remove
+import com.wardrobapp.ui.resources.background_removing
+import com.wardrobapp.ui.resources.background_undo
+import com.wardrobapp.ui.resources.error_action_failed
+import com.wardrobapp.ui.resources.garment_build_outfit
+import com.wardrobapp.ui.resources.garment_delete
+import com.wardrobapp.ui.resources.garment_delete_body
+import com.wardrobapp.ui.resources.garment_delete_confirm
+import com.wardrobapp.ui.resources.garment_missing
+import com.wardrobapp.ui.resources.garment_no_photo
+import com.wardrobapp.ui.resources.garment_retire
+import com.wardrobapp.ui.resources.garment_retire_action
+import com.wardrobapp.ui.resources.garment_retire_body
+import com.wardrobapp.ui.resources.garment_retire_confirm
+import com.wardrobapp.ui.resources.garment_retired
+import com.wardrobapp.ui.resources.garment_retired_since
+import com.wardrobapp.ui.resources.garment_unreadable
+import com.wardrobapp.ui.resources.garment_unretire
+import com.wardrobapp.ui.resources.garment_untitled
+import com.wardrobapp.ui.resources.property_added
+import com.wardrobapp.ui.resources.property_colours
+import com.wardrobapp.ui.resources.property_occasions
+import com.wardrobapp.ui.resources.property_seasons
+import com.wardrobapp.ui.resources.property_size
+import com.wardrobapp.ui.resources.property_tags
 import java.util.Locale
 import java.util.TimeZone
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * One garment, in full.
@@ -95,10 +128,10 @@ fun GarmentDetailScreen(
     state.actionErrorText()?.let { message ->
         AlertDialog(
             onDismissRequest = onActionErrorDismissed,
-            title = { Text(stringResource(R.string.error_action_failed)) },
+            title = { Text(stringResource(Res.string.error_action_failed)) },
             text = { Text(message) },
             confirmButton = {
-                TextButton(onClick = onActionErrorDismissed) { Text(stringResource(R.string.action_close)) }
+                TextButton(onClick = onActionErrorDismissed) { Text(stringResource(Res.string.action_close)) }
             },
         )
     }
@@ -106,10 +139,10 @@ fun GarmentDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(state.view?.let { titleOf(it) } ?: stringResource(R.string.garment_untitled)) },
+                title = { Text(state.view?.let { titleOf(it) } ?: stringResource(Res.string.garment_untitled)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
                     }
                 },
                 actions = {
@@ -119,7 +152,7 @@ fun GarmentDetailScreen(
                         IconButton(onClick = onEdit) {
                             Icon(
                                 Icons.Filled.Edit,
-                                contentDescription = stringResource(R.string.action_edit),
+                                contentDescription = stringResource(Res.string.action_edit),
                             )
                         }
                     }
@@ -134,14 +167,14 @@ fun GarmentDetailScreen(
 
             // Nothing to retry: the garment is not there.
             state.missing -> Centered(insets) {
-                Text(stringResource(R.string.garment_missing))
+                Text(stringResource(Res.string.garment_missing))
             }
 
             // A read that failed is not an empty garment, and must not look like
             // one. Same rule as the wardrobe list.
             view == null -> Centered(insets) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(R.string.garment_unreadable), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(Res.string.garment_unreadable), style = MaterialTheme.typography.titleMedium)
                     state.error?.let {
                         Text(
                             it,
@@ -150,7 +183,7 @@ fun GarmentDetailScreen(
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
-                    TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                    TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
                 }
             }
 
@@ -230,25 +263,25 @@ private fun GarmentBody(
 
             Column(modifier = Modifier.padding(top = 16.dp)) {
                 if (view.palette.isNotEmpty()) {
-                    Property(stringResource(R.string.property_colours)) { Palette(view.palette) }
+                    Property(stringResource(Res.string.property_colours)) { Palette(view.palette) }
                 }
-                view.size?.let { Property(stringResource(R.string.property_size)) { Value(it) } }
+                view.size?.let { Property(stringResource(Res.string.property_size)) { Value(it) } }
                 if (view.seasons.isNotEmpty()) {
-                    Property(stringResource(R.string.property_seasons)) {
+                    Property(stringResource(Res.string.property_seasons)) {
                         Value(view.seasons.map { stringResource(it.labelRes) }.joinToString(", "))
                     }
                 }
                 if (view.occasions.isNotEmpty()) {
-                    Property(stringResource(R.string.property_occasions)) {
+                    Property(stringResource(Res.string.property_occasions)) {
                         Value(view.occasions.map { stringResource(it.labelRes) }.joinToString(", "))
                     }
                 }
-                view.purchaseDate?.let { Property(stringResource(R.string.property_added)) { Value(displayDate(it)) } }
+                view.purchaseDate?.let { Property(stringResource(Res.string.property_added)) { Value(displayDate(it)) } }
             }
 
             if (view.tags.isNotEmpty()) {
                 Text(
-                    stringResource(R.string.property_tags),
+                    stringResource(Res.string.property_tags),
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
                 )
@@ -296,7 +329,7 @@ private fun BackgroundControl(
         if (working) {
             CircularProgressIndicator(modifier = Modifier.size(20.dp))
             Text(
-                stringResource(R.string.background_removing),
+                stringResource(Res.string.background_removing),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(start = 12.dp),
             )
@@ -304,8 +337,8 @@ private fun BackgroundControl(
             TextButton(onClick = if (action == BackgroundAction.REMOVE) onRemove else onUndo) {
                 Text(
                     when (action) {
-                        BackgroundAction.REMOVE -> stringResource(R.string.background_remove)
-                        BackgroundAction.UNDO -> stringResource(R.string.background_undo)
+                        BackgroundAction.REMOVE -> stringResource(Res.string.background_remove)
+                        BackgroundAction.UNDO -> stringResource(Res.string.background_undo)
                     }
                 )
             }
@@ -351,7 +384,7 @@ private fun Actions(
             ) {
                 Icon(Glyph.AutoAwesome, contentDescription = null, modifier = Modifier.size(20.dp))
                 Text(
-                    stringResource(R.string.garment_build_outfit),
+                    stringResource(Res.string.garment_build_outfit),
                     style = ctaLabel(),
                     modifier = Modifier.padding(start = 8.dp),
                 )
@@ -369,7 +402,7 @@ private fun Actions(
             Icon(Glyph.Archive, contentDescription = null, modifier = Modifier.size(20.dp))
             Text(
                 stringResource(
-                    if (isAvailable) R.string.garment_retire else R.string.garment_unretire
+                    if (isAvailable) Res.string.garment_retire else Res.string.garment_unretire
                 ),
                 style = ctaLabel(),
                 modifier = Modifier.padding(start = 8.dp),
@@ -386,7 +419,7 @@ private fun Actions(
         ) {
             Icon(Glyph.DeleteOutline, contentDescription = null, modifier = Modifier.size(20.dp))
             Text(
-                stringResource(R.string.garment_delete),
+                stringResource(Res.string.garment_delete),
                 style = ctaLabel(),
                 modifier = Modifier.padding(start = 8.dp),
             )
@@ -413,26 +446,26 @@ private fun ConfirmationDialog(
 ) = when (confirming) {
     GarmentDetailScreenState.Confirm.RETIRE -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.garment_retire_confirm)) },
+        title = { Text(stringResource(Res.string.garment_retire_confirm)) },
         text = {
             Text(
-                stringResource(R.string.garment_retire_body)
+                stringResource(Res.string.garment_retire_body)
             )
         },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.garment_retire_action)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(Res.string.garment_retire_action)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) } },
     )
 
     GarmentDetailScreenState.Confirm.DELETE -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.garment_delete_confirm)) },
+        title = { Text(stringResource(Res.string.garment_delete_confirm)) },
         text = {
             Text(
-                stringResource(R.string.garment_delete_body)
+                stringResource(Res.string.garment_delete_body)
             )
         },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.action_delete)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_keep)) } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(Res.string.action_delete)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_keep)) } },
     )
 }
 
@@ -461,7 +494,7 @@ private fun Photo(garmentId: String, uri: String?) {
         contentAlignment = Alignment.Center,
     ) {
         if (uri == null) {
-            Text(stringResource(R.string.garment_no_photo), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(Res.string.garment_no_photo), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             AsyncImage(
                 model = uri,
@@ -505,9 +538,9 @@ private fun UnavailableBanner(since: String?) {
     ) {
         Text(
             if (since == null) {
-                stringResource(R.string.garment_retired)
+                stringResource(Res.string.garment_retired)
             } else {
-                stringResource(R.string.garment_retired_since, displayDate(since))
+                stringResource(Res.string.garment_retired_since, displayDate(since))
             },
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onErrorContainer,

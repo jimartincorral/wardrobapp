@@ -36,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -46,6 +45,24 @@ import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.OutfitEditScreenState
 import com.wardrobapp.presentation.garmentsMatching
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.action_back
+import com.wardrobapp.ui.resources.action_close
+import com.wardrobapp.ui.resources.error_action_failed
+import com.wardrobapp.ui.resources.filter_section_occasion
+import com.wardrobapp.ui.resources.filter_section_season
+import com.wardrobapp.ui.resources.outfit_build_title
+import com.wardrobapp.ui.resources.outfit_chosen
+import com.wardrobapp.ui.resources.outfit_chosen_none
+import com.wardrobapp.ui.resources.outfit_edit_title
+import com.wardrobapp.ui.resources.outfit_missing
+import com.wardrobapp.ui.resources.outfit_name_hint
+import com.wardrobapp.ui.resources.outfit_name_label
+import com.wardrobapp.ui.resources.outfit_pick_garments
+import com.wardrobapp.ui.resources.outfit_pick_nothing_found
+import com.wardrobapp.ui.resources.outfit_pick_search
+import com.wardrobapp.ui.resources.outfit_save
+import org.jetbrains.compose.resources.stringResource
 
 /** The list, so a test can scroll it: a lazy container has not composed the bottom. */
 const val OUTFIT_EDIT_LIST = "outfit-edit-list"
@@ -87,11 +104,11 @@ fun OutfitEditScreen(
     state.errorText()?.let { error ->
         AlertDialog(
             onDismissRequest = onErrorDismissed,
-            title = { Text(stringResource(R.string.error_action_failed)) },
+            title = { Text(stringResource(Res.string.error_action_failed)) },
             text = { Text(error) },
             confirmButton = {
                 TextButton(onClick = onErrorDismissed) {
-                    Text(stringResource(R.string.action_close))
+                    Text(stringResource(Res.string.action_close))
                 }
             },
         )
@@ -103,7 +120,7 @@ fun OutfitEditScreen(
                 title = {
                     Text(
                         stringResource(
-                            if (isEditing) R.string.outfit_edit_title else R.string.outfit_build_title
+                            if (isEditing) Res.string.outfit_edit_title else Res.string.outfit_build_title
                         )
                     )
                 },
@@ -111,7 +128,7 @@ fun OutfitEditScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back),
+                            contentDescription = stringResource(Res.string.action_back),
                         )
                     }
                 },
@@ -128,7 +145,7 @@ fun OutfitEditScreen(
             state.missing -> Box(
                 modifier = Modifier.fillMaxSize().padding(insets),
                 contentAlignment = Alignment.Center,
-            ) { Text(stringResource(R.string.outfit_missing)) }
+            ) { Text(stringResource(Res.string.outfit_missing)) }
 
             else -> Editor(
                 state = state,
@@ -168,12 +185,12 @@ private fun Editor(
                 OutlinedTextField(
                     value = edit.name,
                     onValueChange = onNameChanged,
-                    label = { Text(stringResource(R.string.outfit_name_label)) },
+                    label = { Text(stringResource(Res.string.outfit_name_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    stringResource(R.string.outfit_name_hint),
+                    stringResource(Res.string.outfit_name_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
@@ -185,10 +202,10 @@ private fun Editor(
         // thing being built, and it is what tells you whether the next tap is
         // adding to something or starting over.
         item {
-            Section(stringResource(R.string.outfit_chosen)) {
+            Section(stringResource(Res.string.outfit_chosen)) {
                 if (chosen.isEmpty()) {
                     Text(
-                        stringResource(R.string.outfit_chosen_none),
+                        stringResource(Res.string.outfit_chosen_none),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -203,7 +220,7 @@ private fun Editor(
         }
 
         item {
-            Section(stringResource(R.string.filter_section_occasion)) {
+            Section(stringResource(Res.string.filter_section_occasion)) {
                 Chips(
                     Occasion.entries.toList(),
                     setOfNotNull(edit.occasion),
@@ -213,7 +230,7 @@ private fun Editor(
         }
 
         item {
-            Section(stringResource(R.string.filter_section_season)) {
+            Section(stringResource(Res.string.filter_section_season)) {
                 Chips(
                     Season.entries.toList(),
                     setOfNotNull(edit.season),
@@ -228,7 +245,7 @@ private fun Editor(
                 enabled = edit.canSave && !state.saving,
                 modifier = Modifier.fillMaxWidth().testTag(OUTFIT_EDIT_SAVE),
             ) {
-                Text(stringResource(R.string.outfit_save))
+                Text(stringResource(Res.string.outfit_save))
             }
         }
 
@@ -238,7 +255,7 @@ private fun Editor(
         item {
             Column {
                 Text(
-                    stringResource(R.string.outfit_pick_garments),
+                    stringResource(Res.string.outfit_pick_garments),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
                 )
@@ -250,7 +267,7 @@ private fun Editor(
                 OutlinedTextField(
                     value = state.search,
                     onValueChange = onSearchChanged,
-                    label = { Text(stringResource(R.string.outfit_pick_search)) },
+                    label = { Text(stringResource(Res.string.outfit_pick_search)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag(OUTFIT_PICK_SEARCH),
                 )
@@ -264,7 +281,7 @@ private fun Editor(
         if (offered.isEmpty()) {
             item {
                 Text(
-                    stringResource(R.string.outfit_pick_nothing_found),
+                    stringResource(Res.string.outfit_pick_nothing_found),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

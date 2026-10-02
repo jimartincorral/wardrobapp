@@ -1,6 +1,5 @@
 package com.wardrobapp.app
 
-import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -22,10 +21,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.tab_home
+import com.wardrobapp.ui.resources.tab_outfits
+import com.wardrobapp.ui.resources.tab_settings
+import com.wardrobapp.ui.resources.tab_statistics
+import com.wardrobapp.ui.resources.tab_wardrobe
 import kotlinx.coroutines.delay
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 
 // The bar, and the five places it goes. Out of MainActivity so that it can be
 // composed on its own, which is what its test does: the point of measuring the
@@ -41,20 +47,20 @@ internal const val SETTINGS = "settings"
 // built in.
 internal data class Tab(
     val route: String,
-    @StringRes val labelRes: Int,
+    val labelRes: StringResource,
     val icon: ImageVector,
 )
 
 internal val TABS = listOf(
-    Tab(HOME, R.string.tab_home, Icons.Filled.Home),
-    Tab(WARDROBE, R.string.tab_wardrobe, Icons.Filled.List),
-    Tab(OUTFITS, R.string.tab_outfits, Icons.Filled.Star),
-    Tab(STATISTICS, R.string.tab_statistics, Icons.Filled.Info),
+    Tab(HOME, Res.string.tab_home, Icons.Filled.Home),
+    Tab(WARDROBE, Res.string.tab_wardrobe, Icons.Filled.List),
+    Tab(OUTFITS, Res.string.tab_outfits, Icons.Filled.Star),
+    Tab(STATISTICS, Res.string.tab_statistics, Icons.Filled.Info),
     // A tab rather than somewhere you go and come back from. What is in it --
     // the theme, the language, backups, storage -- is not a detour off one
     // screen, and it was reached through a gear on the wardrobe's bar, which put
     // it behind a screen it has nothing to do with.
-    Tab(SETTINGS, R.string.tab_settings, Icons.Filled.Settings),
+    Tab(SETTINGS, Res.string.tab_settings, Icons.Filled.Settings),
 )
 
 @Composable

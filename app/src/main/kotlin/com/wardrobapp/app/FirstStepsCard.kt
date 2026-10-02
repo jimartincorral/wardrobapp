@@ -1,6 +1,5 @@
 package com.wardrobapp.app
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -23,11 +22,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.FirstSteps
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.first_steps_bulk
+import com.wardrobapp.ui.resources.first_steps_dismiss
+import com.wardrobapp.ui.resources.first_steps_garment
+import com.wardrobapp.ui.resources.first_steps_open_bulk
+import com.wardrobapp.ui.resources.first_steps_open_garment
+import com.wardrobapp.ui.resources.first_steps_open_outfits
+import com.wardrobapp.ui.resources.first_steps_rate
+import com.wardrobapp.ui.resources.first_steps_title
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * The jobs the first-launch flow does not do, where they can be done.
@@ -57,7 +66,7 @@ internal fun FirstStepsCard(
         Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    stringResource(R.string.first_steps_title),
+                    stringResource(Res.string.first_steps_title),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
@@ -67,7 +76,7 @@ internal fun FirstStepsCard(
                 // that can be undone.
                 TextButton(onClick = onDismiss) {
                     Text(
-                        stringResource(R.string.first_steps_dismiss),
+                        stringResource(Res.string.first_steps_dismiss),
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
@@ -103,8 +112,8 @@ const val FIRST_STEPS_CARD = "first-steps-card"
  */
 @Composable
 private fun StepRow(
-    @StringRes label: Int,
-    @StringRes clickLabel: Int,
+    label: StringResource,
+    clickLabel: StringResource,
     done: Boolean,
     onClick: () -> Unit,
 ) {
@@ -170,12 +179,11 @@ private fun StepRow(
  * words -- categories, colours, seasons. These are this card's copy and nothing
  * else reads them.
  */
-@get:StringRes
-private val FirstStep.labelRes: Int
+private val FirstStep.labelRes: StringResource
     get() = when (this) {
-        FirstStep.GARMENT -> R.string.first_steps_garment
-        FirstStep.BULK_ADD -> R.string.first_steps_bulk
-        FirstStep.RATE -> R.string.first_steps_rate
+        FirstStep.GARMENT -> Res.string.first_steps_garment
+        FirstStep.BULK_ADD -> Res.string.first_steps_bulk
+        FirstStep.RATE -> Res.string.first_steps_rate
     }
 
 /**
@@ -185,10 +193,9 @@ private val FirstStep.labelRes: Int
  * garment" -- and what a tap does is open a screen. `Count` on the same screen
  * has the same arrangement for the same reason.
  */
-@get:StringRes
-private val FirstStep.clickLabelRes: Int
+private val FirstStep.clickLabelRes: StringResource
     get() = when (this) {
-        FirstStep.GARMENT -> R.string.first_steps_open_garment
-        FirstStep.BULK_ADD -> R.string.first_steps_open_bulk
-        FirstStep.RATE -> R.string.first_steps_open_outfits
+        FirstStep.GARMENT -> Res.string.first_steps_open_garment
+        FirstStep.BULK_ADD -> Res.string.first_steps_open_bulk
+        FirstStep.RATE -> Res.string.first_steps_open_outfits
     }

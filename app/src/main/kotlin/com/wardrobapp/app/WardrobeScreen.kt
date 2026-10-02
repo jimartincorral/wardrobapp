@@ -77,8 +77,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -102,7 +100,49 @@ import com.wardrobapp.presentation.WardrobeView
 import com.wardrobapp.presentation.captionField
 import com.wardrobapp.presentation.paletteColorFor
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.action_clear_filters
+import com.wardrobapp.ui.resources.action_close
+import com.wardrobapp.ui.resources.action_retry
+import com.wardrobapp.ui.resources.bulk_add_menu
+import com.wardrobapp.ui.resources.error_wardrobe_unreadable
+import com.wardrobapp.ui.resources.filter_brand
+import com.wardrobapp.ui.resources.filter_include_retired
+import com.wardrobapp.ui.resources.filter_remove
+import com.wardrobapp.ui.resources.filter_section_category
+import com.wardrobapp.ui.resources.filter_section_colour
+import com.wardrobapp.ui.resources.filter_section_occasion
+import com.wardrobapp.ui.resources.filter_section_season
+import com.wardrobapp.ui.resources.filter_section_type
+import com.wardrobapp.ui.resources.filter_size
+import com.wardrobapp.ui.resources.filters_applied
+import com.wardrobapp.ui.resources.filters_show
+import com.wardrobapp.ui.resources.filters_show_results
+import com.wardrobapp.ui.resources.filters_title
+import com.wardrobapp.ui.resources.garment_count
+import com.wardrobapp.ui.resources.home_add_garment
+import com.wardrobapp.ui.resources.sort_newest
+import com.wardrobapp.ui.resources.sort_oldest
+import com.wardrobapp.ui.resources.wardrobe_add_options
+import com.wardrobapp.ui.resources.wardrobe_empty
+import com.wardrobapp.ui.resources.wardrobe_no_match_filters
+import com.wardrobapp.ui.resources.wardrobe_no_match_search
+import com.wardrobapp.ui.resources.wardrobe_search
+import com.wardrobapp.ui.resources.wardrobe_search_clear
+import com.wardrobapp.ui.resources.wardrobe_size_large
+import com.wardrobapp.ui.resources.wardrobe_size_medium
+import com.wardrobapp.ui.resources.wardrobe_size_menu
+import com.wardrobapp.ui.resources.wardrobe_size_per_row
+import com.wardrobapp.ui.resources.wardrobe_size_small
+import com.wardrobapp.ui.resources.wardrobe_sort_current
+import com.wardrobapp.ui.resources.wardrobe_title
+import com.wardrobapp.ui.resources.wardrobe_view_list
+import com.wardrobapp.ui.resources.wardrobe_view_options
+import com.wardrobapp.ui.resources.wardrobe_view_section_show
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 /** The scrolling body of the wardrobe, for tests that need to reach past the fold. */
 const val WARDROBE_LIST = "wardrobe-list"
@@ -184,7 +224,7 @@ fun WardrobeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.wardrobe_title)) },
+                title = { Text(stringResource(Res.string.wardrobe_title)) },
                 // Four glyphs where there were two buttons and two words. The
                 // count that used to be spelled out in "Filters (2)" is a badge on
                 // the first of them, which is the only part of that label that was
@@ -211,7 +251,7 @@ fun WardrobeScreen(
                 interactionSource = press,
                 modifier = Modifier.size(56.dp).pressScale(press),
             ) {
-                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.home_add_garment))
+                Icon(Icons.Filled.Add, contentDescription = stringResource(Res.string.home_add_garment))
             }
         },
     ) { insets ->
@@ -271,7 +311,7 @@ fun WardrobeScreen(
                 fullWidth {
                     Text(
                         pluralStringResource(
-                            R.plurals.garment_count,
+                            Res.plurals.garment_count,
                             state.garments.size,
                             state.garments.size,
                         ),
@@ -297,7 +337,7 @@ fun WardrobeScreen(
                     Message {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                stringResource(R.string.error_wardrobe_unreadable),
+                                stringResource(Res.string.error_wardrobe_unreadable),
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
@@ -306,7 +346,7 @@ fun WardrobeScreen(
                                 color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(top = 4.dp, start = 24.dp, end = 24.dp),
                             )
-                            TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                            TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
                         }
                     }
                 }
@@ -318,12 +358,12 @@ fun WardrobeScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 state.query.searchTerm?.let {
-                                    stringResource(R.string.wardrobe_no_match_search, it)
-                                } ?: stringResource(R.string.wardrobe_no_match_filters),
+                                    stringResource(Res.string.wardrobe_no_match_search, it)
+                                } ?: stringResource(Res.string.wardrobe_no_match_filters),
                                 style = MaterialTheme.typography.bodyLarge,
                             )
                             TextButton(onClick = onFiltersCleared) {
-                                Text(stringResource(R.string.action_clear_filters))
+                                Text(stringResource(Res.string.action_clear_filters))
                             }
                         }
                     }
@@ -331,7 +371,7 @@ fun WardrobeScreen(
 
                 state.isEmpty -> fullWidth {
                     Message {
-                        Text(stringResource(R.string.wardrobe_empty), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(Res.string.wardrobe_empty), style = MaterialTheme.typography.bodyLarge)
                     }
                 }
 
@@ -405,7 +445,7 @@ private fun FilterAction(count: Int, onTap: () -> Unit) {
         },
     ) {
         IconButton(onClick = onTap, modifier = Modifier.testTag(WARDROBE_FILTER_ACTION)) {
-            Icon(Glyph.Tune, contentDescription = stringResource(R.string.filters_show))
+            Icon(Glyph.Tune, contentDescription = stringResource(Res.string.filters_show))
         }
     }
 }
@@ -420,13 +460,13 @@ private fun FilterAction(count: Int, onTap: () -> Unit) {
 @Composable
 private fun SortAction(sort: GarmentSort, onTap: () -> Unit) {
     val current = stringResource(
-        if (sort == GarmentSort.NEWEST) R.string.sort_newest else R.string.sort_oldest
+        if (sort == GarmentSort.NEWEST) Res.string.sort_newest else Res.string.sort_oldest
     )
 
     IconButton(onClick = onTap) {
         Icon(
             Glyph.SwapVert,
-            contentDescription = stringResource(R.string.wardrobe_sort_current, current),
+            contentDescription = stringResource(Res.string.wardrobe_sort_current, current),
         )
     }
 }
@@ -444,7 +484,7 @@ private fun SortAction(sort: GarmentSort, onTap: () -> Unit) {
 private fun SearchField(value: String, onValueChange: (String) -> Unit) {
     // Read out here: a `semantics` block is not a composition, so a resource
     // fetched inside it would not compile.
-    val label = stringResource(R.string.wardrobe_search)
+    val label = stringResource(Res.string.wardrobe_search)
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -493,7 +533,7 @@ private fun SearchField(value: String, onValueChange: (String) -> Unit) {
                 IconButton(onClick = { onValueChange("") }, modifier = Modifier.size(32.dp)) {
                     Icon(
                         Icons.Filled.Close,
-                        contentDescription = stringResource(R.string.wardrobe_search_clear),
+                        contentDescription = stringResource(Res.string.wardrobe_search_clear),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp),
                     )
@@ -538,10 +578,10 @@ private fun appliedFilters(
     query.brand.trim().takeIf { it.isNotEmpty() }?.let { add(AppliedFilter(it) { onBrandTapped(it) }) }
     query.size.trim().takeIf { it.isNotEmpty() }?.let { add(AppliedFilter(it) { onSizeTapped(it) }) }
     if (query.includeRetired) {
-        add(AppliedFilter(stringResource(R.string.filter_include_retired), onRetiredToggled))
+        add(AppliedFilter(stringResource(Res.string.filter_include_retired), onRetiredToggled))
     }
     if (query.sort != GarmentSort.NEWEST) {
-        add(AppliedFilter(stringResource(R.string.sort_oldest), onSortToggled))
+        add(AppliedFilter(stringResource(Res.string.sort_oldest), onSortToggled))
     }
 }
 
@@ -557,7 +597,7 @@ private fun appliedFilters(
  */
 @Composable
 private fun AppliedFilters(filters: List<AppliedFilter>, onCleared: () -> Unit) {
-    val remove = stringResource(R.string.filter_remove)
+    val remove = stringResource(Res.string.filter_remove)
 
     Row(
         modifier = Modifier
@@ -588,7 +628,7 @@ private fun AppliedFilters(filters: List<AppliedFilter>, onCleared: () -> Unit) 
         // the right it is where a thumb already is, and with two chips it is on
         // screen anyway.
         if (filters.size > 1) {
-            TextButton(onClick = onCleared) { Text(stringResource(R.string.action_clear_filters)) }
+            TextButton(onClick = onCleared) { Text(stringResource(Res.string.action_clear_filters)) }
         }
     }
 }
@@ -616,7 +656,7 @@ private fun ViewMenu(
     onCaptionSelected: (GarmentCaption) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
-    val label = stringResource(R.string.wardrobe_view_options)
+    val label = stringResource(Res.string.wardrobe_view_options)
     val density = LocalDensity.current
 
     Box {
@@ -661,7 +701,7 @@ private fun ViewMenu(
                         .growFrom(TransformOrigin(1f, 0f), grown),
                 ) {
                     Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                        MenuOverline(stringResource(R.string.wardrobe_size_menu))
+                        MenuOverline(stringResource(Res.string.wardrobe_size_menu))
 
                         for (choice in WARDROBE_VIEW_CHOICES) {
                             SizeRow(
@@ -685,7 +725,7 @@ private fun ViewMenu(
                                 color = MaterialTheme.colorScheme.outlineVariant,
                                 modifier = Modifier.padding(vertical = 4.dp),
                             )
-                            MenuOverline(stringResource(R.string.wardrobe_view_section_show))
+                            MenuOverline(stringResource(Res.string.wardrobe_view_section_show))
 
                             for (choice in GarmentCaption.entries) {
                                 CaptionRow(
@@ -766,9 +806,9 @@ private fun SizeRow(choice: WardrobeView, selected: Boolean, onTap: () -> Unit) 
         modifier = Modifier.testTag(wardrobeSizeTag(if (choice.layout == WardrobeLayout.LIST) 0 else choice.columns)),
         leading = { ViewGlyph(choice, contentDescription = null, modifier = Modifier.size(20.dp)) },
         label = when (choice.layout) {
-            WardrobeLayout.LIST -> stringResource(R.string.wardrobe_view_list)
+            WardrobeLayout.LIST -> stringResource(Res.string.wardrobe_view_list)
             WardrobeLayout.GRID -> stringResource(
-                R.string.wardrobe_size_per_row,
+                Res.string.wardrobe_size_per_row,
                 stringResource(choice.sizeNameRes()),
                 choice.columns,
             )
@@ -777,10 +817,10 @@ private fun SizeRow(choice: WardrobeView, selected: Boolean, onTap: () -> Unit) 
 }
 
 /** Large, medium, small -- the three widths a phone has room for. */
-private fun WardrobeView.sizeNameRes(): Int = when {
-    columns <= 2 -> R.string.wardrobe_size_large
-    columns == 3 -> R.string.wardrobe_size_medium
-    else -> R.string.wardrobe_size_small
+private fun WardrobeView.sizeNameRes(): StringResource = when {
+    columns <= 2 -> Res.string.wardrobe_size_large
+    columns == 3 -> Res.string.wardrobe_size_medium
+    else -> Res.string.wardrobe_size_small
 }
 
 /** What a cell says under its photo. No glyph: there is no icon for "brand". */
@@ -865,13 +905,13 @@ private fun AddMenu(onBulkAddRequested: () -> Unit) {
         IconButton(onClick = { open = true }, modifier = Modifier.testTag(WARDROBE_ADD_MENU)) {
             Icon(
                 Icons.Filled.MoreVert,
-                contentDescription = stringResource(R.string.wardrobe_add_options),
+                contentDescription = stringResource(Res.string.wardrobe_add_options),
             )
         }
 
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.bulk_add_menu)) },
+                text = { Text(stringResource(Res.string.bulk_add_menu)) },
                 onClick = {
                     open = false
                     onBulkAddRequested()
@@ -999,7 +1039,7 @@ private fun FilterSheet(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                stringResource(R.string.filters_title),
+                stringResource(Res.string.filters_title),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f),
             )
@@ -1012,14 +1052,14 @@ private fun FilterSheet(
                         modifier = Modifier.size(18.dp),
                     )
                     Text(
-                        stringResource(R.string.action_clear_filters),
+                        stringResource(Res.string.action_clear_filters),
                         modifier = Modifier.padding(start = 6.dp),
                     )
                 }
             }
 
             IconButton(onClick = close) {
-                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close))
+                Icon(Icons.Filled.Close, contentDescription = stringResource(Res.string.action_close))
             }
         }
 
@@ -1036,7 +1076,7 @@ private fun FilterSheet(
             // A row is left out entirely when the wardrobe has nothing to put in it
             // -- a heading over an empty line is worse than no heading.
             if (facets.categories.isNotEmpty()) {
-                FilterSection(stringResource(R.string.filter_section_category)) {
+                FilterSection(stringResource(Res.string.filter_section_category)) {
                     for (category in facets.categories) {
                         FilterPill(categoryLabel(category), category, query.category == category) {
                             onCategoryTapped(category)
@@ -1046,7 +1086,7 @@ private fun FilterSheet(
             }
 
             if (facets.subcategories.isNotEmpty()) {
-                FilterSection(stringResource(R.string.filter_section_type)) {
+                FilterSection(stringResource(Res.string.filter_section_type)) {
                     for (subcategory in facets.subcategories) {
                         FilterPill(
                             garmentTypeLabel(subcategory),
@@ -1060,7 +1100,7 @@ private fun FilterSheet(
             }
 
             if (facets.seasons.isNotEmpty()) {
-                FilterSection(stringResource(R.string.filter_section_season)) {
+                FilterSection(stringResource(Res.string.filter_section_season)) {
                     for (season in facets.seasons) {
                         FilterPill(stringResource(season.labelRes), season.name, query.season == season) {
                             onSeasonTapped(season)
@@ -1070,7 +1110,7 @@ private fun FilterSheet(
             }
 
             if (facets.occasions.isNotEmpty()) {
-                FilterSection(stringResource(R.string.filter_section_occasion)) {
+                FilterSection(stringResource(Res.string.filter_section_occasion)) {
                     for (occasion in facets.occasions) {
                         FilterPill(
                             stringResource(occasion.labelRes),
@@ -1084,7 +1124,7 @@ private fun FilterSheet(
             }
 
             if (facets.colors.isNotEmpty()) {
-                FilterSection(stringResource(R.string.filter_section_colour)) {
+                FilterSection(stringResource(Res.string.filter_section_colour)) {
                     for (hex in facets.colors) {
                         // A colour that will not parse is the multi-colour sentinel
                         // rather than a colour, and is left out here as it is on the
@@ -1113,7 +1153,7 @@ private fun FilterSheet(
             // used to be two boxes you typed into from memory, spelled right, which is
             // the worst way to ask for a value the app already knows.
             if (facets.brands.isNotEmpty()) {
-                FilterSection(stringResource(R.string.filter_brand)) {
+                FilterSection(stringResource(Res.string.filter_brand)) {
                     for (brand in facets.brands) {
                         // As typed by whoever entered it: a brand is not a word this
                         // app gets to capitalize.
@@ -1125,7 +1165,7 @@ private fun FilterSheet(
             }
 
             if (facets.sizes.isNotEmpty()) {
-                FilterSection(stringResource(R.string.filter_size)) {
+                FilterSection(stringResource(Res.string.filter_size)) {
                     for (size in facets.sizes) {
                         FilterPill(size, size, query.size.equals(size, ignoreCase = true)) {
                             onSizeTapped(size)
@@ -1142,7 +1182,7 @@ private fun FilterSheet(
                 Text(
                     // The reason this exists: without it a retired garment cannot be
                     // found again, so it cannot be un-retired either.
-                    stringResource(R.string.filter_include_retired),
+                    stringResource(Res.string.filter_include_retired),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(start = 4.dp),
                 )
@@ -1157,7 +1197,7 @@ private fun FilterSheet(
         ) {
             Text(
                 pluralStringResource(
-                    R.plurals.filters_applied,
+                    Res.plurals.filters_applied,
                     query.activeFilterCount,
                     query.activeFilterCount,
                 ),
@@ -1177,7 +1217,7 @@ private fun FilterSheet(
                 Text(
                     // The number the sheet is standing in front of. Both the
                     // reason to close it and the answer to what the filters did.
-                    pluralStringResource(R.plurals.filters_show_results, shown, shown),
+                    pluralStringResource(Res.plurals.filters_show_results, shown, shown),
                     style = ctaLabel(),
                     modifier = Modifier.padding(start = 8.dp),
                 )

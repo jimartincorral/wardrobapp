@@ -39,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -49,6 +48,33 @@ import com.wardrobapp.presentation.MAX_RATING
 import com.wardrobapp.presentation.OnboardingStep
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.a_body
+import com.wardrobapp.ui.resources.a_next
+import com.wardrobapp.ui.resources.a_note
+import com.wardrobapp.ui.resources.a_s1
+import com.wardrobapp.ui.resources.a_s1_detail
+import com.wardrobapp.ui.resources.a_s2
+import com.wardrobapp.ui.resources.a_s2_detail
+import com.wardrobapp.ui.resources.a_s3
+import com.wardrobapp.ui.resources.a_s3_detail
+import com.wardrobapp.ui.resources.a_title
+import com.wardrobapp.ui.resources.l_body
+import com.wardrobapp.ui.resources.l_next
+import com.wardrobapp.ui.resources.l_note
+import com.wardrobapp.ui.resources.l_title
+import com.wardrobapp.ui.resources.onboarding_demo_name
+import com.wardrobapp.ui.resources.onboarding_demo_reasons
+import com.wardrobapp.ui.resources.outfit_rate
+import com.wardrobapp.ui.resources.settings_language
+import com.wardrobapp.ui.resources.settings_theme
+import com.wardrobapp.ui.resources.w_body
+import com.wardrobapp.ui.resources.w_restore
+import com.wardrobapp.ui.resources.w_restore_hint
+import com.wardrobapp.ui.resources.w_skip
+import com.wardrobapp.ui.resources.w_start
+import com.wardrobapp.ui.resources.w_title
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * The first three screens, before there is a wardrobe to show.
@@ -166,12 +192,12 @@ private fun Welcome(
         )
 
         Text(
-            stringResource(R.string.w_title),
+            stringResource(Res.string.w_title),
             style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            stringResource(R.string.w_body),
+            stringResource(Res.string.w_body),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 16.dp),
@@ -183,7 +209,7 @@ private fun Welcome(
         // asking a question rather than documenting an option.
         Column(modifier = Modifier.padding(top = 32.dp)) {
             Text(
-                stringResource(R.string.settings_theme),
+                stringResource(Res.string.settings_theme),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -201,7 +227,7 @@ private fun Welcome(
             }
 
             Text(
-                stringResource(R.string.settings_language),
+                stringResource(Res.string.settings_language),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(top = 32.dp),
@@ -222,7 +248,7 @@ private fun Welcome(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        ForwardButton(label = stringResource(R.string.w_start), onClick = onStart)
+        ForwardButton(label = stringResource(Res.string.w_start), onClick = onStart)
 
         // The way in for somebody arriving from another phone, offered here
         // rather than left in Settings: a restored wardrobe replaces everything,
@@ -232,10 +258,10 @@ private fun Welcome(
             onClick = onRestoreRequested,
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(CTA_HEIGHT),
         ) {
-            Text(stringResource(R.string.w_restore), style = ctaLabel())
+            Text(stringResource(Res.string.w_restore), style = ctaLabel())
         }
         Text(
-            stringResource(R.string.w_restore_hint),
+            stringResource(Res.string.w_restore_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -253,7 +279,7 @@ private fun Welcome(
                 .padding(top = 12.dp)
                 .height(40.dp),
         ) {
-            Text(stringResource(R.string.w_skip), style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(Res.string.w_skip), style = MaterialTheme.typography.labelLarge)
         }
     }
 }
@@ -262,12 +288,12 @@ private fun Welcome(
 private fun AddingAGarment(onNext: () -> Unit) {
     OnboardingShell {
         Text(
-            stringResource(R.string.a_title),
+            stringResource(Res.string.a_title),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            stringResource(R.string.a_body),
+            stringResource(Res.string.a_body),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 16.dp, bottom = 24.dp),
@@ -276,18 +302,18 @@ private fun AddingAGarment(onNext: () -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Step(
                 glyph = Glyph.PhotoCamera,
-                headline = stringResource(R.string.a_s1),
-                detail = stringResource(R.string.a_s1_detail),
+                headline = stringResource(Res.string.a_s1),
+                detail = stringResource(Res.string.a_s1_detail),
             )
             Step(
                 glyph = Glyph.AutoAwesome,
-                headline = stringResource(R.string.a_s2),
-                detail = stringResource(R.string.a_s2_detail),
+                headline = stringResource(Res.string.a_s2),
+                detail = stringResource(Res.string.a_s2_detail),
             )
             Step(
                 glyph = Glyph.Apps,
-                headline = stringResource(R.string.a_s3),
-                detail = stringResource(R.string.a_s3_detail),
+                headline = stringResource(Res.string.a_s3),
+                detail = stringResource(Res.string.a_s3_detail),
             )
         }
 
@@ -296,7 +322,7 @@ private fun AddingAGarment(onNext: () -> Unit) {
         // like something else to learn.
         Card(shape = RoundedCornerShape(16.dp), modifier = Modifier.padding(top = 24.dp)) {
             Text(
-                stringResource(R.string.a_note),
+                stringResource(Res.string.a_note),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp),
@@ -305,7 +331,7 @@ private fun AddingAGarment(onNext: () -> Unit) {
 
         Spacer(modifier = Modifier.weight(1f))
 
-        ForwardButton(label = stringResource(R.string.a_next), onClick = onNext)
+        ForwardButton(label = stringResource(Res.string.a_next), onClick = onNext)
     }
 }
 
@@ -353,12 +379,12 @@ private fun Step(glyph: Painter, headline: String, detail: String) {
 private fun HowItLearns(onDone: () -> Unit) {
     OnboardingShell {
         Text(
-            stringResource(R.string.l_title),
+            stringResource(Res.string.l_title),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            stringResource(R.string.l_body),
+            stringResource(Res.string.l_body),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 16.dp, bottom = 24.dp),
@@ -367,7 +393,7 @@ private fun HowItLearns(onDone: () -> Unit) {
         DemoSuggestionCard()
 
         Text(
-            stringResource(R.string.l_note),
+            stringResource(Res.string.l_note),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 20.dp),
@@ -375,7 +401,7 @@ private fun HowItLearns(onDone: () -> Unit) {
 
         Spacer(modifier = Modifier.weight(1f))
 
-        ForwardButton(label = stringResource(R.string.l_next), onClick = onDone)
+        ForwardButton(label = stringResource(Res.string.l_next), onClick = onDone)
     }
 }
 
@@ -398,7 +424,7 @@ private fun DemoSuggestionCard() {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    stringResource(R.string.onboarding_demo_name),
+                    stringResource(Res.string.onboarding_demo_name),
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -418,7 +444,7 @@ private fun DemoSuggestionCard() {
             }
 
             Text(
-                stringResource(R.string.onboarding_demo_reasons),
+                stringResource(Res.string.onboarding_demo_reasons),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp),
@@ -462,7 +488,7 @@ private fun DemoSuggestionCard() {
                 Box(modifier = Modifier.weight(1f))
 
                 Text(
-                    stringResource(R.string.outfit_rate),
+                    stringResource(Res.string.outfit_rate),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

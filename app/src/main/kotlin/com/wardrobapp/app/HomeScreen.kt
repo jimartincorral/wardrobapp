@@ -34,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,6 +41,24 @@ import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.FirstSteps
 import com.wardrobapp.presentation.HomeScreenState
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.action_retry
+import com.wardrobapp.ui.resources.count_unknown
+import com.wardrobapp.ui.resources.error_wardrobe_unreadable
+import com.wardrobapp.ui.resources.home_add_garment
+import com.wardrobapp.ui.resources.home_archived
+import com.wardrobapp.ui.resources.home_items
+import com.wardrobapp.ui.resources.home_open_archived
+import com.wardrobapp.ui.resources.home_open_wardrobe
+import com.wardrobapp.ui.resources.home_outfits_detail
+import com.wardrobapp.ui.resources.home_outfits_title
+import com.wardrobapp.ui.resources.home_settings_detail
+import com.wardrobapp.ui.resources.home_settings_title
+import com.wardrobapp.ui.resources.home_statistics_detail
+import com.wardrobapp.ui.resources.home_statistics_title
+import com.wardrobapp.ui.resources.home_subtitle
+import com.wardrobapp.ui.resources.home_title
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Where the app opens: what you own, and the way to everywhere else.
@@ -69,7 +86,7 @@ fun HomeScreen(
     onSettingsRequested: () -> Unit,
     onRetry: () -> Unit,
 ) {
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.home_title)) }) }) { insets ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(Res.string.home_title)) }) }) { insets ->
         LazyColumn(
             modifier = Modifier.padding(insets),
             contentPadding = PaddingValues(16.dp),
@@ -90,7 +107,7 @@ fun HomeScreen(
 
             item {
                 Text(
-                    stringResource(R.string.home_subtitle),
+                    stringResource(Res.string.home_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -108,17 +125,17 @@ fun HomeScreen(
                     // one of them, so a link that did not ask for them would answer
                     // a tap on "12 archived" with a list containing none of them.
                     Count(
-                        label = stringResource(R.string.home_items),
+                        label = stringResource(Res.string.home_items),
                         value = state.countText(state.items),
                         onClick = onWardrobeRequested,
-                        clickLabel = stringResource(R.string.home_open_wardrobe),
+                        clickLabel = stringResource(Res.string.home_open_wardrobe),
                         modifier = Modifier.weight(1f),
                     )
                     Count(
-                        label = stringResource(R.string.home_archived),
+                        label = stringResource(Res.string.home_archived),
                         value = state.countText(state.archived),
                         onClick = onArchivedRequested,
-                        clickLabel = stringResource(R.string.home_open_archived),
+                        clickLabel = stringResource(Res.string.home_open_archived),
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -133,7 +150,7 @@ fun HomeScreen(
                     Card {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                stringResource(R.string.error_wardrobe_unreadable),
+                                stringResource(Res.string.error_wardrobe_unreadable),
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
@@ -142,7 +159,7 @@ fun HomeScreen(
                                 color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(top = 4.dp),
                             )
-                            TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                            TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
                         }
                     }
                 }
@@ -162,7 +179,7 @@ fun HomeScreen(
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(20.dp))
                     Text(
-                        stringResource(R.string.home_add_garment),
+                        stringResource(Res.string.home_add_garment),
                         style = ctaLabel(),
                         modifier = Modifier.padding(start = 8.dp),
                     )
@@ -171,12 +188,12 @@ fun HomeScreen(
 
             item {
                 Action(
-                    title = stringResource(R.string.home_outfits_title),
+                    title = stringResource(Res.string.home_outfits_title),
                     // Not "AI-powered", which is what the app this replaced calls
                     // it: the suggestions come from the pair scores it learns
                     // from your own ratings, which is a better thing to say
                     // about them and is what the app actually does.
-                    detail = stringResource(R.string.home_outfits_detail),
+                    detail = stringResource(Res.string.home_outfits_detail),
                     glyph = Glyph.AutoAwesome,
                     onClick = onOutfitsRequested,
                 )
@@ -186,8 +203,8 @@ fun HomeScreen(
             // the same question asked twice, and they are one page now.
             item {
                 Action(
-                    title = stringResource(R.string.home_statistics_title),
-                    detail = stringResource(R.string.home_statistics_detail),
+                    title = stringResource(Res.string.home_statistics_title),
+                    detail = stringResource(Res.string.home_statistics_detail),
                     glyph = Glyph.Insights,
                     onClick = onStatisticsRequested,
                 )
@@ -195,8 +212,8 @@ fun HomeScreen(
 
             item {
                 Action(
-                    title = stringResource(R.string.home_settings_title),
-                    detail = stringResource(R.string.home_settings_detail),
+                    title = stringResource(Res.string.home_settings_title),
+                    detail = stringResource(Res.string.home_settings_detail),
                     glyph = null,
                     onClick = onSettingsRequested,
                 )
@@ -361,4 +378,4 @@ private fun Action(title: String, detail: String, glyph: Painter?, onClick: () -
  */
 @Composable
 private fun HomeScreenState.countText(value: Long): String =
-    if (loading || error != null) stringResource(R.string.count_unknown) else "$value"
+    if (loading || error != null) stringResource(Res.string.count_unknown) else "$value"

@@ -54,6 +54,9 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.ui)
+            // The screens' strings. `api` because Res is public and :app's own
+            // composables -- the ones that stay Android-only -- read it too.
+            api(compose.components.resources)
         }
         jvmTest.dependencies {
             implementation(kotlin("test"))
@@ -77,4 +80,13 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+compose.resources {
+    // Public, and in a package of its own, so :app's composables can read the
+    // same strings while the screens move: everything a screen shows is defined
+    // here, once, and :app's res/values keeps only what Android reads itself.
+    publicResClass = true
+    packageOfResClass = "com.wardrobapp.ui.resources"
+    generateResClass = always
 }

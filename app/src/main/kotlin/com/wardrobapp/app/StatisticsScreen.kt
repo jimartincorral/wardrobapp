@@ -56,8 +56,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -85,7 +83,55 @@ import com.wardrobapp.presentation.StatisticsView
 import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.paletteColorFor
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.action_retry
+import com.wardrobapp.ui.resources.error_wardrobe_unreadable
+import com.wardrobapp.ui.resources.gap_add
+import com.wardrobapp.ui.resources.gap_alternatives
+import com.wardrobapp.ui.resources.gap_because_better
+import com.wardrobapp.ui.resources.gap_because_nothing_fits
+import com.wardrobapp.ui.resources.gap_because_retired
+import com.wardrobapp.ui.resources.gap_ghost
+import com.wardrobapp.ui.resources.gap_unlocks
+import com.wardrobapp.ui.resources.gap_want
+import com.wardrobapp.ui.resources.statistics_brands
+import com.wardrobapp.ui.resources.statistics_by_brand
+import com.wardrobapp.ui.resources.statistics_by_category
+import com.wardrobapp.ui.resources.statistics_by_colour
+import com.wardrobapp.ui.resources.statistics_categories
+import com.wardrobapp.ui.resources.statistics_collapse
+import com.wardrobapp.ui.resources.statistics_colours
+import com.wardrobapp.ui.resources.statistics_days
+import com.wardrobapp.ui.resources.statistics_duplicate_count
+import com.wardrobapp.ui.resources.statistics_duplicates
+import com.wardrobapp.ui.resources.statistics_duplicates_hint
+import com.wardrobapp.ui.resources.statistics_empty_body
+import com.wardrobapp.ui.resources.statistics_empty_title
+import com.wardrobapp.ui.resources.statistics_expand
+import com.wardrobapp.ui.resources.statistics_expand_hint
+import com.wardrobapp.ui.resources.statistics_gaps
+import com.wardrobapp.ui.resources.statistics_gaps_hint
+import com.wardrobapp.ui.resources.statistics_gaps_too_few
+import com.wardrobapp.ui.resources.statistics_in_use
+import com.wardrobapp.ui.resources.statistics_items
+import com.wardrobapp.ui.resources.statistics_lifespan
+import com.wardrobapp.ui.resources.statistics_no_duplicates
+import com.wardrobapp.ui.resources.statistics_no_gaps
+import com.wardrobapp.ui.resources.statistics_no_lifespan
+import com.wardrobapp.ui.resources.statistics_no_subcategory
+import com.wardrobapp.ui.resources.statistics_open_garment
+import com.wardrobapp.ui.resources.statistics_open_wardrobe
+import com.wardrobapp.ui.resources.statistics_retired
+import com.wardrobapp.ui.resources.statistics_section_collapse
+import com.wardrobapp.ui.resources.statistics_section_expand
+import com.wardrobapp.ui.resources.statistics_show_in_wardrobe
+import com.wardrobapp.ui.resources.statistics_sort_count
+import com.wardrobapp.ui.resources.statistics_sort_name
+import com.wardrobapp.ui.resources.statistics_subtitle
+import com.wardrobapp.ui.resources.statistics_title
 import kotlinx.coroutines.delay
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * The "show these in the wardrobe" button on one row.
@@ -142,7 +188,7 @@ fun StatisticsScreen(
     onRetry: () -> Unit,
 ) {
     // No back arrow: this is a tab now, not a screen reached from one.
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.statistics_title)) }) }) { insets ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(Res.string.statistics_title)) }) }) { insets ->
         val view = state.view
 
         when {
@@ -155,7 +201,7 @@ fun StatisticsScreen(
                 modifier = Modifier.fillMaxWidth().padding(insets).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(stringResource(R.string.error_wardrobe_unreadable), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(Res.string.error_wardrobe_unreadable), style = MaterialTheme.typography.titleMedium)
                 state.error?.let {
                     Text(
                         it,
@@ -165,7 +211,7 @@ fun StatisticsScreen(
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
-                TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
             }
 
             else -> Body(
@@ -210,7 +256,7 @@ private fun Body(
     ) {
         item {
             Text(
-                stringResource(R.string.statistics_subtitle),
+                stringResource(Res.string.statistics_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -225,19 +271,19 @@ private fun Body(
                 // All three count garments, so all three lead to them. Retired
                 // asks for retired garments, since the plain wardrobe shows none.
                 Tile(
-                    label = stringResource(R.string.statistics_items),
+                    label = stringResource(Res.string.statistics_items),
                     value = view.items,
                     onClick = { onLinkRequested(WardrobeLink.Retired) },
                     modifier = Modifier.weight(1f),
                 )
                 Tile(
-                    label = stringResource(R.string.statistics_in_use),
+                    label = stringResource(Res.string.statistics_in_use),
                     value = view.inUse,
                     onClick = { onLinkRequested(null) },
                     modifier = Modifier.weight(1f),
                 )
                 Tile(
-                    label = stringResource(R.string.statistics_retired),
+                    label = stringResource(Res.string.statistics_retired),
                     value = view.retired,
                     onClick = { onLinkRequested(WardrobeLink.Retired) },
                     modifier = Modifier.weight(1f),
@@ -250,17 +296,17 @@ private fun Body(
                 // These three count labels rather than garments -- there is no
                 // list of colours to open -- so they are numbers and nothing more.
                 Tile(
-                    label = stringResource(R.string.statistics_categories),
+                    label = stringResource(Res.string.statistics_categories),
                     value = view.distinctCategories.toLong(),
                     modifier = Modifier.weight(1f),
                 )
                 Tile(
-                    label = stringResource(R.string.statistics_colours),
+                    label = stringResource(Res.string.statistics_colours),
                     value = view.distinctColors.toLong(),
                     modifier = Modifier.weight(1f),
                 )
                 Tile(
-                    label = stringResource(R.string.statistics_brands),
+                    label = stringResource(Res.string.statistics_brands),
                     value = view.distinctBrands.toLong(),
                     modifier = Modifier.weight(1f),
                 )
@@ -274,11 +320,11 @@ private fun Body(
                 Card {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            stringResource(R.string.statistics_empty_title),
+                            stringResource(Res.string.statistics_empty_title),
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            stringResource(R.string.statistics_empty_body),
+                            stringResource(Res.string.statistics_empty_body),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp),
@@ -297,11 +343,11 @@ private fun Body(
 
             item {
                 SectionHeader(
-                    title = stringResource(R.string.statistics_by_category),
+                    title = stringResource(Res.string.statistics_by_category),
                     open = open,
                     // Only once it is open: a hint about tapping rows is noise
                     // beside a section whose rows are not on screen.
-                    hint = stringResource(R.string.statistics_expand_hint),
+                    hint = stringResource(Res.string.statistics_expand_hint),
                     onClick = { onSectionTapped(StatisticsSection.CATEGORY) },
                 )
             }
@@ -322,7 +368,7 @@ private fun Body(
                                 // What tapping does, for a screen reader, which the
                                 // chevron only says visually.
                                 clickLabel = stringResource(
-                                    if (isOpen) R.string.statistics_collapse else R.string.statistics_expand
+                                    if (isOpen) Res.string.statistics_collapse else Res.string.statistics_expand
                                 ),
                                 // Beside the row rather than being the row: tapping
                                 // the row opens the types underneath, which is worth
@@ -358,7 +404,7 @@ private fun Body(
 
             item {
                 SectionHeader(
-                    title = stringResource(R.string.statistics_by_colour),
+                    title = stringResource(Res.string.statistics_by_colour),
                     open = open,
                     onClick = { onSectionTapped(StatisticsSection.COLOUR) },
                 )
@@ -399,7 +445,7 @@ private fun Body(
 
             item {
                 SectionHeader(
-                    title = stringResource(R.string.statistics_by_brand),
+                    title = stringResource(Res.string.statistics_by_brand),
                     open = open,
                     onClick = { onSectionTapped(StatisticsSection.BRAND) },
                 )
@@ -413,12 +459,12 @@ private fun Body(
                         FilterChip(
                             selected = brandSort == BrandSort.COUNT,
                             onClick = { onBrandSortChanged(BrandSort.COUNT) },
-                            label = { Text(stringResource(R.string.statistics_sort_count)) },
+                            label = { Text(stringResource(Res.string.statistics_sort_count)) },
                         )
                         FilterChip(
                             selected = brandSort == BrandSort.ALPHA,
                             onClick = { onBrandSortChanged(BrandSort.ALPHA) },
-                            label = { Text(stringResource(R.string.statistics_sort_name)) },
+                            label = { Text(stringResource(Res.string.statistics_sort_name)) },
                         )
                     }
                 }
@@ -457,7 +503,7 @@ private fun Body(
 
             item {
                 SectionHeader(
-                    title = stringResource(R.string.statistics_lifespan),
+                    title = stringResource(Res.string.statistics_lifespan),
                     open = open,
                     onClick = { onSectionTapped(StatisticsSection.LIFESPAN) },
                 )
@@ -468,7 +514,7 @@ private fun Body(
                     Chart {
                         if (view.lifespans.isEmpty()) {
                             Text(
-                                stringResource(R.string.statistics_no_lifespan),
+                                stringResource(Res.string.statistics_no_lifespan),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
@@ -482,7 +528,7 @@ private fun Body(
                                     label = label,
                                     fraction = bar.fraction,
                                     index = index,
-                                    value = stringResource(R.string.statistics_days, bar.days),
+                                    value = stringResource(Res.string.statistics_days, bar.days),
                                     // Wider than a count: "365d" does not fit where
                                     // a two-digit tally does.
                                     valueWidth = 44.dp,
@@ -513,9 +559,9 @@ private fun Body(
 
             item {
                 SectionHeader(
-                    title = stringResource(R.string.statistics_gaps),
+                    title = stringResource(Res.string.statistics_gaps),
                     open = open,
-                    hint = stringResource(R.string.statistics_gaps_hint),
+                    hint = stringResource(Res.string.statistics_gaps_hint),
                     onClick = { onSectionTapped(StatisticsSection.GAPS) },
                 )
             }
@@ -539,7 +585,7 @@ private fun Body(
                             // garments would be the app declining to answer while
                             // sounding like it had.
                             gaps.isEmpty() && view.inUse < MIN_WARDROBE_FOR_GAPS -> Text(
-                                stringResource(R.string.statistics_gaps_too_few),
+                                stringResource(Res.string.statistics_gaps_too_few),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
@@ -547,7 +593,7 @@ private fun Body(
                             )
 
                             gaps.isEmpty() -> Text(
-                                stringResource(R.string.statistics_no_gaps),
+                                stringResource(Res.string.statistics_no_gaps),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
@@ -568,9 +614,9 @@ private fun Body(
 
             item {
                 SectionHeader(
-                    title = stringResource(R.string.statistics_duplicates),
+                    title = stringResource(Res.string.statistics_duplicates),
                     open = open,
-                    hint = stringResource(R.string.statistics_duplicates_hint),
+                    hint = stringResource(Res.string.statistics_duplicates_hint),
                     onClick = { onSectionTapped(StatisticsSection.DUPLICATES) },
                 )
             }
@@ -594,7 +640,7 @@ private fun Body(
                             // else" is the answer to the question, where a missing
                             // section reads as the app never having looked.
                             duplicates.isEmpty() -> Text(
-                                stringResource(R.string.statistics_no_duplicates),
+                                stringResource(Res.string.statistics_no_duplicates),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
@@ -641,7 +687,7 @@ private fun DuplicateRow(group: DuplicateGarmentGroup, onGarmentOpened: (String)
 
                 AsyncImage(
                     model = garment.displayImage,
-                    contentDescription = stringResource(R.string.statistics_open_garment, what),
+                    contentDescription = stringResource(Res.string.statistics_open_garment, what),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(56.dp)
@@ -659,7 +705,7 @@ private fun DuplicateRow(group: DuplicateGarmentGroup, onGarmentOpened: (String)
             // The count, and no "why". Every group is here for the identical
             // reason -- same type, same colours -- so a reason line would repeat
             // the section's own heading once per row.
-            pluralStringResource(R.plurals.statistics_duplicate_count, group.garments.size, group.garments.size),
+            pluralStringResource(Res.plurals.statistics_duplicate_count, group.garments.size, group.garments.size),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -704,7 +750,7 @@ private fun GapRow(gap: GapWithPhotos, onAdd: (PhantomGarment) -> Unit) {
     // spell it.
     val colourName = paletteColorFor(want.colorPrimary)?.first?.let { paletteLabel(it) }
     val title = if (colourName != null) {
-        stringResource(R.string.gap_want, colourName, type)
+        stringResource(Res.string.gap_want, colourName, type)
     } else {
         type
     }
@@ -721,7 +767,7 @@ private fun GapRow(gap: GapWithPhotos, onAdd: (PhantomGarment) -> Unit) {
                 // about something that actually happened to this wardrobe and the
                 // reader will remember the shoes.
                 GapEvidence.RETIRED_UNREPLACED -> stringResource(
-                    R.string.gap_because_retired,
+                    Res.string.gap_because_retired,
                     typeLabel(
                         gap.replaces?.category ?: want.category,
                         gap.replaces?.subcategory,
@@ -734,11 +780,11 @@ private fun GapRow(gap: GapWithPhotos, onAdd: (PhantomGarment) -> Unit) {
                 // is not a phrase -- and no amount of lowercasing fixes a language
                 // where the noun has to be declined to sit there.
                 GapEvidence.NOTHING_FITS -> stringResource(
-                    R.string.gap_because_nothing_fits,
+                    Res.string.gap_because_nothing_fits,
                     stringResource(gap.gap.occasion.labelRes),
                 )
 
-                GapEvidence.RAISES_THE_BAR -> stringResource(R.string.gap_because_better)
+                GapEvidence.RAISES_THE_BAR -> stringResource(Res.string.gap_because_better)
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -748,7 +794,7 @@ private fun GapRow(gap: GapWithPhotos, onAdd: (PhantomGarment) -> Unit) {
         // it is not capped by how many outfits happened to be drawn.
         Text(
             pluralStringResource(
-                R.plurals.gap_unlocks,
+                Res.plurals.gap_unlocks,
                 gap.gap.outfitsUnlocked.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
                 gap.gap.outfitsUnlocked,
             ),
@@ -772,7 +818,7 @@ private fun GapRow(gap: GapWithPhotos, onAdd: (PhantomGarment) -> Unit) {
             }
 
             Text(
-                stringResource(R.string.gap_alternatives, alternatives.joinToString(", ")),
+                stringResource(Res.string.gap_alternatives, alternatives.joinToString(", ")),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -784,7 +830,7 @@ private fun GapRow(gap: GapWithPhotos, onAdd: (PhantomGarment) -> Unit) {
         Button(
             onClick = { onAdd(want) },
             modifier = Modifier.padding(top = 2.dp),
-        ) { Text(stringResource(R.string.gap_add)) }
+        ) { Text(stringResource(Res.string.gap_add)) }
     }
 }
 
@@ -838,7 +884,7 @@ private fun GapExample(example: GapOutfit, colour: String, ghostLabel: String) {
 private fun GhostTile(colour: String, label: String) {
     val outline = MaterialTheme.colorScheme.outline
     val fill = colour.toComposeColor() ?: MaterialTheme.colorScheme.surfaceVariant
-    val description = stringResource(R.string.gap_ghost, label)
+    val description = stringResource(Res.string.gap_ghost, label)
 
     Box(
         modifier = Modifier
@@ -877,7 +923,7 @@ private fun SectionHeader(
     hint: String? = null,
 ) {
     val label = stringResource(
-        if (open) R.string.statistics_section_collapse else R.string.statistics_section_expand
+        if (open) Res.string.statistics_section_collapse else Res.string.statistics_section_expand
     )
 
     Row(
@@ -950,7 +996,7 @@ private fun Tile(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
-    val clickLabel = stringResource(R.string.statistics_open_wardrobe)
+    val clickLabel = stringResource(Res.string.statistics_open_wardrobe)
 
     Card(
         modifier = if (onClick == null) {
@@ -1177,7 +1223,7 @@ private fun OpenGarment(label: String, tag: String, onClick: () -> Unit) {
     IconButton(onClick = onClick, modifier = Modifier.size(28.dp).testTag(tag)) {
         Icon(
             Icons.AutoMirrored.Filled.ArrowForward,
-            contentDescription = stringResource(R.string.statistics_open_garment, label),
+            contentDescription = stringResource(Res.string.statistics_open_garment, label),
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(18.dp),
         )
@@ -1201,7 +1247,7 @@ private fun ShowInWardrobe(label: String, tag: String, onClick: () -> Unit) {
     ) {
         Icon(
             Icons.AutoMirrored.Filled.List,
-            contentDescription = stringResource(R.string.statistics_show_in_wardrobe, label),
+            contentDescription = stringResource(Res.string.statistics_show_in_wardrobe, label),
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(18.dp),
         )
@@ -1294,5 +1340,5 @@ internal fun StatBar.subcategoryName(category: String): String? {
 @Composable
 internal fun StatBar.subcategoryLabel(category: String): String =
     subcategoryName(category)?.let { garmentTypeLabel(it) }
-        ?: stringResource(R.string.statistics_no_subcategory)
+        ?: stringResource(Res.string.statistics_no_subcategory)
 

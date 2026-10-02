@@ -14,12 +14,12 @@ import org.w3c.dom.Element
  * The same sentence, in two places, kept the same.
  *
  * There are two Englishes for every archive failure: the one `:data` produces
- * (`UnrestorableReason.englishMessage`) and the one in `values/strings.xml`, which
- * the Spanish is translated from. Neither can be deleted -- the first is the
- * fallback wherever there are no resources, and the second is what a screen shows
- * -- so the risk is that they drift, and a drift is invisible: everything still
- * passes, the app still reads sensibly in English, and only a Spanish reader gets
- * a sentence nobody checked.
+ * (`UnrestorableReason.englishMessage`) and the one in :ui's
+ * `values/strings.xml`, which the Spanish is translated from. Neither can be
+ * deleted -- the first is the fallback wherever there are no resources, and
+ * the second is what a screen shows -- so the risk is that they drift, and a
+ * drift is invisible: everything still passes, the app still reads sensibly in
+ * English, and only a Spanish reader gets a sentence nobody checked.
  *
  * This closes that. Every reason is formatted from the resource with the values it
  * carries and compared to the sentence `:data` builds. A reason with no resource,
@@ -74,7 +74,7 @@ class ArchiveMessageParityTest {
             assertTrue(template != null, "no string resource called $name")
             assertEquals(
                 reason.englishMessage(),
-                template!!.asAndroidWouldLoadIt().format(*reason.formatArguments()),
+                template!!.asComposeWouldLoadIt().format(*reason.formatArguments()),
                 "$name says something different from :data",
             )
         }
@@ -148,23 +148,8 @@ class ArchiveMessageParityTest {
         is ArchiveDetail.Foreign -> text
     }
 
-    /**
-     * A resource value as the app receives it, not as the file spells it.
-     *
-     * Android requires an apostrophe in a string resource to be escaped, and
-     * unescapes it on the way out -- so the file holds `SQLite\'s` where the app
-     * shows `SQLite's`. Comparing the raw file text against a Kotlin string fails
-     * on exactly that one character, which is how this was found.
-     */
-    private fun String.asAndroidWouldLoadIt(): String = this
-        .replace("\\'", "'")
-        .replace("\\\"", "\"")
-        .replace("\\n", "\n")
-        .replace("\\\\", "\\")
-
     private fun readStrings(): Map<String, String> {
-        val resDir = System.getProperty("appResDir")
-            ?: error("appResDir was not set; see presentation/build.gradle.kts")
+        val resDir = screenStringsDirectory()
         val file = File(resDir, "values/strings.xml")
         assertTrue(file.isFile, "expected string resources at $file")
 

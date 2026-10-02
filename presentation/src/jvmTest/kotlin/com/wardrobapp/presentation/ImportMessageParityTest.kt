@@ -16,8 +16,8 @@ import org.w3c.dom.Element
  *
  * [ArchiveMessageParityTest] does this for the archive failures and the reasoning
  * is identical: there are two Englishes for every refusal, the one :domain
- * produces and the one in `values/strings.xml` that the Spanish is translated
- * from. Neither can go -- the first is the fallback wherever there are no
+ * produces and the one in :ui's `values/strings.xml` that the Spanish is
+ * translated from. Neither can go -- the first is the fallback wherever there are no
  * resources, the second is what a screen shows -- so the risk is drift, and drift
  * is invisible: everything still passes, the app still reads sensibly in English,
  * and only a Spanish reader gets a sentence nobody checked.
@@ -77,7 +77,7 @@ class ImportMessageParityTest {
             assertTrue(template != null, "no string resource called $name")
             assertEquals(
                 reason.englishMessage(),
-                template!!.asAndroidWouldLoadIt().format(*reason.formatArguments()),
+                template!!.asComposeWouldLoadIt().format(*reason.formatArguments()),
                 "$name says something different from :domain",
             )
         }
@@ -94,7 +94,7 @@ class ImportMessageParityTest {
             assertTrue(template != null, "no string resource called $name")
             assertEquals(
                 reason.englishMessage(),
-                template!!.asAndroidWouldLoadIt().format(*reason.formatArguments()),
+                template!!.asComposeWouldLoadIt().format(*reason.formatArguments()),
                 "$name says something different from :domain",
             )
         }
@@ -117,7 +117,7 @@ class ImportMessageParityTest {
             assertTrue(template != null, "no resource called $name for a count of $count")
             assertEquals(
                 warning.englishMessage(),
-                template!!.asAndroidWouldLoadIt().format(*warning.formatArguments()),
+                template!!.asComposeWouldLoadIt().format(*warning.formatArguments()),
                 "$name says something different from :domain",
             )
         }
@@ -209,19 +209,6 @@ class ImportMessageParityTest {
         else -> null
     }
 
-    /**
-     * A resource value as the app receives it, not as the file spells it.
-     *
-     * Android requires an apostrophe in a string resource to be escaped and
-     * unescapes it on the way out, so comparing raw file text against a Kotlin
-     * string fails on exactly that character.
-     */
-    private fun String.asAndroidWouldLoadIt(): String = this
-        .replace("\\'", "'")
-        .replace("\\\"", "\"")
-        .replace("\\n", "\n")
-        .replace("\\\\", "\\")
-
     private fun readStrings(locale: String = "values"): Map<String, String> {
         val elements = parse(locale).getElementsByTagName("string")
 
@@ -247,8 +234,7 @@ class ImportMessageParityTest {
     }
 
     private fun parse(locale: String): org.w3c.dom.Document {
-        val resDir = System.getProperty("appResDir")
-            ?: error("appResDir was not set; see presentation/build.gradle.kts")
+        val resDir = screenStringsDirectory()
         val file = File(File(resDir, locale), "strings.xml")
         assertTrue(file.isFile, "expected string resources at $file")
 

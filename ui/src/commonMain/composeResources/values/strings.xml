@@ -1,0 +1,740 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    The screens' English strings.
+
+    Every user-facing string a screen shows lives here rather than in a Kotlin
+    literal, and values-es/strings.xml holds the same names in Spanish.
+    StringResourceParityTest in :presentation holds the two files to each other —
+    name for name, placeholder for placeholder — because :ui, like :app, builds
+    only where there is an Android SDK.
+
+    Compose Multiplatform resources rather than Android's, so the same strings
+    reach the phone and the browser. They moved here from :app's
+    res/values/strings.xml with two changes of syntax, because the formats
+    differ: an apostrophe is written as itself, since Compose Multiplatform does
+    not unescape `\'` and would show the backslash; and every placeholder is
+    numbered, since it substitutes only `%1$s`-style arguments. The strings
+    Android reads itself stayed behind; see that file.
+
+    The vocabulary below (categories, garment types, colours, seasons, occasions)
+    is generated from the React Native app's own tables, so a Spanish word cannot
+    end up under the wrong key in transcription. The rest is written for this app,
+    and diverges from the React Native wording in places where that wording was
+    wrong or misleading — each divergence is noted where it is used.
+-->
+<resources>
+    <!-- Tab bar -->
+    <string name="tab_home">Home</string>
+    <string name="tab_settings">Settings</string>
+    <string name="tab_wardrobe">Wardrobe</string>
+    <string name="tab_outfits">Outfits</string>
+    <string name="tab_statistics">Statistics</string>
+
+    <!-- Shared -->
+    <string name="error_wardrobe_unreadable">Couldn't read the wardrobe</string>
+    <string name="action_retry">Try again</string>
+    <string name="action_back">Back</string>
+    <string name="count_unknown">—</string>
+
+    <!--
+        First launch: the three screens before Home.
+
+        Short names because these are the only strings in the file that belong to
+        one screen each and are read nowhere else. The theme and language headings
+        are Settings' own (settings_theme, settings_language) — the same words for
+        the same two settings — while the hints under them deliberately are not:
+        those explain a settings screen, and this one is asking rather than
+        documenting.
+    -->
+    <string name="w_title">Welcome to Wardrobapp</string>
+    <string name="w_body">Your wardrobe lives on this phone. No account, no server, nothing to sign up for.</string>
+    <string name="w_start">Start fresh</string>
+    <string name="w_restore">Restore a backup</string>
+    <string name="w_restore_hint">Coming from another phone? Pick your backup and bring the whole wardrobe with you.</string>
+    <string name="w_skip">Not now</string>
+    <string name="a_title">Adding a garment is one photo</string>
+    <string name="a_body">Point the camera at it, or pick a photo you already have. The app fills in what it can and asks you for the rest.</string>
+    <string name="a_s1">A photo, from the camera or the gallery</string>
+    <string name="a_s1_detail">Cropped to 3:4 on the way in, which is the shape every screen shows a garment in.</string>
+    <string name="a_s2">The colours fill themselves in</string>
+    <string name="a_s2_detail">Read from the photo — and read again if you remove its background.</string>
+    <string name="a_s3">You pick the category</string>
+    <string name="a_s3_detail">The one thing a photo cannot say. Brand, size and tags are optional.</string>
+    <string name="a_note">A whole drawerful? Add several photos at once and answer a category for each.</string>
+    <string name="a_next">Next</string>
+    <string name="l_title">It learns what you like</string>
+    <string name="l_body">Give an outfit a rating and the app remembers three things: which garments go together, how each one does on its own, and which colour pairings you actually wear.</string>
+    <string name="l_note">Nothing to set up. The suggestions get better the more you rate.</string>
+    <string name="l_next">Got it</string>
+
+    <!--
+        The demo card on the third screen.
+
+        Fixed copy, not generated: the flow runs before there is a wardrobe to
+        build a suggestion from, so there is no outfit to name. The separator is
+        the app's own — the same middle dot the real card joins its reasons with.
+    -->
+    <string name="onboarding_demo_name">Denim jacket, white tee, chinos</string>
+    <string name="onboarding_demo_reasons">The colours work · Right for the season</string>
+
+    <!--
+        The First steps card at the top of Home.
+
+        Three rows rather than the four the design drew. The fourth asked for
+        access to your photos, and this app holds no such permission: every photo
+        comes in through the system photo picker and every backup through the
+        document picker, so there is nothing to grant and nothing to ask for.
+        A row that could never tick is a job nobody can finish.
+    -->
+    <string name="first_steps_title">First steps</string>
+    <string name="first_steps_dismiss">Dismiss</string>
+    <string name="first_steps_garment">Add your first garment</string>
+    <string name="first_steps_bulk">Add several at once</string>
+    <string name="first_steps_rate">Rate an outfit idea</string>
+
+    <!-- Where each row goes, for a screen reader. The label above says the job. -->
+    <string name="first_steps_open_garment">Open the form for a new garment</string>
+    <string name="first_steps_open_bulk">Open adding several garments at once</string>
+    <string name="first_steps_open_outfits">Open the outfits tab</string>
+
+    <!-- Home -->
+    <string name="home_title">My Wardrobe</string>
+    <string name="home_subtitle">Keep track of everything you wear.</string>
+    <string name="home_items">Items</string>
+    <string name="home_archived">Archived</string>
+    <string name="home_open_wardrobe">Open the wardrobe</string>
+    <string name="home_open_archived">Open the wardrobe showing archived garments</string>
+    <string name="home_add_garment">Add a garment</string>
+    <string name="home_outfits_title">Outfit ideas</string>
+    <string name="home_outfits_detail">Put together from what you own</string>
+    <string name="home_statistics_title">Statistics</string>
+    <string name="home_statistics_detail">How much you own, what it is made of, and how long things last</string>
+    <string name="home_settings_title">Settings</string>
+    <string name="home_settings_detail">Back up your wardrobe, or restore one</string>
+
+    <!-- The wardrobe list -->
+    <string name="wardrobe_title">Wardrobe</string>
+    <string name="wardrobe_search">Search</string>
+    <string name="wardrobe_empty">No garments yet.</string>
+    <string name="wardrobe_no_match_filters">Nothing matches these filters.</string>
+    <string name="wardrobe_no_match_search">Nothing matches "%1$s".</string>
+    <string name="sort_newest">Newest</string>
+    <string name="sort_oldest">Oldest</string>
+
+    <!-- The sort button is a glyph, so which order is in force is said here. -->
+    <string name="wardrobe_sort_current">Sort: %1$s</string>
+    <string name="wardrobe_search_clear">Clear the search</string>
+
+    <!-- How the wardrobe is drawn: the menu in the top bar, and its choices. -->
+    <string name="wardrobe_view_options">Change how the wardrobe is shown</string>
+    <string name="wardrobe_view_list">List</string>
+    <string name="wardrobe_view_section_show">Show on each</string>
+    <string name="wardrobe_size_menu">Grid size</string>
+    <string name="wardrobe_size_large">Large</string>
+    <string name="wardrobe_size_medium">Medium</string>
+    <string name="wardrobe_size_small">Small</string>
+
+    <!--
+        "Large - 2 per row". The name and the number, because neither is the whole
+        answer on its own. Not a plural: the counts on offer are two, three and
+        four, so "1 per row" is a form this string can never take.
+    -->
+    <string name="wardrobe_size_per_row">%1$s — %2$d per row</string>
+    <string name="wardrobe_caption_brand">Brand</string>
+    <string name="wardrobe_caption_type">Type</string>
+    <string name="wardrobe_caption_category">Category</string>
+    <string name="filters_show">Filters</string>
+    <string name="filters_title">Filters</string>
+    <string name="filter_remove">Remove this filter</string>
+    <string name="action_clear_filters">Clear all</string>
+    <string name="filter_brand">Brand</string>
+    <string name="filter_size">Size</string>
+    <string name="filter_include_retired">Include things I no longer wear</string>
+    <string name="filter_section_category">Category</string>
+    <string name="filter_section_type">Type</string>
+    <string name="filter_section_season">Season</string>
+    <string name="filter_section_occasion">Occasion</string>
+    <string name="filter_section_colour">Colour</string>
+
+    <!-- Outfits -->
+    <string name="outfits_title">Outfits</string>
+    <string name="outfits_subtitle">Suggestions are built from what you own, and learn from what you rate.</string>
+    <string name="outfits_filter_any">Any</string>
+    <string name="outfits_suggest">Suggest outfits</string>
+
+    <!-- After the first press: what it does then is replace three you have read. -->
+    <string name="outfits_suggest_again">Suggest again</string>
+    <string name="outfits_building_around">Building around</string>
+    <string name="outfits_use_whole_wardrobe">Whole wardrobe</string>
+    <string name="outfits_suggesting">Building outfits…</string>
+    <string name="outfits_none_possible">No outfits could be built from what's available. Try fewer filters, or add a few more garments.</string>
+    <string name="outfits_prompt">Tap suggest to see what goes together.</string>
+    <string name="reason_learned">You rated these together</string>
+    <string name="reason_colours">The colours work</string>
+    <string name="reason_occasion">Suits the occasion</string>
+    <string name="reason_season">Right for the season</string>
+    <string name="reason_coherent">Dressed for the same day</string>
+    <string name="outfits_saved_section">Saved</string>
+    <string name="outfit_keep_title">Keep this outfit?</string>
+    <string name="outfit_keep_body">Your rating is saved either way, and the app has already learned from it. Keeping \u201c%1$s\u201d also puts it in your saved outfits.</string>
+    <string name="outfit_keep">Keep it</string>
+    <string name="outfit_just_learn">Just learn from it</string>
+    <string name="outfit_rated_only">%1$s \u00b7 rated only</string>
+    <string name="outfits_hide_rated">Hide rated-only outfits</string>
+    <plurals name="outfits_show_rated">
+        <item quantity="one">Show %1$d rated-only outfit</item>
+        <item quantity="other">Show %1$d rated-only outfits</item>
+    </plurals>
+
+    <!-- What a star does, announced rather than read out as a glyph. -->
+    <plurals name="outfit_rate_stars">
+        <item quantity="one">Rate %1$d star</item>
+        <item quantity="other">Rate %1$d stars</item>
+    </plurals>
+    <string name="outfit_saved_badge">Saved</string>
+    <string name="action_save">Save</string>
+    <string name="action_pin">Pin</string>
+    <string name="action_unpin">Unpin</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_keep">Keep it</string>
+    <string name="action_close">Close</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="outfit_delete">Delete this outfit</string>
+    <string name="outfit_delete_confirm">Delete this outfit?</string>
+    <string name="outfit_delete_named_body">"%1$s" and its rating are deleted. The garments in it stay in your wardrobe.</string>
+    <string name="outfit_delete_body">The outfit and its rating are deleted. The garments in it stay in your wardrobe.</string>
+    <string name="outfit_missing">That outfit is no longer saved.</string>
+    <string name="outfit_unreadable">Couldn't read this outfit</string>
+    <string name="outfit_rate">How was it?</string>
+    <string name="error_rating_not_saved">That rating could not be saved.</string>
+    <string name="error_outfit_not_deleted">That outfit could not be deleted.</string>
+    <string name="outfit_untitled">Outfit</string>
+
+    <!-- A garment -->
+    <string name="garment_untitled">Garment</string>
+    <string name="garment_missing">That garment is no longer in your wardrobe.</string>
+    <string name="garment_unreadable">Couldn't read this garment</string>
+    <string name="garment_no_photo">No photo</string>
+    <string name="action_edit">Edit</string>
+    <string name="property_colours">Colours</string>
+    <string name="property_size">Size</string>
+    <string name="property_seasons">Seasons</string>
+    <string name="property_occasions">Occasions</string>
+    <string name="property_added">Added</string>
+    <string name="property_tags">Tags</string>
+    <string name="garment_retired">Not in use</string>
+    <string name="garment_retired_since">Not in use since %1$s</string>
+    <string name="garment_build_outfit">Build an outfit around this</string>
+    <string name="garment_retire">No longer wearing this</string>
+    <string name="garment_unretire">Wearing this again</string>
+    <string name="garment_delete">Delete this garment</string>
+    <string name="garment_retire_confirm">Stop wearing this?</string>
+    <string name="garment_retire_body">It leaves your wardrobe and stops appearing in outfits, but it is kept — with its photos — and counts towards how long things last. You can put it back at any time.</string>
+    <string name="garment_retire_action">Stop wearing it</string>
+    <string name="garment_delete_confirm">Delete this garment?</string>
+    <string name="garment_delete_body">Its photos go too, along with what the app has learned about which garments it goes with. Any saved outfit using it loses it, and an outfit left with nothing is deleted. This cannot be undone.</string>
+    <string name="background_removing">Working on the photo…</string>
+    <string name="background_remove">Remove background</string>
+    <string name="background_undo">Undo background removal</string>
+    <string name="error_action_failed">That didn't work</string>
+    <string name="error_garment_not_deleted">That garment could not be deleted.</string>
+    <string name="error_background_not_removed">The background could not be removed.</string>
+    <string name="error_not_undone">That could not be undone.</string>
+
+    <!-- Adding and editing a garment -->
+    <string name="form_title_add">Add garment</string>
+    <string name="form_title_edit">Edit garment</string>
+    <string name="form_save_add">Add to wardrobe</string>
+    <string name="form_save_edit">Save changes</string>
+    <string name="form_saving">Saving…</string>
+    <string name="form_error_title">Couldn't save</string>
+
+    <!--
+        Titles for the things this screen does that are not saving. The form used
+        to call every failure "Couldn't save", which sent one bug report chasing
+        the save path when the fault was in reading a photo.
+    -->
+    <string name="error_title_photo">Couldn't use that photo</string>
+    <string name="error_title_background">Couldn't remove the background</string>
+    <string name="form_section_photos">Photos</string>
+    <string name="form_section_tags">Tags</string>
+    <string name="form_size_custom">Or type a size</string>
+    <string name="form_tag_hint">Add a tag, then a comma</string>
+    <string name="form_add_photo">Add a photo</string>
+    <string name="form_remove_photo">Remove photo</string>
+    <string name="form_remove_tag">Remove tag</string>
+    <string name="background_cutting">Cutting out the garment…</string>
+    <string name="error_photo_required">A garment needs at least one photo.</string>
+    <string name="error_photo_not_imported">That photo could not be imported.</string>
+
+    <!-- The duplicate warning -->
+    <string name="duplicate_title">You may already own this</string>
+    <string name="duplicate_add_anyway">Add it anyway</string>
+    <string name="duplicate_review">Let me look</string>
+
+    <!-- Statistics: one page, where an Analytics tab and a Statistics screen
+         used to say the same things twice. -->
+    <string name="statistics_title">Statistics</string>
+    <string name="statistics_subtitle">A breakdown of what you own.</string>
+    <string name="statistics_items">Items</string>
+    <string name="statistics_in_use">In use</string>
+    <string name="statistics_retired">Retired</string>
+    <string name="statistics_categories">Categories</string>
+    <string name="statistics_colours">Colours</string>
+    <string name="statistics_brands">Brands</string>
+    <string name="statistics_empty_title">Nothing to measure yet</string>
+    <string name="statistics_empty_body">Add a few garments and this fills in: what your wardrobe is made of, which colours you actually wear, who made it all, and how long the things you retire tend to last.</string>
+    <string name="statistics_section_expand">Show this section</string>
+    <string name="statistics_section_collapse">Hide this section</string>
+    <string name="statistics_by_category">By category</string>
+    <string name="statistics_expand_hint">Tap a category to see what's in it</string>
+    <string name="statistics_expand">Show subcategories</string>
+    <string name="statistics_show_in_wardrobe">Show %1$s in the wardrobe</string>
+    <string name="statistics_open_garment">Open %1$s</string>
+    <string name="statistics_open_wardrobe">Open the wardrobe</string>
+    <string name="statistics_collapse">Hide subcategories</string>
+    <string name="statistics_by_colour">By colour</string>
+    <string name="statistics_by_brand">By brand</string>
+    <string name="statistics_sort_count">Most</string>
+    <string name="statistics_sort_name">A-Z</string>
+    <string name="statistics_no_subcategory">Not specified</string>
+    <string name="statistics_lifespan">How long things lasted</string>
+    <string name="statistics_no_lifespan">Nothing retired yet. Mark a garment as no longer in use and it appears here.</string>
+    <string name="statistics_duplicates">Things you may own twice</string>
+    <string name="statistics_duplicates_hint">Tap a photo to open that garment</string>
+    <string name="statistics_no_duplicates">Nothing in your wardrobe looks much like anything else.</string>
+    <plurals name="statistics_duplicate_count">
+        <item quantity="one">%1$d garment</item>
+        <item quantity="other">%1$d garments</item>
+    </plurals>
+    <string name="statistics_days">%1$dd</string>
+
+    <!-- Gaps: what the wardrobe cannot finish, and what would finish it. -->
+    <string name="statistics_gaps">What you are missing</string>
+    <string name="statistics_gaps_hint">Garments that would finish outfits you cannot make yet</string>
+    <string name="statistics_no_gaps">Nothing obvious is missing. Every kind of day your wardrobe dresses for, it can finish.</string>
+    <string name="statistics_gaps_too_few">Not enough to go on yet. With a wardrobe this size everything is missing, so this waits until there is something to compare against.</string>
+    <string name="gap_want">%1$s %2$s</string>
+    <string name="gap_because_nothing_fits">%1$s: nothing you own is dressed for it.</string>
+    <string name="gap_because_retired">You retired your %1$s and nothing replaced it.</string>
+    <string name="gap_because_better">It would go with more of what you own than anything you can pair up now.</string>
+    <string name="gap_alternatives">Or: %1$s</string>
+    <string name="gap_add">Add it</string>
+    <string name="gap_ghost">Where %1$s would go</string>
+    <plurals name="gap_unlocks">
+        <item quantity="one">%1$d outfit you cannot make today</item>
+        <item quantity="other">%1$d outfits you cannot make today</item>
+    </plurals>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_storage">Storage</string>
+    <string name="settings_section_backup">Backup</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_garments">Garments</string>
+    <string name="settings_retired">No longer in use</string>
+    <string name="settings_photos">Photos</string>
+    <string name="settings_megabytes">%1$s MB</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_build">Build</string>
+    <string name="settings_backup_hint">A backup is one file holding the wardrobe and every photo. It is also how a wardrobe moves between this app and the one on the Play Store.</string>
+    <string name="settings_backup_create">Create a backup</string>
+    <string name="settings_backup_restore">Restore from a backup</string>
+    <string name="backup_running_title">Backing up</string>
+    <string name="backup_running_body">Copying the wardrobe and its photos.</string>
+    <string name="backup_done_title">Backup saved</string>
+    <string name="backup_failed_title">Couldn't save that backup</string>
+    <string name="restore_confirm_title">Restore from a backup?</string>
+    <string name="restore_confirm_body">Everything in this app's wardrobe will be replaced by the contents of the backup you pick. If the backup turns out not to be usable, nothing is changed.</string>
+    <string name="restore_pick">Pick a backup</string>
+    <string name="restore_preview_title">Restore this backup?</string>
+    <string name="restore_preview_made">Made %1$s</string>
+    <string name="restore_preview_undated">This backup did not record when it was made.</string>
+    <string name="restore_preview_settings">Also restore my settings</string>
+    <string name="restore_preview_restore">Restore</string>
+    <string name="restore_running_title">Restoring</string>
+    <string name="restore_running_body">Unpacking and checking the backup.</string>
+    <string name="restore_done_title">Wardrobe restored</string>
+    <string name="restore_done_body">The backup was restored.</string>
+    <string name="restore_failed_title">Couldn't restore that backup</string>
+    <string name="action_done">Done</string>
+
+    <!-- Why a backup will not restore -->
+    <string name="archive_manifest_unreadable">Invalid backup: %1$s is not readable JSON.</string>
+    <string name="archive_manifest_not_a_backup">Invalid backup: %1$s does not describe a backup.</string>
+    <string name="archive_manifest_version_missing">Invalid backup: %1$s has no version number.</string>
+    <string name="archive_manifest_not_found">Invalid backup archive: no %1$s found</string>
+    <string name="archive_backup_from_newer_app">This backup was made by a newer version of Wardrobapp (backup format %1$d; this app reads %2$d). Update the app and try again.</string>
+    <string name="archive_unsupported_version">Unsupported backup format %1$d; this app reads %2$s.</string>
+    <string name="archive_database_missing">Invalid backup: %1$s is missing from the archive. Nothing was changed.</string>
+    <string name="archive_database_empty">Invalid backup: %1$s is empty. Nothing was changed.</string>
+    <string name="archive_no_database">Invalid backup: it contains no database. Nothing was changed.</string>
+
+    <!--
+        Two counts in one sentence, which no <plurals> can inflect: Android
+        chooses a quantity from one number, and this reads its noun off the first
+        while the verb agrees with the second. So "photo(s)", and lint's
+        PluralsCandidate is told as much rather than left to fire on every build.
+    -->
+    <string name="archive_archive_truncated">Incomplete backup: the manifest lists %1$d photo(s) but only %2$d are present, so the archive is truncated. Nothing was changed.</string>
+    <string name="archive_not_base64">Invalid backup: its contents are not valid base64. Nothing was changed.</string>
+    <string name="archive_entry_outside_archive">Invalid backup: the archive contains an entry outside itself (%1$s). Nothing was changed.</string>
+    <string name="archive_integrity_check_failed">it failed SQLite's integrity check (%1$s)</string>
+    <string name="archive_invalid_backup">Invalid backup: %1$s. Nothing was changed.</string>
+    <string name="archive_restore_failed">Restore failed: %1$s. Your wardrobe was left unchanged.</string>
+    <string name="archive_rollback_failed">Restore failed (%1$s) and the wardrobe could not be put back (%2$s). Your original data is still on the device as %3$s and %4$s.</string>
+
+    <!-- Language, in Settings -->
+    <string name="settings_language">Language</string>
+    <string name="settings_language_hint">Applies to this app only. Android remembers it, so it survives a restart and can also be changed from the system settings.</string>
+    <string name="language_automatic">Automatic</string>
+    <string name="language_english">English</string>
+    <string name="language_spanish">Español</string>
+
+    <!-- Tidying up photos stored by an older build -->
+    <string name="settings_tidy">Optimize storage</string>
+    <string name="settings_tidy_hint">Shrinks cut-out photos saved by an older version, and deletes photos no garment points at any more. Nothing a garment shows is touched, and it is safe to run again.</string>
+    <string name="tidy_running_title">Optimizing storage</string>
+    <string name="tidy_running_body">Checking photo %1$d of %2$d…</string>
+    <string name="tidy_nothing_title">Nothing to optimize</string>
+    <plurals name="tidy_nothing_body">
+        <item quantity="one">%1$d photo checked, and there was nothing to tidy.</item>
+        <item quantity="other">%1$d photos checked, and there was nothing to tidy.</item>
+    </plurals>
+    <string name="tidy_done_title">Storage optimized</string>
+    <plurals name="tidy_done_body">
+        <item quantity="one">%1$d photo tidied, saving %2$s MB.</item>
+        <item quantity="other">%1$d photos tidied, saving %2$s MB.</item>
+    </plurals>
+    <plurals name="tidy_reclaimed_body">
+        <item quantity="one">%1$d of them was a photo nothing pointed at any more, and was deleted.</item>
+        <item quantity="other">%1$d of them were photos nothing pointed at any more, and were deleted.</item>
+    </plurals>
+    <string name="tidy_failed_title">Could not optimize</string>
+
+    <!-- Taking a photo, and reading a colour off one -->
+    <string name="form_take_photo">Take Photo</string>
+    <string name="form_detecting_colors">Reading colors from photo…</string>
+    <string name="error_no_camera">No camera app answered, so no photo was taken.</string>
+    <string name="error_crop_failed">That photo could not be cropped, so it was not added.</string>
+
+    <!-- URL import, in the garment form -->
+    <string name="import_section">Import from a link</string>
+    <string name="import_hint">Paste a product link to pull in its images</string>
+    <string name="import_url_label">Product link</string>
+    <string name="import_action">Import URL</string>
+    <string name="import_running">Importing images from link…</string>
+    <string name="import_source">Imported from %1$s</string>
+    <string name="import_notes">Import notes: %1$s</string>
+    <plurals name="import_success">
+        <item quantity="one">%1$d image imported from the product page.</item>
+        <item quantity="other">%1$d images imported from the product page.</item>
+    </plurals>
+    <string name="import_failed_title">URL Import</string>
+    <string name="import_invalid_url">Enter a valid product URL.</string>
+
+    <!-- Being handed a link by something else: a share, or a deep link -->
+    <string name="shared_link_title">Import from a link?</string>
+    <string name="shared_link_body">Something asked this app to load a garment from %1$s. Nothing has been fetched yet.</string>
+    <string name="shared_link_confirm">Load it</string>
+    <string name="shared_link_cancel">Not now</string>
+
+    <!-- Why a link was refused. Mirrors UnsafeUrlReason in :domain. -->
+    <string name="unsafe_url_required">A URL is required.</string>
+    <string name="unsafe_not_a_web_address">That does not look like a web address.</string>
+    <string name="unsafe_scheme_not_allowed">Only http and https addresses can be imported.</string>
+    <string name="unsafe_credentials_in_url">That address carries a username or password, so it was not opened.</string>
+    <string name="unsafe_host_is_local">%1$s is on this device or its local network, so it was not opened.</string>
+    <string name="unsafe_redirect_unreadable">That address redirected somewhere unreadable.</string>
+    <string name="unsafe_redirected_to_local_host">That address redirected to %1$s, on this device or its local network.</string>
+
+    <!-- Why an import produced nothing. Mirrors ImportFailureReason in :domain. -->
+    <string name="import_page_timed_out">That page took too long to answer.</string>
+    <string name="import_page_too_large">That page is too large to read.</string>
+    <string name="import_page_not_loaded">Could not load page (%1$d).</string>
+    <string name="import_not_a_web_page">That address is not a web page.</string>
+    <string name="import_no_images_found">No garment images were found on that page.</string>
+    <string name="import_no_fetchable_images">The images on that page are not ones this app will download.</string>
+    <string name="import_no_images_downloaded">Images were found, but none could be downloaded.</string>
+
+    <!-- What an import wants to mention. Mirrors ImportWarning in :domain. -->
+    <string name="import_warning_structured_data_unreadable">Some structured product data could not be parsed.</string>
+
+    <!-- Two counts again; see archive_archive_truncated. Both are always plural
+         here: the warning only exists when more images were listed than used. -->
+    <string name="import_warning_images_capped">That page listed %1$d images; the first %2$d were used.</string>
+    <plurals name="import_warning_images_blocked">
+        <item quantity="one">%1$d image pointed somewhere this app will not fetch.</item>
+        <item quantity="other">%1$d images pointed somewhere this app will not fetch.</item>
+    </plurals>
+    <plurals name="import_warning_images_failed">
+        <item quantity="one">%1$d image could not be downloaded.</item>
+        <item quantity="other">%1$d images could not be downloaded.</item>
+    </plurals>
+
+    <!-- Theme, in Settings -->
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_hint">Automatic follows whether the device is set to light or dark.</string>
+    <string name="theme_automatic">Automatic</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+
+    <!-- Categories -->
+    <string name="category_tops">Tops</string>
+    <string name="category_bottoms">Bottoms</string>
+    <string name="category_dresses">Dresses</string>
+    <string name="category_midlayer">Mid-Layer</string>
+    <string name="category_outerwear">Outerwear</string>
+    <string name="category_shoes">Shoes</string>
+    <string name="category_accessories">Accessories</string>
+    <string name="category_activewear">Activewear</string>
+    <string name="category_underwear">Underwear</string>
+    <string name="category_loungewear">Loungewear/Pajamas</string>
+
+    <!-- Garment types. Keyed on the value stored in the database, which stays English. -->
+    <string name="subcategory_tshirt">T-Shirt</string>
+    <string name="subcategory_blouse">Blouse</string>
+    <string name="subcategory_shirt">Shirt</string>
+    <string name="subcategory_tank_top">Tank Top</string>
+    <string name="subcategory_sweater">Sweater</string>
+    <string name="subcategory_hoodie">Hoodie</string>
+    <string name="subcategory_crop_top">Crop Top</string>
+    <string name="subcategory_polo">Polo</string>
+    <string name="subcategory_jeans">Jeans</string>
+    <string name="subcategory_pants">Pants</string>
+    <string name="subcategory_shorts">Shorts</string>
+    <string name="subcategory_skirt">Skirt</string>
+    <string name="subcategory_leggings">Leggings</string>
+    <string name="subcategory_sweatpants">Sweatpants</string>
+    <string name="subcategory_chinos">Chinos</string>
+    <string name="subcategory_mini">Mini</string>
+    <string name="subcategory_midi">Midi</string>
+    <string name="subcategory_maxi">Maxi</string>
+    <string name="subcategory_cocktail">Cocktail</string>
+    <string name="subcategory_sundress">Sundress</string>
+    <string name="subcategory_jumpsuit">Jumpsuit</string>
+    <string name="subcategory_romper">Romper</string>
+    <string name="subcategory_jacket">Jacket</string>
+    <string name="subcategory_coat">Coat</string>
+    <string name="subcategory_blazer">Blazer</string>
+    <string name="subcategory_overshirt">Overshirt</string>
+    <string name="subcategory_cardigan">Cardigan</string>
+    <string name="subcategory_vest">Vest</string>
+    <string name="subcategory_poncho">Poncho</string>
+    <string name="subcategory_cape">Cape</string>
+    <string name="subcategory_windbreaker">Windbreaker</string>
+    <string name="subcategory_parka">Parka</string>
+    <string name="subcategory_sneakers">Sneakers</string>
+    <string name="subcategory_boots">Boots</string>
+    <string name="subcategory_sandals">Sandals</string>
+    <string name="subcategory_heels">Heels</string>
+    <string name="subcategory_flats">Flats</string>
+    <string name="subcategory_loafers">Loafers</string>
+    <string name="subcategory_athletic">Athletic</string>
+    <string name="subcategory_hat">Hat</string>
+    <string name="subcategory_scarf">Scarf</string>
+    <string name="subcategory_foulard">Foulard</string>
+    <string name="subcategory_belt">Belt</string>
+    <string name="subcategory_bag">Bag</string>
+    <string name="subcategory_wallet">Wallet</string>
+    <string name="subcategory_gloves">Gloves</string>
+    <string name="subcategory_earrings">Earrings</string>
+    <string name="subcategory_necklaces">Necklaces</string>
+    <string name="subcategory_bracelets">Bracelets</string>
+    <string name="subcategory_rings">Rings</string>
+    <string name="subcategory_jewelry">Jewelry</string>
+    <string name="subcategory_watch">Watch</string>
+    <string name="subcategory_eyewear">Eyewear</string>
+    <string name="subcategory_sunglasses">Sunglasses</string>
+    <string name="subcategory_tie">Tie</string>
+    <string name="subcategory_sports_bra">Sports Bra</string>
+    <string name="subcategory_workout_top">Workout Top</string>
+    <string name="subcategory_workout_shorts">Workout Shorts</string>
+    <string name="subcategory_yoga_pants">Yoga Pants</string>
+    <string name="subcategory_track_suit">Track Suit</string>
+    <string name="subcategory_bra">Bra</string>
+    <string name="subcategory_briefs">Briefs</string>
+    <string name="subcategory_boxers">Boxers</string>
+    <string name="subcategory_bodysuit">Bodysuit</string>
+    <string name="subcategory_shapewear">Shapewear</string>
+    <string name="subcategory_socks">Socks</string>
+    <string name="subcategory_tights">Tights</string>
+    <string name="subcategory_thermal">Thermal</string>
+    <string name="subcategory_pajama_set">Pajama Set</string>
+    <string name="subcategory_pajama_top">Pajama Top</string>
+    <string name="subcategory_pajama_bottoms">Pajama Bottoms</string>
+    <string name="subcategory_nightgown">Nightgown</string>
+    <string name="subcategory_robe">Robe</string>
+    <string name="subcategory_lounge_set">Lounge Set</string>
+
+    <!-- Colours -->
+    <string name="color_black">Black</string>
+    <string name="color_white">White</string>
+    <string name="color_gray">Gray</string>
+    <string name="color_navy">Navy</string>
+    <string name="color_blue">Blue</string>
+    <string name="color_light_blue">Light Blue</string>
+    <string name="color_red">Red</string>
+    <string name="color_burgundy">Burgundy</string>
+    <string name="color_pink">Pink</string>
+    <string name="color_green">Green</string>
+    <string name="color_olive">Olive</string>
+    <string name="color_khaki">Khaki</string>
+    <string name="color_brown">Brown</string>
+    <string name="color_tan">Tan</string>
+    <string name="color_beige">Beige</string>
+    <string name="color_cream">Cream</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_orange">Orange</string>
+    <string name="color_purple">Purple</string>
+    <string name="color_lavender">Lavender</string>
+    <string name="color_coral">Coral</string>
+    <string name="color_teal">Teal</string>
+    <string name="color_gold">Gold</string>
+    <string name="color_silver">Silver</string>
+    <string name="color_multi">Multi</string>
+
+    <!-- Seasons -->
+    <string name="season_spring">Spring</string>
+    <string name="season_summer">Summer</string>
+    <string name="season_fall">Fall</string>
+    <string name="season_winter">Winter</string>
+    <string name="season_all_season">All Season</string>
+
+    <!-- Occasions -->
+    <string name="occasion_casual">Casual</string>
+    <string name="occasion_work">Work</string>
+    <string name="occasion_formal">Formal</string>
+    <string name="occasion_sport">Sport</string>
+    <string name="occasion_lounge">Lounge</string>
+
+    <!--
+        Counts. English has one/other; Spanish also has `many`, which CLDR uses
+        for the compact forms ("1 millón de fotos"). Every Spanish plural
+        therefore carries a third item, and lint's MissingQuantity is what said
+        so.
+    -->
+    <plurals name="garment_count">
+        <item quantity="one">%1$d garment</item>
+        <item quantity="other">%1$d garments</item>
+    </plurals>
+    <plurals name="filters_applied">
+        <item quantity="one">%1$d filter applied</item>
+        <item quantity="other">%1$d filters applied</item>
+    </plurals>
+    <plurals name="filters_show_results">
+        <item quantity="one">Show %1$d garment</item>
+        <item quantity="other">Show %1$d garments</item>
+    </plurals>
+    <plurals name="photo_count">
+        <item quantity="one">%1$d photo</item>
+        <item quantity="other">%1$d photos</item>
+    </plurals>
+    <plurals name="backup_photos_skipped">
+        <item quantity="one">%1$d photo could not be read and was left out.</item>
+        <item quantity="other">%1$d photos could not be read and were left out.</item>
+    </plurals>
+    <plurals name="restore_preview_photos">
+        <item quantity="one">%1$d photo</item>
+        <item quantity="other">%1$d photos</item>
+    </plurals>
+    <plurals name="restore_done_garments">
+        <item quantity="one">The backup was restored: %1$d garment.</item>
+        <item quantity="other">The backup was restored: %1$d garments.</item>
+    </plurals>
+    <plurals name="outfit_missing_garments">
+        <item quantity="one">%1$d garment in this outfit is no longer in your wardrobe.</item>
+        <item quantity="other">%1$d garments in this outfit are no longer in your wardrobe.</item>
+    </plurals>
+
+    <!-- A newer build of the app -->
+    <string name="update_available_title">A newer build is available</string>
+    <string name="update_version">Version %1$s, build %2$d.</string>
+    <string name="update_build">Build %1$d.</string>
+    <string name="update_changes">What changed</string>
+    <plurals name="update_changes_more">
+        <item quantity="one">and %1$d more.</item>
+        <item quantity="other">and %1$d more.</item>
+    </plurals>
+    <string name="update_install">Install</string>
+    <string name="update_skip">Skip this build</string>
+    <string name="update_later">Later</string>
+    <string name="update_downloading">Downloading…</string>
+    <string name="update_failed_title">Couldn't install that build</string>
+
+    <!-- Google Drive, in Settings -->
+    <string name="settings_section_cloud">Google Drive</string>
+    <string name="settings_cloud_hint">Backups can also go to a folder in your own Google Drive, where you can open and download them without this app. Wardrobapp only ever sees the files it put there.</string>
+    <string name="settings_cloud_connect">Connect Google Drive</string>
+    <string name="settings_cloud_disconnect">Disconnect</string>
+    <string name="settings_cloud_backup_now">Back up to Drive</string>
+    <string name="settings_cloud_refresh">Refresh</string>
+    <string name="settings_cloud_connecting">Connecting…</string>
+    <string name="settings_cloud_listing">Reading your Drive…</string>
+    <string name="settings_cloud_backing_up">Backing up…</string>
+    <string name="settings_cloud_restoring">Restoring…</string>
+    <string name="settings_cloud_empty">No backups in Drive yet.</string>
+    <string name="settings_cloud_kept">Older backups are removed as newer ones arrive.</string>
+    <string name="settings_cloud_restore">Restore</string>
+    <string name="settings_cloud_restore_title">Restore from Drive?</string>
+    <string name="settings_cloud_restore_body">Everything in this app's wardrobe will be replaced by what is in that backup. If it turns out to be unreadable, nothing is changed.</string>
+    <string name="settings_cloud_schedule">Back up automatically</string>
+    <string name="settings_cloud_frequency">How often</string>
+    <string name="settings_cloud_keep">Backups to keep</string>
+    <string name="settings_cloud_keep_all">All</string>
+    <string name="settings_cloud_keep_one_warning">Keeping one means a backup taken after something went wrong replaces the one from before it.</string>
+    <string name="settings_cloud_wifi_only">Only on Wi-Fi</string>
+    <string name="settings_cloud_wifi_only_hint">A backup sends every photo, so this can be large. Turn it off to back up on mobile data too.</string>
+    <string name="settings_cloud_battery">Only when the battery is not low</string>
+    <string name="backup_frequency_daily">Daily</string>
+    <string name="backup_frequency_weekly">Weekly</string>
+    <string name="backup_frequency_monthly">Monthly</string>
+    <string name="settings_cloud_last_backup">Last backup: %1$s</string>
+    <string name="settings_cloud_last_failed">Last attempt failed: %1$s</string>
+    <string name="settings_cloud_disconnect_note">Disconnecting only forgets the permission. The backups stay in your Drive.</string>
+
+    <!--
+        Bulk add: cataloguing a wardrobe rather than adding a garment. The queue
+        asks for the one thing a photo cannot say, which is what kind of garment
+        it is, and nothing else.
+    -->
+    <string name="wardrobe_add_options">More ways to add</string>
+    <string name="bulk_add_title">Add several</string>
+    <string name="bulk_add_menu">Add several photos</string>
+    <string name="bulk_add_choose">Choose photos</string>
+    <string name="bulk_add_choose_more">Add more photos</string>
+    <string name="bulk_add_intro">Pick your photos — up to %1$d at a time — and give each one a category. Colours are read from the photo; everything else can be filled in later.</string>
+    <string name="bulk_add_progress">%1$d of %2$d</string>
+    <string name="bulk_add_save">Save and next</string>
+    <string name="bulk_add_skip">Skip this photo</string>
+    <string name="bulk_add_done">Done</string>
+    <string name="bulk_add_crop">Crop</string>
+    <string name="bulk_add_brand">Brand (optional)</string>
+    <plurals name="bulk_add_finished">
+        <item quantity="one">%1$d garment added.</item>
+        <item quantity="other">%1$d garments added.</item>
+    </plurals>
+    <plurals name="bulk_add_skipped">
+        <item quantity="one">%1$d photo skipped.</item>
+        <item quantity="other">%1$d photos skipped.</item>
+    </plurals>
+    <string name="error_garment_not_saved">That garment could not be saved.</string>
+
+    <!--
+        Building an outfit by hand, and changing one: the same screen, reached
+        from the outfits list and from an outfit's own screen.
+    -->
+    <string name="outfit_build_title">Build an outfit</string>
+    <string name="outfit_edit_title">Edit outfit</string>
+    <string name="outfit_build">Build an outfit</string>
+    <string name="outfit_edit">Edit this outfit</string>
+    <string name="outfit_name_label">Name (optional)</string>
+    <string name="outfit_name_hint">Left empty, it is named after what is in it.</string>
+    <string name="outfit_pick_garments">Garments</string>
+    <string name="outfit_chosen">In this outfit</string>
+    <string name="outfit_chosen_none">Nothing picked yet. Tap a garment below.</string>
+    <string name="outfit_save">Save outfit</string>
+    <string name="error_outfit_not_saved">That outfit could not be saved.</string>
+    <string name="outfit_pick_search">Find a garment</string>
+    <string name="outfit_pick_nothing_found">No garment matches that.</string>
+</resources>

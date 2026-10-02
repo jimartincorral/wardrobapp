@@ -1,6 +1,5 @@
 package com.wardrobapp.app
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,10 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.data.ArchiveDetail
@@ -49,8 +45,81 @@ import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.SettingsScreenState
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.formatStoredDateTime
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.action_cancel
+import com.wardrobapp.ui.resources.action_close
+import com.wardrobapp.ui.resources.action_done
+import com.wardrobapp.ui.resources.action_retry
+import com.wardrobapp.ui.resources.archive_archive_truncated
+import com.wardrobapp.ui.resources.archive_backup_from_newer_app
+import com.wardrobapp.ui.resources.archive_database_empty
+import com.wardrobapp.ui.resources.archive_database_missing
+import com.wardrobapp.ui.resources.archive_entry_outside_archive
+import com.wardrobapp.ui.resources.archive_integrity_check_failed
+import com.wardrobapp.ui.resources.archive_invalid_backup
+import com.wardrobapp.ui.resources.archive_manifest_not_a_backup
+import com.wardrobapp.ui.resources.archive_manifest_not_found
+import com.wardrobapp.ui.resources.archive_manifest_unreadable
+import com.wardrobapp.ui.resources.archive_manifest_version_missing
+import com.wardrobapp.ui.resources.archive_no_database
+import com.wardrobapp.ui.resources.archive_not_base64
+import com.wardrobapp.ui.resources.archive_restore_failed
+import com.wardrobapp.ui.resources.archive_rollback_failed
+import com.wardrobapp.ui.resources.archive_unsupported_version
+import com.wardrobapp.ui.resources.backup_done_title
+import com.wardrobapp.ui.resources.backup_failed_title
+import com.wardrobapp.ui.resources.backup_photos_skipped
+import com.wardrobapp.ui.resources.backup_running_body
+import com.wardrobapp.ui.resources.backup_running_title
+import com.wardrobapp.ui.resources.error_wardrobe_unreadable
+import com.wardrobapp.ui.resources.photo_count
+import com.wardrobapp.ui.resources.restore_confirm_body
+import com.wardrobapp.ui.resources.restore_confirm_title
+import com.wardrobapp.ui.resources.restore_done_body
+import com.wardrobapp.ui.resources.restore_done_garments
+import com.wardrobapp.ui.resources.restore_done_title
+import com.wardrobapp.ui.resources.restore_failed_title
+import com.wardrobapp.ui.resources.restore_pick
+import com.wardrobapp.ui.resources.restore_preview_made
+import com.wardrobapp.ui.resources.restore_preview_photos
+import com.wardrobapp.ui.resources.restore_preview_restore
+import com.wardrobapp.ui.resources.restore_preview_settings
+import com.wardrobapp.ui.resources.restore_preview_title
+import com.wardrobapp.ui.resources.restore_preview_undated
+import com.wardrobapp.ui.resources.restore_running_body
+import com.wardrobapp.ui.resources.restore_running_title
+import com.wardrobapp.ui.resources.settings_backup_create
+import com.wardrobapp.ui.resources.settings_backup_hint
+import com.wardrobapp.ui.resources.settings_backup_restore
+import com.wardrobapp.ui.resources.settings_build
+import com.wardrobapp.ui.resources.settings_garments
+import com.wardrobapp.ui.resources.settings_language
+import com.wardrobapp.ui.resources.settings_language_hint
+import com.wardrobapp.ui.resources.settings_megabytes
+import com.wardrobapp.ui.resources.settings_photos
+import com.wardrobapp.ui.resources.settings_retired
+import com.wardrobapp.ui.resources.settings_section_about
+import com.wardrobapp.ui.resources.settings_section_backup
+import com.wardrobapp.ui.resources.settings_section_cloud
+import com.wardrobapp.ui.resources.settings_section_storage
+import com.wardrobapp.ui.resources.settings_theme
+import com.wardrobapp.ui.resources.settings_theme_hint
+import com.wardrobapp.ui.resources.settings_tidy
+import com.wardrobapp.ui.resources.settings_tidy_hint
+import com.wardrobapp.ui.resources.settings_title
+import com.wardrobapp.ui.resources.settings_version
+import com.wardrobapp.ui.resources.tidy_done_body
+import com.wardrobapp.ui.resources.tidy_done_title
+import com.wardrobapp.ui.resources.tidy_failed_title
+import com.wardrobapp.ui.resources.tidy_nothing_body
+import com.wardrobapp.ui.resources.tidy_nothing_title
+import com.wardrobapp.ui.resources.tidy_reclaimed_body
+import com.wardrobapp.ui.resources.tidy_running_body
+import com.wardrobapp.ui.resources.tidy_running_title
 import java.util.Locale
 import java.util.TimeZone
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Settings.
@@ -112,7 +181,7 @@ fun SettingsScreen(
             // No back arrow: this is a tab now, and the four beside it have none
             // either. An arrow here would offer to leave a place you did not
             // arrive at from anywhere.
-            TopAppBar(title = { Text(stringResource(R.string.settings_title)) })
+            TopAppBar(title = { Text(stringResource(Res.string.settings_title)) })
         },
     ) { insets ->
         // Bound once rather than smart-cast through the branches below, which is
@@ -126,18 +195,18 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
-            Section(stringResource(R.string.settings_section_storage))
+            Section(stringResource(Res.string.settings_section_storage))
             when {
                 view != null -> {
-                    Figure(stringResource(R.string.settings_garments), view.garments.toString())
+                    Figure(stringResource(Res.string.settings_garments), view.garments.toString())
                     // Only when there is something to say: a wardrobe nobody has
                     // retired anything from does not need a row reading zero.
                     if (view.retired > 0) {
-                        Figure(stringResource(R.string.settings_retired), view.retired.toString())
+                        Figure(stringResource(Res.string.settings_retired), view.retired.toString())
                     }
                     Figure(
-                        stringResource(R.string.settings_photos),
-                        stringResource(R.string.settings_megabytes, view.photoMegabytes),
+                        stringResource(Res.string.settings_photos),
+                        stringResource(Res.string.settings_megabytes, view.photoMegabytes),
                     )
                 }
 
@@ -151,7 +220,7 @@ fun SettingsScreen(
                 // A read that failed is not an empty wardrobe, and must not look
                 // like one. Same rule as every other screen.
                 else -> Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                    Text(stringResource(R.string.error_wardrobe_unreadable), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(Res.string.error_wardrobe_unreadable), style = MaterialTheme.typography.bodyMedium)
                     state.error?.let {
                         Text(
                             it,
@@ -159,12 +228,12 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
-                    TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                    TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
                 }
             }
 
             Text(
-                stringResource(R.string.settings_tidy_hint),
+                stringResource(Res.string.settings_tidy_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp),
@@ -174,14 +243,14 @@ fun SettingsScreen(
                 enabled = state.tidy !is SettingsScreenState.Tidy.Running,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
-                Text(stringResource(R.string.settings_tidy))
+                Text(stringResource(Res.string.settings_tidy))
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            Section(stringResource(R.string.settings_section_backup))
+            Section(stringResource(Res.string.settings_section_backup))
             Text(
-                stringResource(R.string.settings_backup_hint),
+                stringResource(Res.string.settings_backup_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -190,28 +259,28 @@ fun SettingsScreen(
                 enabled = state.backup !is SettingsScreenState.Backup.Running,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             ) {
-                Text(stringResource(R.string.settings_backup_create))
+                Text(stringResource(Res.string.settings_backup_create))
             }
             OutlinedButton(
                 onClick = onRestoreRequested,
                 enabled = state.restore == null && state.backup !is SettingsScreenState.Backup.Running,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
-                Text(stringResource(R.string.settings_backup_restore))
+                Text(stringResource(Res.string.settings_backup_restore))
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // Directly under the backup section, because it answers the same
             // question: where a copy of this wardrobe goes.
-            Section(stringResource(R.string.settings_section_cloud))
+            Section(stringResource(Res.string.settings_section_cloud))
             cloudSection()
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            Section(stringResource(R.string.settings_language))
+            Section(stringResource(Res.string.settings_language))
             Text(
-                stringResource(R.string.settings_language_hint),
+                stringResource(Res.string.settings_language_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -230,9 +299,9 @@ fun SettingsScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            Section(stringResource(R.string.settings_theme))
+            Section(stringResource(Res.string.settings_theme))
             Text(
-                stringResource(R.string.settings_theme_hint),
+                stringResource(Res.string.settings_theme_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -251,12 +320,12 @@ fun SettingsScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            Section(stringResource(R.string.settings_section_about))
+            Section(stringResource(Res.string.settings_section_about))
             // Read from the installed package rather than written here. The
             // React Native app hardcodes its version string, which means it has
             // been reporting 1.0.0 for every build it ever shipped.
-            Figure(stringResource(R.string.settings_version), version.name)
-            Figure(stringResource(R.string.settings_build), version.code.toString())
+            Figure(stringResource(Res.string.settings_version), version.name)
+            Figure(stringResource(Res.string.settings_build), version.code.toString())
 
             // Room to scroll clear of the gesture area at the bottom.
             Spacer(modifier = Modifier.height(24.dp))
@@ -302,10 +371,10 @@ private fun BackupDialog(
 ) = when (backup) {
     is SettingsScreenState.Backup.Running -> AlertDialog(
         onDismissRequest = {},
-        title = { Text(stringResource(R.string.backup_running_title)) },
+        title = { Text(stringResource(Res.string.backup_running_title)) },
         text = {
             Column {
-                Text(stringResource(R.string.backup_running_body))
+                Text(stringResource(Res.string.backup_running_body))
                 LinearProgressIndicator(
                     progress = { backup.percent / 100f },
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
@@ -317,13 +386,13 @@ private fun BackupDialog(
 
     is SettingsScreenState.Backup.Done -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.backup_done_title)) },
+        title = { Text(stringResource(Res.string.backup_done_title)) },
         text = {
             Text(
                 buildString {
-                    append(stringResource(R.string.settings_megabytes, backup.megabytes))
+                    append(stringResource(Res.string.settings_megabytes, backup.megabytes))
                     append(", ")
-                    append(pluralStringResource(R.plurals.photo_count, backup.photos, backup.photos))
+                    append(pluralStringResource(Res.plurals.photo_count, backup.photos, backup.photos))
                     append(".")
                     // Only mentioned when it happened. A photo can disappear
                     // between being listed and being read, and saying nothing
@@ -332,7 +401,7 @@ private fun BackupDialog(
                         append(" ")
                         append(
                             pluralStringResource(
-                                R.plurals.backup_photos_skipped,
+                                Res.plurals.backup_photos_skipped,
                                 backup.skipped,
                                 backup.skipped,
                             )
@@ -341,14 +410,14 @@ private fun BackupDialog(
                 }
             )
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_done)) } },
     )
 
     is SettingsScreenState.Backup.Failed -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.backup_failed_title)) },
+        title = { Text(stringResource(Res.string.backup_failed_title)) },
         text = { Text(backup.message) },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_close)) } },
     )
 }
 
@@ -381,21 +450,21 @@ private fun RestorePreviewDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.restore_preview_title)) },
+        title = { Text(stringResource(Res.string.restore_preview_title)) },
         text = {
             Column {
                 Text(
                     preview.createdAt?.let { made ->
                         stringResource(
-                            R.string.restore_preview_made,
+                            Res.string.restore_preview_made,
                             formatStoredDateTime(made, TimeZone.getDefault(), Locale.getDefault()),
                         )
-                    } ?: stringResource(R.string.restore_preview_undated),
+                    } ?: stringResource(Res.string.restore_preview_undated),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
                     pluralStringResource(
-                        R.plurals.restore_preview_photos,
+                        Res.plurals.restore_preview_photos,
                         preview.presentImages,
                         preview.presentImages,
                     ),
@@ -422,7 +491,7 @@ private fun RestorePreviewDialog(
                     ) {
                         Checkbox(checked = withSettings, onCheckedChange = null)
                         Text(
-                            stringResource(R.string.restore_preview_settings),
+                            stringResource(Res.string.restore_preview_settings),
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(start = 8.dp),
                         )
@@ -430,7 +499,7 @@ private fun RestorePreviewDialog(
                 }
 
                 Text(
-                    stringResource(R.string.restore_confirm_body),
+                    stringResource(Res.string.restore_confirm_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 12.dp),
@@ -439,10 +508,10 @@ private fun RestorePreviewDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirmRestore(withSettings) }) {
-                Text(stringResource(R.string.restore_preview_restore))
+                Text(stringResource(Res.string.restore_preview_restore))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) } },
     )
 }
 
@@ -464,14 +533,14 @@ internal fun RestoreDialog(
 ) = when (restore) {
     is SettingsScreenState.Restore.Confirming -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.restore_confirm_title)) },
+        title = { Text(stringResource(Res.string.restore_confirm_title)) },
         text = {
             Text(
-                stringResource(R.string.restore_confirm_body)
+                stringResource(Res.string.restore_confirm_body)
             )
         },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.restore_pick)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(Res.string.restore_pick)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) } },
     )
 
     /**
@@ -488,11 +557,11 @@ internal fun RestoreDialog(
 
     is SettingsScreenState.Restore.Running -> AlertDialog(
         onDismissRequest = {},
-        title = { Text(stringResource(R.string.restore_running_title)) },
+        title = { Text(stringResource(Res.string.restore_running_title)) },
         text = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                Text(stringResource(R.string.restore_running_body), modifier = Modifier.padding(start = 16.dp))
+                Text(stringResource(Res.string.restore_running_body), modifier = Modifier.padding(start = 16.dp))
             }
         },
         confirmButton = {},
@@ -500,94 +569,100 @@ internal fun RestoreDialog(
 
     is SettingsScreenState.Restore.Done -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.restore_done_title)) },
+        title = { Text(stringResource(Res.string.restore_done_title)) },
         text = {
             Text(
                 restore.garments?.let { count ->
-                    pluralStringResource(R.plurals.restore_done_garments, count.toInt(), count)
-                } ?: stringResource(R.string.restore_done_body)
+                    pluralStringResource(Res.plurals.restore_done_garments, count.toInt(), count)
+                } ?: stringResource(Res.string.restore_done_body)
             )
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_done)) } },
     )
 
     is SettingsScreenState.Restore.Failed -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.restore_failed_title)) },
+        title = { Text(stringResource(Res.string.restore_failed_title)) },
         // The message is the whole point: it says whether to update the app, find
         // a different file, or that nothing was lost. So it is the one place a
         // Spanish reader was still handed English, and now is not -- except for
         // the part of a sentence that was somebody else's words to begin with.
         text = {
-            val context = LocalContext.current
             Text(
-                restore.reason?.let { context.archiveFailureText(it) } ?: restore.message
+                restore.reason?.let { archiveFailureText(it) } ?: restore.message
             )
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_close)) } },
     )
 }
 
 /**
  * Why a backup would not restore, in the reader's language.
  *
- * A plain function taking a Context rather than a composable, deliberately. The
- * reasons nest -- a staged database that fails its integrity check produces a
- * fragment that the wrapping reason folds in -- and recursion through
- * `stringResource` would mean a composable call per level, which is the shape that
- * broke the build last time. One `getString` per level, one call site, no
- * composable context needed below it.
+ * The reasons nest -- a staged database that fails its integrity check produces
+ * a fragment that the wrapping reason folds in -- so this and [detailText] call
+ * each other, one level per fold.
+ *
+ * Composable, which it deliberately was not while the strings were Android's: it
+ * was a plain function over a Context, one `getString` per level, because
+ * recursion through `stringResource` had once broken the build. The strings are
+ * Compose Multiplatform resources now, and those offer no lookup outside
+ * composition that is not a suspend function, so the choice was between
+ * recursion in composition and an asynchronous dialog text that arrives a frame
+ * late. Recursion between composables is ordinary Compose; this was tried
+ * again, and CI is what says whether it still breaks anything.
  *
  * The resource names match the case names by convention, which
  * `ArchiveMessageParityTest` relies on to hold each of these to the sentence
  * :data produces.
  */
-private fun Context.archiveFailureText(reason: UnrestorableReason): String = when (reason) {
+@Composable
+private fun archiveFailureText(reason: UnrestorableReason): String = when (reason) {
     is UnrestorableReason.ManifestUnreadable ->
-        getString(R.string.archive_manifest_unreadable, reason.name)
+        stringResource(Res.string.archive_manifest_unreadable, reason.name)
 
     is UnrestorableReason.ManifestNotABackup ->
-        getString(R.string.archive_manifest_not_a_backup, reason.name)
+        stringResource(Res.string.archive_manifest_not_a_backup, reason.name)
 
     is UnrestorableReason.ManifestVersionMissing ->
-        getString(R.string.archive_manifest_version_missing, reason.name)
+        stringResource(Res.string.archive_manifest_version_missing, reason.name)
 
     is UnrestorableReason.ManifestNotFound ->
-        getString(R.string.archive_manifest_not_found, reason.name)
+        stringResource(Res.string.archive_manifest_not_found, reason.name)
 
     is UnrestorableReason.BackupFromNewerApp ->
-        getString(R.string.archive_backup_from_newer_app, reason.found, reason.supported)
+        stringResource(Res.string.archive_backup_from_newer_app, reason.found, reason.supported)
 
     is UnrestorableReason.UnsupportedVersion ->
-        getString(R.string.archive_unsupported_version, reason.found, reason.readable)
+        stringResource(Res.string.archive_unsupported_version, reason.found, reason.readable)
 
     is UnrestorableReason.DatabaseMissing ->
-        getString(R.string.archive_database_missing, reason.name)
+        stringResource(Res.string.archive_database_missing, reason.name)
 
     is UnrestorableReason.DatabaseEmpty ->
-        getString(R.string.archive_database_empty, reason.name)
+        stringResource(Res.string.archive_database_empty, reason.name)
 
-    UnrestorableReason.NoDatabase -> getString(R.string.archive_no_database)
+    UnrestorableReason.NoDatabase -> stringResource(Res.string.archive_no_database)
 
     is UnrestorableReason.ArchiveTruncated ->
-        getString(R.string.archive_archive_truncated, reason.expected, reason.present)
+        stringResource(Res.string.archive_archive_truncated, reason.expected, reason.present)
 
-    UnrestorableReason.NotBase64 -> getString(R.string.archive_not_base64)
+    UnrestorableReason.NotBase64 -> stringResource(Res.string.archive_not_base64)
 
     is UnrestorableReason.EntryOutsideArchive ->
-        getString(R.string.archive_entry_outside_archive, reason.entry)
+        stringResource(Res.string.archive_entry_outside_archive, reason.entry)
 
     is UnrestorableReason.IntegrityCheckFailed ->
-        getString(R.string.archive_integrity_check_failed, reason.result)
+        stringResource(Res.string.archive_integrity_check_failed, reason.result)
 
     is UnrestorableReason.InvalidBackup ->
-        getString(R.string.archive_invalid_backup, detailText(reason.detail))
+        stringResource(Res.string.archive_invalid_backup, detailText(reason.detail))
 
     is UnrestorableReason.RestoreFailed ->
-        getString(R.string.archive_restore_failed, detailText(reason.detail))
+        stringResource(Res.string.archive_restore_failed, detailText(reason.detail))
 
-    is UnrestorableReason.RollbackFailed -> getString(
-        R.string.archive_rollback_failed,
+    is UnrestorableReason.RollbackFailed -> stringResource(
+        Res.string.archive_rollback_failed,
         detailText(reason.detail),
         detailText(reason.rollbackDetail),
         reason.databaseName,
@@ -602,7 +677,8 @@ private fun Context.archiveFailureText(reason: UnrestorableReason): String = whe
  * This app did not write them and cannot translate them, and dropping them would
  * leave a sentence with a hole where its only diagnostic was.
  */
-private fun Context.detailText(detail: ArchiveDetail): String = when (detail) {
+@Composable
+private fun detailText(detail: ArchiveDetail): String = when (detail) {
     is ArchiveDetail.Known -> archiveFailureText(detail.reason)
     is ArchiveDetail.Foreign -> detail.text
 }
@@ -624,10 +700,10 @@ private fun TidyDialog(
 ) = when (tidy) {
     is SettingsScreenState.Tidy.Running -> AlertDialog(
         onDismissRequest = {},
-        title = { Text(stringResource(R.string.tidy_running_title)) },
+        title = { Text(stringResource(Res.string.tidy_running_title)) },
         text = {
             Column {
-                Text(stringResource(R.string.tidy_running_body, tidy.done, tidy.total))
+                Text(stringResource(Res.string.tidy_running_body, tidy.done, tidy.total))
                 LinearProgressIndicator(
                     // Indeterminate until the total is known, which is only after
                     // the directory has been read: a bar sitting at zero because it
@@ -642,21 +718,21 @@ private fun TidyDialog(
 
     is SettingsScreenState.Tidy.NothingToDo -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.tidy_nothing_title)) },
+        title = { Text(stringResource(Res.string.tidy_nothing_title)) },
         text = {
-            Text(pluralStringResource(R.plurals.tidy_nothing_body, tidy.examined, tidy.examined))
+            Text(pluralStringResource(Res.plurals.tidy_nothing_body, tidy.examined, tidy.examined))
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_done)) } },
     )
 
     is SettingsScreenState.Tidy.Done -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.tidy_done_title)) },
+        title = { Text(stringResource(Res.string.tidy_done_title)) },
         text = {
             Column {
                 Text(
                     pluralStringResource(
-                        R.plurals.tidy_done_body,
+                        Res.plurals.tidy_done_body,
                         tidy.tidied,
                         tidy.tidied,
                         tidy.megabytes,
@@ -668,7 +744,7 @@ private fun TidyDialog(
                 if (tidy.reclaimed > 0) {
                     Text(
                         pluralStringResource(
-                            R.plurals.tidy_reclaimed_body,
+                            Res.plurals.tidy_reclaimed_body,
                             tidy.reclaimed,
                             tidy.reclaimed,
                         ),
@@ -677,13 +753,13 @@ private fun TidyDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_done)) } },
     )
 
     is SettingsScreenState.Tidy.Failed -> AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.tidy_failed_title)) },
+        title = { Text(stringResource(Res.string.tidy_failed_title)) },
         text = { Text(tidy.message) },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_close)) } },
     )
 }

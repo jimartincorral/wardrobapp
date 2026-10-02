@@ -1,9 +1,6 @@
 package com.wardrobapp.app
 
-import android.content.Context
-import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
 import com.wardrobapp.domain.ImportFailureReason
 import com.wardrobapp.domain.ImportWarning
 import com.wardrobapp.domain.Occasion
@@ -16,13 +13,187 @@ import com.wardrobapp.presentation.ErrorTitle
 import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.ThemeChoice
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.backup_frequency_daily
+import com.wardrobapp.ui.resources.backup_frequency_monthly
+import com.wardrobapp.ui.resources.backup_frequency_weekly
+import com.wardrobapp.ui.resources.category_accessories
+import com.wardrobapp.ui.resources.category_activewear
+import com.wardrobapp.ui.resources.category_bottoms
+import com.wardrobapp.ui.resources.category_dresses
+import com.wardrobapp.ui.resources.category_loungewear
+import com.wardrobapp.ui.resources.category_midlayer
+import com.wardrobapp.ui.resources.category_outerwear
+import com.wardrobapp.ui.resources.category_shoes
+import com.wardrobapp.ui.resources.category_tops
+import com.wardrobapp.ui.resources.category_underwear
+import com.wardrobapp.ui.resources.color_beige
+import com.wardrobapp.ui.resources.color_black
+import com.wardrobapp.ui.resources.color_blue
+import com.wardrobapp.ui.resources.color_brown
+import com.wardrobapp.ui.resources.color_burgundy
+import com.wardrobapp.ui.resources.color_coral
+import com.wardrobapp.ui.resources.color_cream
+import com.wardrobapp.ui.resources.color_gold
+import com.wardrobapp.ui.resources.color_gray
+import com.wardrobapp.ui.resources.color_green
+import com.wardrobapp.ui.resources.color_khaki
+import com.wardrobapp.ui.resources.color_lavender
+import com.wardrobapp.ui.resources.color_light_blue
+import com.wardrobapp.ui.resources.color_multi
+import com.wardrobapp.ui.resources.color_navy
+import com.wardrobapp.ui.resources.color_olive
+import com.wardrobapp.ui.resources.color_orange
+import com.wardrobapp.ui.resources.color_pink
+import com.wardrobapp.ui.resources.color_purple
+import com.wardrobapp.ui.resources.color_red
+import com.wardrobapp.ui.resources.color_silver
+import com.wardrobapp.ui.resources.color_tan
+import com.wardrobapp.ui.resources.color_teal
+import com.wardrobapp.ui.resources.color_white
+import com.wardrobapp.ui.resources.color_yellow
+import com.wardrobapp.ui.resources.error_background_not_removed
+import com.wardrobapp.ui.resources.error_crop_failed
+import com.wardrobapp.ui.resources.error_garment_not_deleted
+import com.wardrobapp.ui.resources.error_garment_not_saved
+import com.wardrobapp.ui.resources.error_no_camera
+import com.wardrobapp.ui.resources.error_not_undone
+import com.wardrobapp.ui.resources.error_outfit_not_deleted
+import com.wardrobapp.ui.resources.error_outfit_not_saved
+import com.wardrobapp.ui.resources.error_photo_not_imported
+import com.wardrobapp.ui.resources.error_photo_required
+import com.wardrobapp.ui.resources.error_rating_not_saved
+import com.wardrobapp.ui.resources.error_title_background
+import com.wardrobapp.ui.resources.error_title_photo
+import com.wardrobapp.ui.resources.error_wardrobe_unreadable
+import com.wardrobapp.ui.resources.form_error_title
+import com.wardrobapp.ui.resources.import_no_fetchable_images
+import com.wardrobapp.ui.resources.import_no_images_downloaded
+import com.wardrobapp.ui.resources.import_no_images_found
+import com.wardrobapp.ui.resources.import_not_a_web_page
+import com.wardrobapp.ui.resources.import_page_not_loaded
+import com.wardrobapp.ui.resources.import_page_timed_out
+import com.wardrobapp.ui.resources.import_page_too_large
+import com.wardrobapp.ui.resources.import_warning_images_blocked
+import com.wardrobapp.ui.resources.import_warning_images_capped
+import com.wardrobapp.ui.resources.import_warning_images_failed
+import com.wardrobapp.ui.resources.import_warning_structured_data_unreadable
+import com.wardrobapp.ui.resources.language_automatic
+import com.wardrobapp.ui.resources.language_english
+import com.wardrobapp.ui.resources.language_spanish
+import com.wardrobapp.ui.resources.occasion_casual
+import com.wardrobapp.ui.resources.occasion_formal
+import com.wardrobapp.ui.resources.occasion_lounge
+import com.wardrobapp.ui.resources.occasion_sport
+import com.wardrobapp.ui.resources.occasion_work
+import com.wardrobapp.ui.resources.reason_coherent
+import com.wardrobapp.ui.resources.reason_colours
+import com.wardrobapp.ui.resources.reason_learned
+import com.wardrobapp.ui.resources.reason_occasion
+import com.wardrobapp.ui.resources.reason_season
+import com.wardrobapp.ui.resources.season_all_season
+import com.wardrobapp.ui.resources.season_fall
+import com.wardrobapp.ui.resources.season_spring
+import com.wardrobapp.ui.resources.season_summer
+import com.wardrobapp.ui.resources.season_winter
+import com.wardrobapp.ui.resources.subcategory_athletic
+import com.wardrobapp.ui.resources.subcategory_bag
+import com.wardrobapp.ui.resources.subcategory_belt
+import com.wardrobapp.ui.resources.subcategory_blazer
+import com.wardrobapp.ui.resources.subcategory_blouse
+import com.wardrobapp.ui.resources.subcategory_bodysuit
+import com.wardrobapp.ui.resources.subcategory_boots
+import com.wardrobapp.ui.resources.subcategory_boxers
+import com.wardrobapp.ui.resources.subcategory_bra
+import com.wardrobapp.ui.resources.subcategory_bracelets
+import com.wardrobapp.ui.resources.subcategory_briefs
+import com.wardrobapp.ui.resources.subcategory_cape
+import com.wardrobapp.ui.resources.subcategory_cardigan
+import com.wardrobapp.ui.resources.subcategory_chinos
+import com.wardrobapp.ui.resources.subcategory_coat
+import com.wardrobapp.ui.resources.subcategory_cocktail
+import com.wardrobapp.ui.resources.subcategory_crop_top
+import com.wardrobapp.ui.resources.subcategory_earrings
+import com.wardrobapp.ui.resources.subcategory_eyewear
+import com.wardrobapp.ui.resources.subcategory_flats
+import com.wardrobapp.ui.resources.subcategory_foulard
+import com.wardrobapp.ui.resources.subcategory_gloves
+import com.wardrobapp.ui.resources.subcategory_hat
+import com.wardrobapp.ui.resources.subcategory_heels
+import com.wardrobapp.ui.resources.subcategory_hoodie
+import com.wardrobapp.ui.resources.subcategory_jacket
+import com.wardrobapp.ui.resources.subcategory_jeans
+import com.wardrobapp.ui.resources.subcategory_jewelry
+import com.wardrobapp.ui.resources.subcategory_jumpsuit
+import com.wardrobapp.ui.resources.subcategory_leggings
+import com.wardrobapp.ui.resources.subcategory_loafers
+import com.wardrobapp.ui.resources.subcategory_lounge_set
+import com.wardrobapp.ui.resources.subcategory_maxi
+import com.wardrobapp.ui.resources.subcategory_midi
+import com.wardrobapp.ui.resources.subcategory_mini
+import com.wardrobapp.ui.resources.subcategory_necklaces
+import com.wardrobapp.ui.resources.subcategory_nightgown
+import com.wardrobapp.ui.resources.subcategory_overshirt
+import com.wardrobapp.ui.resources.subcategory_pajama_bottoms
+import com.wardrobapp.ui.resources.subcategory_pajama_set
+import com.wardrobapp.ui.resources.subcategory_pajama_top
+import com.wardrobapp.ui.resources.subcategory_pants
+import com.wardrobapp.ui.resources.subcategory_parka
+import com.wardrobapp.ui.resources.subcategory_polo
+import com.wardrobapp.ui.resources.subcategory_poncho
+import com.wardrobapp.ui.resources.subcategory_rings
+import com.wardrobapp.ui.resources.subcategory_robe
+import com.wardrobapp.ui.resources.subcategory_romper
+import com.wardrobapp.ui.resources.subcategory_sandals
+import com.wardrobapp.ui.resources.subcategory_scarf
+import com.wardrobapp.ui.resources.subcategory_shapewear
+import com.wardrobapp.ui.resources.subcategory_shirt
+import com.wardrobapp.ui.resources.subcategory_shorts
+import com.wardrobapp.ui.resources.subcategory_skirt
+import com.wardrobapp.ui.resources.subcategory_sneakers
+import com.wardrobapp.ui.resources.subcategory_socks
+import com.wardrobapp.ui.resources.subcategory_sports_bra
+import com.wardrobapp.ui.resources.subcategory_sundress
+import com.wardrobapp.ui.resources.subcategory_sunglasses
+import com.wardrobapp.ui.resources.subcategory_sweater
+import com.wardrobapp.ui.resources.subcategory_sweatpants
+import com.wardrobapp.ui.resources.subcategory_tank_top
+import com.wardrobapp.ui.resources.subcategory_thermal
+import com.wardrobapp.ui.resources.subcategory_tie
+import com.wardrobapp.ui.resources.subcategory_tights
+import com.wardrobapp.ui.resources.subcategory_track_suit
+import com.wardrobapp.ui.resources.subcategory_tshirt
+import com.wardrobapp.ui.resources.subcategory_vest
+import com.wardrobapp.ui.resources.subcategory_wallet
+import com.wardrobapp.ui.resources.subcategory_watch
+import com.wardrobapp.ui.resources.subcategory_windbreaker
+import com.wardrobapp.ui.resources.subcategory_workout_shorts
+import com.wardrobapp.ui.resources.subcategory_workout_top
+import com.wardrobapp.ui.resources.subcategory_yoga_pants
+import com.wardrobapp.ui.resources.theme_automatic
+import com.wardrobapp.ui.resources.theme_dark
+import com.wardrobapp.ui.resources.theme_light
+import com.wardrobapp.ui.resources.unsafe_credentials_in_url
+import com.wardrobapp.ui.resources.unsafe_host_is_local
+import com.wardrobapp.ui.resources.unsafe_not_a_web_address
+import com.wardrobapp.ui.resources.unsafe_redirect_unreadable
+import com.wardrobapp.ui.resources.unsafe_redirected_to_local_host
+import com.wardrobapp.ui.resources.unsafe_scheme_not_allowed
+import com.wardrobapp.ui.resources.unsafe_url_required
+import com.wardrobapp.ui.resources.wardrobe_caption_brand
+import com.wardrobapp.ui.resources.wardrobe_caption_category
+import com.wardrobapp.ui.resources.wardrobe_caption_type
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * The wardrobe's vocabulary, in the reader's language.
  *
- * Android resources have no dynamic keys: the React Native app writes
+ * String resources have no dynamic keys: the React Native app writes
  * `t("categories." + id)` and gets a translation for whatever id it holds, and
- * `R.string` cannot do that. So the mapping is written out -- and the risk that
+ * neither Android's `R.string` nor Compose Multiplatform's `Res.string`, which
+ * these are now, can do that. So the mapping is written out -- and the risk that
  * comes with writing it out, a category, type or colour that quietly has no entry
  * and renders as its raw stored value, is covered by `StringResourceParityTest`,
  * which walks the same source lists these were generated from and fails if any
@@ -37,14 +208,13 @@ import com.wardrobapp.presentation.ThemeChoice
  * colour someone typed by hand is better shown as they typed it than as a crash.
  */
 
-@get:StringRes
-val Season.labelRes: Int
+val Season.labelRes: StringResource
     get() = when (this) {
-        Season.SPRING -> R.string.season_spring
-        Season.SUMMER -> R.string.season_summer
-        Season.FALL -> R.string.season_fall
-        Season.WINTER -> R.string.season_winter
-        Season.ALL_SEASON -> R.string.season_all_season
+        Season.SPRING -> Res.string.season_spring
+        Season.SUMMER -> Res.string.season_summer
+        Season.FALL -> Res.string.season_fall
+        Season.WINTER -> Res.string.season_winter
+        Season.ALL_SEASON -> Res.string.season_all_season
     }
 
 /**
@@ -54,38 +224,36 @@ val Season.labelRes: Int
  * usual reason: :domain has no resources and no business holding a sentence in
  * one language.
  */
-@get:StringRes
-val OutfitReason.labelRes: Int
+val OutfitReason.labelRes: StringResource
     get() = when (this) {
-        OutfitReason.LEARNED -> R.string.reason_learned
-        OutfitReason.COLOURS -> R.string.reason_colours
-        OutfitReason.OCCASION -> R.string.reason_occasion
-        OutfitReason.SEASON -> R.string.reason_season
-        OutfitReason.COHERENT -> R.string.reason_coherent
+        OutfitReason.LEARNED -> Res.string.reason_learned
+        OutfitReason.COLOURS -> Res.string.reason_colours
+        OutfitReason.OCCASION -> Res.string.reason_occasion
+        OutfitReason.SEASON -> Res.string.reason_season
+        OutfitReason.COHERENT -> Res.string.reason_coherent
     }
 
-@get:StringRes
-val Occasion.labelRes: Int
+val Occasion.labelRes: StringResource
     get() = when (this) {
-        Occasion.CASUAL -> R.string.occasion_casual
-        Occasion.WORK -> R.string.occasion_work
-        Occasion.FORMAL -> R.string.occasion_formal
-        Occasion.SPORT -> R.string.occasion_sport
-        Occasion.LOUNGE -> R.string.occasion_lounge
+        Occasion.CASUAL -> Res.string.occasion_casual
+        Occasion.WORK -> Res.string.occasion_work
+        Occasion.FORMAL -> Res.string.occasion_formal
+        Occasion.SPORT -> Res.string.occasion_sport
+        Occasion.LOUNGE -> Res.string.occasion_lounge
     }
 
 /** Category ids, as `GARMENT_CATEGORIES` and every garment row hold them. */
 internal val CATEGORY_LABELS: Map<String, Int> = mapOf(
-    "tops" to R.string.category_tops,
-    "bottoms" to R.string.category_bottoms,
-    "dresses" to R.string.category_dresses,
-    "midlayer" to R.string.category_midlayer,
-    "outerwear" to R.string.category_outerwear,
-    "shoes" to R.string.category_shoes,
-    "accessories" to R.string.category_accessories,
-    "activewear" to R.string.category_activewear,
-    "underwear" to R.string.category_underwear,
-    "loungewear" to R.string.category_loungewear,
+    "tops" to Res.string.category_tops,
+    "bottoms" to Res.string.category_bottoms,
+    "dresses" to Res.string.category_dresses,
+    "midlayer" to Res.string.category_midlayer,
+    "outerwear" to Res.string.category_outerwear,
+    "shoes" to Res.string.category_shoes,
+    "accessories" to Res.string.category_accessories,
+    "activewear" to Res.string.category_activewear,
+    "underwear" to Res.string.category_underwear,
+    "loungewear" to Res.string.category_loungewear,
 )
 
 /**
@@ -95,109 +263,109 @@ internal val CATEGORY_LABELS: Map<String, Int> = mapOf(
  * the same reason the React Native app's `SUBCATEGORY_KEY_MAP` is keyed that way.
  */
 internal val SUBCATEGORY_LABELS: Map<String, Int> = mapOf(
-    "T-Shirt" to R.string.subcategory_tshirt,
-    "Blouse" to R.string.subcategory_blouse,
-    "Shirt" to R.string.subcategory_shirt,
-    "Tank Top" to R.string.subcategory_tank_top,
-    "Sweater" to R.string.subcategory_sweater,
-    "Hoodie" to R.string.subcategory_hoodie,
-    "Crop Top" to R.string.subcategory_crop_top,
-    "Polo" to R.string.subcategory_polo,
-    "Jeans" to R.string.subcategory_jeans,
-    "Pants" to R.string.subcategory_pants,
-    "Shorts" to R.string.subcategory_shorts,
-    "Skirt" to R.string.subcategory_skirt,
-    "Leggings" to R.string.subcategory_leggings,
-    "Sweatpants" to R.string.subcategory_sweatpants,
-    "Chinos" to R.string.subcategory_chinos,
-    "Mini" to R.string.subcategory_mini,
-    "Midi" to R.string.subcategory_midi,
-    "Maxi" to R.string.subcategory_maxi,
-    "Cocktail" to R.string.subcategory_cocktail,
-    "Sundress" to R.string.subcategory_sundress,
-    "Jumpsuit" to R.string.subcategory_jumpsuit,
-    "Romper" to R.string.subcategory_romper,
-    "Jacket" to R.string.subcategory_jacket,
-    "Coat" to R.string.subcategory_coat,
-    "Blazer" to R.string.subcategory_blazer,
-    "Overshirt" to R.string.subcategory_overshirt,
-    "Cardigan" to R.string.subcategory_cardigan,
-    "Vest" to R.string.subcategory_vest,
-    "Poncho" to R.string.subcategory_poncho,
-    "Cape" to R.string.subcategory_cape,
-    "Windbreaker" to R.string.subcategory_windbreaker,
-    "Parka" to R.string.subcategory_parka,
-    "Sneakers" to R.string.subcategory_sneakers,
-    "Boots" to R.string.subcategory_boots,
-    "Sandals" to R.string.subcategory_sandals,
-    "Heels" to R.string.subcategory_heels,
-    "Flats" to R.string.subcategory_flats,
-    "Loafers" to R.string.subcategory_loafers,
-    "Athletic" to R.string.subcategory_athletic,
-    "Hat" to R.string.subcategory_hat,
-    "Scarf" to R.string.subcategory_scarf,
-    "Foulard" to R.string.subcategory_foulard,
-    "Belt" to R.string.subcategory_belt,
-    "Bag" to R.string.subcategory_bag,
-    "Wallet" to R.string.subcategory_wallet,
-    "Gloves" to R.string.subcategory_gloves,
-    "Earrings" to R.string.subcategory_earrings,
-    "Necklaces" to R.string.subcategory_necklaces,
-    "Bracelets" to R.string.subcategory_bracelets,
-    "Rings" to R.string.subcategory_rings,
-    "Jewelry" to R.string.subcategory_jewelry,
-    "Watch" to R.string.subcategory_watch,
-    "Eyewear" to R.string.subcategory_eyewear,
-    "Sunglasses" to R.string.subcategory_sunglasses,
-    "Tie" to R.string.subcategory_tie,
-    "Sports Bra" to R.string.subcategory_sports_bra,
-    "Workout Top" to R.string.subcategory_workout_top,
-    "Workout Shorts" to R.string.subcategory_workout_shorts,
-    "Yoga Pants" to R.string.subcategory_yoga_pants,
-    "Track Suit" to R.string.subcategory_track_suit,
-    "Bra" to R.string.subcategory_bra,
-    "Briefs" to R.string.subcategory_briefs,
-    "Boxers" to R.string.subcategory_boxers,
-    "Bodysuit" to R.string.subcategory_bodysuit,
-    "Shapewear" to R.string.subcategory_shapewear,
-    "Socks" to R.string.subcategory_socks,
-    "Tights" to R.string.subcategory_tights,
-    "Thermal" to R.string.subcategory_thermal,
-    "Pajama Set" to R.string.subcategory_pajama_set,
-    "Pajama Top" to R.string.subcategory_pajama_top,
-    "Pajama Bottoms" to R.string.subcategory_pajama_bottoms,
-    "Nightgown" to R.string.subcategory_nightgown,
-    "Robe" to R.string.subcategory_robe,
-    "Lounge Set" to R.string.subcategory_lounge_set,
+    "T-Shirt" to Res.string.subcategory_tshirt,
+    "Blouse" to Res.string.subcategory_blouse,
+    "Shirt" to Res.string.subcategory_shirt,
+    "Tank Top" to Res.string.subcategory_tank_top,
+    "Sweater" to Res.string.subcategory_sweater,
+    "Hoodie" to Res.string.subcategory_hoodie,
+    "Crop Top" to Res.string.subcategory_crop_top,
+    "Polo" to Res.string.subcategory_polo,
+    "Jeans" to Res.string.subcategory_jeans,
+    "Pants" to Res.string.subcategory_pants,
+    "Shorts" to Res.string.subcategory_shorts,
+    "Skirt" to Res.string.subcategory_skirt,
+    "Leggings" to Res.string.subcategory_leggings,
+    "Sweatpants" to Res.string.subcategory_sweatpants,
+    "Chinos" to Res.string.subcategory_chinos,
+    "Mini" to Res.string.subcategory_mini,
+    "Midi" to Res.string.subcategory_midi,
+    "Maxi" to Res.string.subcategory_maxi,
+    "Cocktail" to Res.string.subcategory_cocktail,
+    "Sundress" to Res.string.subcategory_sundress,
+    "Jumpsuit" to Res.string.subcategory_jumpsuit,
+    "Romper" to Res.string.subcategory_romper,
+    "Jacket" to Res.string.subcategory_jacket,
+    "Coat" to Res.string.subcategory_coat,
+    "Blazer" to Res.string.subcategory_blazer,
+    "Overshirt" to Res.string.subcategory_overshirt,
+    "Cardigan" to Res.string.subcategory_cardigan,
+    "Vest" to Res.string.subcategory_vest,
+    "Poncho" to Res.string.subcategory_poncho,
+    "Cape" to Res.string.subcategory_cape,
+    "Windbreaker" to Res.string.subcategory_windbreaker,
+    "Parka" to Res.string.subcategory_parka,
+    "Sneakers" to Res.string.subcategory_sneakers,
+    "Boots" to Res.string.subcategory_boots,
+    "Sandals" to Res.string.subcategory_sandals,
+    "Heels" to Res.string.subcategory_heels,
+    "Flats" to Res.string.subcategory_flats,
+    "Loafers" to Res.string.subcategory_loafers,
+    "Athletic" to Res.string.subcategory_athletic,
+    "Hat" to Res.string.subcategory_hat,
+    "Scarf" to Res.string.subcategory_scarf,
+    "Foulard" to Res.string.subcategory_foulard,
+    "Belt" to Res.string.subcategory_belt,
+    "Bag" to Res.string.subcategory_bag,
+    "Wallet" to Res.string.subcategory_wallet,
+    "Gloves" to Res.string.subcategory_gloves,
+    "Earrings" to Res.string.subcategory_earrings,
+    "Necklaces" to Res.string.subcategory_necklaces,
+    "Bracelets" to Res.string.subcategory_bracelets,
+    "Rings" to Res.string.subcategory_rings,
+    "Jewelry" to Res.string.subcategory_jewelry,
+    "Watch" to Res.string.subcategory_watch,
+    "Eyewear" to Res.string.subcategory_eyewear,
+    "Sunglasses" to Res.string.subcategory_sunglasses,
+    "Tie" to Res.string.subcategory_tie,
+    "Sports Bra" to Res.string.subcategory_sports_bra,
+    "Workout Top" to Res.string.subcategory_workout_top,
+    "Workout Shorts" to Res.string.subcategory_workout_shorts,
+    "Yoga Pants" to Res.string.subcategory_yoga_pants,
+    "Track Suit" to Res.string.subcategory_track_suit,
+    "Bra" to Res.string.subcategory_bra,
+    "Briefs" to Res.string.subcategory_briefs,
+    "Boxers" to Res.string.subcategory_boxers,
+    "Bodysuit" to Res.string.subcategory_bodysuit,
+    "Shapewear" to Res.string.subcategory_shapewear,
+    "Socks" to Res.string.subcategory_socks,
+    "Tights" to Res.string.subcategory_tights,
+    "Thermal" to Res.string.subcategory_thermal,
+    "Pajama Set" to Res.string.subcategory_pajama_set,
+    "Pajama Top" to Res.string.subcategory_pajama_top,
+    "Pajama Bottoms" to Res.string.subcategory_pajama_bottoms,
+    "Nightgown" to Res.string.subcategory_nightgown,
+    "Robe" to Res.string.subcategory_robe,
+    "Lounge Set" to Res.string.subcategory_lounge_set,
 )
 
 /** Palette keys, as `GARMENT_COLORS` holds them. */
 internal val COLOR_LABELS: Map<String, Int> = mapOf(
-    "black" to R.string.color_black,
-    "white" to R.string.color_white,
-    "gray" to R.string.color_gray,
-    "navy" to R.string.color_navy,
-    "blue" to R.string.color_blue,
-    "lightBlue" to R.string.color_light_blue,
-    "red" to R.string.color_red,
-    "burgundy" to R.string.color_burgundy,
-    "pink" to R.string.color_pink,
-    "green" to R.string.color_green,
-    "olive" to R.string.color_olive,
-    "khaki" to R.string.color_khaki,
-    "brown" to R.string.color_brown,
-    "tan" to R.string.color_tan,
-    "beige" to R.string.color_beige,
-    "cream" to R.string.color_cream,
-    "yellow" to R.string.color_yellow,
-    "orange" to R.string.color_orange,
-    "purple" to R.string.color_purple,
-    "lavender" to R.string.color_lavender,
-    "coral" to R.string.color_coral,
-    "teal" to R.string.color_teal,
-    "gold" to R.string.color_gold,
-    "silver" to R.string.color_silver,
-    "multi" to R.string.color_multi,
+    "black" to Res.string.color_black,
+    "white" to Res.string.color_white,
+    "gray" to Res.string.color_gray,
+    "navy" to Res.string.color_navy,
+    "blue" to Res.string.color_blue,
+    "lightBlue" to Res.string.color_light_blue,
+    "red" to Res.string.color_red,
+    "burgundy" to Res.string.color_burgundy,
+    "pink" to Res.string.color_pink,
+    "green" to Res.string.color_green,
+    "olive" to Res.string.color_olive,
+    "khaki" to Res.string.color_khaki,
+    "brown" to Res.string.color_brown,
+    "tan" to Res.string.color_tan,
+    "beige" to Res.string.color_beige,
+    "cream" to Res.string.color_cream,
+    "yellow" to Res.string.color_yellow,
+    "orange" to Res.string.color_orange,
+    "purple" to Res.string.color_purple,
+    "lavender" to Res.string.color_lavender,
+    "coral" to Res.string.color_coral,
+    "teal" to Res.string.color_teal,
+    "gold" to Res.string.color_gold,
+    "silver" to Res.string.color_silver,
+    "multi" to Res.string.color_multi,
 )
 
 /**
@@ -240,12 +408,11 @@ private fun String.humanised(): String =
  * cannot read. "Automatic" is the exception, since it is the only one whose
  * meaning depends on the reader's current language.
  */
-@get:StringRes
-val LanguageChoice.labelRes: Int
+val LanguageChoice.labelRes: StringResource
     get() = when (this) {
-        LanguageChoice.SYSTEM -> R.string.language_automatic
-        LanguageChoice.ENGLISH -> R.string.language_english
-        LanguageChoice.SPANISH -> R.string.language_spanish
+        LanguageChoice.SYSTEM -> Res.string.language_automatic
+        LanguageChoice.ENGLISH -> Res.string.language_english
+        LanguageChoice.SPANISH -> Res.string.language_spanish
     }
 
 /**
@@ -255,12 +422,11 @@ val LanguageChoice.labelRes: Int
  * word matches the language picker's own first option, and two settings offering
  * the same idea under two different names is how a screen reads as two screens.
  */
-@get:StringRes
-val ThemeChoice.labelRes: Int
+val ThemeChoice.labelRes: StringResource
     get() = when (this) {
-        ThemeChoice.SYSTEM -> R.string.theme_automatic
-        ThemeChoice.LIGHT -> R.string.theme_light
-        ThemeChoice.DARK -> R.string.theme_dark
+        ThemeChoice.SYSTEM -> Res.string.theme_automatic
+        ThemeChoice.LIGHT -> Res.string.theme_light
+        ThemeChoice.DARK -> Res.string.theme_dark
     }
 
 /**
@@ -270,12 +436,11 @@ val ThemeChoice.labelRes: Int
  * which is the heading above it, and "Daily / Weekly / Monthly" scans as one set
  * where "Every day / Every week" repeats a word three times.
  */
-@get:StringRes
-val BackupFrequency.labelRes: Int
+val BackupFrequency.labelRes: StringResource
     get() = when (this) {
-        BackupFrequency.DAILY -> R.string.backup_frequency_daily
-        BackupFrequency.WEEKLY -> R.string.backup_frequency_weekly
-        BackupFrequency.MONTHLY -> R.string.backup_frequency_monthly
+        BackupFrequency.DAILY -> Res.string.backup_frequency_daily
+        BackupFrequency.WEEKLY -> Res.string.backup_frequency_weekly
+        BackupFrequency.MONTHLY -> Res.string.backup_frequency_monthly
     }
 
 /**
@@ -285,16 +450,18 @@ val BackupFrequency.labelRes: Int
  * says what is being chosen, so "Brand" answers it where "Show the brand" would
  * repeat it three times.
  */
-@get:StringRes
-val GarmentCaption.labelRes: Int
+val GarmentCaption.labelRes: StringResource
     get() = when (this) {
-        GarmentCaption.BRAND -> R.string.wardrobe_caption_brand
-        GarmentCaption.TYPE -> R.string.wardrobe_caption_type
-        GarmentCaption.CATEGORY -> R.string.wardrobe_caption_category
+        GarmentCaption.BRAND -> Res.string.wardrobe_caption_brand
+        GarmentCaption.TYPE -> Res.string.wardrobe_caption_type
+        GarmentCaption.CATEGORY -> Res.string.wardrobe_caption_category
     }
 
 /**
  * Why a link was refused, in the reader's language.
+ *
+ * Composable, and no longer an extension on Context, since the strings moved
+ * to :ui's Compose Multiplatform resources: those are read in composition.
  *
  * The resource names match the case names by convention, which
  * `ImportMessageParityTest` relies on to hold each of these to the sentence
@@ -303,64 +470,67 @@ val GarmentCaption.labelRes: Int
  * resources, and the
  * English here is what the Spanish was translated from.
  */
-fun Context.unsafeUrlText(reason: UnsafeUrlReason): String = when (reason) {
-    UnsafeUrlReason.UrlRequired -> getString(R.string.unsafe_url_required)
+@Composable
+fun unsafeUrlText(reason: UnsafeUrlReason): String = when (reason) {
+    UnsafeUrlReason.UrlRequired -> stringResource(Res.string.unsafe_url_required)
 
-    UnsafeUrlReason.NotAWebAddress -> getString(R.string.unsafe_not_a_web_address)
+    UnsafeUrlReason.NotAWebAddress -> stringResource(Res.string.unsafe_not_a_web_address)
 
-    UnsafeUrlReason.SchemeNotAllowed -> getString(R.string.unsafe_scheme_not_allowed)
+    UnsafeUrlReason.SchemeNotAllowed -> stringResource(Res.string.unsafe_scheme_not_allowed)
 
-    UnsafeUrlReason.CredentialsInUrl -> getString(R.string.unsafe_credentials_in_url)
+    UnsafeUrlReason.CredentialsInUrl -> stringResource(Res.string.unsafe_credentials_in_url)
 
-    is UnsafeUrlReason.HostIsLocal -> getString(R.string.unsafe_host_is_local, reason.host)
+    is UnsafeUrlReason.HostIsLocal -> stringResource(Res.string.unsafe_host_is_local, reason.host)
 
-    UnsafeUrlReason.RedirectUnreadable -> getString(R.string.unsafe_redirect_unreadable)
+    UnsafeUrlReason.RedirectUnreadable -> stringResource(Res.string.unsafe_redirect_unreadable)
 
     is UnsafeUrlReason.RedirectedToLocalHost ->
-        getString(R.string.unsafe_redirected_to_local_host, reason.host)
+        stringResource(Res.string.unsafe_redirected_to_local_host, reason.host)
 }
 
 /** Why an import produced nothing, in the reader's language. */
-fun Context.importFailureText(reason: ImportFailureReason): String = when (reason) {
-    ImportFailureReason.PageTimedOut -> getString(R.string.import_page_timed_out)
+@Composable
+fun importFailureText(reason: ImportFailureReason): String = when (reason) {
+    ImportFailureReason.PageTimedOut -> stringResource(Res.string.import_page_timed_out)
 
-    ImportFailureReason.PageTooLarge -> getString(R.string.import_page_too_large)
+    ImportFailureReason.PageTooLarge -> stringResource(Res.string.import_page_too_large)
 
     is ImportFailureReason.PageNotLoaded ->
-        getString(R.string.import_page_not_loaded, reason.status)
+        stringResource(Res.string.import_page_not_loaded, reason.status)
 
-    ImportFailureReason.NotAWebPage -> getString(R.string.import_not_a_web_page)
+    ImportFailureReason.NotAWebPage -> stringResource(Res.string.import_not_a_web_page)
 
-    ImportFailureReason.NoImagesFound -> getString(R.string.import_no_images_found)
+    ImportFailureReason.NoImagesFound -> stringResource(Res.string.import_no_images_found)
 
-    ImportFailureReason.NoFetchableImages -> getString(R.string.import_no_fetchable_images)
+    ImportFailureReason.NoFetchableImages -> stringResource(Res.string.import_no_fetchable_images)
 
-    ImportFailureReason.NoImagesDownloaded -> getString(R.string.import_no_images_downloaded)
+    ImportFailureReason.NoImagesDownloaded -> stringResource(Res.string.import_no_images_downloaded)
 }
 
 /**
  * What an import wants to mention, in the reader's language.
  *
- * The counted ones go through `getQuantityString` rather than a formatted
+ * The counted ones go through `pluralStringResource` rather than a formatted
  * sentence: :domain spells out its own singular and plural because a fixture
- * compares that English, and Android is where a language with other plural rules
- * than English gets them right.
+ * compares that English, and the resources are where a language with other
+ * plural rules than English gets them right.
  */
-fun Context.importWarningText(warning: ImportWarning): String = when (warning) {
+@Composable
+fun importWarningText(warning: ImportWarning): String = when (warning) {
     ImportWarning.StructuredDataUnreadable ->
-        getString(R.string.import_warning_structured_data_unreadable)
+        stringResource(Res.string.import_warning_structured_data_unreadable)
 
     is ImportWarning.ImagesCapped ->
-        getString(R.string.import_warning_images_capped, warning.listed, warning.used)
+        stringResource(Res.string.import_warning_images_capped, warning.listed, warning.used)
 
-    is ImportWarning.ImagesBlocked -> resources.getQuantityString(
-        R.plurals.import_warning_images_blocked,
+    is ImportWarning.ImagesBlocked -> pluralStringResource(
+        Res.plurals.import_warning_images_blocked,
         warning.count,
         warning.count,
     )
 
-    is ImportWarning.ImagesFailed -> resources.getQuantityString(
-        R.plurals.import_warning_images_failed,
+    is ImportWarning.ImagesFailed -> pluralStringResource(
+        Res.plurals.import_warning_images_failed,
         warning.count,
         warning.count,
     )
@@ -372,28 +542,26 @@ fun Context.importWarningText(warning: ImportWarning): String = when (warning) {
  * Named one to one with the resources, because these were the resource ids until
  * the screens' state moved into common code; see [ErrorFallback].
  */
-@get:StringRes
-val ErrorFallback.messageRes: Int
+val ErrorFallback.messageRes: StringResource
     get() = when (this) {
-        ErrorFallback.BACKGROUND_NOT_REMOVED -> R.string.error_background_not_removed
-        ErrorFallback.PHOTO_NOT_CROPPED -> R.string.error_crop_failed
-        ErrorFallback.GARMENT_NOT_SAVED -> R.string.error_garment_not_saved
-        ErrorFallback.NO_CAMERA -> R.string.error_no_camera
-        ErrorFallback.OUTFIT_NOT_DELETED -> R.string.error_outfit_not_deleted
-        ErrorFallback.OUTFIT_NOT_SAVED -> R.string.error_outfit_not_saved
-        ErrorFallback.PHOTO_NOT_IMPORTED -> R.string.error_photo_not_imported
-        ErrorFallback.PHOTO_REQUIRED -> R.string.error_photo_required
-        ErrorFallback.RATING_NOT_SAVED -> R.string.error_rating_not_saved
-        ErrorFallback.WARDROBE_UNREADABLE -> R.string.error_wardrobe_unreadable
-        ErrorFallback.GARMENT_NOT_DELETED -> R.string.error_garment_not_deleted
-        ErrorFallback.NOT_UNDONE -> R.string.error_not_undone
+        ErrorFallback.BACKGROUND_NOT_REMOVED -> Res.string.error_background_not_removed
+        ErrorFallback.PHOTO_NOT_CROPPED -> Res.string.error_crop_failed
+        ErrorFallback.GARMENT_NOT_SAVED -> Res.string.error_garment_not_saved
+        ErrorFallback.NO_CAMERA -> Res.string.error_no_camera
+        ErrorFallback.OUTFIT_NOT_DELETED -> Res.string.error_outfit_not_deleted
+        ErrorFallback.OUTFIT_NOT_SAVED -> Res.string.error_outfit_not_saved
+        ErrorFallback.PHOTO_NOT_IMPORTED -> Res.string.error_photo_not_imported
+        ErrorFallback.PHOTO_REQUIRED -> Res.string.error_photo_required
+        ErrorFallback.RATING_NOT_SAVED -> Res.string.error_rating_not_saved
+        ErrorFallback.WARDROBE_UNREADABLE -> Res.string.error_wardrobe_unreadable
+        ErrorFallback.GARMENT_NOT_DELETED -> Res.string.error_garment_not_deleted
+        ErrorFallback.NOT_UNDONE -> Res.string.error_not_undone
     }
 
 /** The garment form's error dialog title; see [ErrorTitle]. */
-@get:StringRes
-val ErrorTitle.labelRes: Int
+val ErrorTitle.labelRes: StringResource
     get() = when (this) {
-        ErrorTitle.SAVE -> R.string.form_error_title
-        ErrorTitle.PHOTO -> R.string.error_title_photo
-        ErrorTitle.BACKGROUND -> R.string.error_title_background
+        ErrorTitle.SAVE -> Res.string.form_error_title
+        ErrorTitle.PHOTO -> Res.string.error_title_photo
+        ErrorTitle.BACKGROUND -> Res.string.error_title_background
     }

@@ -10,11 +10,20 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The port's two string tables, held to each other.
+ * The app's string tables, each language held to the other.
  *
- * Here rather than in :app for one reason: :app needs the Android SDK, this
- * machine has none, and so `:app:lint` -- which is where `MissingTranslation`
- * lives -- cannot run until CI. A localization mistake that reaches CI has
+ * Two tables since the screens started moving to Compose Multiplatform: :app's
+ * `res/values`, which keeps only what Android reads itself, and :ui's
+ * `composeResources/values`, which holds everything a screen shows. Each has an
+ * English and a Spanish file, and every check below runs on both -- plus two
+ * that only exist because there are two: a name lives in one table, never
+ * both, and :ui's strings are written in Compose Multiplatform's syntax rather
+ * than Android's.
+ *
+ * Here rather than in :app or :ui for one reason: neither builds without the
+ * Android SDK, this machine has none, and so `:app:lint` -- which is where
+ * `MissingTranslation` lives -- cannot run until CI, and nothing lints :ui's
+ * resources at all. A localization mistake that reaches CI has
  * already cost a round trip, and three of these checks are ones lint does not
  * make at all:
  *
@@ -31,14 +40,32 @@ import kotlin.test.assertTrue
  *   not hypothetical: the first version of this test scraped both files with a
  *   regex and passed on XML that aapt rejected outright.
  *
- * The res directory is handed over as a system property by build.gradle.kts
- * rather than reached for with a relative path, so the coupling to :app's layout
- * is declared where a reader will find it.
+ * The directories are handed over as system properties by build.gradle.kts
+ * rather than reached for with relative paths, so the coupling to :app's and
+ * :ui's layouts is declared where a reader will find it.
  */
 class StringResourceParityTest {
 
-    private val english = readStrings("values")
-    private val spanish = readStrings("values-es")
+    /** One pair of string files: English in `values`, Spanish in `values-es`. */
+    private class Table(val label: String, property: String) {
+        val directory = File(
+            System.getProperty(property)
+                ?: error("$property was not set; see presentation/build.gradle.kts"),
+        )
+
+        override fun toString() = label
+    }
+
+    private val android = Table(":app's res", "appResDir")
+    private val screens = Table(":ui's composeResources", "uiResDir")
+    private val tables = listOf(android, screens)
+
+    /** Every English string in either table. Names are unique across them; see below. */
+    private val english = tables.flatMap { readStrings(it, "values").toList() }.toMap()
+    private val spanish = tables.flatMap { readStrings(it, "values-es").toList() }.toMap()
+
+    /** What the screens can show, which is where the domain's vocabulary has to be. */
+    private val screenEnglish = readStrings(screens, "values")
 
     /**
      * Spanish entries that are deliberately the same word as the English.
@@ -82,16 +109,58 @@ class StringResourceParityTest {
 
     @Test
     fun `both languages define the same names`() {
-        assertEquals(
-            emptySet(),
-            english.keys - spanish.keys,
-            "these have no Spanish; a Spanish reader silently gets the English",
-        )
-        assertEquals(
-            emptySet(),
-            spanish.keys - english.keys,
-            "these are Spanish-only, so they are unreachable and probably misspelled",
-        )
+        // Per table, not across both: a name with its English in one table and
+        // its Spanish in the other is not translated at all, since each table is
+        // read by different code that will only ever look in its own.
+        for (table in tables) {
+            val here = readStrings(table, "values").keys + readPlurals(table, "values").keys
+            val there = readStrings(table, "values-es").keys + readPlurals(table, "values-es").keys
+            assertEquals(
+                emptySet(),
+                here - there,
+                "these have no Spanish in $table; a Spanish reader silently gets the English",
+            )
+            assertEquals(
+                emptySet(),
+                there - here,
+                "these are Spanish-only in $table, so they are unreachable and probably misspelled",
+            )
+        }
+    }
+
+    @Test
+    fun `a name lives in one table, never both`() {
+        // Two definitions would be two places for the words to drift apart, and
+        // which one a reader saw would depend on which code happened to ask.
+        // Everything a screen shows is :ui's; :app keeps only what Android reads.
+        val both = (readStrings(android, "values").keys + readPlurals(android, "values").keys) intersect
+            (readStrings(screens, "values").keys + readPlurals(screens, "values").keys)
+
+        assertEquals(emptySet(), both, "defined in both :app's and :ui's strings")
+    }
+
+    @Test
+    fun `the screens' strings are written the way Compose Multiplatform reads them`() {
+        // The two places the formats differ, which is everything that changed when
+        // the strings moved. Android needs an apostrophe escaped and Compose
+        // Multiplatform does not unescape it, so `\'` would show its backslash;
+        // and Compose Multiplatform substitutes only numbered placeholders, so a
+        // bare %s would reach the screen as the two characters "%s".
+        val problems = mutableListOf<String>()
+        for (directory in listOf("values", "values-es")) {
+            val texts = readStrings(screens, directory) +
+                readPlurals(screens, directory).flatMap { (name, forms) ->
+                    forms.map { (quantity, text) -> "$name/$quantity" to text }
+                }
+            for ((name, text) in texts) {
+                if ("\\'" in text) problems += "$directory/$name escapes an apostrophe: $text"
+                if (Regex("%(?!\\d+\\$)(?!%)[sdf]").containsMatchIn(text)) {
+                    problems += "$directory/$name has an unnumbered placeholder: $text"
+                }
+            }
+        }
+
+        assertTrue(problems.isEmpty(), problems.joinToString("\n  ", prefix = "\n  "))
     }
 
     @Test
@@ -126,39 +195,41 @@ class StringResourceParityTest {
         // Read separately because <plurals> is not <string>: the checks above walk
         // string elements only, so a plural could have gone missing, lost a
         // quantity, or dropped its %d without any of them noticing.
-        val here = readPlurals("values")
-        val there = readPlurals("values-es")
+        for (table in tables) {
+            val here = readPlurals(table, "values")
+            val there = readPlurals(table, "values-es")
 
-        assertEquals(here.keys, there.keys, "the set of plurals differs")
+            assertEquals(here.keys, there.keys, "the set of plurals differs in $table")
 
-        for (name in here.keys) {
-            // Not the same set: the quantities a language needs are the
-            // language's, not the resource's. English has one/other; Spanish also
-            // has `many`, CLDR's category for the compact forms ("1 millon de
-            // fotos"), and lint's MissingQuantity fails a Spanish plural without
-            // it. So English's quantities have to be there, and anything extra
-            // has to be a quantity Spanish actually has.
-            assertTrue(
-                there.getValue(name).keys.containsAll(here.getValue(name).keys),
-                "$name is missing ${here.getValue(name).keys - there.getValue(name).keys} in Spanish",
-            )
-            assertEquals(
-                emptySet(),
-                there.getValue(name).keys - here.getValue(name).keys - SPANISH_ONLY_QUANTITIES,
-                "$name has a quantity Spanish does not use",
-            )
-
-            for ((quantity, value) in there.getValue(name)) {
-                // An extra Spanish quantity is compared against the English form
-                // it stands in for, which is `other` -- otherwise `many` could
-                // substitute anything at all.
-                val english = here.getValue(name)[quantity] ?: here.getValue(name).getValue("other")
-
-                assertEquals(
-                    formatArguments(english),
-                    formatArguments(value),
-                    "what $name/$quantity substitutes",
+            for (name in here.keys) {
+                // Not the same set: the quantities a language needs are the
+                // language's, not the resource's. English has one/other; Spanish also
+                // has `many`, CLDR's category for the compact forms ("1 millon de
+                // fotos"), and lint's MissingQuantity fails a Spanish plural without
+                // it. So English's quantities have to be there, and anything extra
+                // has to be a quantity Spanish actually has.
+                assertTrue(
+                    there.getValue(name).keys.containsAll(here.getValue(name).keys),
+                    "$name is missing ${here.getValue(name).keys - there.getValue(name).keys} in Spanish",
                 )
+                assertEquals(
+                    emptySet(),
+                    there.getValue(name).keys - here.getValue(name).keys - SPANISH_ONLY_QUANTITIES,
+                    "$name has a quantity Spanish does not use",
+                )
+
+                for ((quantity, value) in there.getValue(name)) {
+                    // An extra Spanish quantity is compared against the English form
+                    // it stands in for, which is `other` -- otherwise `many` could
+                    // substitute anything at all.
+                    val english = here.getValue(name)[quantity] ?: here.getValue(name).getValue("other")
+
+                    assertEquals(
+                        formatArguments(english),
+                        formatArguments(value),
+                        "what $name/$quantity substitutes",
+                    )
+                }
             }
         }
     }
@@ -168,7 +239,10 @@ class StringResourceParityTest {
         // "1 garment" reads correctly in English and would be a lint mismatch
         // against "%d garments"; more to the point, a language whose "one" form
         // covers more than one still needs the number.
-        for ((name, forms) in readPlurals("values") + readPlurals("values-es")) {
+        val plurals = tables.flatMap { table ->
+            readPlurals(table, "values").toList() + readPlurals(table, "values-es").toList()
+        }
+        for ((name, forms) in plurals) {
             for ((quantity, value) in forms) {
                 assertTrue(
                     formatArguments(value).containsValue('d'),
@@ -228,7 +302,7 @@ class StringResourceParityTest {
 
         for (category in GARMENT_CATEGORIES) {
             val name = "category_" + category.id.replace('-', '_')
-            if (name !in english) missing += name
+            if (name !in screenEnglish) missing += name
 
             for (type in category.subcategories) {
                 // Through SUBCATEGORY_KEYS rather than by slugging the label,
@@ -239,7 +313,7 @@ class StringResourceParityTest {
                 val key = SUBCATEGORY_KEYS[type]
                 if (key == null) {
                     missing += "$type has no translation key at all"
-                } else if ("subcategory_$key" !in english) {
+                } else if ("subcategory_$key" !in screenEnglish) {
                     missing += "subcategory_$key ($type)"
                 }
             }
@@ -252,7 +326,7 @@ class StringResourceParityTest {
     fun `every palette colour has a name`() {
         val missing = GARMENT_COLORS
             .map { (key, _) -> "color_" + key.snakeCase() }
-            .filterNot { it in english }
+            .filterNot { it in screenEnglish }
 
         assertTrue(missing.isEmpty(), "no string resource for:\n  " + missing.joinToString("\n  "))
     }
@@ -270,10 +344,8 @@ class StringResourceParityTest {
      * the whole point of this test is that it runs where aapt cannot. A check
      * that only sees what a regex sees hands that class of mistake to CI.
      */
-    private fun parse(directory: String): org.w3c.dom.Document {
-        val resDir = System.getProperty("appResDir")
-            ?: error("appResDir was not set; see presentation/build.gradle.kts")
-        val file = File(resDir, "$directory/strings.xml")
+    private fun parse(table: Table, directory: String): org.w3c.dom.Document {
+        val file = File(table.directory, "$directory/strings.xml")
         assertTrue(file.isFile, "expected string resources at $file")
 
         return DocumentBuilderFactory.newInstance()
@@ -305,8 +377,8 @@ class StringResourceParityTest {
     }
 
     /** Plural name to quantity to text. */
-    private fun readPlurals(directory: String): Map<String, Map<String, String>> {
-        val plurals = parse(directory).getElementsByTagName("plurals")
+    private fun readPlurals(table: Table, directory: String): Map<String, Map<String, String>> {
+        val plurals = parse(table, directory).getElementsByTagName("plurals")
 
         return (0 until plurals.length).associate { index ->
             val element = plurals.item(index) as Element
@@ -326,23 +398,25 @@ class StringResourceParityTest {
         // they all read the file into a map and a second entry simply replaces
         // the first. Which is exactly how one got in: a name that already existed
         // was added again a dozen lines further down, and every test here passed.
-        for (directory in listOf("values", "values-es")) {
-            val names = names(directory, "string") + names(directory, "plurals")
-            val twice = names.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+        for (table in tables) {
+            for (directory in listOf("values", "values-es")) {
+                val names = names(table, directory, "string") + names(table, directory, "plurals")
+                val twice = names.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
 
-            assertEquals(emptySet(), twice, "declared more than once in $directory")
+                assertEquals(emptySet(), twice, "declared more than once in $table/$directory")
+            }
         }
     }
 
     /** Every name as it appears, duplicates and all -- which is the point. */
-    private fun names(directory: String, tag: String): List<String> {
-        val nodes = parse(directory).getElementsByTagName(tag)
+    private fun names(table: Table, directory: String, tag: String): List<String> {
+        val nodes = parse(table, directory).getElementsByTagName(tag)
 
         return (0 until nodes.length).map { (nodes.item(it) as Element).getAttribute("name") }
     }
 
-    private fun readStrings(directory: String): Map<String, String> {
-        val strings = parse(directory).getElementsByTagName("string")
+    private fun readStrings(table: Table, directory: String): Map<String, String> {
+        val strings = parse(table, directory).getElementsByTagName("string")
 
         return (0 until strings.length).associate { index ->
             val element = strings.item(index) as Element

@@ -93,7 +93,17 @@ tasks.withType<Test>().configureEach {
         .withPropertyName("glyphSources")
         .withPathSensitivity(PathSensitivity.RELATIVE)
 
-    // And where the generated vectors are, for the same test. :ui has no local
+    // And the screens' strings, which moved to :ui as Compose Multiplatform
+    // resources: StringResourceParityTest reads both tables, the message parity
+    // tests compare against these, and XmlWellFormedTest parses them. An input,
+    // like :app's resources above, so that editing a string reruns the tests.
+    val uiResources = rootProject.file("ui/src/commonMain/composeResources")
+    systemProperty("uiResDir", uiResources.absolutePath)
+    inputs.dir(uiResources)
+        .withPropertyName("uiStringResources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+
+    // And where the generated vectors are, for GlyphSourcesTest. :ui has no local
     // compiler either -- it builds only where :app does -- so its files are read
     // from here too.
     val uiSources = rootProject.file("ui/src/commonMain/kotlin/com/wardrobapp/ui")

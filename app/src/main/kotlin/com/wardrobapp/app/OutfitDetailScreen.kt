@@ -35,13 +35,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.presentation.OutfitDetailScreenState
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.action_back
+import com.wardrobapp.ui.resources.action_delete
+import com.wardrobapp.ui.resources.action_keep
+import com.wardrobapp.ui.resources.action_retry
+import com.wardrobapp.ui.resources.outfit_delete
+import com.wardrobapp.ui.resources.outfit_delete_body
+import com.wardrobapp.ui.resources.outfit_delete_confirm
+import com.wardrobapp.ui.resources.outfit_edit
+import com.wardrobapp.ui.resources.outfit_missing
+import com.wardrobapp.ui.resources.outfit_missing_garments
+import com.wardrobapp.ui.resources.outfit_rate
+import com.wardrobapp.ui.resources.outfit_unreadable
+import com.wardrobapp.ui.resources.outfit_untitled
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 /** The way from an outfit to changing it. */
 const val OUTFIT_EDIT_ACTION = "outfit-edit-action"
@@ -72,24 +86,24 @@ fun OutfitDetailScreen(
     if (state.confirmingDelete) {
         AlertDialog(
             onDismissRequest = onDeleteDismissed,
-            title = { Text(stringResource(R.string.outfit_delete_confirm)) },
+            title = { Text(stringResource(Res.string.outfit_delete_confirm)) },
             text = {
                 Text(
-                    stringResource(R.string.outfit_delete_body)
+                    stringResource(Res.string.outfit_delete_body)
                 )
             },
-            confirmButton = { TextButton(onClick = onDeleteConfirmed) { Text(stringResource(R.string.action_delete)) } },
-            dismissButton = { TextButton(onClick = onDeleteDismissed) { Text(stringResource(R.string.action_keep)) } },
+            confirmButton = { TextButton(onClick = onDeleteConfirmed) { Text(stringResource(Res.string.action_delete)) } },
+            dismissButton = { TextButton(onClick = onDeleteDismissed) { Text(stringResource(Res.string.action_keep)) } },
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(state.outfit?.name ?: stringResource(R.string.outfit_untitled)) },
+                title = { Text(state.outfit?.name ?: stringResource(Res.string.outfit_untitled)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
                     }
                 },
                 actions = {
@@ -99,7 +113,7 @@ fun OutfitDetailScreen(
                         IconButton(onClick = onEdit, modifier = Modifier.testTag(OUTFIT_EDIT_ACTION)) {
                             Icon(
                                 Icons.Filled.Edit,
-                                contentDescription = stringResource(R.string.outfit_edit),
+                                contentDescription = stringResource(Res.string.outfit_edit),
                             )
                         }
                     }
@@ -114,14 +128,14 @@ fun OutfitDetailScreen(
 
             // Nothing to retry: the outfit is not there.
             state.missing -> Centered(insets) {
-                Text(stringResource(R.string.outfit_missing))
+                Text(stringResource(Res.string.outfit_missing))
             }
 
             // A read that failed is not an empty outfit, and must not look like
             // one. Same rule as every other screen.
             outfit == null -> Centered(insets) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(R.string.outfit_unreadable), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(Res.string.outfit_unreadable), style = MaterialTheme.typography.titleMedium)
                     state.errorText()?.let {
                         Text(
                             it,
@@ -130,7 +144,7 @@ fun OutfitDetailScreen(
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
-                    TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                    TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
                 }
             }
 
@@ -176,7 +190,7 @@ private fun Body(
         val missing = state.outfit?.garmentIds?.size?.minus(state.garments.size) ?: 0
         if (missing > 0) {
             Text(
-                pluralStringResource(R.plurals.outfit_missing_garments, missing, missing),
+                pluralStringResource(Res.plurals.outfit_missing_garments, missing, missing),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 12.dp),
@@ -184,7 +198,7 @@ private fun Body(
         }
 
         Text(
-            stringResource(R.string.outfit_rate),
+            stringResource(Res.string.outfit_rate),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 24.dp, bottom = 4.dp),
         )
@@ -198,7 +212,7 @@ private fun Body(
             ),
             modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
         ) {
-            Text(stringResource(R.string.outfit_delete))
+            Text(stringResource(Res.string.outfit_delete))
         }
     }
 }

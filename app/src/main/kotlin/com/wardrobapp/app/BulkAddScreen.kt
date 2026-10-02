@@ -57,8 +57,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.wardrobapp.domain.GARMENT_CATEGORIES
@@ -66,6 +64,29 @@ import com.wardrobapp.domain.garmentCategory
 import com.wardrobapp.presentation.BulkAddScreenState
 import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.action_back
+import com.wardrobapp.ui.resources.action_close
+import com.wardrobapp.ui.resources.background_cutting
+import com.wardrobapp.ui.resources.background_remove
+import com.wardrobapp.ui.resources.background_undo
+import com.wardrobapp.ui.resources.bulk_add_brand
+import com.wardrobapp.ui.resources.bulk_add_choose
+import com.wardrobapp.ui.resources.bulk_add_choose_more
+import com.wardrobapp.ui.resources.bulk_add_crop
+import com.wardrobapp.ui.resources.bulk_add_done
+import com.wardrobapp.ui.resources.bulk_add_finished
+import com.wardrobapp.ui.resources.bulk_add_intro
+import com.wardrobapp.ui.resources.bulk_add_progress
+import com.wardrobapp.ui.resources.bulk_add_save
+import com.wardrobapp.ui.resources.bulk_add_skip
+import com.wardrobapp.ui.resources.bulk_add_skipped
+import com.wardrobapp.ui.resources.bulk_add_title
+import com.wardrobapp.ui.resources.error_action_failed
+import com.wardrobapp.ui.resources.filter_section_category
+import com.wardrobapp.ui.resources.filter_section_type
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 /** Tagged so a test can read the counter without matching a bare number twice. */
 const val BULK_ADD_PROGRESS = "bulk-add-progress"
@@ -105,11 +126,11 @@ fun BulkAddScreen(
     state.errorText()?.let { error ->
         AlertDialog(
             onDismissRequest = onErrorDismissed,
-            title = { Text(stringResource(R.string.error_action_failed)) },
+            title = { Text(stringResource(Res.string.error_action_failed)) },
             text = { Text(error) },
             confirmButton = {
                 TextButton(onClick = onErrorDismissed) {
-                    Text(stringResource(R.string.action_close))
+                    Text(stringResource(Res.string.action_close))
                 }
             },
         )
@@ -118,12 +139,12 @@ fun BulkAddScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.bulk_add_title)) },
+                title = { Text(stringResource(Res.string.bulk_add_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back),
+                            contentDescription = stringResource(Res.string.action_back),
                         )
                     }
                 },
@@ -169,7 +190,7 @@ fun BulkAddScreen(
 private fun LazyListScope.startItems(importing: Boolean, onChoosePhotos: () -> Unit) {
     item {
         Text(
-            stringResource(R.string.bulk_add_intro, BulkAddState.MAX_PHOTOS),
+            stringResource(Res.string.bulk_add_intro, BulkAddState.MAX_PHOTOS),
             style = MaterialTheme.typography.bodyMedium,
         )
     }
@@ -179,7 +200,7 @@ private fun LazyListScope.startItems(importing: Boolean, onChoosePhotos: () -> U
             CircularProgressIndicator()
         } else {
             Button(onClick = onChoosePhotos, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.bulk_add_choose))
+                Text(stringResource(Res.string.bulk_add_choose))
             }
         }
     }
@@ -217,7 +238,7 @@ private fun LazyListScope.draftItems(
     item {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                stringResource(R.string.bulk_add_progress, queue.position, queue.total),
+                stringResource(Res.string.bulk_add_progress, queue.position, queue.total),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag(BULK_ADD_PROGRESS),
@@ -295,7 +316,7 @@ private fun LazyListScope.draftItems(
     }
 
     item {
-        Section(stringResource(R.string.filter_section_category)) {
+        Section(stringResource(Res.string.filter_section_category)) {
             Chips(GARMENT_CATEGORIES.map { it.id }, setOf(draft.category), { categoryLabel(it) }) {
                 onCategorySelected(it)
             }
@@ -304,7 +325,7 @@ private fun LazyListScope.draftItems(
 
     garmentCategory(draft.category)?.let { category ->
         item {
-            Section(stringResource(R.string.filter_section_type)) {
+            Section(stringResource(Res.string.filter_section_type)) {
                 Chips(
                     category.subcategories,
                     draft.subcategories.toSet(),
@@ -320,7 +341,7 @@ private fun LazyListScope.draftItems(
         OutlinedTextField(
             value = draft.brand,
             onValueChange = onBrandChanged,
-            label = { Text(stringResource(R.string.bulk_add_brand)) },
+            label = { Text(stringResource(Res.string.bulk_add_brand)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -341,7 +362,7 @@ private fun LazyListScope.draftItems(
             ) {
                 Icon(Glyph.SkipNext, contentDescription = null, modifier = Modifier.size(18.dp))
                 Text(
-                    stringResource(R.string.bulk_add_skip),
+                    stringResource(Res.string.bulk_add_skip),
                     modifier = Modifier.padding(start = 6.dp),
                 )
             }
@@ -360,7 +381,7 @@ private fun LazyListScope.draftItems(
             ) {
                 Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(20.dp))
                 Text(
-                    stringResource(R.string.bulk_add_save),
+                    stringResource(Res.string.bulk_add_save),
                     style = ctaLabel(),
                     modifier = Modifier.padding(start = 8.dp),
                 )
@@ -444,7 +465,7 @@ private fun PhotoActions(
         GlassChip(modifier = modifier) {
             CircularProgressIndicator(modifier = Modifier.size(16.dp))
             Text(
-                stringResource(R.string.background_cutting),
+                stringResource(Res.string.background_cutting),
                 style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier.padding(start = 8.dp),
             )
@@ -459,7 +480,7 @@ private fun PhotoActions(
         ) {
             Icon(Glyph.Crop, contentDescription = null, modifier = Modifier.size(16.dp))
             Text(
-                stringResource(R.string.bulk_add_crop),
+                stringResource(Res.string.bulk_add_crop),
                 style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier.padding(start = 6.dp),
             )
@@ -471,7 +492,7 @@ private fun PhotoActions(
             Icon(Glyph.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
             Text(
                 stringResource(
-                    if (hasCutout) R.string.background_undo else R.string.background_remove
+                    if (hasCutout) Res.string.background_undo else Res.string.background_remove
                 ),
                 style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier.padding(start = 6.dp),
@@ -522,7 +543,7 @@ private fun LazyListScope.finishedItems(
             modifier = Modifier.testTag(BULK_ADD_SUMMARY),
         ) {
             Text(
-                pluralStringResource(R.plurals.bulk_add_finished, queue.added, queue.added),
+                pluralStringResource(Res.plurals.bulk_add_finished, queue.added, queue.added),
                 style = MaterialTheme.typography.titleMedium,
             )
 
@@ -530,7 +551,7 @@ private fun LazyListScope.finishedItems(
             // nothing having happened.
             if (queue.skipped > 0) {
                 Text(
-                    pluralStringResource(R.plurals.bulk_add_skipped, queue.skipped, queue.skipped),
+                    pluralStringResource(Res.plurals.bulk_add_skipped, queue.skipped, queue.skipped),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -543,14 +564,14 @@ private fun LazyListScope.finishedItems(
             CircularProgressIndicator()
         } else {
             OutlinedButton(onClick = onChoosePhotos, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.bulk_add_choose_more))
+                Text(stringResource(Res.string.bulk_add_choose_more))
             }
         }
     }
 
     item {
         Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.bulk_add_done))
+            Text(stringResource(Res.string.bulk_add_done))
         }
     }
 }
