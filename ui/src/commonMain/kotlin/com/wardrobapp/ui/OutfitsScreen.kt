@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -59,15 +59,6 @@ import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.OutfitsScreenState
 import com.wardrobapp.presentation.occasionChips
 import com.wardrobapp.presentation.seasonChips
-import com.wardrobapp.ui.CTA_HEIGHT
-import com.wardrobapp.ui.Glyph
-import com.wardrobapp.ui.Stars
-import com.wardrobapp.ui.categoryLabel
-import com.wardrobapp.ui.ctaLabel
-import com.wardrobapp.ui.garmentTypeLabel
-import com.wardrobapp.ui.labelRes
-import com.wardrobapp.ui.photoSurface
-import com.wardrobapp.ui.pressScale
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_delete
 import com.wardrobapp.ui.resources.action_keep
@@ -101,7 +92,6 @@ import com.wardrobapp.ui.resources.outfits_suggest_again
 import com.wardrobapp.ui.resources.outfits_suggesting
 import com.wardrobapp.ui.resources.outfits_title
 import com.wardrobapp.ui.resources.outfits_use_whole_wardrobe
-import com.wardrobapp.ui.springGentle
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -379,7 +369,7 @@ fun OutfitsScreen(
  * this card, and the whole point of that picture is that it is the same width
  * arithmetic -- a four-up row on an outfit of three.
  */
-internal const val THUMBNAILS_ACROSS = 4
+const val THUMBNAILS_ACROSS = 4
 
 /** One chip, ready to draw: its label, whether it is on, and what it does. */
 private data class Chip(val label: String, val active: Boolean, val onTap: () -> Unit)

@@ -4,6 +4,8 @@ import com.wardrobapp.presentation.ColorBar
 import com.wardrobapp.presentation.MULTI_SWATCH
 import com.wardrobapp.presentation.NO_SUBCATEGORY
 import com.wardrobapp.presentation.StatBar
+import com.wardrobapp.ui.paletteKey
+import com.wardrobapp.ui.subcategoryName
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

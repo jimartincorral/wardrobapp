@@ -27,6 +27,10 @@ import com.wardrobapp.presentation.StatisticsScreenState
 import com.wardrobapp.presentation.StatisticsSection
 import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.statisticsView
+import com.wardrobapp.ui.STATISTICS_PAGE
+import com.wardrobapp.ui.StatisticsScreen
+import com.wardrobapp.ui.duplicateTag
+import com.wardrobapp.ui.statFilterTag
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

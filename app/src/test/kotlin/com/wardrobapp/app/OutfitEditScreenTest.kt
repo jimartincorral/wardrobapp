@@ -13,6 +13,11 @@ import androidx.compose.ui.test.performTextInput
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.presentation.OutfitEditScreenState
 import com.wardrobapp.presentation.OutfitEditState
+import com.wardrobapp.ui.OUTFIT_EDIT_LIST
+import com.wardrobapp.ui.OUTFIT_EDIT_SAVE
+import com.wardrobapp.ui.OUTFIT_PICK_SEARCH
+import com.wardrobapp.ui.OutfitEditScreen
+import com.wardrobapp.ui.outfitPickTag
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

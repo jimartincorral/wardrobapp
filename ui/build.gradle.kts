@@ -75,10 +75,7 @@ kotlin {
             // nothing rather than be fetched by a client those checks never see.
             // The browser will need one, for the server's photos, and gets it
             // with that.
-            //
-            // `api` while :app still has screens that draw photos; it becomes
-            // `implementation` when the last of them moves.
-            api("io.coil-kt.coil3:coil-compose:3.0.4")
+            implementation("io.coil-kt.coil3:coil-compose:3.0.4")
             // The screens' strings. `api` because Res is public and :app's own
             // composables -- the ones that stay Android-only -- read it too.
             api(compose.components.resources)

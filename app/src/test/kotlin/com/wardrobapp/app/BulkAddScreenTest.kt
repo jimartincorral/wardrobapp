@@ -7,6 +7,11 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.wardrobapp.presentation.BulkAddScreenState
 import com.wardrobapp.presentation.BulkAddState
+import com.wardrobapp.ui.BULK_ADD_CROP
+import com.wardrobapp.ui.BULK_ADD_PROGRESS
+import com.wardrobapp.ui.BULK_ADD_SAVE
+import com.wardrobapp.ui.BULK_ADD_SUMMARY
+import com.wardrobapp.ui.BulkAddScreen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

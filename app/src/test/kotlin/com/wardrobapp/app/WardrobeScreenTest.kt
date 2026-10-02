@@ -17,6 +17,14 @@ import com.wardrobapp.presentation.WardrobeScreenState
 import com.wardrobapp.presentation.WardrobeView
 import com.wardrobapp.presentation.filterBy
 import com.wardrobapp.presentation.wardrobeFacets
+import com.wardrobapp.ui.WARDROBE_FILTER_SHEET
+import com.wardrobapp.ui.WARDROBE_LIST
+import com.wardrobapp.ui.WARDROBE_VIEW_MENU
+import com.wardrobapp.ui.WardrobeScreen
+import com.wardrobapp.ui.appliedFilterTag
+import com.wardrobapp.ui.colorSwatchTag
+import com.wardrobapp.ui.filterChipTag
+import com.wardrobapp.ui.wardrobeSizeTag
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

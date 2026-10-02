@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,8 +40,6 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.presentation.OutfitDetailScreenState
-import com.wardrobapp.ui.Stars
-import com.wardrobapp.ui.messageRes
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_back
 import com.wardrobapp.ui.resources.action_delete

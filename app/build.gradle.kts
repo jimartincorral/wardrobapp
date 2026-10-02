@@ -330,8 +330,8 @@ dependencies {
     // that forgets it exists after a restart is not one.
     implementation("androidx.work:work-runtime-ktx:2.10.0")
 
-    // Coil, which loads the photos, comes from :ui: the screens that draw them
-    // are moving there, and the version is declared once, where they end up.
+    // No Coil: every screen that draws a photo is in :ui now, and :ui depends
+    // on it.
 
     // The crop screen a photo goes through on its way in. Android has none to
     // call -- ACTION_CROP is an undocumented intent that most phones answer with

@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -58,18 +58,7 @@ import com.wardrobapp.presentation.GalleryEntry
 import com.wardrobapp.presentation.GarmentDetailScreenState
 import com.wardrobapp.presentation.GarmentDetailView
 import com.wardrobapp.presentation.PaletteEntry
-import com.wardrobapp.presentation.formatStoredDate
-import com.wardrobapp.ui.CTA_HEIGHT
-import com.wardrobapp.ui.Glyph
-import com.wardrobapp.ui.categoryLabel
-import com.wardrobapp.ui.ctaLabel
-import com.wardrobapp.ui.garmentSharedElement
-import com.wardrobapp.ui.garmentTypeLabel
-import com.wardrobapp.ui.labelRes
-import com.wardrobapp.ui.messageRes
-import com.wardrobapp.ui.paletteLabel
-import com.wardrobapp.ui.photoSurface
-import com.wardrobapp.ui.pressScale
+import com.wardrobapp.presentation.formatStoredDateForReader
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_back
 import com.wardrobapp.ui.resources.action_cancel
@@ -103,9 +92,6 @@ import com.wardrobapp.ui.resources.property_occasions
 import com.wardrobapp.ui.resources.property_seasons
 import com.wardrobapp.ui.resources.property_size
 import com.wardrobapp.ui.resources.property_tags
-import com.wardrobapp.ui.toComposeColor
-import java.util.Locale
-import java.util.TimeZone
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -657,7 +643,7 @@ private fun headingOf(view: GarmentDetailView): String {
  * whatever the phone is set to.
  */
 private fun displayDate(value: String): String =
-    formatStoredDate(value, TimeZone.getDefault(), Locale.getDefault())
+    formatStoredDateForReader(value)
 
 /**
  * A colour's name, or its hex if it was not picked from the palette.

@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -82,11 +82,6 @@ import com.wardrobapp.presentation.StatisticsSection
 import com.wardrobapp.presentation.StatisticsView
 import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.paletteColorFor
-import com.wardrobapp.ui.Glyph
-import com.wardrobapp.ui.categoryLabel
-import com.wardrobapp.ui.garmentTypeLabel
-import com.wardrobapp.ui.labelRes
-import com.wardrobapp.ui.paletteLabel
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_retry
 import com.wardrobapp.ui.resources.error_wardrobe_unreadable
@@ -133,8 +128,6 @@ import com.wardrobapp.ui.resources.statistics_sort_count
 import com.wardrobapp.ui.resources.statistics_sort_name
 import com.wardrobapp.ui.resources.statistics_subtitle
 import com.wardrobapp.ui.resources.statistics_title
-import com.wardrobapp.ui.springGentle
-import com.wardrobapp.ui.toComposeColor
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -1317,7 +1310,7 @@ private fun RowScope.Quadrant(color: Color) {
  * The sentinel is named directly because it is not a hex, and the palette is
  * keyed by hex.
  */
-internal fun ColorBar.paletteKey(): String? =
+fun ColorBar.paletteKey(): String? =
     if (swatch == MULTI_SWATCH) MULTI_SWATCH else paletteColorFor(swatch)?.first
 
 /** A palette colour by name, and anything else by the value stored. */
@@ -1338,7 +1331,7 @@ internal fun ColorBar.colorLabel(): String = paletteKey()?.let { paletteLabel(it
  * Pure, for the same reason as [paletteKey]: the prefix rule is the part that goes
  * wrong silently, and it is worth testing where no resources exist.
  */
-internal fun StatBar.subcategoryName(category: String): String? {
+fun StatBar.subcategoryName(category: String): String? {
     val name = key.removePrefix("$category:")
     return if (name == NO_SUBCATEGORY) null else name
 }

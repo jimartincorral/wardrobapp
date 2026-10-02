@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -63,15 +63,6 @@ import com.wardrobapp.domain.GARMENT_CATEGORIES
 import com.wardrobapp.domain.garmentCategory
 import com.wardrobapp.presentation.BulkAddScreenState
 import com.wardrobapp.presentation.BulkAddState
-import com.wardrobapp.ui.CTA_HEIGHT
-import com.wardrobapp.ui.ColorSwatch
-import com.wardrobapp.ui.Glyph
-import com.wardrobapp.ui.categoryLabel
-import com.wardrobapp.ui.ctaLabel
-import com.wardrobapp.ui.garmentTypeLabel
-import com.wardrobapp.ui.messageRes
-import com.wardrobapp.ui.photoSurface
-import com.wardrobapp.ui.pressScale
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_back
 import com.wardrobapp.ui.resources.action_close
@@ -93,8 +84,6 @@ import com.wardrobapp.ui.resources.bulk_add_title
 import com.wardrobapp.ui.resources.error_action_failed
 import com.wardrobapp.ui.resources.filter_section_category
 import com.wardrobapp.ui.resources.filter_section_type
-import com.wardrobapp.ui.springGentle
-import com.wardrobapp.ui.toComposeColor
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 

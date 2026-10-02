@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -74,7 +74,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -99,19 +98,6 @@ import com.wardrobapp.presentation.WardrobeScreenState
 import com.wardrobapp.presentation.WardrobeView
 import com.wardrobapp.presentation.captionField
 import com.wardrobapp.presentation.paletteColorFor
-import com.wardrobapp.ui.CTA_HEIGHT
-import com.wardrobapp.ui.ColorSwatch
-import com.wardrobapp.ui.Glyph
-import com.wardrobapp.ui.categoryLabel
-import com.wardrobapp.ui.ctaLabel
-import com.wardrobapp.ui.garmentSharedElement
-import com.wardrobapp.ui.garmentTypeLabel
-import com.wardrobapp.ui.growFrom
-import com.wardrobapp.ui.labelRes
-import com.wardrobapp.ui.paletteLabel
-import com.wardrobapp.ui.photoSurface
-import com.wardrobapp.ui.pressNudge
-import com.wardrobapp.ui.pressScale
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_clear_filters
 import com.wardrobapp.ui.resources.action_close
@@ -151,8 +137,6 @@ import com.wardrobapp.ui.resources.wardrobe_title
 import com.wardrobapp.ui.resources.wardrobe_view_list
 import com.wardrobapp.ui.resources.wardrobe_view_options
 import com.wardrobapp.ui.resources.wardrobe_view_section_show
-import com.wardrobapp.ui.springGentle
-import com.wardrobapp.ui.toComposeColor
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.pluralStringResource
@@ -1030,7 +1014,7 @@ private fun FilterSheet(
     val scope = rememberCoroutineScope()
     // Eighty-two percent of the screen, so the list behind it stays visible as the
     // thing being narrowed rather than being replaced by a second screen.
-    val tallest = (LocalConfiguration.current.screenHeightDp * 0.82f).dp
+    val tallest = windowHeight() * 0.82f
 
     // The scrim and the drag already animate: Material runs its own hide and then
     // calls back. The two controls *on* the sheet did not -- calling back directly

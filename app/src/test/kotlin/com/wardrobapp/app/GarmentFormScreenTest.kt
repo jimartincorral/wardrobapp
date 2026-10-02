@@ -12,6 +12,8 @@ import com.wardrobapp.domain.ImportFailureReason
 import com.wardrobapp.domain.UnsafeUrlReason
 import com.wardrobapp.presentation.GarmentFormScreenState
 import com.wardrobapp.presentation.GarmentFormState
+import com.wardrobapp.ui.GARMENT_FORM_LIST
+import com.wardrobapp.ui.GarmentFormScreen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

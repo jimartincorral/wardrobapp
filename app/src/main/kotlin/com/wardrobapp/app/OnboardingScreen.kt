@@ -49,6 +49,7 @@ import com.wardrobapp.presentation.OnboardingStep
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.ui.CTA_HEIGHT
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.THUMBNAILS_ACROSS
 import com.wardrobapp.ui.ctaLabel
 import com.wardrobapp.ui.labelRes
 import com.wardrobapp.ui.photoSurface
