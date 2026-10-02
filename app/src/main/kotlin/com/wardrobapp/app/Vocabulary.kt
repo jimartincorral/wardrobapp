@@ -243,7 +243,7 @@ val Occasion.labelRes: StringResource
     }
 
 /** Category ids, as `GARMENT_CATEGORIES` and every garment row hold them. */
-internal val CATEGORY_LABELS: Map<String, Int> = mapOf(
+internal val CATEGORY_LABELS: Map<String, StringResource> = mapOf(
     "tops" to Res.string.category_tops,
     "bottoms" to Res.string.category_bottoms,
     "dresses" to Res.string.category_dresses,
@@ -262,7 +262,7 @@ internal val CATEGORY_LABELS: Map<String, Int> = mapOf(
  * Keyed on the label rather than a slug because the label *is* what is stored --
  * the same reason the React Native app's `SUBCATEGORY_KEY_MAP` is keyed that way.
  */
-internal val SUBCATEGORY_LABELS: Map<String, Int> = mapOf(
+internal val SUBCATEGORY_LABELS: Map<String, StringResource> = mapOf(
     "T-Shirt" to Res.string.subcategory_tshirt,
     "Blouse" to Res.string.subcategory_blouse,
     "Shirt" to Res.string.subcategory_shirt,
@@ -340,7 +340,7 @@ internal val SUBCATEGORY_LABELS: Map<String, Int> = mapOf(
 )
 
 /** Palette keys, as `GARMENT_COLORS` holds them. */
-internal val COLOR_LABELS: Map<String, Int> = mapOf(
+internal val COLOR_LABELS: Map<String, StringResource> = mapOf(
     "black" to Res.string.color_black,
     "white" to Res.string.color_white,
     "gray" to Res.string.color_gray,
