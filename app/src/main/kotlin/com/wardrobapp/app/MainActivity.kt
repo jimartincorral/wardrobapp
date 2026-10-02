@@ -80,6 +80,7 @@ import com.wardrobapp.ui.STATISTICS
 import com.wardrobapp.ui.SettingsScreen
 import com.wardrobapp.ui.TABS
 import com.wardrobapp.ui.WARDROBE
+import com.wardrobapp.ui.WardrobappTheme
 import com.wardrobapp.ui.WardrobeBottomBar
 import com.wardrobapp.ui.springGentle
 import java.io.File
