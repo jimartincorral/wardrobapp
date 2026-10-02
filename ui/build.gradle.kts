@@ -102,6 +102,21 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    // This module is linted from :app, which checks its dependencies -- see the
+    // lint block there for everything else. What has to be said here as well is
+    // which checks are informational, because NewerVersionAvailable is off by
+    // default and :app's configuration is what turns it on: a check one module
+    // enables and another does not is a configuration lint refuses outright
+    // (CannotEnableHidden), which is how CI 329 failed. The same three, for the
+    // same reason as there.
+    lint {
+        informational += setOf(
+            "GradleDependency",
+            "AndroidGradlePluginVersion",
+            "NewerVersionAvailable",
+        )
+    }
 }
 
 compose.resources {
