@@ -1,8 +1,7 @@
 package com.wardrobapp.presentation
 
 import java.text.DateFormat
-import java.text.ParsePosition
-import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
@@ -23,15 +22,6 @@ import java.util.TimeZone
  * system, which is what makes this testable: a timestamp's *date* depends on the
  * zone it is read in, and that is exactly the part worth pinning down.
  */
-
-/** The shapes the column is known to hold, tried in order. */
-private val STORED_PATTERNS = listOf(
-    "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
-    "yyyy-MM-dd'T'HH:mm:ssXXX",
-    "yyyy-MM-dd'T'HH:mm:ss.SSS",
-    "yyyy-MM-dd'T'HH:mm:ss",
-    "yyyy-MM-dd",
-)
 
 /**
  * A stored date as the device would write it, or the raw string if it cannot be
@@ -79,26 +69,26 @@ fun formatStoredDateTime(
         .format(parsed)
 }
 
+/**
+ * The parse is common code, shared with the browser -- see StoredMoment. What is
+ * left here is turning it into an instant on the JVM: one the value fixes by
+ * stating its offset, or the fields read as a time in [timeZone] when it does
+ * not say.
+ */
 private fun parseStoredDate(value: String, timeZone: TimeZone): Date? {
-    val text = value.trim()
-    if (text.isEmpty()) return null
+    val moment = parseStoredMoment(value) ?: return null
+    moment.epochMillis()?.let { return Date(it) }
 
-    for (pattern in STORED_PATTERNS) {
-        val format = SimpleDateFormat(pattern, Locale.ROOT).apply {
-            isLenient = false
-            // A date with no zone in it is a date in the reader's own zone; one
-            // with a zone carries its own and this is ignored.
-            this.timeZone = timeZone
-        }
-        val position = ParsePosition(0)
-        val parsed = format.parse(text, position)
-
-        // The whole string has to be consumed, or a value that merely *starts*
-        // with a date is read as that date and the rest is discarded silently.
-        // (The timestamp patterns come first, so a full timestamp never falls
-        // through to the date-only one -- it is trailing content this catches.)
-        if (parsed != null && position.index == text.length) return parsed
+    return Calendar.getInstance(timeZone, Locale.ROOT).run {
+        clear()
+        set(moment.year, moment.month - 1, moment.day, moment.hour, moment.minute, moment.second)
+        set(Calendar.MILLISECOND, moment.millisecond)
+        time
     }
-
-    return null
 }
+
+actual fun formatStoredDateForReader(value: String): String =
+    formatStoredDate(value, TimeZone.getDefault(), Locale.getDefault())
+
+actual fun formatStoredDateTimeForReader(value: String): String =
+    formatStoredDateTime(value, TimeZone.getDefault(), Locale.getDefault())

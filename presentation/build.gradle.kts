@@ -10,12 +10,13 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // this and renders -- it should hold layout, not decisions.
 //
 // Kotlin Multiplatform, like them, because the browser's screens make the same
-// decisions the phone's do. Common code apart from two things: the date
-// formatting in StoredDates, which is the JVM's locale-aware DateFormat and gets
-// a browser counterpart when the screens that call it move, and the Drive backup
-// schedule, which is a phone feature. The one thing the platforms genuinely do
-// differently -- how a reader's language sorts -- is `readerOrder`, an expect
-// with each platform's own collator behind it.
+// decisions the phone's do. Common code apart from the Drive backup schedule,
+// which is a phone feature. The things the platforms genuinely do differently
+// are expects with each platform's own answer behind it: how a reader's
+// language sorts (`readerOrder`, a collator each), and how a date is written
+// for them (`formatStoredDateForReader`, DateFormat on the JVM and
+// Intl.DateTimeFormat in the browser). Which strings are dates at all is common,
+// in StoredMoment, so that the two cannot disagree about it.
 plugins {
     kotlin("multiplatform") version "2.1.20"
 }
