@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.wardrobapp.domain.GARMENT_CATEGORIES
 import com.wardrobapp.domain.garmentCategory
+import com.wardrobapp.presentation.BulkAddScreenState
 import com.wardrobapp.presentation.BulkAddState
 
 /** Tagged so a test can read the counter without matching a bare number twice. */
@@ -87,7 +88,7 @@ const val BULK_ADD_CROP = "bulk-add-crop"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BulkAddScreen(
-    state: BulkAddViewModel.State,
+    state: BulkAddScreenState,
     onBack: () -> Unit,
     onChoosePhotos: () -> Unit,
     onCategorySelected: (String) -> Unit,
@@ -555,5 +556,5 @@ private fun LazyListScope.finishedItems(
 
 /** The exception's own words where there are any, the fallback otherwise. */
 @Composable
-private fun BulkAddViewModel.State.errorText(): String? =
-    error ?: errorFallback?.let { stringResource(it) }
+private fun BulkAddScreenState.errorText(): String? =
+    error ?: errorFallback?.let { stringResource(it.messageRes) }

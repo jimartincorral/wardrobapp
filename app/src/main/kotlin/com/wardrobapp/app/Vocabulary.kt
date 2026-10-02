@@ -11,6 +11,8 @@ import com.wardrobapp.domain.OutfitReason
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.UnsafeUrlReason
 import com.wardrobapp.presentation.BackupFrequency
+import com.wardrobapp.presentation.ErrorFallback
+import com.wardrobapp.presentation.ErrorTitle
 import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.ThemeChoice
@@ -363,3 +365,35 @@ fun Context.importWarningText(warning: ImportWarning): String = when (warning) {
         warning.count,
     )
 }
+
+/**
+ * What a screen says when a failure has nothing readable of its own.
+ *
+ * Named one to one with the resources, because these were the resource ids until
+ * the screens' state moved into common code; see [ErrorFallback].
+ */
+@get:StringRes
+val ErrorFallback.messageRes: Int
+    get() = when (this) {
+        ErrorFallback.BACKGROUND_NOT_REMOVED -> R.string.error_background_not_removed
+        ErrorFallback.PHOTO_NOT_CROPPED -> R.string.error_crop_failed
+        ErrorFallback.GARMENT_NOT_SAVED -> R.string.error_garment_not_saved
+        ErrorFallback.NO_CAMERA -> R.string.error_no_camera
+        ErrorFallback.OUTFIT_NOT_DELETED -> R.string.error_outfit_not_deleted
+        ErrorFallback.OUTFIT_NOT_SAVED -> R.string.error_outfit_not_saved
+        ErrorFallback.PHOTO_NOT_IMPORTED -> R.string.error_photo_not_imported
+        ErrorFallback.PHOTO_REQUIRED -> R.string.error_photo_required
+        ErrorFallback.RATING_NOT_SAVED -> R.string.error_rating_not_saved
+        ErrorFallback.WARDROBE_UNREADABLE -> R.string.error_wardrobe_unreadable
+        ErrorFallback.GARMENT_NOT_DELETED -> R.string.error_garment_not_deleted
+        ErrorFallback.NOT_UNDONE -> R.string.error_not_undone
+    }
+
+/** The garment form's error dialog title; see [ErrorTitle]. */
+@get:StringRes
+val ErrorTitle.labelRes: Int
+    get() = when (this) {
+        ErrorTitle.SAVE -> R.string.form_error_title
+        ErrorTitle.PHOTO -> R.string.error_title_photo
+        ErrorTitle.BACKGROUND -> R.string.error_title_background
+    }

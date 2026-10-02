@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.FirstSteps
+import com.wardrobapp.presentation.HomeScreenState
 
 /**
  * Where the app opens: what you own, and the way to everywhere else.
@@ -49,7 +50,7 @@ import com.wardrobapp.presentation.FirstSteps
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    state: HomeViewModel.State,
+    state: HomeScreenState,
     /**
      * The first-steps card, or null when it does not belong here -- dismissed,
      * every job done, or a wardrobe that arrived whole from a backup. Whether
@@ -354,5 +355,5 @@ private fun Action(title: String, detail: String, glyph: Painter?, onClick: () -
  * anyone can check by grepping.
  */
 @Composable
-private fun HomeViewModel.State.countText(value: Long): String =
+private fun HomeScreenState.countText(value: Long): String =
     if (loading || error != null) stringResource(R.string.count_unknown) else "$value"

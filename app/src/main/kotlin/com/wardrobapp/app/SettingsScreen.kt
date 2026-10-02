@@ -36,9 +36,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -46,6 +46,7 @@ import com.wardrobapp.data.ArchiveDetail
 import com.wardrobapp.data.ArchivePreview
 import com.wardrobapp.data.UnrestorableReason
 import com.wardrobapp.presentation.LanguageChoice
+import com.wardrobapp.presentation.SettingsScreenState
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.formatStoredDateTime
 import java.util.Locale
@@ -60,7 +61,7 @@ import java.util.TimeZone
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    state: SettingsViewModel.State,
+    state: SettingsScreenState,
     version: AppVersion,
     /**
      * The language in force, read from the platform rather than from this app's
@@ -170,7 +171,7 @@ fun SettingsScreen(
             )
             OutlinedButton(
                 onClick = onTidyRequested,
-                enabled = state.tidy !is SettingsViewModel.Tidy.Running,
+                enabled = state.tidy !is SettingsScreenState.Tidy.Running,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
                 Text(stringResource(R.string.settings_tidy))
@@ -186,14 +187,14 @@ fun SettingsScreen(
             )
             Button(
                 onClick = onBackupRequested,
-                enabled = state.backup !is SettingsViewModel.Backup.Running,
+                enabled = state.backup !is SettingsScreenState.Backup.Running,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             ) {
                 Text(stringResource(R.string.settings_backup_create))
             }
             OutlinedButton(
                 onClick = onRestoreRequested,
-                enabled = state.restore == null && state.backup !is SettingsViewModel.Backup.Running,
+                enabled = state.restore == null && state.backup !is SettingsScreenState.Backup.Running,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
                 Text(stringResource(R.string.settings_backup_restore))
@@ -296,10 +297,10 @@ private fun Figure(label: String, value: String) {
  */
 @Composable
 private fun BackupDialog(
-    backup: SettingsViewModel.Backup,
+    backup: SettingsScreenState.Backup,
     onDismiss: () -> Unit,
 ) = when (backup) {
-    is SettingsViewModel.Backup.Running -> AlertDialog(
+    is SettingsScreenState.Backup.Running -> AlertDialog(
         onDismissRequest = {},
         title = { Text(stringResource(R.string.backup_running_title)) },
         text = {
@@ -314,7 +315,7 @@ private fun BackupDialog(
         confirmButton = {},
     )
 
-    is SettingsViewModel.Backup.Done -> AlertDialog(
+    is SettingsScreenState.Backup.Done -> AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.backup_done_title)) },
         text = {
@@ -343,7 +344,7 @@ private fun BackupDialog(
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
     )
 
-    is SettingsViewModel.Backup.Failed -> AlertDialog(
+    is SettingsScreenState.Backup.Failed -> AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.backup_failed_title)) },
         text = { Text(backup.message) },
@@ -454,14 +455,14 @@ private fun RestorePreviewDialog(
  */
 @Composable
 internal fun RestoreDialog(
-    restore: SettingsViewModel.Restore,
+    restore: SettingsScreenState.Restore,
     /** Opens the file picker. */
     onConfirm: () -> Unit,
     /** Applies the archive already picked and described, with or without its settings. */
     onConfirmRestore: (withSettings: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) = when (restore) {
-    is SettingsViewModel.Restore.Confirming -> AlertDialog(
+    is SettingsScreenState.Restore.Confirming -> AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.restore_confirm_title)) },
         text = {
@@ -482,10 +483,10 @@ internal fun RestoreDialog(
      * formats did not have the field, and that is a fact about the backup rather
      * than a gap in the screen.
      */
-    is SettingsViewModel.Restore.Previewing ->
+    is SettingsScreenState.Restore.Previewing ->
         RestorePreviewDialog(restore.preview, onConfirmRestore, onDismiss)
 
-    is SettingsViewModel.Restore.Running -> AlertDialog(
+    is SettingsScreenState.Restore.Running -> AlertDialog(
         onDismissRequest = {},
         title = { Text(stringResource(R.string.restore_running_title)) },
         text = {
@@ -497,7 +498,7 @@ internal fun RestoreDialog(
         confirmButton = {},
     )
 
-    is SettingsViewModel.Restore.Done -> AlertDialog(
+    is SettingsScreenState.Restore.Done -> AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.restore_done_title)) },
         text = {
@@ -510,7 +511,7 @@ internal fun RestoreDialog(
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
     )
 
-    is SettingsViewModel.Restore.Failed -> AlertDialog(
+    is SettingsScreenState.Restore.Failed -> AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.restore_failed_title)) },
         // The message is the whole point: it says whether to update the app, find
@@ -618,10 +619,10 @@ private fun Context.detailText(detail: ArchiveDetail): String = when (detail) {
  */
 @Composable
 private fun TidyDialog(
-    tidy: SettingsViewModel.Tidy,
+    tidy: SettingsScreenState.Tidy,
     onDismiss: () -> Unit,
 ) = when (tidy) {
-    is SettingsViewModel.Tidy.Running -> AlertDialog(
+    is SettingsScreenState.Tidy.Running -> AlertDialog(
         onDismissRequest = {},
         title = { Text(stringResource(R.string.tidy_running_title)) },
         text = {
@@ -639,7 +640,7 @@ private fun TidyDialog(
         confirmButton = {},
     )
 
-    is SettingsViewModel.Tidy.NothingToDo -> AlertDialog(
+    is SettingsScreenState.Tidy.NothingToDo -> AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.tidy_nothing_title)) },
         text = {
@@ -648,7 +649,7 @@ private fun TidyDialog(
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
     )
 
-    is SettingsViewModel.Tidy.Done -> AlertDialog(
+    is SettingsScreenState.Tidy.Done -> AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.tidy_done_title)) },
         text = {
@@ -679,7 +680,7 @@ private fun TidyDialog(
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
     )
 
-    is SettingsViewModel.Tidy.Failed -> AlertDialog(
+    is SettingsScreenState.Tidy.Failed -> AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.tidy_failed_title)) },
         text = { Text(tidy.message) },

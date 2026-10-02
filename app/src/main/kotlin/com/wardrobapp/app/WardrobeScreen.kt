@@ -97,6 +97,7 @@ import com.wardrobapp.presentation.WARDROBE_VIEW_CHOICES
 import com.wardrobapp.presentation.WardrobeFacets
 import com.wardrobapp.presentation.WardrobeLayout
 import com.wardrobapp.presentation.WardrobeQuery
+import com.wardrobapp.presentation.WardrobeScreenState
 import com.wardrobapp.presentation.WardrobeView
 import com.wardrobapp.presentation.captionField
 import com.wardrobapp.presentation.paletteColorFor
@@ -159,7 +160,7 @@ fun wardrobeSizeTag(cellsAcross: Int) = "wardrobe-size-$cellsAcross"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WardrobeScreen(
-    state: WardrobeViewModel.State,
+    state: WardrobeScreenState,
     onSearchChanged: (String) -> Unit,
     onSortToggled: () -> Unit,
     onRetry: () -> Unit,

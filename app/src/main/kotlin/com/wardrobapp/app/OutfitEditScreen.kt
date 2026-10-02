@@ -44,6 +44,7 @@ import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.GARMENT_CATEGORIES
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.presentation.OutfitEditScreenState
 import com.wardrobapp.presentation.garmentsMatching
 
 /** The list, so a test can scroll it: a lazy container has not composed the bottom. */
@@ -72,7 +73,7 @@ fun outfitPickTag(garmentId: String) = "outfit-pick-$garmentId"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OutfitEditScreen(
-    state: OutfitEditViewModel.State,
+    state: OutfitEditScreenState,
     isEditing: Boolean,
     onBack: () -> Unit,
     onNameChanged: (String) -> Unit,
@@ -145,7 +146,7 @@ fun OutfitEditScreen(
 
 @Composable
 private fun Editor(
-    state: OutfitEditViewModel.State,
+    state: OutfitEditScreenState,
     insets: PaddingValues,
     onNameChanged: (String) -> Unit,
     onSearchChanged: (String) -> Unit,
@@ -377,5 +378,5 @@ private fun PickableGarment(garment: GarmentRecord, picked: Boolean, onTap: () -
 
 /** The exception's own words where there are any, the fallback otherwise. */
 @Composable
-private fun OutfitEditViewModel.State.errorText(): String? =
-    error ?: errorFallback?.let { stringResource(it) }
+private fun OutfitEditScreenState.errorText(): String? =
+    error ?: errorFallback?.let { stringResource(it.messageRes) }

@@ -26,8 +26,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -48,14 +48,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.wardrobapp.presentation.GalleryEntry
 import com.wardrobapp.presentation.BackgroundAction
+import com.wardrobapp.presentation.GalleryEntry
+import com.wardrobapp.presentation.GarmentDetailScreenState
 import com.wardrobapp.presentation.GarmentDetailView
 import com.wardrobapp.presentation.PaletteEntry
 import com.wardrobapp.presentation.formatStoredDate
@@ -72,7 +73,7 @@ import java.util.TimeZone
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GarmentDetailScreen(
-    state: GarmentDetailViewModel.State,
+    state: GarmentDetailScreenState,
     onBack: () -> Unit,
     onPhotoSelected: (Int) -> Unit,
     onEdit: () -> Unit,
@@ -405,11 +406,11 @@ private fun Actions(
  */
 @Composable
 private fun ConfirmationDialog(
-    confirming: GarmentDetailViewModel.Confirm,
+    confirming: GarmentDetailScreenState.Confirm,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) = when (confirming) {
-    GarmentDetailViewModel.Confirm.RETIRE -> AlertDialog(
+    GarmentDetailScreenState.Confirm.RETIRE -> AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.garment_retire_confirm)) },
         text = {
@@ -421,7 +422,7 @@ private fun ConfirmationDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 
-    GarmentDetailViewModel.Confirm.DELETE -> AlertDialog(
+    GarmentDetailScreenState.Confirm.DELETE -> AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.garment_delete_confirm)) },
         text = {
@@ -629,5 +630,5 @@ private fun PaletteEntry.label(): String = colorKey?.let { paletteLabel(it) } ?:
  * The same rule every screen here follows.
  */
 @Composable
-private fun GarmentDetailViewModel.State.actionErrorText(): String? =
-    actionError ?: actionErrorFallback?.let { stringResource(it) }
+private fun GarmentDetailScreenState.actionErrorText(): String? =
+    actionError ?: actionErrorFallback?.let { stringResource(it.messageRes) }

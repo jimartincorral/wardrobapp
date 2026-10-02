@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.FirstSteps
+import com.wardrobapp.presentation.HomeScreenState
 import com.wardrobapp.presentation.firstStepsFor
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -42,7 +43,7 @@ class FirstStepsCardTest {
     private fun show(steps: FirstSteps?) {
         compose.setContent {
             HomeScreen(
-                state = HomeViewModel.State(loading = false, items = 0, archived = 0),
+                state = HomeScreenState(loading = false, items = 0, archived = 0),
                 firstSteps = steps,
                 onFirstStepsDismissed = { dismissed++ },
                 onFirstStep = { opened += it },

@@ -32,15 +32,16 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.wardrobapp.data.GarmentRecord
+import com.wardrobapp.presentation.OutfitDetailScreenState
 
 /** The way from an outfit to changing it. */
 const val OUTFIT_EDIT_ACTION = "outfit-edit-action"
@@ -58,7 +59,7 @@ const val OUTFIT_EDIT_ACTION = "outfit-edit-action"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OutfitDetailScreen(
-    state: OutfitDetailViewModel.State,
+    state: OutfitDetailScreenState,
     onBack: () -> Unit,
     onGarmentOpened: (String) -> Unit,
     onRate: (Int) -> Unit,
@@ -147,7 +148,7 @@ fun OutfitDetailScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Body(
-    state: OutfitDetailViewModel.State,
+    state: OutfitDetailScreenState,
     insets: PaddingValues,
     onGarmentOpened: (String) -> Unit,
     onRate: (Int) -> Unit,
@@ -250,5 +251,5 @@ private fun Centered(insets: PaddingValues, content: @Composable () -> Unit) {
  * what the app was doing, which the model names as a resource.
  */
 @Composable
-private fun OutfitDetailViewModel.State.errorText(): String? =
-    error ?: errorFallback?.let { stringResource(it) }
+private fun OutfitDetailScreenState.errorText(): String? =
+    error ?: errorFallback?.let { stringResource(it.messageRes) }

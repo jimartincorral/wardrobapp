@@ -74,6 +74,7 @@ import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.garmentCategory
 import com.wardrobapp.presentation.BackgroundAction
 import com.wardrobapp.presentation.GARMENT_COLORS
+import com.wardrobapp.presentation.GarmentFormScreenState
 import com.wardrobapp.presentation.backgroundActionFor
 
 /** The scrolling body of the form, for tests that need to reach past the fold. */
@@ -89,7 +90,7 @@ const val GARMENT_FORM_LIST = "garment-form-list"
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun GarmentFormScreen(
-    state: GarmentFormViewModel.State,
+    state: GarmentFormScreenState,
     isEditing: Boolean,
     brandSuggestions: (String) -> List<String>,
     onBack: () -> Unit,
@@ -133,7 +134,7 @@ fun GarmentFormScreen(
     state.errorText()?.let { error ->
         AlertDialog(
             onDismissRequest = onErrorDismissed,
-            title = { Text(stringResource(state.errorTitle)) },
+            title = { Text(stringResource(state.errorTitle.labelRes)) },
             text = { Text(error) },
             confirmButton = { TextButton(onClick = onErrorDismissed) { Text(stringResource(R.string.action_close)) } },
         )
@@ -679,8 +680,8 @@ private fun DuplicateWarning(
  * The same rule every screen here follows.
  */
 @Composable
-private fun GarmentFormViewModel.State.errorText(): String? =
-    error ?: errorFallback?.let { stringResource(it) }
+private fun GarmentFormScreenState.errorText(): String? =
+    error ?: errorFallback?.let { stringResource(it.messageRes) }
 
 /**
  * Paste a product link and pull its photos in.
@@ -692,7 +693,7 @@ private fun GarmentFormViewModel.State.errorText(): String? =
  */
 @Composable
 private fun ImportFromLink(
-    state: GarmentFormViewModel.UrlImport,
+    state: GarmentFormScreenState.UrlImport,
     onUrlChanged: (String) -> Unit,
     onImport: () -> Unit,
 ) {
@@ -815,16 +816,16 @@ private fun SharedLinkConfirmation(
 /** Why an import did not happen, in the reader's language where it can be. */
 @Composable
 private fun ImportProblemDialog(
-    problem: GarmentFormViewModel.ImportProblem,
+    problem: GarmentFormScreenState.ImportProblem,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val message = when (problem) {
-        is GarmentFormViewModel.ImportProblem.Unsafe -> context.unsafeUrlText(problem.reason)
-        is GarmentFormViewModel.ImportProblem.Failed -> context.importFailureText(problem.reason)
+        is GarmentFormScreenState.ImportProblem.Unsafe -> context.unsafeUrlText(problem.reason)
+        is GarmentFormScreenState.ImportProblem.Failed -> context.importFailureText(problem.reason)
         // The network's own words, or nothing useful at all -- in which case the
         // app says what it was trying to do instead of showing an empty dialog.
-        is GarmentFormViewModel.ImportProblem.Foreign ->
+        is GarmentFormScreenState.ImportProblem.Foreign ->
             problem.text ?: stringResource(R.string.import_invalid_url)
     }
 

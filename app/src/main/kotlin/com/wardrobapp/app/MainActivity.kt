@@ -46,11 +46,11 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
-import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.canhub.cropper.CropImageContract
 import com.wardrobapp.data.backupFilename
 import com.wardrobapp.domain.PhantomGarment
@@ -58,6 +58,7 @@ import com.wardrobapp.presentation.BULK_ADD_MINIMUM
 import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.OnboardingStep
+import com.wardrobapp.presentation.SettingsScreenState
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.WardrobeQuery
@@ -526,7 +527,7 @@ class MainActivity : AppCompatActivity() {
         // has ever been seen. Written as soon as the restore lands rather than on
         // the way out, because being killed between the two would leave a restored
         // wardrobe with an empty checklist on top of it.
-        val restoreSucceeded = restoreState.restore is SettingsViewModel.Restore.Done
+        val restoreSucceeded = restoreState.restore is SettingsScreenState.Restore.Done
         LaunchedEffect(restoreSucceeded) {
             if (restoreSucceeded) onboarding.firstStepsDismissed = true
         }
@@ -541,7 +542,7 @@ class MainActivity : AppCompatActivity() {
                     // restore finishing behind a dialog nobody has answered. A
                     // failure dismisses back to the welcome screen, which is where
                     // "start fresh" still is.
-                    val restored = restore is SettingsViewModel.Restore.Done
+                    val restored = restore is SettingsScreenState.Restore.Done
                     restoring.onRestoreDismissed()
                     if (restored) leave()
                 },

@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.wardrobapp.presentation.BulkAddScreenState
 import com.wardrobapp.presentation.BulkAddState
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -34,7 +35,7 @@ class BulkAddScreenTest {
     private fun show(queue: BulkAddState) {
         compose.setContent {
             BulkAddScreen(
-                state = BulkAddViewModel.State(queue = queue),
+                state = BulkAddScreenState(queue = queue),
                 onBack = {},
                 onChoosePhotos = { chosen++ },
                 onCategorySelected = {},

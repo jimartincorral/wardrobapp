@@ -79,6 +79,8 @@ import com.wardrobapp.presentation.LifespanBar
 import com.wardrobapp.presentation.MULTI_SWATCH
 import com.wardrobapp.presentation.NO_SUBCATEGORY
 import com.wardrobapp.presentation.StatBar
+import com.wardrobapp.presentation.StatisticsScreenState
+import com.wardrobapp.presentation.StatisticsSection
 import com.wardrobapp.presentation.StatisticsView
 import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.paletteColorFor
@@ -96,9 +98,6 @@ fun statFilterTag(value: String) = "statistics-filter-$value"
  * garment ids, and two sections claiming one tag would leave a test tapping
  * whichever the tree happened to reach first. */
 fun duplicateTag(garmentId: String) = "statistics-duplicate-$garmentId"
-
-/** The parts of the page that open and shut, all shut to begin with. */
-enum class StatisticsSection { CATEGORY, COLOUR, BRAND, LIFESPAN, GAPS, DUPLICATES }
 
 /** One gap's card, keyed on the slot it is about rather than on its position. */
 fun gapTag(slot: OutfitSlot) = "statistics-gap-$slot"
@@ -132,7 +131,7 @@ const val STATISTICS_PAGE = "statistics-page"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatisticsScreen(
-    state: StatisticsViewModel.State,
+    state: StatisticsScreenState,
     onCategoryTapped: (String) -> Unit,
     onLinkRequested: (WardrobeLink?) -> Unit,
     onGarmentOpened: (String) -> Unit,

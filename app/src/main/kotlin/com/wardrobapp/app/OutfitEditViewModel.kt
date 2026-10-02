@@ -7,8 +7,11 @@ import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.isoTimestamp
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.presentation.ErrorFallback
+import com.wardrobapp.presentation.OutfitEditScreenState
 import com.wardrobapp.presentation.OutfitEditState
 import com.wardrobapp.presentation.outfitEditStateOf
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +19,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 /**
  * Building an outfit by hand, and changing one.
@@ -34,35 +36,8 @@ class OutfitEditViewModel(
 
     val isEditing = outfitId != null
 
-    data class State(
-        val edit: OutfitEditState = OutfitEditState(),
-        /**
-         * The garments that can be picked.
-         *
-         * Retired garments are left out: an outfit is something to wear, and
-         * offering a garment marked unavailable would be offering to build an
-         * outfit out of clothes that are gone.
-         */
-        val garments: List<GarmentRecord> = emptyList(),
-        /**
-         * What has been typed into the picker's search.
-         *
-         * Screen state rather than part of [edit]: it narrows what is offered and
-         * says nothing about the outfit, so it must not travel to the row.
-         */
-        val search: String = "",
-        val loading: Boolean = true,
-        val saving: Boolean = false,
-        /** Set once the row is written, so the screen knows to leave. */
-        val saved: Boolean = false,
-        /** Set when the outfit being edited is not there. */
-        val missing: Boolean = false,
-        val error: String? = null,
-        @StringRes val errorFallback: Int? = null,
-    )
-
-    private val _state = MutableStateFlow(State())
-    val state: StateFlow<State> = _state.asStateFlow()
+    private val _state = MutableStateFlow(OutfitEditScreenState())
+    val state: StateFlow<OutfitEditScreenState> = _state.asStateFlow()
 
     init {
         load()
@@ -107,7 +82,7 @@ class OutfitEditViewModel(
                     it.copy(
                         loading = false,
                         error = e.message,
-                        errorFallback = R.string.error_wardrobe_unreadable,
+                        errorFallback = ErrorFallback.WARDROBE_UNREADABLE,
                     )
                 }
             }
@@ -145,7 +120,7 @@ class OutfitEditViewModel(
                     it.copy(
                         saving = false,
                         error = e.message,
-                        errorFallback = R.string.error_outfit_not_saved,
+                        errorFallback = ErrorFallback.OUTFIT_NOT_SAVED,
                     )
                 }
             }

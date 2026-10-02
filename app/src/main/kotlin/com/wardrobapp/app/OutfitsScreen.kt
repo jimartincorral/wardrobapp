@@ -58,6 +58,7 @@ import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.presentation.OutfitsScreenState
 import com.wardrobapp.presentation.occasionChips
 import com.wardrobapp.presentation.seasonChips
 import kotlinx.coroutines.delay
@@ -129,7 +130,7 @@ private fun BuildingAround(seed: GarmentRecord, onCleared: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OutfitsScreen(
-    state: OutfitsViewModel.State,
+    state: OutfitsScreenState,
     onSeasonTapped: (Season?) -> Unit,
     onOccasionTapped: (Occasion?) -> Unit,
     onGenerate: () -> Unit,
@@ -137,8 +138,8 @@ fun OutfitsScreen(
     onKeep: () -> Unit,
     onKeepDismissed: () -> Unit,
     onArchivedToggled: () -> Unit,
-    onSave: (OutfitsViewModel.Suggestion) -> Unit,
-    onRate: (OutfitsViewModel.Suggestion, Int) -> Unit,
+    onSave: (OutfitsScreenState.Suggestion) -> Unit,
+    onRate: (OutfitsScreenState.Suggestion, Int) -> Unit,
     onPinToggled: (OutfitRecord) -> Unit,
     onDeleteRequested: (OutfitRecord) -> Unit,
     onDeleteConfirmed: () -> Unit,
@@ -425,7 +426,7 @@ private const val ARRIVAL_STAGGER_MILLIS = 120L
  * cards are still arriving.
  */
 @Composable
-private fun SuggestButton(state: OutfitsViewModel.State, onGenerate: () -> Unit) {
+private fun SuggestButton(state: OutfitsScreenState, onGenerate: () -> Unit) {
     var spins by remember { mutableStateOf(0) }
     val press = remember { MutableInteractionSource() }
 
@@ -465,7 +466,7 @@ private fun SuggestButton(state: OutfitsViewModel.State, onGenerate: () -> Unit)
 
 @Composable
 private fun SuggestionCard(
-    suggestion: OutfitsViewModel.Suggestion,
+    suggestion: OutfitsScreenState.Suggestion,
     onSave: () -> Unit,
     onRate: (Int) -> Unit,
     onGarmentOpened: (String) -> Unit,
