@@ -1,6 +1,8 @@
 package com.wardrobapp.app
 
+import com.wardrobapp.presentation.ErrorTitle
 import com.wardrobapp.presentation.GarmentFormScreenState
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,5 +35,21 @@ class GarmentFormErrorDismissalTest {
         val state = model.state.value
         assertNull("the message survived being dismissed", state.error)
         assertNull("the fallback survived being dismissed, which is what reopened the dialog", state.errorFallback)
+    }
+
+    @Test
+    fun `an error after a dismissed one is not titled with the first one's title`() {
+        val model = GarmentFormViewModel(AppContainer(RuntimeEnvironment.getApplication()), garmentId = null)
+
+        // A photo failure, titled as one...
+        model.onCameraUnavailable()
+        assertEquals(ErrorTitle.PHOTO, model.state.value.errorTitle)
+        model.onErrorDismissed()
+
+        // ...and then a save with no photo, which sets no title of its own and
+        // used to arrive under "Couldn't use that photo".
+        model.onSaveRequested()
+
+        assertEquals(ErrorTitle.SAVE, model.state.value.errorTitle)
     }
 }

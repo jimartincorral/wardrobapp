@@ -529,7 +529,13 @@ class GarmentFormViewModel(
         // the same dialog appeared again the instant it closed. Since an
         // AlertDialog is modal, that read as the close button doing nothing and
         // the screen being stuck.
-        _state.update { it.copy(error = null, errorFallback = null) }
+        //
+        // The title goes back to its default for a related reason. Only the photo
+        // and background failures set one, so whatever error came next inherited
+        // the last one's: "A garment needs at least one photo" arrived under
+        // "Couldn't use that photo" if the camera had failed earlier -- the
+        // mislabelling `errorTitle` exists to prevent.
+        _state.update { it.copy(error = null, errorFallback = null, errorTitle = ErrorTitle.SAVE) }
     }
 
     private fun GarmentFormState.asDuplicateCandidate() = DuplicateCandidate(
