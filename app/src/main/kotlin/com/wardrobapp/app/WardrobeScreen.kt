@@ -281,6 +281,10 @@ fun WardrobeScreen(
                 }
             }
 
+            // Read once into a local, as HomeScreen does: the state lives in
+            // :presentation now, and Kotlin will not smart-cast another module's
+            // property.
+            val error = state.error
             when {
                 state.loading && state.garments.isEmpty() -> fullWidth {
                     Message { CircularProgressIndicator() }
@@ -288,7 +292,7 @@ fun WardrobeScreen(
 
                 // Reported, not swallowed. A read that failed must not look like
                 // a wardrobe with nothing in it.
-                state.error != null -> fullWidth {
+                error != null -> fullWidth {
                     Message {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
@@ -296,7 +300,7 @@ fun WardrobeScreen(
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                state.error,
+                                error,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(top = 4.dp, start = 24.dp, end = 24.dp),

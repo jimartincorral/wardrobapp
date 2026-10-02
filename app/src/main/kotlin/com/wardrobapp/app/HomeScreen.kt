@@ -123,7 +123,11 @@ fun HomeScreen(
                 }
             }
 
-            if (state.error != null) {
+            // Read once into a local: the state lives in :presentation now, and
+            // Kotlin will not smart-cast a property from another module, which
+            // could in principle answer differently the second time it is asked.
+            val error = state.error
+            if (error != null) {
                 item {
                     Card {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -132,7 +136,7 @@ fun HomeScreen(
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                state.error,
+                                error,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(top = 4.dp),
