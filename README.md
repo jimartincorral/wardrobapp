@@ -245,11 +245,11 @@ missed a few launches is told about all of them.
 
 ## Architecture
 
-One Android module and four that need nothing but a JDK — three plain Kotlin/JVM, and `:domain`, which is Kotlin Multiplatform. `settings.gradle.kts` includes `:app` only when an Android SDK is present, which is what lets the other four be built and tested on any machine — and proves they need nothing but a JDK, rather than merely claiming it.
+One Android module and four that need nothing but a JDK — `:domain` and `:data`, which are Kotlin Multiplatform, and `:presentation` and `:net`, which are plain Kotlin/JVM. `settings.gradle.kts` includes `:app` only when an Android SDK is present, which is what lets the other four be built and tested on any machine — and proves they need nothing but a JDK, rather than merely claiming it.
 
 - **`domain/`** — no database, no filesystem, no clock, no Android. Everything arrives as an argument: the suggestion engine takes its randomness as a parameter, so a run is reproducible and a bug can be reported. Common code that also compiles for the browser, apart from URL import, which only runs where a page is fetched and stays on the JVM. `./gradlew test` compiles the Wasm target as well as running the tests, so code that only builds on the JVM fails there rather than in the browser build.
 - **`presentation/`** — the decisions a screen makes, taken out of the screen. Chart widths, what counts as an active filter, which photo the strip has selected. Compose renders the answers; it does not compute them.
-- **`data/`** — reaches SQLite through a small `SqlDriver` interface rather than depending on `androidx.sqlite`. On Android that wraps a `SupportSQLiteDatabase`; in tests it wraps JDBC. Both run the same SQL against the same schema, which is what lets the queries be exercised without an emulator.
+- **`data/`** — reaches SQLite through a small `SqlDriver` interface rather than depending on `androidx.sqlite`. On Android that wraps a `SupportSQLiteDatabase`; in tests it wraps JDBC. Both run the same SQL against the same schema, which is what lets the queries be exercised without an emulator. The records, queries, writes and schema are common code; the backup archive, file locations, Drive requests and write timestamps stay on the JVM, where the phone and the Home Assistant server run them.
 - **`net/`** — the one pure module that does I/O: the requests URL import makes. It holds no decisions — whether an address may be fetched is `:domain`'s — and it is separate from `:app` so that what a request actually reaches can be tested against a real server without an SDK.
 - **`app/`** — layout, navigation, and the platform. Thin on purpose: a ViewModel here loads data, calls a pure function and holds the result.
 
