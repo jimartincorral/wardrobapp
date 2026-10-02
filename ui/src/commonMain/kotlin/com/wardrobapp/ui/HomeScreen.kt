@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.sp
 import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.FirstSteps
 import com.wardrobapp.presentation.HomeScreenState
-import com.wardrobapp.ui.Glyph
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_retry
 import com.wardrobapp.ui.resources.count_unknown
@@ -230,11 +229,11 @@ fun HomeScreen(
  * being clipped by the button's own bounds -- which looks like a font bug and is
  * a box that is too short.
  */
-internal val CTA_HEIGHT = 52.dp
+val CTA_HEIGHT = 52.dp
 
 /** 500 15/22, the design's filled-button label. Two points over Material's own. */
 @Composable
-internal fun ctaLabel() = MaterialTheme.typography.labelLarge.copy(
+fun ctaLabel() = MaterialTheme.typography.labelLarge.copy(
     fontSize = 15.sp,
     lineHeight = 22.sp,
     fontWeight = FontWeight.Medium,

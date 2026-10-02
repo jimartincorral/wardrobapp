@@ -45,6 +45,10 @@ import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.OutfitEditScreenState
 import com.wardrobapp.presentation.garmentsMatching
+import com.wardrobapp.ui.categoryLabel
+import com.wardrobapp.ui.garmentTypeLabel
+import com.wardrobapp.ui.labelRes
+import com.wardrobapp.ui.messageRes
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_back
 import com.wardrobapp.ui.resources.action_close

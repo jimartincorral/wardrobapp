@@ -13,9 +13,9 @@ import kotlin.test.assertTrue
  * missed string is invisible in English -- it reads perfectly until someone
  * switches to Spanish and one label stays put.
  *
- * Here for the same reason as [StringResourceParityTest]: :app cannot be compiled
- * on a machine with no Android SDK, so a check that reads its sources is the only
- * one available before CI. It looks at the call sites where text reaches a person
+ * Here for the same reason as [StringResourceParityTest]: :app and :ui cannot be
+ * compiled on a machine with no Android SDK, so a check that reads their sources
+ * is the only one available before CI. It looks at the call sites where text reaches a person
  * -- `Text(...)`, `contentDescription`, and the message fields a ViewModel puts on
  * its state -- and not at every literal, because plenty of literals are route
  * names, SQL, or animation labels.
@@ -112,14 +112,22 @@ class HardcodedStringTest {
         assertEquals(emptyList(), found)
     }
 
-    private fun sourceFiles(): List<File> {
-        val dir = System.getProperty("appSourceDir")
-            ?: error("appSourceDir was not set; see presentation/build.gradle.kts")
-        val files = File(dir).listFiles { f: File -> f.name.endsWith(".kt") }?.sorted()
+    /**
+     * :app's screens and :ui's, which is where they are moving.
+     *
+     * Both, and each required to hold something: a screen that moved would
+     * otherwise leave this check's sight without anything failing, and an empty
+     * directory -- a path that stopped matching -- would make every file clean.
+     */
+    private fun sourceFiles(): List<File> =
+        listOf("appSourceDir", "uiSourceDir").flatMap { property ->
+            val dir = System.getProperty(property)
+                ?: error("$property was not set; see presentation/build.gradle.kts")
+            val files = File(dir).listFiles { f: File -> f.name.endsWith(".kt") }?.sorted()
 
-        assertTrue(!files.isNullOrEmpty(), "no Kotlin sources found under $dir")
-        return files!!
-    }
+            assertTrue(!files.isNullOrEmpty(), "no Kotlin sources found under $dir")
+            files!!.toList()
+        }
 
     private fun userFacingLiterals(source: String): List<String> {
         val code = source

@@ -10,6 +10,8 @@ import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.FirstSteps
 import com.wardrobapp.presentation.HomeScreenState
 import com.wardrobapp.presentation.firstStepsFor
+import com.wardrobapp.ui.FIRST_STEPS_CARD
+import com.wardrobapp.ui.HomeScreen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

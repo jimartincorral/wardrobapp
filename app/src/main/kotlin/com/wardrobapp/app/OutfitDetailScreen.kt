@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.presentation.OutfitDetailScreenState
+import com.wardrobapp.ui.Stars
+import com.wardrobapp.ui.messageRes
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_back
 import com.wardrobapp.ui.resources.action_delete

@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -25,7 +25,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.FirstSteps
-import com.wardrobapp.ui.Glyph
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.first_steps_bulk
 import com.wardrobapp.ui.resources.first_steps_dismiss

@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.ui.graphics.Color
 import com.wardrobapp.domain.parseHexColor
@@ -11,5 +11,5 @@ import com.wardrobapp.domain.parseHexColor
  * malformed input instead of returning something wrong. A colour that cannot be
  * read is left undrawn rather than guessed at.
  */
-internal fun String.toComposeColor(): Color? =
+fun String.toComposeColor(): Color? =
     parseHexColor(this)?.let { Color(it.r, it.g, it.b) }

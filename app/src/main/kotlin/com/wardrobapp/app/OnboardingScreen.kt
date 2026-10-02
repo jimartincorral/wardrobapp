@@ -47,7 +47,12 @@ import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.MAX_RATING
 import com.wardrobapp.presentation.OnboardingStep
 import com.wardrobapp.presentation.ThemeChoice
+import com.wardrobapp.ui.CTA_HEIGHT
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.ctaLabel
+import com.wardrobapp.ui.labelRes
+import com.wardrobapp.ui.photoSurface
+import com.wardrobapp.ui.pressScale
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.a_body
 import com.wardrobapp.ui.resources.a_next

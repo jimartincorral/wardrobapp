@@ -59,7 +59,15 @@ import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.OutfitsScreenState
 import com.wardrobapp.presentation.occasionChips
 import com.wardrobapp.presentation.seasonChips
+import com.wardrobapp.ui.CTA_HEIGHT
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.Stars
+import com.wardrobapp.ui.categoryLabel
+import com.wardrobapp.ui.ctaLabel
+import com.wardrobapp.ui.garmentTypeLabel
+import com.wardrobapp.ui.labelRes
+import com.wardrobapp.ui.photoSurface
+import com.wardrobapp.ui.pressScale
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_delete
 import com.wardrobapp.ui.resources.action_keep
@@ -93,6 +101,7 @@ import com.wardrobapp.ui.resources.outfits_suggest_again
 import com.wardrobapp.ui.resources.outfits_suggesting
 import com.wardrobapp.ui.resources.outfits_title
 import com.wardrobapp.ui.resources.outfits_use_whole_wardrobe
+import com.wardrobapp.ui.springGentle
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource

@@ -10,6 +10,7 @@ import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.SuggestedOutfit
 import com.wardrobapp.domain.OutfitReason
 import com.wardrobapp.presentation.OutfitsScreenState
+import com.wardrobapp.ui.starTag
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

@@ -39,6 +39,9 @@ import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_cancel
 import com.wardrobapp.ui.resources.action_close
 import com.wardrobapp.ui.resources.action_done
+import com.wardrobapp.ui.resources.backup_frequency_daily
+import com.wardrobapp.ui.resources.backup_frequency_monthly
+import com.wardrobapp.ui.resources.backup_frequency_weekly
 import com.wardrobapp.ui.resources.restore_done_body
 import com.wardrobapp.ui.resources.restore_done_title
 import com.wardrobapp.ui.resources.restore_preview_made
@@ -72,6 +75,7 @@ import com.wardrobapp.ui.resources.settings_megabytes
 import com.wardrobapp.ui.resources.settings_section_cloud
 import java.util.Locale
 import java.util.TimeZone
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** For the tests that ask whether the section is on screen. */
@@ -504,3 +508,22 @@ private fun Working(working: CloudBackupViewModel.Working, progress: Float?) {
         }
     }
 }
+
+/**
+ * What to call each backup frequency.
+ *
+ * Adjectives rather than "Every day": the row reads as an answer to "how often",
+ * which is the heading above it, and "Daily / Weekly / Monthly" scans as one set
+ * where "Every day / Every week" repeats a word three times.
+ *
+ * Here rather than in Vocabulary with the rest, because Vocabulary is shared
+ * with the browser and a backup schedule is not: Drive backups are a phone
+ * feature, and BackupFrequency lives on the JVM side of :presentation with the
+ * scheduling it describes.
+ */
+val BackupFrequency.labelRes: StringResource
+    get() = when (this) {
+        BackupFrequency.DAILY -> Res.string.backup_frequency_daily
+        BackupFrequency.WEEKLY -> Res.string.backup_frequency_weekly
+        BackupFrequency.MONTHLY -> Res.string.backup_frequency_monthly
+    }

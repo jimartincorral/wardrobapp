@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
  * whatever it sits beside is the caller's job.
  */
 @Composable
-internal fun ColorSwatch(color: Color, modifier: Modifier = Modifier, size: Dp = 18.dp) {
+fun ColorSwatch(color: Color, modifier: Modifier = Modifier, size: Dp = 18.dp) {
     Box(
         modifier = modifier
             .size(size)

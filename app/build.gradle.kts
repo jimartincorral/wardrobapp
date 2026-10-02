@@ -125,6 +125,14 @@ android {
         // So CI can print the findings into the build log. The HTML report is no
         // use to anyone reading a workflow run.
         textReport = true
+
+        // And :ui with it, which is where the screens are moving. Lint looks only
+        // at the module it runs in unless told otherwise, so without this every
+        // screen that moved would quietly stop being checked -- a missing
+        // contentDescription in :ui would pass a build that fails it in :app.
+        // From here rather than a lint block of :ui's own so that both are held
+        // to the one configuration above and land in the one report CI prints.
+        checkDependencies = true
     }
 
     signingConfigs {

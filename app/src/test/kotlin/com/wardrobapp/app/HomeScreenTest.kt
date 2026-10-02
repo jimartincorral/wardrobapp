@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.wardrobapp.presentation.HomeScreenState
+import com.wardrobapp.ui.HomeScreen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

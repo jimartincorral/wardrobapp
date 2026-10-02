@@ -54,6 +54,12 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.ui)
+            implementation(compose.animation)
+            implementation(compose.material3)
+            // The handful of stock icons the bottom bar and cards use. Core, not
+            // extended, for the reason Glyphs.kt gives: the extended set is every
+            // icon Google has drawn, to hand the app a few.
+            implementation("org.jetbrains.compose.material:material-icons-core:1.7.3")
             // The screens' strings. `api` because Res is public and :app's own
             // composables -- the ones that stay Android-only -- read it too.
             api(compose.components.resources)

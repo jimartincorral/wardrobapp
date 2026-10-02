@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.Icons
@@ -36,22 +36,22 @@ import org.jetbrains.compose.resources.stringResource
 // The bar, and the five places it goes. Out of MainActivity so that it can be
 // composed on its own, which is what its test does: the point of measuring the
 // labels at all is lost if what gets measured is a copy of the bar made in a test.
-internal const val HOME = "home"
-internal const val WARDROBE = "wardrobe"
-internal const val OUTFITS = "outfits"
-internal const val STATISTICS = "statistics"
-internal const val SETTINGS = "settings"
+const val HOME = "home"
+const val WARDROBE = "wardrobe"
+const val OUTFITS = "outfits"
+const val STATISTICS = "statistics"
+const val SETTINGS = "settings"
 
-// The label is a resource id rather than a string because this list is built
+// The label is a resource rather than a string because this list is built
 // once, outside any composition, and a string would freeze the language it was
 // built in.
-internal data class Tab(
+data class Tab(
     val route: String,
     val labelRes: StringResource,
     val icon: ImageVector,
 )
 
-internal val TABS = listOf(
+val TABS = listOf(
     Tab(HOME, Res.string.tab_home, Icons.Filled.Home),
     Tab(WARDROBE, Res.string.tab_wardrobe, Icons.Filled.List),
     Tab(OUTFITS, Res.string.tab_outfits, Icons.Filled.Star),
@@ -64,7 +64,7 @@ internal val TABS = listOf(
 )
 
 @Composable
-internal fun WardrobeBottomBar(route: String?, onTabSelected: (String) -> Unit) {
+fun WardrobeBottomBar(route: String?, onTabSelected: (String) -> Unit) {
     NavigationBar {
         for (tab in TABS) {
             val selected = route == tab.route

@@ -73,7 +73,19 @@ import com.wardrobapp.presentation.BackgroundAction
 import com.wardrobapp.presentation.GARMENT_COLORS
 import com.wardrobapp.presentation.GarmentFormScreenState
 import com.wardrobapp.presentation.backgroundActionFor
+import com.wardrobapp.ui.CTA_HEIGHT
+import com.wardrobapp.ui.ColorSwatch
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.categoryLabel
+import com.wardrobapp.ui.ctaLabel
+import com.wardrobapp.ui.garmentTypeLabel
+import com.wardrobapp.ui.importFailureText
+import com.wardrobapp.ui.importWarningText
+import com.wardrobapp.ui.labelRes
+import com.wardrobapp.ui.messageRes
+import com.wardrobapp.ui.paletteLabel
+import com.wardrobapp.ui.photoSurface
+import com.wardrobapp.ui.pressScale
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_back
 import com.wardrobapp.ui.resources.action_close
@@ -118,6 +130,8 @@ import com.wardrobapp.ui.resources.shared_link_body
 import com.wardrobapp.ui.resources.shared_link_cancel
 import com.wardrobapp.ui.resources.shared_link_confirm
 import com.wardrobapp.ui.resources.shared_link_title
+import com.wardrobapp.ui.toComposeColor
+import com.wardrobapp.ui.unsafeUrlText
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 

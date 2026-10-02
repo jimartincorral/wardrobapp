@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
@@ -36,7 +36,7 @@ private const val POP_DAMPING = 0.42f
 private const val PRESS_DAMPING = 0.75f
 
 /** The app's default: cards, sheets, menus, anything settling into place. */
-internal fun <T> springGentle(): SpringSpec<T> =
+fun <T> springGentle(): SpringSpec<T> =
     spring(dampingRatio = GENTLE_DAMPING, stiffness = Spring.StiffnessMediumLow)
 
 /** A harder overshoot, for the small things that are meant to be felt: stars, nav icons, chips. */
@@ -59,7 +59,7 @@ internal fun <T> springPress(): SpringSpec<T> =
  * to say the tap landed, not to animate.
  */
 @Composable
-internal fun Modifier.pressScale(
+fun Modifier.pressScale(
     interactionSource: InteractionSource,
     pressedScale: Float = 0.97f,
 ): Modifier {
@@ -81,7 +81,7 @@ internal fun Modifier.pressScale(
  * looks like the row got smaller rather than like it was pushed.
  */
 @Composable
-internal fun Modifier.pressNudge(interactionSource: InteractionSource, distance: Float = 3f): Modifier {
+fun Modifier.pressNudge(interactionSource: InteractionSource, distance: Float = 3f): Modifier {
     val pressed by interactionSource.collectIsPressedAsState()
     val offset by animateFloatAsState(
         targetValue = if (pressed) distance else 0f,
@@ -121,7 +121,7 @@ internal fun Modifier.pressLift(interactionSource: InteractionSource, distance: 
  * animated float keeps the spring's overshoot, which a `scaleIn` transition on a
  * spring would give as well but without the transform origin.
  */
-internal fun Modifier.growFrom(origin: TransformOrigin, progress: Float): Modifier =
+fun Modifier.growFrom(origin: TransformOrigin, progress: Float): Modifier =
     graphicsLayer {
         transformOrigin = origin
         scaleX = progress
@@ -139,7 +139,7 @@ internal fun Modifier.growFrom(origin: TransformOrigin, progress: Float): Modifi
  * backwards from what dark mode is for.
  */
 @Composable
-internal fun photoSurface(): Color =
+fun photoSurface(): Color =
     if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
         MaterialTheme.colorScheme.surfaceContainerHigh
     } else {

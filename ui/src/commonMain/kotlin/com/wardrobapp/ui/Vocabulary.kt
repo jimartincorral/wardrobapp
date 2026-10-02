@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.runtime.Composable
 import com.wardrobapp.domain.ImportFailureReason
@@ -7,16 +7,12 @@ import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.OutfitReason
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.UnsafeUrlReason
-import com.wardrobapp.presentation.BackupFrequency
 import com.wardrobapp.presentation.ErrorFallback
 import com.wardrobapp.presentation.ErrorTitle
 import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.ui.resources.Res
-import com.wardrobapp.ui.resources.backup_frequency_daily
-import com.wardrobapp.ui.resources.backup_frequency_monthly
-import com.wardrobapp.ui.resources.backup_frequency_weekly
 import com.wardrobapp.ui.resources.category_accessories
 import com.wardrobapp.ui.resources.category_activewear
 import com.wardrobapp.ui.resources.category_bottoms
@@ -376,12 +372,12 @@ internal val COLOR_LABELS: Map<String, StringResource> = mapOf(
  * later version -- should still name itself.
  */
 @Composable
-internal fun categoryLabel(id: String): String =
+fun categoryLabel(id: String): String =
     CATEGORY_LABELS[id]?.let { stringResource(it) } ?: id.humanised()
 
 /** A garment type as words, from the English label stored in its row. */
 @Composable
-internal fun garmentTypeLabel(stored: String): String =
+fun garmentTypeLabel(stored: String): String =
     SUBCATEGORY_LABELS[stored]?.let { stringResource(it) } ?: stored
 
 /**
@@ -391,7 +387,7 @@ internal fun garmentTypeLabel(stored: String): String =
  * hex, and the honest thing to show for it.
  */
 @Composable
-internal fun paletteLabel(key: String): String =
+fun paletteLabel(key: String): String =
     COLOR_LABELS[key]?.let { stringResource(it) } ?: key.humanised()
 
 /** "loungewear" as "Loungewear", "lightBlue" as "Light blue". */
@@ -427,20 +423,6 @@ val ThemeChoice.labelRes: StringResource
         ThemeChoice.SYSTEM -> Res.string.theme_automatic
         ThemeChoice.LIGHT -> Res.string.theme_light
         ThemeChoice.DARK -> Res.string.theme_dark
-    }
-
-/**
- * What to call each backup frequency.
- *
- * Adjectives rather than "Every day": the row reads as an answer to "how often",
- * which is the heading above it, and "Daily / Weekly / Monthly" scans as one set
- * where "Every day / Every week" repeats a word three times.
- */
-val BackupFrequency.labelRes: StringResource
-    get() = when (this) {
-        BackupFrequency.DAILY -> Res.string.backup_frequency_daily
-        BackupFrequency.WEEKLY -> Res.string.backup_frequency_weekly
-        BackupFrequency.MONTHLY -> Res.string.backup_frequency_monthly
     }
 
 /**

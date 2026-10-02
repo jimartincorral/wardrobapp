@@ -45,6 +45,7 @@ import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.SettingsScreenState
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.formatStoredDateTime
+import com.wardrobapp.ui.labelRes
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_cancel
 import com.wardrobapp.ui.resources.action_close

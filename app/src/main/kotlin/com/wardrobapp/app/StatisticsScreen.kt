@@ -83,6 +83,10 @@ import com.wardrobapp.presentation.StatisticsView
 import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.paletteColorFor
 import com.wardrobapp.ui.Glyph
+import com.wardrobapp.ui.categoryLabel
+import com.wardrobapp.ui.garmentTypeLabel
+import com.wardrobapp.ui.labelRes
+import com.wardrobapp.ui.paletteLabel
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_retry
 import com.wardrobapp.ui.resources.error_wardrobe_unreadable
@@ -129,6 +133,8 @@ import com.wardrobapp.ui.resources.statistics_sort_count
 import com.wardrobapp.ui.resources.statistics_sort_name
 import com.wardrobapp.ui.resources.statistics_subtitle
 import com.wardrobapp.ui.resources.statistics_title
+import com.wardrobapp.ui.springGentle
+import com.wardrobapp.ui.toComposeColor
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource

@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.presentation.MAX_RATING
-import com.wardrobapp.ui.Glyph
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.outfit_rate_stars
 import kotlinx.coroutines.delay
@@ -64,7 +63,7 @@ private const val POP_MILLIS = 360L
  * that forgot to clear it would leave five stars stuck large.
  */
 @Composable
-internal fun Stars(rating: Int?, onRate: (Int) -> Unit) {
+fun Stars(rating: Int?, onRate: (Int) -> Unit) {
     var popped by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(popped) {
