@@ -28,11 +28,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The three pure Kotlin modules: the algorithms, the mapping layer and the view
-  # logic. Deliberately with no SDK on the path -- settings.gradle.kts then
-  # excludes :app, so this job tests only the modules that need nothing but a
-  # JDK, and in doing so proves they genuinely need nothing but a JDK. That
-  # property is what keeps most of this codebase testable in seconds.
+  # The pure Kotlin modules -- the algorithms, the mapping layer, the view logic
+  # and URL import's requests -- and the screens, compiled for the browser.
+  # Deliberately with no SDK on the path: settings.gradle.kts then excludes :app
+  # and builds :ui from its browser-only build file, so this job checks
+  # everything that needs nothing but a JDK, and in doing so proves it genuinely
+  # needs nothing more. That property is what keeps most of this codebase
+  # testable in seconds, and the screens compilable for the browser on any
+  # machine.
   kotlin:
     name: Kotlin tests
     runs-on: ubuntu-latest

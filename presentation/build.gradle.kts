@@ -104,6 +104,14 @@ tasks.withType<Test>().configureEach {
         .withPropertyName("uiStringResources")
         .withPathSensitivity(PathSensitivity.RELATIVE)
 
+    // And :ui's two build files, for UiBuildFilesTest, which holds them to the
+    // same dependencies. Inputs for the same reason as everything above.
+    val uiModule = rootProject.file("ui")
+    systemProperty("uiModuleDir", uiModule.absolutePath)
+    inputs.files(File(uiModule, "build.gradle.kts"), File(uiModule, "build.wasm.gradle.kts"))
+        .withPropertyName("uiBuildFiles")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+
     // And where the generated vectors are, for GlyphSourcesTest. :ui has no local
     // compiler either -- it builds only where :app does -- so its files are read
     // from here too.

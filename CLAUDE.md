@@ -34,11 +34,17 @@ which explains the rest, and the README section it points at.
 
 - **`:app` does not build without the Android SDK.** `settings.gradle.kts`
   includes it only when one is present, so on a machine without it
-  `./gradlew test` runs the four pure-Kotlin modules and silently skips the app.
-  CI is the only place `:app` is compiled, linted or Robolectric-tested — which
-  is why `:presentation` carries tests that read `:app`'s resources as files.
-  Run `./gradlew test` before pushing; expect CI to be the first thing that
-  compiles the app itself.
+  `./gradlew test` runs the four pure-Kotlin modules, compiles the screens in
+  `:ui` for the browser, and silently skips the app. CI is the only place `:app`
+  is compiled, linted or Robolectric-tested, and the only place `:ui` is built
+  for Android — which is why `:presentation` carries tests that read `:app`'s
+  and `:ui`'s files. Run `./gradlew test` before pushing; expect CI to be the
+  first thing that compiles the app itself.
+
+- **`:ui` has two build files.** `build.gradle.kts` where there is an SDK,
+  `build.wasm.gradle.kts` — the browser target alone — where there is not. A
+  dependency added to one goes in the other too; `UiBuildFilesTest` fails until
+  it does.
 
 - **A `--` inside an XML comment is not a comment.** XML forbids the sequence,
   and the manifest merger's answer is `Error parsing AndroidManifest.xml` with no

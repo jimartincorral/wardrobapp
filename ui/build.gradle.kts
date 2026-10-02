@@ -13,7 +13,11 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 //    the way the logic modules are tested.
 //  - Wasm, for the browser.
 //
-// Included only where there is an Android SDK; settings.gradle.kts says why.
+// This file is used only where there is an Android SDK. Elsewhere
+// settings.gradle.kts builds this module from build.wasm.gradle.kts instead,
+// which compiles the same sources for the browser alone and says why; what the
+// two share is held equal by UiBuildFilesTest, so a dependency added here must
+// be added there too.
 //
 // Compose Multiplatform 1.7, deliberately one line behind the newest. It is the
 // line built on Jetpack Compose 1.7, which is what :app's BOM already pins, so
