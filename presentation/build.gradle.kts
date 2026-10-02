@@ -52,6 +52,16 @@ tasks.withType<Test>().configureEach {
     // And the screens themselves, for HardcodedStringTest. Same reasoning: :app
     // has no local compiler, so a test that reads its sources is the only check
     // available before CI.
+    // And the glyph sources, for GlyphSourcesTest, which checks that the
+    // generated vectors in :app still say what the SVGs do. An input for the same
+    // reason as the resources above: without it, editing an SVG would leave the
+    // test UP-TO-DATE and the check silently not run.
+    val glyphSources = rootProject.file("art/glyphs")
+    systemProperty("glyphSourceDir", glyphSources.absolutePath)
+    inputs.dir(glyphSources)
+        .withPropertyName("glyphSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+
     val appSources = rootProject.file("app/src/main/kotlin/com/wardrobapp/app")
     systemProperty("appSourceDir", appSources.absolutePath)
     inputs.dir(appSources)

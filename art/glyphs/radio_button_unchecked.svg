@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <!--
+    radio_button_unchecked from Material Icons, Apache License 2.0.
+    https://github.com/google/material-design-icons : src/toggle/radio_button_unchecked/materialicons/24px.svg
+
+    Paired with Icons.Filled.CheckCircle, which Material's core set does carry:
+    the two are the done and not-done states of a first-steps row, and they are
+    the same circle at the same weight so a column of them reads as one control.
+  -->
+  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
+</svg>

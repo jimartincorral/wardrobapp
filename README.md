@@ -201,9 +201,12 @@ net/           URL import's requests: a product page and its images, with
                every redirect checked before it is followed.
 data/          SQLite queries and row mapping, photo references, reading and
                writing backup archives.
-art/           logo.png — the logo, as delivered. Every icon the app ships
-               is cut from this file.
+art/           logo.png — the logo, as delivered. Every launcher icon the app
+               ships is cut from this file.
+               glyphs/ — the Material glyphs the app vendors, as SVG, each
+               naming the upstream file it came from.
 scripts/       generate-launcher-icons.py — cuts them, with no dependencies.
+               generate-glyphs.py — turns the glyphs into Compose vectors.
                release-notes.py — the changelog the update dialog shows.
 ```
 
