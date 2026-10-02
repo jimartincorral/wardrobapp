@@ -5,7 +5,6 @@ import com.wardrobapp.domain.GARMENT_CATEGORIES
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.occasions
-import java.text.Collator
 
 /**
  * What a wardrobe actually holds, per filter.
@@ -44,10 +43,9 @@ data class WardrobeFacets(
  *
  * Through a collator rather than by raw characters, for the reason the brand chart
  * already sorts that way: an accented brand belongs where a reader expects it and
- * not after Z. Wrapped in `compareBy` because a Collator compares objects, not
- * strings.
+ * not after Z. The collator is the platform's -- see [readerOrder].
  */
-private val byName: Comparator<String> = compareBy(Collator.getInstance()) { it }
+private val byName: Comparator<String> = readerOrder()
 
 /** Blank is not a value: a garment with no brand recorded is not a brand. */
 private fun List<String?>.values(): List<String> =

@@ -32,4 +32,31 @@ class OutfitRatingTest {
             Locale.setDefault(original)
         }
     }
+
+    @Test
+    fun `the label is what String-format wrote, for every mean ratings can have`() {
+        // The label used to be String.format(Locale.ROOT, "%.1f", mean), which is
+        // JVM-only, and is now worked out from the ratings themselves so it can be
+        // common code. The two must agree for every mean the star row can produce
+        // -- every count of ratings, every total those ratings can reach -- and
+        // the ties are where they could differ: 4.25 and 87/20 are both halfway,
+        // and a double cannot hold the second exactly.
+        for (count in 1..60) {
+            for (sum in count..(MAX_RATING * count)) {
+                val ratings = List(count) { 1 }.toMutableList()
+                var remaining = sum - count
+                for (i in ratings.indices) {
+                    val add = minOf(MAX_RATING - 1, remaining)
+                    ratings[i] += add
+                    remaining -= add
+                }
+
+                assertEquals(
+                    String.format(java.util.Locale.ROOT, "%.1f", sum.toDouble() / count),
+                    ratingSummary(ratings).label,
+                    "$count ratings totalling $sum",
+                )
+            }
+        }
+    }
 }

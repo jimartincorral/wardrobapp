@@ -1,6 +1,5 @@
 package com.wardrobapp.presentation
 
-import java.util.Locale
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -56,18 +55,26 @@ fun ratingSummary(ratings: List<Int>): RatingSummary {
         count = usable.size,
         average = average,
         stars = min(average, MAX_RATING.toDouble()).roundToInt(),
-        label = oneDecimalPlace(average),
+        label = meanToOneDecimalPlace(usable.sum(), usable.size),
         showsAverage = true,
     )
 }
 
 /**
- * A number to one decimal place, the way JavaScript's `toFixed(1)` writes it.
+ * The mean of [count] ratings totalling [sum], to one decimal place.
  *
- * Pinned to [Locale.ROOT] rather than the device's: this is compared against what
- * the TypeScript produced, and half of Europe would render the separator as a
- * comma and fail a fixture for a reason that has nothing to do with the
- * arithmetic. The screen decides how to present it; this decides what it says.
+ * Always a full stop as the separator, never the device's: half of Europe would
+ * write 4,5, and a label compared in tests should not change with the phone it
+ * runs on. The screen decides how to present it; this decides what it says.
+ *
+ * Integer arithmetic on the ratings themselves rather than formatting the mean
+ * as a double. This was `String.format(Locale.ROOT, "%.1f", mean)`, which is
+ * JVM-only, and it is the same answer: half up, on the exact value -- 4.25 is
+ * 4.3 and 87/20 is 4.4 -- where a double would hand a formatter 4.3499...
+ * for the second. `(20 * sum + count) / (2 * count)` is 10 * sum / count
+ * rounded half up, exactly, because every rating is a whole number.
  */
-private fun oneDecimalPlace(value: Double): String =
-    String.format(Locale.ROOT, "%.1f", value)
+private fun meanToOneDecimalPlace(sum: Int, count: Int): String {
+    val tenths = (20L * sum + count) / (2L * count)
+    return "${tenths / 10}.${tenths % 10}"
+}

@@ -156,4 +156,8 @@ private fun ByteArray.byteAt(index: Int): Int = this[index].toInt() and 0xff
 
 /** A pixel's channels as the hex the palette and [colorDistance] are written in. */
 private fun rgbToHex(red: Int, green: Int, blue: Int): String =
-    "#%02X%02X%02X".format(red.coerceIn(0, 255), green.coerceIn(0, 255), blue.coerceIn(0, 255))
+    "#" + listOf(red, green, blue).joinToString("") { channel ->
+        // By hand rather than with String.format, which is JVM-only: two upper-case
+        // hex digits per channel, which is what "%02X" wrote.
+        channel.coerceIn(0, 255).toString(16).padStart(2, '0').uppercase()
+    }

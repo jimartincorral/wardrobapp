@@ -1,5 +1,7 @@
 package com.wardrobapp.presentation
 
+import kotlin.math.roundToLong
+
 /**
  * What the settings screen shows.
  *
@@ -38,7 +40,7 @@ fun formatMegabytes(bytes: Long): String {
     // Rounded rather than formatted with a locale-aware pattern: the unit is
     // appended by the screen, and a decimal comma here would fight the "MB" the
     // screen writes after it.
-    val tenths = Math.round(megabytes * 10.0)
+    val tenths = (megabytes * 10.0).roundToLong()
     return "${tenths / 10}.${tenths % 10}"
 }
 
@@ -78,7 +80,7 @@ fun backupPercent(phase: BackupPhase, copied: Int, total: Int): Int = when (phas
             STAGING_PERCENT
         } else {
             val done = copied.coerceIn(0, total).toDouble() / total
-            STAGING_PERCENT + Math.round(done * (100 - STAGING_PERCENT)).toInt()
+            STAGING_PERCENT + (done * (100 - STAGING_PERCENT)).roundToLong().toInt()
         }
     }
 }

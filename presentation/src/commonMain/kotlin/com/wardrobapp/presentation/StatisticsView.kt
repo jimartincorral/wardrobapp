@@ -170,4 +170,4 @@ private fun swatchFor(key: String): String {
  * what JavaScript's `localeCompare` does, and it is compared against it.
  */
 private fun alphabetically(brands: List<StatBar>): List<StatBar> =
-    brands.sortedWith(compareBy(java.text.Collator.getInstance()) { it.key })
+    brands.sortedWith(compareBy(readerOrder()) { it.key })
