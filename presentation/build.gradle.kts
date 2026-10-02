@@ -77,8 +77,14 @@ tasks.withType<Test>().configureEach {
     // And the screens themselves, for HardcodedStringTest. Same reasoning: :app
     // has no local compiler, so a test that reads its sources is the only check
     // available before CI.
+    val appSources = rootProject.file("app/src/main/kotlin/com/wardrobapp/app")
+    systemProperty("appSourceDir", appSources.absolutePath)
+    inputs.dir(appSources)
+        .withPropertyName("appScreenSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+
     // And the glyph sources, for GlyphSourcesTest, which checks that the
-    // generated vectors in :app still say what the SVGs do. An input for the same
+    // generated vectors in :ui still say what the SVGs do. An input for the same
     // reason as the resources above: without it, editing an SVG would leave the
     // test UP-TO-DATE and the check silently not run.
     val glyphSources = rootProject.file("art/glyphs")
@@ -87,9 +93,12 @@ tasks.withType<Test>().configureEach {
         .withPropertyName("glyphSources")
         .withPathSensitivity(PathSensitivity.RELATIVE)
 
-    val appSources = rootProject.file("app/src/main/kotlin/com/wardrobapp/app")
-    systemProperty("appSourceDir", appSources.absolutePath)
-    inputs.dir(appSources)
-        .withPropertyName("appScreenSources")
+    // And where the generated vectors are, for the same test. :ui has no local
+    // compiler either -- it builds only where :app does -- so its files are read
+    // from here too.
+    val uiSources = rootProject.file("ui/src/commonMain/kotlin/com/wardrobapp/ui")
+    systemProperty("uiSourceDir", uiSources.absolutePath)
+    inputs.dir(uiSources)
+        .withPropertyName("uiSources")
         .withPathSensitivity(PathSensitivity.RELATIVE)
 }

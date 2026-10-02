@@ -57,7 +57,13 @@ val androidSdk = System.getenv("ANDROID_HOME")?.takeIf { it.isNotBlank() }
                     ?.firstOrNull { it.startsWith("sdk.dir=") }
                     ?.removePrefix("sdk.dir=")
 
+// :ui is behind the same probe as :app. It holds the screens, as Compose
+// Multiplatform, and Compose Multiplatform's JVM and Wasm artifacts are published
+// as pointers to androidx's, which live on Google's Maven -- the repository the
+// probe above leaves out where there is no SDK. So the shared screens build where
+// the app does, and the pure modules keep building anywhere.
 if (androidSdk != null && file(androidSdk).isDirectory) {
+    include(":ui")
     include(":app")
 } else {
     logger.lifecycle(

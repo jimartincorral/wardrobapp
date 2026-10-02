@@ -1,4 +1,4 @@
-package com.wardrobapp.app
+package com.wardrobapp.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.painter.Painter
@@ -26,9 +26,11 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
  *
  * Named here rather than reached for as `GlyphVectors.*` at each call site for
  * the reason `Icons.Filled` exists, and kept as painters so no call site had to
- * change when the source of the glyphs did.
+ * change when the source of the glyphs did. Public, and in :ui, because the
+ * glyphs were the first thing to move there: the screens still in :app reach
+ * them across the module boundary until they follow.
  */
-internal object Glyph {
+object Glyph {
     val Apps: Painter @Composable get() = rememberVectorPainter(GlyphVectors.Apps)
     val Archive: Painter @Composable get() = rememberVectorPainter(GlyphVectors.Archive)
     val AutoAwesome: Painter @Composable get() = rememberVectorPainter(GlyphVectors.AutoAwesome)

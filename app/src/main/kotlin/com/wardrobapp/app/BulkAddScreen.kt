@@ -65,6 +65,7 @@ import com.wardrobapp.domain.GARMENT_CATEGORIES
 import com.wardrobapp.domain.garmentCategory
 import com.wardrobapp.presentation.BulkAddScreenState
 import com.wardrobapp.presentation.BulkAddState
+import com.wardrobapp.ui.Glyph
 
 /** Tagged so a test can read the counter without matching a bare number twice. */
 const val BULK_ADD_PROGRESS = "bulk-add-progress"

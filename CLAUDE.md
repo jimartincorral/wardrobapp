@@ -59,7 +59,7 @@ which explains the rest, and the README section it points at.
   the logo rather than editing any PNG under `res/mipmap-*` or the brand mark
   under `res/drawable-*`.
 
-- **So are the glyphs.** `GlyphVectors.kt` is written by
+- **So are the glyphs.** `ui/.../GlyphVectors.kt` is written by
   `scripts/generate-glyphs.py` from `art/glyphs/*.svg`. Change or add an SVG
   and run the script; never edit the Kotlin. `GlyphSourcesTest` fails when the
   two disagree.

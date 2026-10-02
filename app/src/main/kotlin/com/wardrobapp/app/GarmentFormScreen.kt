@@ -76,6 +76,7 @@ import com.wardrobapp.presentation.BackgroundAction
 import com.wardrobapp.presentation.GARMENT_COLORS
 import com.wardrobapp.presentation.GarmentFormScreenState
 import com.wardrobapp.presentation.backgroundActionFor
+import com.wardrobapp.ui.Glyph
 
 /** The scrolling body of the form, for tests that need to reach past the fold. */
 const val GARMENT_FORM_LIST = "garment-form-list"

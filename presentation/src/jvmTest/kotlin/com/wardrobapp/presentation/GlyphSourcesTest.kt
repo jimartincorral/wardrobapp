@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 /**
  * The glyphs the app draws are still the glyphs in `art/glyphs`.
  *
- * `GlyphVectors.kt` in :app is generated from those SVGs by
+ * `GlyphVectors.kt` in :ui is generated from those SVGs by
  * `scripts/generate-glyphs.py`. Generated code has a particular way of going
  * wrong: somebody edits an SVG -- swaps in a newer upstream drawing, adds a
  * glyph -- and does not run the script, and nothing fails, because the old
@@ -17,9 +17,9 @@ import kotlin.test.assertTrue
  * find the source of. So this compares what the Kotlin draws with what the SVGs
  * say, path by path.
  *
- * Here rather than in :app for the reason the other resource checks are: :app
- * does not compile without the Android SDK, and this is a question about two
- * text files that any machine can answer.
+ * Here rather than in :ui for the reason the other resource checks are here
+ * rather than in :app: neither builds without the Android SDK, and this is a
+ * question about two text files that any machine can answer.
  */
 class GlyphSourcesTest {
 
@@ -29,8 +29,8 @@ class GlyphSourcesTest {
     )
 
     private val generated: File = File(
-        System.getProperty("appSourceDir")
-            ?: error("appSourceDir was not set; see presentation/build.gradle.kts"),
+        System.getProperty("uiSourceDir")
+            ?: error("uiSourceDir was not set; see presentation/build.gradle.kts"),
         "GlyphVectors.kt",
     )
 

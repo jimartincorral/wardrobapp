@@ -27,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.FirstSteps
+import com.wardrobapp.ui.Glyph
 
 /**
  * The jobs the first-launch flow does not do, where they can be done.

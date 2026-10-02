@@ -60,6 +60,7 @@ import com.wardrobapp.presentation.GarmentDetailScreenState
 import com.wardrobapp.presentation.GarmentDetailView
 import com.wardrobapp.presentation.PaletteEntry
 import com.wardrobapp.presentation.formatStoredDate
+import com.wardrobapp.ui.Glyph
 import java.util.Locale
 import java.util.TimeZone
 

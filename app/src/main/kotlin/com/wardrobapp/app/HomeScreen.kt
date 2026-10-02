@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.FirstSteps
 import com.wardrobapp.presentation.HomeScreenState
+import com.wardrobapp.ui.Glyph
 
 /**
  * Where the app opens: what you own, and the way to everywhere else.

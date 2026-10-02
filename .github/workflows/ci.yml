@@ -150,6 +150,11 @@ jobs:
       # there is no activity to launch and all of them fail at once. Nothing in
       # these tests is variant-dependent, so debug is the whole story.
       #
+      # `:ui:test` is the shared screens' tests, on a plain JVM with Compose's own
+      # Skia, plus a Wasm compile of them. Here rather than in the job above
+      # because :ui is built only where there is an SDK -- settings.gradle.kts
+      # explains why -- and this is the job that has one.
+      #
       # `:app:lintDebug` is every check lint has, with warnings failing the
       # build. There is no baseline file: the backlog was cleared rather than
       # frozen.
@@ -162,6 +167,7 @@ jobs:
       - name: Build, test and lint
         run: |
           ./gradlew \
+            :ui:test \
             :app:testDebugUnitTest \
             :app:lintDebug \
             :app:assembleRelease \

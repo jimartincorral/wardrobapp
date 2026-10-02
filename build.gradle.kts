@@ -112,11 +112,22 @@ subprojects {
             )
         }
 
-        tasks.register("test") {
-            group = "verification"
-            description = "Runs the JVM tests and compiles every other target. See the root build file."
-            dependsOn("jvmTest")
-            dependsOn(tasks.matching { it.name == "compileKotlinWasmJs" })
+        // Registered after the module's own build file has run, and only if
+        // nothing else has: :ui is also an Android library, and the Android plugin
+        // brings a `test` of its own -- its unit tests, of which :ui has none. Two
+        // tasks cannot share the name, so there the existing one is given the JVM
+        // tests to run as well.
+        project.afterEvaluate {
+            val runs = tasks.matching { it.name == "jvmTest" || it.name == "compileKotlinWasmJs" }
+            if (tasks.findByName("test") == null) {
+                tasks.register("test") {
+                    group = "verification"
+                    description = "Runs the JVM tests and compiles every other target. See the root build file."
+                    dependsOn(runs)
+                }
+            } else {
+                tasks.named("test") { dependsOn(runs) }
+            }
         }
     }
 

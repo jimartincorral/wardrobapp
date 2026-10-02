@@ -101,6 +101,7 @@ import com.wardrobapp.presentation.WardrobeScreenState
 import com.wardrobapp.presentation.WardrobeView
 import com.wardrobapp.presentation.captionField
 import com.wardrobapp.presentation.paletteColorFor
+import com.wardrobapp.ui.Glyph
 import kotlinx.coroutines.launch
 
 /** The scrolling body of the wardrobe, for tests that need to reach past the fold. */

@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.presentation.MAX_RATING
+import com.wardrobapp.ui.Glyph
 import kotlinx.coroutines.delay
 
 /**

@@ -61,6 +61,7 @@ import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.OutfitsScreenState
 import com.wardrobapp.presentation.occasionChips
 import com.wardrobapp.presentation.seasonChips
+import com.wardrobapp.ui.Glyph
 import kotlinx.coroutines.delay
 
 /** The "building around this garment" banner, for a test that asks whether it is there. */

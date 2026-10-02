@@ -258,6 +258,8 @@ kotlin {
 
 dependencies {
     implementation(project(":presentation"))
+    // The screens, as they move to Compose Multiplatform.
+    implementation(project(":ui"))
     // URL import's requests. Plain JVM, so it is tested without an SDK; see its
     // build file.
     implementation(project(":net"))
