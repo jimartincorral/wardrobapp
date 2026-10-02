@@ -62,7 +62,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import com.wardrobapp.data.DuplicateGarment
 import com.wardrobapp.domain.COMMON_SIZES
 import com.wardrobapp.domain.GARMENT_CATEGORIES

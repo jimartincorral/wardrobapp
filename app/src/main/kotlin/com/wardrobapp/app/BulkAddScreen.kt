@@ -58,7 +58,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import com.wardrobapp.domain.GARMENT_CATEGORIES
 import com.wardrobapp.domain.garmentCategory
 import com.wardrobapp.presentation.BulkAddScreenState

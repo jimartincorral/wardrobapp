@@ -60,6 +60,25 @@ kotlin {
             // extended, for the reason Glyphs.kt gives: the extended set is every
             // icon Google has drawn, to hand the app a few.
             implementation("org.jetbrains.compose.material:material-icons-core:1.7.3")
+            // Photos are files on disk; Coil loads them without hand-rolled
+            // decoding. Coil 3, the multiplatform one -- Coil 2 is Android's, and
+            // the screens that draw photos are moving here.
+            //
+            // 3.0.4 because it is the newest built on Compose Multiplatform 1.7:
+            // 3.2 is built on 1.8, which would pull Jetpack Compose 1.8 into the
+            // app the way the comment at the top of this file refuses to.
+            //
+            // No network module. Every photo the app draws is a local file -- an
+            // imported image is downloaded by :net, through the address checks
+            // in ImportHttp, before anything shows it -- and leaving Coil without
+            // a network means a remote URL that reached a screen would draw
+            // nothing rather than be fetched by a client those checks never see.
+            // The browser will need one, for the server's photos, and gets it
+            // with that.
+            //
+            // `api` while :app still has screens that draw photos; it becomes
+            // `implementation` when the last of them moves.
+            api("io.coil-kt.coil3:coil-compose:3.0.4")
             // The screens' strings. `api` because Res is public and :app's own
             // composables -- the ones that stay Android-only -- read it too.
             api(compose.components.resources)

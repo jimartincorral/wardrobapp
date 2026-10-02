@@ -29,10 +29,11 @@ dependencies {
     // used, with no second lookup in between for a hostile resolver to answer
     // differently. See `ImportHttp`.
     //
-    // 4.12.0 because it is the version Coil already puts in the APK -- coil-base
-    // 2.7.0 depends on exactly this -- so this adds no weight to the app, and the
-    // two cannot drift into a version conflict without one of them being bumped
-    // on purpose. It ships its own R8 rules.
+    // 4.12.0, the last of the 4.x line. Chosen when Coil 2 put exactly this
+    // version in the APK, so that adding it cost the app nothing; Coil 3 has no
+    // network module here (ui/build.gradle.kts says why), so this is now the only
+    // OkHttp the app ships and the only client that reaches the network for an
+    // import. It ships its own R8 rules.
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation(kotlin("test"))
 }
