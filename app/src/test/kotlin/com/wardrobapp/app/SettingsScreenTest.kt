@@ -9,8 +9,12 @@ import androidx.compose.ui.test.performClick
 import com.wardrobapp.data.ArchivePreview
 import com.wardrobapp.data.UnrestorableReason
 import com.wardrobapp.presentation.LanguageChoice
+import com.wardrobapp.presentation.SettingsScreenState
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.settingsView
+import com.wardrobapp.ui.AppVersion
+import com.wardrobapp.ui.RESTORE_WITH_SETTINGS
+import com.wardrobapp.ui.SettingsScreen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -49,7 +53,7 @@ class SettingsScreenTest {
     private var confirmedWithSettings: Boolean? = null
 
     private fun show(
-        state: SettingsViewModel.State,
+        state: SettingsScreenState,
         theme: ThemeChoice = ThemeChoice.SYSTEM,
         language: LanguageChoice = LanguageChoice.SYSTEM,
     ) {
@@ -79,7 +83,7 @@ class SettingsScreenTest {
     }
 
     private fun loaded(garments: Long = 12, retired: Long = 0, photoBytes: Long = 5_242_880) =
-        SettingsViewModel.State(
+        SettingsScreenState(
             loading = false,
             view = settingsView(garments = garments, retired = retired, photoBytes = photoBytes),
         )
@@ -112,7 +116,7 @@ class SettingsScreenTest {
         // The rule every screen in this app follows, and the one worth a test:
         // showing zero garments for a database that would not open is the kind of
         // wrong that makes someone restore a backup they did not need to.
-        show(SettingsViewModel.State(loading = false, view = null, error = "disk I/O error"))
+        show(SettingsScreenState(loading = false, view = null, error = "disk I/O error"))
 
         compose.onNodeWithText("Couldn't read the wardrobe").assertIsDisplayed()
         compose.onNodeWithText("disk I/O error").assertIsDisplayed()
@@ -120,7 +124,7 @@ class SettingsScreenTest {
 
     @Test
     fun `a running backup cannot be dismissed`() {
-        show(loaded().copy(backup = SettingsViewModel.Backup.Running(percent = 40)))
+        show(loaded().copy(backup = SettingsScreenState.Backup.Running(percent = 40)))
 
         // No button at all: the work carries on whether the dialog is there or not,
         // and a half-written archive is not something to hand back silently.
@@ -131,7 +135,7 @@ class SettingsScreenTest {
 
     @Test
     fun `a restore asks before it replaces anything`() {
-        show(loaded().copy(restore = SettingsViewModel.Restore.Confirming))
+        show(loaded().copy(restore = SettingsScreenState.Restore.Confirming))
 
         compose.onNodeWithText("Cancel").assertIsDisplayed()
     }
@@ -142,7 +146,7 @@ class SettingsScreenTest {
         // whether to update the app, find another file, or that nothing was lost.
         show(
             loaded().copy(
-                restore = SettingsViewModel.Restore.Failed(
+                restore = SettingsScreenState.Restore.Failed(
                     message = "should not be shown",
                     reason = UnrestorableReason.BackupFromNewerApp(found = 7, supported = 3),
                 ),
@@ -160,7 +164,7 @@ class SettingsScreenTest {
         // diagnostic in it at all.
         show(
             loaded().copy(
-                restore = SettingsViewModel.Restore.Failed(message = "Permission denied"),
+                restore = SettingsScreenState.Restore.Failed(message = "Permission denied"),
             )
         )
 
@@ -169,7 +173,7 @@ class SettingsScreenTest {
 
     @Test
     fun `nothing to optimize is a different answer from nothing saved`() {
-        show(loaded().copy(tidy = SettingsViewModel.Tidy.NothingToDo(examined = 4)))
+        show(loaded().copy(tidy = SettingsScreenState.Tidy.NothingToDo(examined = 4)))
 
         compose.onNodeWithText("4 photos checked", substring = true).assertIsDisplayed()
     }
@@ -178,7 +182,7 @@ class SettingsScreenTest {
     fun `an optimize pass reports what it saved`() {
         show(
             loaded().copy(
-                tidy = SettingsViewModel.Tidy.Done(tidied = 3, reclaimed = 0, megabytes = "1.4")
+                tidy = SettingsScreenState.Tidy.Done(tidied = 3, reclaimed = 0, megabytes = "1.4")
             )
         )
 
@@ -194,7 +198,7 @@ class SettingsScreenTest {
         // and the one worth being told about.
         show(
             loaded().copy(
-                tidy = SettingsViewModel.Tidy.Done(tidied = 5, reclaimed = 2, megabytes = "3.0")
+                tidy = SettingsScreenState.Tidy.Done(tidied = 5, reclaimed = 2, megabytes = "3.0")
             )
         )
 
@@ -222,7 +226,7 @@ class SettingsScreenTest {
         // The case that motivated giving :data reasons instead of sentences.
         show(
             loaded().copy(
-                restore = SettingsViewModel.Restore.Failed(
+                restore = SettingsScreenState.Restore.Failed(
                     message = "unused",
                     reason = UnrestorableReason.NoDatabase,
                 ),
@@ -251,7 +255,7 @@ class SettingsScreenTest {
         // choosing between two of them by name is not choosing.
         show(
             loaded().copy(
-                restore = SettingsViewModel.Restore.Previewing(
+                restore = SettingsScreenState.Restore.Previewing(
                     ArchivePreview(
                         version = 3,
                         createdAt = "2026-08-28T09:00:00.000Z",
@@ -273,7 +277,7 @@ class SettingsScreenTest {
         // the screen rather than a fact about the backup.
         show(
             loaded().copy(
-                restore = SettingsViewModel.Restore.Previewing(
+                restore = SettingsScreenState.Restore.Previewing(
                     ArchivePreview(
                         version = 2,
                         createdAt = null,
@@ -296,7 +300,7 @@ class SettingsScreenTest {
         // second one back where it was, which is to say nowhere.
         show(
             loaded().copy(
-                restore = SettingsViewModel.Restore.Previewing(
+                restore = SettingsScreenState.Restore.Previewing(
                     ArchivePreview(version = 3, presentImages = 0, hasDatabase = true),
                 ),
             ),
@@ -307,7 +311,7 @@ class SettingsScreenTest {
         assertEquals(1, archiveConfirmed)
     }
     private fun previewing(hasSettings: Boolean) = loaded().copy(
-        restore = SettingsViewModel.Restore.Previewing(
+        restore = SettingsScreenState.Restore.Previewing(
             ArchivePreview(
                 version = 3,
                 createdAt = "2026-08-28T09:00:00.000Z",

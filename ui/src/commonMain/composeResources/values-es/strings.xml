@@ -1,0 +1,683 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Spanish. See values/strings.xml for how these two files are kept in step, and
+    for the two ways their syntax differs from Android's.
+
+    The vocabulary is the React Native app's own Spanish, reused verbatim rather
+    than retranslated: it is what the person using this app already reads. Three
+    entries are corrections rather than copies — see StringResourceParityTest.
+-->
+<resources>
+    <!-- Tab bar -->
+    <string name="tab_home">Inicio</string>
+    <string name="tab_settings">Ajustes</string>
+    <string name="tab_wardrobe">Armario</string>
+    <string name="tab_outfits">Atuendos</string>
+    <string name="tab_statistics">Estadísticas</string>
+
+    <!-- Shared -->
+    <string name="error_wardrobe_unreadable">No se pudo leer el armario</string>
+    <string name="action_retry">Reintentar</string>
+    <string name="action_back">Atrás</string>
+    <string name="count_unknown">—</string>
+
+    <!-- First launch: the three screens before Home. -->
+    <string name="w_title">Bienvenido a Wardrobapp</string>
+    <string name="w_body">Tu armario vive en este teléfono. Sin cuenta, sin servidor y sin registrarse.</string>
+    <string name="w_start">Empezar de cero</string>
+    <string name="w_restore">Restaurar una copia</string>
+    <string name="w_restore_hint">¿Vienes de otro teléfono? Elige tu copia de seguridad y tráete el armario entero.</string>
+    <string name="w_skip">Ahora no</string>
+    <string name="a_title">Agregar una prenda es una foto</string>
+    <string name="a_body">Apunta la cámara o elige una foto que ya tengas. La app rellena lo que puede y te pregunta el resto.</string>
+    <string name="a_s1">Una foto, de la cámara o de la galería</string>
+    <string name="a_s1_detail">Se recorta a 3:4 al entrar, que es la forma en la que todas las pantallas muestran una prenda.</string>
+    <string name="a_s2">Los colores se rellenan solos</string>
+    <string name="a_s2_detail">Se leen de la foto — y se vuelven a leer si le quitas el fondo.</string>
+    <string name="a_s3">Tú eliges la categoría</string>
+    <string name="a_s3_detail">Lo único que una foto no puede decir. Marca, talla y etiquetas son opcionales.</string>
+    <string name="a_note">¿Un cajón entero? Agrega varias fotos a la vez y responde una categoría para cada una.</string>
+    <string name="a_next">Siguiente</string>
+    <string name="l_title">Aprende lo que te gusta</string>
+    <string name="l_body">Valora un atuendo y la app recuerda tres cosas: qué prendas combinan, cómo funciona cada una por su cuenta y qué mezclas de color te pones de verdad.</string>
+    <string name="l_note">Nada que configurar. Las sugerencias mejoran cuanto más valoras.</string>
+    <string name="l_next">Entendido</string>
+
+    <!-- The demo card on the third screen. Fixed copy; there is no outfit yet. -->
+    <string name="onboarding_demo_name">Chaqueta vaquera, camiseta blanca, chinos</string>
+    <string name="onboarding_demo_reasons">Los colores funcionan · Adecuado para la temporada</string>
+
+    <!-- The First steps card at the top of Home. -->
+    <string name="first_steps_title">Primeros pasos</string>
+    <string name="first_steps_dismiss">Descartar</string>
+    <string name="first_steps_garment">Agrega tu primera prenda</string>
+    <string name="first_steps_bulk">Agrega varias a la vez</string>
+    <string name="first_steps_rate">Valora una idea de atuendo</string>
+
+    <!-- Where each row goes, for a screen reader. -->
+    <string name="first_steps_open_garment">Abrir el formulario de una prenda nueva</string>
+    <string name="first_steps_open_bulk">Abrir agregar varias prendas a la vez</string>
+    <string name="first_steps_open_outfits">Abrir la pestaña de atuendos</string>
+
+    <!-- Home -->
+    <string name="home_title">Mi Armario</string>
+    <string name="home_subtitle">Lleva el control de todo lo que vistes.</string>
+    <string name="home_items">Prendas</string>
+    <string name="home_archived">Archivadas</string>
+    <string name="home_open_wardrobe">Abrir el armario</string>
+    <string name="home_open_archived">Abrir el armario mostrando las prendas archivadas</string>
+    <string name="home_add_garment">Agregar una prenda</string>
+    <string name="home_outfits_title">Ideas de atuendos</string>
+    <string name="home_outfits_detail">Combinaciones con lo que ya tienes</string>
+    <string name="home_statistics_title">Estadísticas</string>
+    <string name="home_statistics_detail">Cuánto tienes, de qué está hecho y cuánto te duran las prendas</string>
+    <string name="home_settings_title">Configuración</string>
+    <string name="home_settings_detail">Crea una copia de seguridad o restaura una</string>
+
+    <!-- The wardrobe list -->
+    <string name="wardrobe_title">Armario</string>
+    <string name="wardrobe_search">Buscar</string>
+    <string name="wardrobe_empty">Aún no hay prendas.</string>
+    <string name="wardrobe_no_match_filters">Nada coincide con estos filtros.</string>
+    <string name="wardrobe_no_match_search">Nada coincide con «%1$s».</string>
+    <string name="sort_newest">Más recientes</string>
+    <string name="sort_oldest">Más antiguas</string>
+    <string name="wardrobe_sort_current">Orden: %1$s</string>
+    <string name="wardrobe_search_clear">Borrar la búsqueda</string>
+
+    <!-- Filters -->
+    <string name="wardrobe_view_options">Cambiar cómo se muestra el armario</string>
+    <string name="wardrobe_view_list">Lista</string>
+    <string name="wardrobe_view_section_show">Mostrar en cada una</string>
+    <string name="wardrobe_size_menu">Tamaño de la cuadrícula</string>
+    <string name="wardrobe_size_large">Grande</string>
+    <string name="wardrobe_size_medium">Mediana</string>
+    <string name="wardrobe_size_small">Pequeña</string>
+    <string name="wardrobe_size_per_row">%1$s — %2$d por fila</string>
+    <string name="wardrobe_caption_brand">Marca</string>
+    <string name="wardrobe_caption_type">Tipo</string>
+    <string name="wardrobe_caption_category">Categoría</string>
+    <string name="filters_show">Filtros</string>
+    <string name="filters_title">Filtros</string>
+    <string name="filter_remove">Quitar este filtro</string>
+    <string name="action_clear_filters">Borrar todo</string>
+    <string name="filter_brand">Marca</string>
+    <string name="filter_size">Talla</string>
+    <string name="filter_include_retired">Incluir prendas que ya no uso</string>
+    <string name="filter_section_category">Categoría</string>
+    <string name="filter_section_type">Tipo</string>
+    <string name="filter_section_season">Temporada</string>
+    <string name="filter_section_occasion">Ocasión</string>
+    <string name="filter_section_colour">Color</string>
+
+    <!-- Outfits -->
+    <string name="outfits_title">Atuendos</string>
+    <string name="outfits_subtitle">Las sugerencias se construyen con lo que tienes y aprenden de lo que valoras.</string>
+    <string name="outfits_filter_any">Cualquiera</string>
+    <string name="outfits_suggest">Sugerir atuendos</string>
+    <string name="outfits_suggest_again">Sugerir otra vez</string>
+    <string name="outfits_building_around">Combinando con</string>
+    <string name="outfits_use_whole_wardrobe">Todo el armario</string>
+    <string name="outfits_suggesting">Creando atuendos…</string>
+    <string name="outfits_none_possible">No se pudo crear ningún atuendo con lo disponible. Prueba con menos filtros o agrega algunas prendas más.</string>
+    <string name="outfits_prompt">Toca sugerir para ver qué combina.</string>
+    <string name="reason_learned">Ya valoraste esta combinación</string>
+    <string name="reason_colours">Los colores combinan</string>
+    <string name="reason_occasion">Encaja con la ocasión</string>
+    <string name="reason_season">Apropiado para la temporada</string>
+    <string name="reason_coherent">Del mismo estilo</string>
+    <string name="outfits_saved_section">Guardados</string>
+    <string name="outfit_keep_title">¿Guardar este atuendo?</string>
+    <string name="outfit_keep_body">Tu valoración se guarda igualmente y la aplicación ya ha aprendido de ella. Guardar «%1$s» lo añade además a tus atuendos guardados.</string>
+    <string name="outfit_keep">Guardarlo</string>
+    <string name="outfit_just_learn">Solo aprender de él</string>
+    <string name="outfit_rated_only">%1$s \u00b7 solo valorado</string>
+    <string name="outfits_hide_rated">Ocultar los atuendos solo valorados</string>
+    <plurals name="outfits_show_rated">
+        <item quantity="one">Ver %1$d atuendo solo valorado</item>
+        <item quantity="many">Ver %1$d atuendos solo valorados</item>
+        <item quantity="other">Ver %1$d atuendos solo valorados</item>
+    </plurals>
+    <plurals name="outfit_rate_stars">
+        <item quantity="one">Valorar con %1$d estrella</item>
+        <item quantity="many">Valorar con %1$d estrellas</item>
+        <item quantity="other">Valorar con %1$d estrellas</item>
+    </plurals>
+    <string name="outfit_saved_badge">Guardado</string>
+    <string name="action_save">Guardar</string>
+    <string name="action_pin">Fijar</string>
+    <string name="action_unpin">No fijar</string>
+    <string name="action_delete">Eliminar</string>
+    <string name="action_keep">Conservar</string>
+    <string name="action_close">Cerrar</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="outfit_delete">Eliminar este atuendo</string>
+    <string name="outfit_delete_confirm">¿Eliminar este atuendo?</string>
+    <string name="outfit_delete_named_body">Se eliminan «%1$s» y su valoración. Las prendas que lo componen se quedan en tu armario.</string>
+    <string name="outfit_delete_body">Se eliminan el atuendo y su valoración. Las prendas que lo componen se quedan en tu armario.</string>
+    <string name="outfit_missing">Ese atuendo ya no está guardado.</string>
+    <string name="outfit_unreadable">No se pudo leer este atuendo</string>
+    <string name="outfit_rate">¿Qué tal quedó?</string>
+    <string name="error_rating_not_saved">No se pudo guardar esa valoración.</string>
+    <string name="error_outfit_not_deleted">No se pudo eliminar ese atuendo.</string>
+    <string name="outfit_untitled">Atuendo</string>
+
+    <!-- A garment -->
+    <string name="garment_untitled">Prenda</string>
+    <string name="garment_missing">Esa prenda ya no está en tu armario.</string>
+    <string name="garment_unreadable">No se pudo leer esta prenda</string>
+    <string name="garment_no_photo">Sin foto</string>
+    <string name="action_edit">Editar</string>
+    <string name="property_colours">Colores</string>
+    <string name="property_size">Talla</string>
+    <string name="property_seasons">Temporadas</string>
+    <string name="property_occasions">Ocasiones</string>
+    <string name="property_added">Agregada</string>
+    <string name="property_tags">Etiquetas</string>
+    <string name="garment_retired">Sin usar</string>
+    <string name="garment_retired_since">Sin usar desde %1$s</string>
+    <string name="garment_build_outfit">Crear un atuendo con esta prenda</string>
+    <string name="garment_retire">Ya no uso esta prenda</string>
+    <string name="garment_unretire">Vuelvo a usar esta prenda</string>
+    <string name="garment_delete">Eliminar esta prenda</string>
+    <string name="garment_retire_confirm">¿Dejar de usarla?</string>
+    <string name="garment_retire_body">Sale de tu armario y deja de aparecer en atuendos, pero se conserva — con sus fotos — y cuenta para saber cuánto duran las prendas. Puedes recuperarla cuando quieras.</string>
+    <string name="garment_retire_action">Dejar de usarla</string>
+    <string name="garment_delete_confirm">¿Eliminar esta prenda?</string>
+    <string name="garment_delete_body">También se eliminan sus fotos y lo que la aplicación ha aprendido sobre con qué prendas combina. Los atuendos guardados que la usen la pierden, y un atuendo que se quede sin nada se elimina. Esto no se puede deshacer.</string>
+    <string name="background_removing">Trabajando en la foto…</string>
+    <string name="background_remove">Quitar el fondo</string>
+    <string name="background_undo">Deshacer el quitado de fondo</string>
+    <string name="error_action_failed">Eso no funcionó</string>
+    <string name="error_garment_not_deleted">No se pudo eliminar esa prenda.</string>
+    <string name="error_background_not_removed">No se pudo quitar el fondo.</string>
+    <string name="error_not_undone">No se pudo deshacer.</string>
+
+    <!-- Adding and editing a garment -->
+    <string name="form_title_add">Agregar prenda</string>
+    <string name="form_title_edit">Editar prenda</string>
+    <string name="form_save_add">Agregar al armario</string>
+    <string name="form_save_edit">Guardar cambios</string>
+    <string name="form_saving">Guardando…</string>
+    <string name="form_error_title">No se pudo guardar</string>
+    <string name="error_title_photo">No se pudo usar esa foto</string>
+    <string name="error_title_background">No se pudo quitar el fondo</string>
+    <string name="form_section_photos">Fotos</string>
+    <string name="form_section_tags">Etiquetas</string>
+    <string name="form_size_custom">O escribe una talla</string>
+    <string name="form_tag_hint">Escribe una etiqueta y una coma</string>
+    <string name="form_add_photo">Agregar una foto</string>
+    <string name="form_remove_photo">Quitar la foto</string>
+    <string name="form_remove_tag">Quitar la etiqueta</string>
+    <string name="background_cutting">Recortando la prenda…</string>
+    <string name="error_photo_required">Una prenda necesita al menos una foto.</string>
+    <string name="error_photo_not_imported">No se pudo importar esa foto.</string>
+
+    <!-- The duplicate warning -->
+    <string name="duplicate_title">Puede que ya tengas esta prenda</string>
+    <string name="duplicate_add_anyway">Agregar de todas formas</string>
+    <string name="duplicate_review">Déjame verla</string>
+
+    <!-- Statistics -->
+    <string name="statistics_title">Estadísticas</string>
+    <string name="statistics_subtitle">Un desglose de lo que tienes.</string>
+    <string name="statistics_items">Prendas</string>
+    <string name="statistics_in_use">En uso</string>
+    <string name="statistics_retired">Retiradas</string>
+    <string name="statistics_categories">Categorías</string>
+    <string name="statistics_colours">Colores</string>
+    <string name="statistics_brands">Marcas</string>
+    <string name="statistics_empty_title">Aún no hay nada que medir</string>
+    <string name="statistics_empty_body">Agrega algunas prendas y esto se rellena: de qué está hecho tu armario, qué colores usas de verdad, quién lo fabricó y cuánto suelen durar las prendas que retiras.</string>
+    <string name="statistics_section_expand">Mostrar esta sección</string>
+    <string name="statistics_section_collapse">Ocultar esta sección</string>
+    <string name="statistics_by_category">Por categoría</string>
+    <string name="statistics_expand_hint">Toca una categoría para ver qué contiene</string>
+    <string name="statistics_expand">Mostrar subcategorías</string>
+    <string name="statistics_show_in_wardrobe">Ver %1$s en el armario</string>
+    <string name="statistics_open_garment">Abrir %1$s</string>
+    <string name="statistics_open_wardrobe">Abrir el armario</string>
+    <string name="statistics_collapse">Ocultar subcategorías</string>
+    <string name="statistics_by_colour">Por color</string>
+    <string name="statistics_by_brand">Por marca</string>
+    <string name="statistics_sort_count">Más</string>
+    <string name="statistics_sort_name">A-Z</string>
+    <string name="statistics_no_subcategory">Sin especificar</string>
+    <string name="statistics_lifespan">Cuánto duraron las prendas</string>
+    <string name="statistics_no_lifespan">Aún no has retirado nada. Marca una prenda como que ya no la usas y aparecerá aquí.</string>
+    <string name="statistics_duplicates">Prendas que quizá tengas repetidas</string>
+    <string name="statistics_duplicates_hint">Toca una foto para abrir esa prenda</string>
+    <string name="statistics_no_duplicates">Nada de tu armario se parece demasiado a otra cosa.</string>
+    <plurals name="statistics_duplicate_count">
+        <item quantity="one">%1$d prenda</item>
+        <item quantity="many">%1$d prendas</item>
+        <item quantity="other">%1$d prendas</item>
+    </plurals>
+    <string name="statistics_days">%1$d d</string>
+
+    <!-- Gaps: what the wardrobe cannot finish, and what would finish it. -->
+    <string name="statistics_gaps">Lo que te falta</string>
+    <string name="statistics_gaps_hint">Prendas que completarían conjuntos que aún no puedes armar</string>
+    <string name="statistics_no_gaps">No falta nada evidente. Tu armario puede completar todos los tipos de día para los que se viste.</string>
+    <string name="statistics_gaps_too_few">Aún no hay suficiente. Con un armario de este tamaño falta de todo, así que esto espera a tener algo con qué comparar.</string>
+    <string name="gap_want">%2$s (%1$s)</string>
+    <string name="gap_because_nothing_fits">%1$s: no tienes nada apropiado.</string>
+    <string name="gap_because_retired">Retiraste tu %1$s y no la reemplazaste.</string>
+    <string name="gap_because_better">Combinaría con más de lo que tienes que cualquier cosa que puedas juntar ahora.</string>
+    <string name="gap_alternatives">O bien: %1$s</string>
+    <string name="gap_add">Agregarla</string>
+    <string name="gap_ghost">Dónde iría %1$s</string>
+    <plurals name="gap_unlocks">
+        <item quantity="one">%1$d conjunto que hoy no puedes armar</item>
+        <item quantity="many">%1$d conjuntos que hoy no puedes armar</item>
+        <item quantity="other">%1$d conjuntos que hoy no puedes armar</item>
+    </plurals>
+
+    <!-- Settings -->
+    <string name="settings_title">Configuración</string>
+    <string name="settings_section_storage">Almacenamiento</string>
+    <string name="settings_section_backup">Copia de seguridad</string>
+    <string name="settings_section_about">Acerca de</string>
+    <string name="settings_garments">Prendas</string>
+    <string name="settings_retired">Sin usar</string>
+    <string name="settings_photos">Fotos</string>
+    <string name="settings_megabytes">%1$s MB</string>
+    <string name="settings_version">Versión</string>
+    <string name="settings_build">Compilación</string>
+    <string name="settings_backup_hint">Una copia de seguridad es un solo archivo con el armario y todas las fotos. También es la forma de llevar un armario entre esta aplicación y la de Play Store.</string>
+    <string name="settings_backup_create">Crear una copia</string>
+    <string name="settings_backup_restore">Restaurar desde una copia</string>
+    <string name="backup_running_title">Creando la copia</string>
+    <string name="backup_running_body">Copiando el armario y sus fotos.</string>
+    <string name="backup_done_title">Copia guardada</string>
+    <string name="backup_failed_title">No se pudo guardar la copia</string>
+    <string name="restore_confirm_title">¿Restaurar desde una copia?</string>
+    <string name="restore_confirm_body">Todo lo que hay en el armario de esta aplicación se reemplazará por el contenido de la copia que elijas. Si la copia resulta inservible, no se cambia nada.</string>
+    <string name="restore_pick">Elegir una copia</string>
+    <string name="restore_preview_title">¿Restaurar esta copia?</string>
+    <string name="restore_preview_made">Creada el %1$s</string>
+    <string name="restore_preview_undated">Esta copia no registró cuándo se creó.</string>
+    <string name="restore_preview_settings">Restaurar también mis ajustes</string>
+    <string name="restore_preview_restore">Restaurar</string>
+    <string name="restore_running_title">Restaurando</string>
+    <string name="restore_running_body">Descomprimiendo y comprobando la copia.</string>
+    <string name="restore_done_title">Armario restaurado</string>
+    <string name="restore_done_body">Se restauró la copia.</string>
+    <string name="restore_failed_title">No se pudo restaurar la copia</string>
+    <string name="action_done">Listo</string>
+
+    <!-- Why a backup will not restore -->
+    <string name="archive_manifest_unreadable">Copia no válida: %1$s no es un JSON legible.</string>
+    <string name="archive_manifest_not_a_backup">Copia no válida: %1$s no describe una copia de seguridad.</string>
+    <string name="archive_manifest_version_missing">Copia no válida: %1$s no tiene número de versión.</string>
+    <string name="archive_manifest_not_found">Archivo de copia no válido: no se encontró %1$s</string>
+    <string name="archive_backup_from_newer_app">Esta copia se hizo con una versión más reciente de Wardrobapp (formato %1$d; esta aplicación lee %2$d). Actualiza la aplicación e inténtalo de nuevo.</string>
+    <string name="archive_unsupported_version">Formato de copia no admitido %1$d; esta aplicación lee %2$s.</string>
+    <string name="archive_database_missing">Copia no válida: falta %1$s en el archivo. No se cambió nada.</string>
+    <string name="archive_database_empty">Copia no válida: %1$s está vacío. No se cambió nada.</string>
+    <string name="archive_no_database">Copia no válida: no contiene ninguna base de datos. No se cambió nada.</string>
+    <string name="archive_archive_truncated">Copia incompleta: el manifiesto indica %1$d fotos pero solo hay %2$d, así que el archivo está truncado. No se cambió nada.</string>
+    <string name="archive_not_base64">Copia no válida: su contenido no es base64 válido. No se cambió nada.</string>
+    <string name="archive_entry_outside_archive">Copia no válida: el archivo contiene una entrada fuera de sí mismo (%1$s). No se cambió nada.</string>
+    <string name="archive_integrity_check_failed">no pasó la comprobación de integridad de SQLite (%1$s)</string>
+    <string name="archive_invalid_backup">Copia no válida: %1$s. No se cambió nada.</string>
+    <string name="archive_restore_failed">La restauración falló: %1$s. Tu armario quedó sin cambios.</string>
+    <string name="archive_rollback_failed">La restauración falló (%1$s) y no se pudo devolver el armario a su estado anterior (%2$s). Tus datos originales siguen en el dispositivo como %3$s y %4$s.</string>
+
+    <!-- Language, in Settings -->
+    <string name="settings_language">Idioma</string>
+    <string name="settings_language_hint">Solo afecta a esta aplicación. Android lo recuerda, así que se mantiene al reiniciar y también se puede cambiar desde los ajustes del sistema.</string>
+    <string name="language_automatic">Automático</string>
+    <string name="language_english">English</string>
+    <string name="language_spanish">Español</string>
+
+    <!-- Tidying up photos stored by an older build -->
+    <string name="settings_tidy">Optimizar almacenamiento</string>
+    <string name="settings_tidy_hint">Reduce las fotos recortadas guardadas por una versión anterior y elimina las fotos a las que ya no apunta ninguna prenda. No toca nada que una prenda muestre, y se puede repetir sin problema.</string>
+    <string name="tidy_running_title">Optimizando el almacenamiento</string>
+    <string name="tidy_running_body">Revisando la foto %1$d de %2$d…</string>
+    <string name="tidy_nothing_title">Nada que optimizar</string>
+    <plurals name="tidy_nothing_body">
+        <item quantity="one">%1$d foto revisada y no había nada que optimizar.</item>
+        <item quantity="many">%1$d fotos revisadas y no había nada que optimizar.</item>
+        <item quantity="other">%1$d fotos revisadas y no había nada que optimizar.</item>
+    </plurals>
+    <string name="tidy_done_title">Almacenamiento optimizado</string>
+    <plurals name="tidy_done_body">
+        <item quantity="one">%1$d foto optimizada; se han ahorrado %2$s MB.</item>
+        <item quantity="many">%1$d fotos optimizadas; se han ahorrado %2$s MB.</item>
+        <item quantity="other">%1$d fotos optimizadas; se han ahorrado %2$s MB.</item>
+    </plurals>
+    <plurals name="tidy_reclaimed_body">
+        <item quantity="one">%1$d de ellas era una foto a la que ya no apuntaba nada y se ha eliminado.</item>
+        <item quantity="many">%1$d de ellas eran fotos a las que ya no apuntaba nada y se han eliminado.</item>
+        <item quantity="other">%1$d de ellas eran fotos a las que ya no apuntaba nada y se han eliminado.</item>
+    </plurals>
+    <string name="tidy_failed_title">No se ha podido optimizar</string>
+
+    <!-- Taking a photo, and reading a colour off one -->
+    <string name="form_take_photo">Hacer foto</string>
+    <string name="form_detecting_colors">Leyendo los colores de la foto…</string>
+    <string name="error_no_camera">Ninguna aplicación de cámara ha respondido, así que no se ha hecho ninguna foto.</string>
+    <string name="error_crop_failed">No se ha podido recortar esa foto, así que no se ha añadido.</string>
+
+    <!-- URL import, in the garment form -->
+    <string name="import_section">Importar desde un enlace</string>
+    <string name="import_hint">Pega un enlace del producto para traer sus imágenes</string>
+    <string name="import_url_label">Enlace del producto</string>
+    <string name="import_action">Importar URL</string>
+    <string name="import_running">Importando imágenes desde el enlace…</string>
+    <string name="import_source">Importado desde %1$s</string>
+    <string name="import_notes">Notas de importación: %1$s</string>
+    <plurals name="import_success">
+        <item quantity="one">Se importó %1$d imagen de la página del producto.</item>
+        <item quantity="many">Se importaron %1$d imágenes de la página del producto.</item>
+        <item quantity="other">Se importaron %1$d imágenes de la página del producto.</item>
+    </plurals>
+    <string name="import_failed_title">Importación por URL</string>
+    <string name="import_invalid_url">Ingresa una URL de producto válida.</string>
+
+    <!-- Being handed a link by something else: a share, or a deep link -->
+    <string name="shared_link_title">¿Importar desde un enlace?</string>
+    <string name="shared_link_body">Algo ha pedido a esta app cargar una prenda desde %1$s. Todavía no se ha descargado nada.</string>
+    <string name="shared_link_confirm">Cargarlo</string>
+    <string name="shared_link_cancel">Ahora no</string>
+
+    <!-- Why a link was refused. Mirrors UnsafeUrlReason in :domain. -->
+    <string name="unsafe_url_required">Hace falta una URL.</string>
+    <string name="unsafe_not_a_web_address">Eso no parece una dirección web.</string>
+    <string name="unsafe_scheme_not_allowed">Solo se pueden importar direcciones http y https.</string>
+    <string name="unsafe_credentials_in_url">Esa dirección lleva un usuario o una contraseña, así que no se ha abierto.</string>
+    <string name="unsafe_host_is_local">%1$s está en este dispositivo o en su red local, así que no se ha abierto.</string>
+    <string name="unsafe_redirect_unreadable">Esa dirección redirige a algún sitio ilegible.</string>
+    <string name="unsafe_redirected_to_local_host">Esa dirección redirige a %1$s, en este dispositivo o en su red local.</string>
+
+    <!-- Why an import produced nothing. Mirrors ImportFailureReason in :domain. -->
+    <string name="import_page_timed_out">Esa página ha tardado demasiado en responder.</string>
+    <string name="import_page_too_large">Esa página es demasiado grande para leerla.</string>
+    <string name="import_page_not_loaded">No se ha podido cargar la página (%1$d).</string>
+    <string name="import_not_a_web_page">Esa dirección no es una página web.</string>
+    <string name="import_no_images_found">No se han encontrado imágenes de prendas en esa página.</string>
+    <string name="import_no_fetchable_images">Las imágenes de esa página no son de las que esta app descarga.</string>
+    <string name="import_no_images_downloaded">Se han encontrado imágenes, pero no se ha podido descargar ninguna.</string>
+
+    <!-- What an import wants to mention. Mirrors ImportWarning in :domain. -->
+    <string name="import_warning_structured_data_unreadable">No se han podido leer algunos datos estructurados del producto.</string>
+    <string name="import_warning_images_capped">Esa página listaba %1$d imágenes; se han usado las %2$d primeras.</string>
+    <plurals name="import_warning_images_blocked">
+        <item quantity="one">%1$d imagen apuntaba a un sitio que esta app no descarga.</item>
+        <item quantity="many">%1$d imágenes apuntaban a un sitio que esta app no descarga.</item>
+        <item quantity="other">%1$d imágenes apuntaban a un sitio que esta app no descarga.</item>
+    </plurals>
+    <plurals name="import_warning_images_failed">
+        <item quantity="one">No se ha podido descargar %1$d imagen.</item>
+        <item quantity="many">No se han podido descargar %1$d imágenes.</item>
+        <item quantity="other">No se han podido descargar %1$d imágenes.</item>
+    </plurals>
+
+    <!-- Theme, in Settings -->
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_hint">Automático sigue el ajuste de claro u oscuro del dispositivo.</string>
+    <string name="theme_automatic">Automático</string>
+    <string name="theme_light">Claro</string>
+    <string name="theme_dark">Oscuro</string>
+
+    <!-- Categories -->
+    <string name="category_tops">Parte Superior</string>
+    <string name="category_bottoms">Parte Inferior</string>
+    <string name="category_dresses">Vestidos</string>
+    <string name="category_midlayer">Capa Intermedia</string>
+    <string name="category_outerwear">Prendas de Abrigo</string>
+    <string name="category_shoes">Zapatos</string>
+    <string name="category_accessories">Accesorios</string>
+    <string name="category_activewear">Ropa Deportiva</string>
+    <string name="category_underwear">Ropa Interior</string>
+    <string name="category_loungewear">Ropa de casa/Pijamas</string>
+
+    <!-- Garment types. Keyed on the value stored in the database, which stays English. -->
+    <string name="subcategory_tshirt">Camiseta</string>
+    <string name="subcategory_blouse">Blusa</string>
+    <string name="subcategory_shirt">Camisa</string>
+    <string name="subcategory_tank_top">Top de tirantes</string>
+    <string name="subcategory_sweater">Sueter</string>
+    <string name="subcategory_hoodie">Sudadera</string>
+    <string name="subcategory_crop_top">Top corto</string>
+    <string name="subcategory_polo">Polo</string>
+    <string name="subcategory_jeans">Jeans</string>
+    <string name="subcategory_pants">Pantalones</string>
+    <string name="subcategory_shorts">Pantalones cortos</string>
+    <string name="subcategory_skirt">Falda</string>
+    <string name="subcategory_leggings">Leggings</string>
+    <string name="subcategory_sweatpants">Pantalon deportivo</string>
+    <string name="subcategory_chinos">Chinos</string>
+    <string name="subcategory_mini">Mini</string>
+    <string name="subcategory_midi">Midi</string>
+    <string name="subcategory_maxi">Maxi</string>
+    <string name="subcategory_cocktail">Coctel</string>
+    <string name="subcategory_sundress">Vestido de verano</string>
+    <string name="subcategory_jumpsuit">Enterizo</string>
+    <string name="subcategory_romper">Mono corto</string>
+    <string name="subcategory_jacket">Chaqueta</string>
+    <string name="subcategory_coat">Abrigo</string>
+    <string name="subcategory_blazer">Blazer</string>
+    <string name="subcategory_overshirt">Sobrecamisa</string>
+    <string name="subcategory_cardigan">Cardigan</string>
+    <string name="subcategory_vest">Chaleco</string>
+    <string name="subcategory_poncho">Poncho</string>
+    <string name="subcategory_cape">Capa</string>
+    <string name="subcategory_windbreaker">Rompevientos</string>
+    <string name="subcategory_parka">Parka</string>
+    <string name="subcategory_sneakers">Tenis</string>
+    <string name="subcategory_boots">Botas</string>
+    <string name="subcategory_sandals">Sandalias</string>
+    <string name="subcategory_heels">Tacones</string>
+    <string name="subcategory_flats">Bailarinas</string>
+    <string name="subcategory_loafers">Mocasines</string>
+    <string name="subcategory_athletic">Deportivo</string>
+    <string name="subcategory_hat">Sombrero</string>
+    <string name="subcategory_scarf">Bufanda</string>
+    <string name="subcategory_foulard">Fular</string>
+    <string name="subcategory_belt">Cinturon</string>
+    <string name="subcategory_bag">Bolso</string>
+    <string name="subcategory_wallet">Cartera</string>
+    <string name="subcategory_gloves">Guantes</string>
+    <string name="subcategory_earrings">Pendientes</string>
+    <string name="subcategory_necklaces">Collares</string>
+    <string name="subcategory_bracelets">Pulseras</string>
+    <string name="subcategory_rings">Anillos</string>
+    <string name="subcategory_jewelry">Joyería</string>
+    <string name="subcategory_watch">Reloj</string>
+    <string name="subcategory_eyewear">Gafas</string>
+    <string name="subcategory_sunglasses">Gafas de sol</string>
+    <string name="subcategory_tie">Corbata</string>
+    <string name="subcategory_sports_bra">Bra deportivo</string>
+    <string name="subcategory_workout_top">Top deportivo</string>
+    <string name="subcategory_workout_shorts">Short deportivo</string>
+    <string name="subcategory_yoga_pants">Pantalon de yoga</string>
+    <string name="subcategory_track_suit">Conjunto deportivo</string>
+    <string name="subcategory_bra">Sujetador</string>
+    <string name="subcategory_briefs">Calzones</string>
+    <string name="subcategory_boxers">Boxers</string>
+    <string name="subcategory_bodysuit">Body</string>
+    <string name="subcategory_shapewear">Faja</string>
+    <string name="subcategory_socks">Calcetines</string>
+    <string name="subcategory_tights">Medias</string>
+    <string name="subcategory_thermal">Termico</string>
+    <string name="subcategory_pajama_set">Pijama completo</string>
+    <string name="subcategory_pajama_top">Parte de arriba de pijama</string>
+    <string name="subcategory_pajama_bottoms">Parte de abajo de pijama</string>
+    <string name="subcategory_nightgown">Camison</string>
+    <string name="subcategory_robe">Bata</string>
+    <string name="subcategory_lounge_set">Conjunto comodo</string>
+
+    <!-- Colours -->
+    <string name="color_black">Negro</string>
+    <string name="color_white">Blanco</string>
+    <string name="color_gray">Gris</string>
+    <string name="color_navy">Azul marino</string>
+    <string name="color_blue">Azul</string>
+    <string name="color_light_blue">Celeste</string>
+    <string name="color_red">Rojo</string>
+    <string name="color_burgundy">Borgona</string>
+    <string name="color_pink">Rosa</string>
+    <string name="color_green">Verde</string>
+    <string name="color_olive">Oliva</string>
+    <string name="color_khaki">Caqui</string>
+    <string name="color_brown">Marrón</string>
+    <string name="color_tan">Canela</string>
+    <string name="color_beige">Beige</string>
+    <string name="color_cream">Crema</string>
+    <string name="color_yellow">Amarillo</string>
+    <string name="color_orange">Naranja</string>
+    <string name="color_purple">Morado</string>
+    <string name="color_lavender">Lavanda</string>
+    <string name="color_coral">Coral</string>
+    <string name="color_teal">Verde azulado</string>
+    <string name="color_gold">Dorado</string>
+    <string name="color_silver">Plateado</string>
+    <string name="color_multi">Multicolor</string>
+
+    <!-- Seasons -->
+    <string name="season_spring">Primavera</string>
+    <string name="season_summer">Verano</string>
+    <string name="season_fall">Otoño</string>
+    <string name="season_winter">Invierno</string>
+    <string name="season_all_season">Todo el Año</string>
+
+    <!-- Occasions -->
+    <string name="occasion_casual">Casual</string>
+    <string name="occasion_work">Trabajo</string>
+    <string name="occasion_formal">Formal</string>
+    <string name="occasion_sport">Deporte</string>
+    <string name="occasion_lounge">Descanso</string>
+
+    <!--
+        Counts. Spanish has one/many/other: `many` is CLDR's category for the
+        compact forms ("1 millón de fotos"), and lint fails without it. Its
+        wording matches `other` (the noun does not change) but it has to
+        exist.
+    -->
+    <plurals name="garment_count">
+        <item quantity="one">%1$d prenda</item>
+        <item quantity="many">%1$d prendas</item>
+        <item quantity="other">%1$d prendas</item>
+    </plurals>
+    <plurals name="filters_applied">
+        <item quantity="one">%1$d filtro aplicado</item>
+        <item quantity="many">%1$d filtros aplicados</item>
+        <item quantity="other">%1$d filtros aplicados</item>
+    </plurals>
+    <plurals name="filters_show_results">
+        <item quantity="one">Ver %1$d prenda</item>
+        <item quantity="many">Ver %1$d prendas</item>
+        <item quantity="other">Ver %1$d prendas</item>
+    </plurals>
+    <plurals name="photo_count">
+        <item quantity="one">%1$d foto</item>
+        <item quantity="many">%1$d fotos</item>
+        <item quantity="other">%1$d fotos</item>
+    </plurals>
+    <plurals name="backup_photos_skipped">
+        <item quantity="one">No se pudo leer %1$d foto y se dejó fuera.</item>
+        <item quantity="many">No se pudieron leer %1$d fotos y se dejaron fuera.</item>
+        <item quantity="other">No se pudieron leer %1$d fotos y se dejaron fuera.</item>
+    </plurals>
+    <plurals name="restore_preview_photos">
+        <item quantity="one">%1$d foto</item>
+        <item quantity="many">%1$d fotos</item>
+        <item quantity="other">%1$d fotos</item>
+    </plurals>
+    <plurals name="restore_done_garments">
+        <item quantity="one">Se restauró la copia: %1$d prenda.</item>
+        <item quantity="many">Se restauró la copia: %1$d prendas.</item>
+        <item quantity="other">Se restauró la copia: %1$d prendas.</item>
+    </plurals>
+    <plurals name="outfit_missing_garments">
+        <item quantity="one">%1$d prenda de este atuendo ya no está en tu armario.</item>
+        <item quantity="many">%1$d prendas de este atuendo ya no están en tu armario.</item>
+        <item quantity="other">%1$d prendas de este atuendo ya no están en tu armario.</item>
+    </plurals>
+
+    <!-- A newer build of the app -->
+    <string name="update_available_title">Hay una versión más reciente</string>
+    <string name="update_version">Versión %1$s, compilación %2$d.</string>
+    <string name="update_build">Compilación %1$d.</string>
+    <string name="update_changes">Qué ha cambiado</string>
+    <plurals name="update_changes_more">
+        <item quantity="one">y %1$d más.</item>
+        <item quantity="many">y %1$d más.</item>
+        <item quantity="other">y %1$d más.</item>
+    </plurals>
+    <string name="update_install">Instalar</string>
+    <string name="update_skip">Omitir esta versión</string>
+    <string name="update_later">Más tarde</string>
+    <string name="update_downloading">Descargando…</string>
+    <string name="update_failed_title">No se pudo instalar esa versión</string>
+
+    <!-- Google Drive, en Ajustes -->
+    <string name="settings_section_cloud">Google Drive</string>
+    <string name="settings_cloud_hint">Las copias también pueden ir a una carpeta de tu propio Google Drive, donde puedes abrirlas y descargarlas sin esta aplicación. Wardrobapp solo ve los archivos que ha puesto ahí.</string>
+    <string name="settings_cloud_connect">Conectar Google Drive</string>
+    <string name="settings_cloud_disconnect">Desconectar</string>
+    <string name="settings_cloud_backup_now">Copiar a Drive</string>
+    <string name="settings_cloud_refresh">Actualizar</string>
+    <string name="settings_cloud_connecting">Conectando…</string>
+    <string name="settings_cloud_listing">Leyendo tu Drive…</string>
+    <string name="settings_cloud_backing_up">Creando la copia…</string>
+    <string name="settings_cloud_restoring">Restaurando…</string>
+    <string name="settings_cloud_empty">Todavía no hay copias en Drive.</string>
+    <string name="settings_cloud_kept">Las copias antiguas se eliminan a medida que llegan nuevas.</string>
+    <string name="settings_cloud_restore">Restaurar</string>
+    <string name="settings_cloud_restore_title">¿Restaurar desde Drive?</string>
+    <string name="settings_cloud_restore_body">Todo lo que hay en el armario de esta aplicación se reemplazará por el contenido de esa copia. Si resulta ilegible, no se cambia nada.</string>
+    <string name="settings_cloud_schedule">Copia automática</string>
+    <string name="settings_cloud_frequency">Cada cuánto</string>
+    <string name="settings_cloud_keep">Copias que se conservan</string>
+    <string name="settings_cloud_keep_all">Todas</string>
+    <string name="settings_cloud_keep_one_warning">Conservar una sola significa que una copia hecha después de un problema reemplaza a la anterior.</string>
+    <string name="settings_cloud_wifi_only">Solo con wifi</string>
+    <string name="settings_cloud_wifi_only_hint">Una copia envía todas las fotos, así que puede ocupar bastante. Desactívalo para hacerla también con datos móviles.</string>
+    <string name="settings_cloud_battery">Solo si la batería no está baja</string>
+    <string name="backup_frequency_daily">Diaria</string>
+    <string name="backup_frequency_weekly">Semanal</string>
+    <string name="backup_frequency_monthly">Mensual</string>
+    <string name="settings_cloud_last_backup">Última copia: %1$s</string>
+    <string name="settings_cloud_last_failed">Falló el último intento: %1$s</string>
+    <string name="settings_cloud_disconnect_note">Desconectar solo olvida el permiso. Las copias siguen en tu Drive.</string>
+    <string name="wardrobe_add_options">Más formas de añadir</string>
+    <string name="bulk_add_title">Añadir varias</string>
+    <string name="bulk_add_menu">Añadir varias fotos</string>
+    <string name="bulk_add_choose">Elegir fotos</string>
+    <string name="bulk_add_choose_more">Añadir más fotos</string>
+    <string name="bulk_add_intro">Elige tus fotos — hasta %1$d a la vez — y asigna una categoría a cada una. Los colores se leen de la foto; el resto se puede completar más tarde.</string>
+    <string name="bulk_add_progress">%1$d de %2$d</string>
+    <string name="bulk_add_save">Guardar y siguiente</string>
+    <string name="bulk_add_skip">Omitir esta foto</string>
+    <string name="bulk_add_done">Hecho</string>
+    <string name="bulk_add_crop">Recortar</string>
+    <string name="bulk_add_brand">Marca (opcional)</string>
+    <plurals name="bulk_add_finished">
+        <item quantity="one">%1$d prenda añadida.</item>
+        <item quantity="many">%1$d prendas añadidas.</item>
+        <item quantity="other">%1$d prendas añadidas.</item>
+    </plurals>
+    <plurals name="bulk_add_skipped">
+        <item quantity="one">%1$d foto omitida.</item>
+        <item quantity="many">%1$d fotos omitidas.</item>
+        <item quantity="other">%1$d fotos omitidas.</item>
+    </plurals>
+    <string name="error_garment_not_saved">Esa prenda no se pudo guardar.</string>
+    <string name="outfit_build_title">Crear un conjunto</string>
+    <string name="outfit_edit_title">Editar conjunto</string>
+    <string name="outfit_build">Crear un conjunto</string>
+    <string name="outfit_edit">Editar este conjunto</string>
+    <string name="outfit_name_label">Nombre (opcional)</string>
+    <string name="outfit_name_hint">Si lo dejas vacío, se nombra según lo que contiene.</string>
+    <string name="outfit_pick_garments">Prendas</string>
+    <string name="outfit_chosen">En este conjunto</string>
+    <string name="outfit_chosen_none">Todavía no has elegido nada. Toca una prenda abajo.</string>
+    <string name="outfit_save">Guardar conjunto</string>
+    <string name="error_outfit_not_saved">Ese conjunto no se pudo guardar.</string>
+    <string name="outfit_pick_search">Buscar una prenda</string>
+    <string name="outfit_pick_nothing_found">Ninguna prenda coincide con eso.</string>
+</resources>

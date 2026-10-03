@@ -19,14 +19,19 @@ import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.UnsafeUrlException
 import com.wardrobapp.domain.UnsafeUrlReason
 import com.wardrobapp.domain.importGarmentFromUrl
-import com.wardrobapp.domain.safeImportUrl
 import com.wardrobapp.domain.mergeStructuredTags
+import com.wardrobapp.domain.safeImportUrl
 import com.wardrobapp.domain.seasonsForSubcategories
 import com.wardrobapp.domain.splitStructuredTags
+import com.wardrobapp.presentation.ErrorFallback
+import com.wardrobapp.presentation.ErrorTitle
+import com.wardrobapp.presentation.GarmentFormScreenState
+import com.wardrobapp.presentation.GarmentFormScreenState.ImportProblem
 import com.wardrobapp.presentation.GarmentFormState
 import com.wardrobapp.presentation.brandSuggestions
 import com.wardrobapp.presentation.dominantGarmentColors
 import com.wardrobapp.presentation.toggled
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,7 +39,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 /**
  * Adding or editing a garment.
@@ -61,101 +65,8 @@ class GarmentFormViewModel(
     private val wanted: PhantomGarment? = null,
 ) : ViewModel() {
 
-    data class State(
-        val form: GarmentFormState = GarmentFormState().normalized(),
-        val brands: List<String> = emptyList(),
-        val loading: Boolean = false,
-        val saving: Boolean = false,
-        /** Set once the garment is written, so the screen knows to leave. */
-        val saved: Boolean = false,
-        /**
-         * Likely duplicates, shown before anything is written. Only ever set
-         * when adding: editing a garment cannot make it a duplicate of itself.
-         */
-        val duplicates: List<DuplicateGarment> = emptyList(),
-        /** What the exception said, which is not translated and may be null. */
-        val error: String? = null,
-        /**
-         * What the app was doing, for when the exception says nothing useful.
-         *
-         * A resource id rather than a sentence: the model has no Context, and the
-         * screen is where the reader's language is known.
-         */
-        @StringRes val errorFallback: Int? = null,
-        /**
-         * What the dialog is titled.
-         *
-         * Defaults to "Couldn't save", which is what every error on this screen
-         * used to be called -- including a failed background removal, a colour
-         * that could not be read and a missing camera, none of which are saves.
-         * A bug reported as "Couldn't save. That photo could not be opened" is a
-         * bug report about the wrong thing, so the ones that are not saves say so.
-         */
-        @StringRes val errorTitle: Int = R.string.form_error_title,
-        /** Set when the garment being edited is not there any more. */
-        val missing: Boolean = false,
-        /**
-         * True while the model is cutting a photo out. Separate from [saving]
-         * because it takes seconds rather than milliseconds, and the screen says
-         * something different about it.
-         */
-        val removingBackground: Boolean = false,
-        /** Where URL import has got to, if it is anywhere. */
-        val urlImport: UrlImport = UrlImport(),
-        /**
-         * True while a photo's colour is being read.
-         *
-         * Separate from [saving] like [removingBackground] is, and for the same
-         * reason: it is its own wait with its own thing to say about it.
-         */
-        val detectingColor: Boolean = false,
-    )
-
-    /**
-     * URL import, as the form sees it.
-     *
-     * Its own type rather than six more fields on [State]: it is a self-contained
-     * side conversation -- paste, confirm, wait, read what happened -- and the rest
-     * of the form carries on regardless of where it has got to.
-     */
-    data class UrlImport(
-        /** What has been typed or pasted. */
-        val url: String = "",
-        /**
-         * An address handed over by something else, waiting for a tap.
-         *
-         * Present means the confirmation is on screen. A deep link or a share can
-         * carry an address, and any web page, message or QR code can produce
-         * either -- so fetching it unasked would let a page use this app's position
-         * inside the user's network to reach whatever it names. The host is shown
-         * and nothing is fetched until someone agrees.
-         */
-        val awaitingConfirmation: String? = null,
-        val running: Boolean = false,
-        /** The shop an import came from, once one has succeeded. */
-        val source: String? = null,
-        /** How many photos arrived, for the line under the field. */
-        val imported: Int? = null,
-        val warnings: List<ImportWarning> = emptyList(),
-        val problem: ImportProblem? = null,
-    )
-
-    /**
-     * Why an import did not happen.
-     *
-     * Reasons rather than sentences, so the screen can say them in the reader's
-     * language -- the same arrangement as the archive failures. [Foreign] is the
-     * exception that proves it: words from the network stack, which this app did
-     * not write and cannot translate.
-     */
-    sealed interface ImportProblem {
-        data class Unsafe(val reason: UnsafeUrlReason) : ImportProblem
-        data class Failed(val reason: ImportFailureReason) : ImportProblem
-        data class Foreign(val text: String?) : ImportProblem
-    }
-
-    private val _state = MutableStateFlow(State())
-    val state: StateFlow<State> = _state.asStateFlow()
+    private val _state = MutableStateFlow(GarmentFormScreenState())
+    val state: StateFlow<GarmentFormScreenState> = _state.asStateFlow()
 
     /**
      * Files this form created, which nothing else can be referencing yet.
@@ -288,8 +199,8 @@ class GarmentFormViewModel(
                     it.copy(
                         saving = false,
                         error = e.message,
-                        errorFallback = R.string.error_photo_not_imported,
-                        errorTitle = R.string.error_title_photo,
+                        errorFallback = ErrorFallback.PHOTO_NOT_IMPORTED,
+                        errorTitle = ErrorTitle.PHOTO,
                     )
                 }
             }
@@ -412,8 +323,8 @@ class GarmentFormViewModel(
     fun onCameraUnavailable() = _state.update {
         it.copy(
             error = null,
-            errorFallback = R.string.error_no_camera,
-            errorTitle = R.string.error_title_photo,
+            errorFallback = ErrorFallback.NO_CAMERA,
+            errorTitle = ErrorTitle.PHOTO,
         )
     }
 
@@ -427,8 +338,8 @@ class GarmentFormViewModel(
     fun onCropFailed() = _state.update {
         it.copy(
             error = null,
-            errorFallback = R.string.error_crop_failed,
-            errorTitle = R.string.error_title_photo,
+            errorFallback = ErrorFallback.PHOTO_NOT_CROPPED,
+            errorTitle = ErrorTitle.PHOTO,
         )
     }
 
@@ -540,8 +451,8 @@ class GarmentFormViewModel(
                     it.copy(
                         removingBackground = false,
                         error = e.message,
-                        errorFallback = R.string.error_background_not_removed,
-                        errorTitle = R.string.error_title_background,
+                        errorFallback = ErrorFallback.BACKGROUND_NOT_REMOVED,
+                        errorTitle = ErrorTitle.BACKGROUND,
                     )
                 }
             }
@@ -578,7 +489,7 @@ class GarmentFormViewModel(
         val form = _state.value.form
 
         if (form.imageUris.isEmpty()) {
-            _state.update { it.copy(error = null, errorFallback = R.string.error_photo_required) }
+            _state.update { it.copy(error = null, errorFallback = ErrorFallback.PHOTO_REQUIRED) }
             return
         }
 
@@ -618,7 +529,13 @@ class GarmentFormViewModel(
         // the same dialog appeared again the instant it closed. Since an
         // AlertDialog is modal, that read as the close button doing nothing and
         // the screen being stuck.
-        _state.update { it.copy(error = null, errorFallback = null) }
+        //
+        // The title goes back to its default for a related reason. Only the photo
+        // and background failures set one, so whatever error came next inherited
+        // the last one's: "A garment needs at least one photo" arrived under
+        // "Couldn't use that photo" if the camera had failed earlier -- the
+        // mislabelling `errorTitle` exists to prevent.
+        _state.update { it.copy(error = null, errorFallback = null, errorTitle = ErrorTitle.SAVE) }
     }
 
     private fun GarmentFormState.asDuplicateCandidate() = DuplicateCandidate(

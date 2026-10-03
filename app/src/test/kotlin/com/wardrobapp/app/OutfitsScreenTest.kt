@@ -9,6 +9,11 @@ import androidx.compose.ui.test.performClick
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.SuggestedOutfit
 import com.wardrobapp.domain.OutfitReason
+import com.wardrobapp.presentation.OutfitsScreenState
+import com.wardrobapp.ui.OUTFIT_ARCHIVE_TOGGLE
+import com.wardrobapp.ui.OUTFIT_REASONS
+import com.wardrobapp.ui.OutfitsScreen
+import com.wardrobapp.ui.starTag
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -52,7 +57,7 @@ class OutfitsScreenTest {
         updatedAt = null,
     )
 
-    private fun suggestion(reasons: List<OutfitReason>) = OutfitsViewModel.Suggestion(
+    private fun suggestion(reasons: List<OutfitReason>) = OutfitsScreenState.Suggestion(
         id = "s1",
         outfit = SuggestedOutfit(
             name = "Shirt + Jeans",
@@ -64,7 +69,7 @@ class OutfitsScreenTest {
 
     private var rated: Int? = null
 
-    private fun show(state: OutfitsViewModel.State) {
+    private fun show(state: OutfitsScreenState) {
         compose.setContent {
             OutfitsScreen(
                 state = state,
@@ -94,7 +99,7 @@ class OutfitsScreenTest {
         // icons, and a screen reader read the character: five controls that
         // announced "white star" and gave five different ratings. This is the part
         // of that swap worth holding on to.
-        show(OutfitsViewModel.State(suggestions = listOf(suggestion(emptyList()))))
+        show(OutfitsScreenState(suggestions = listOf(suggestion(emptyList()))))
 
         compose.onNodeWithContentDescription("Rate 1 star").assertIsDisplayed()
         compose.onNodeWithContentDescription("Rate 4 stars").assertIsDisplayed()
@@ -102,7 +107,7 @@ class OutfitsScreenTest {
 
     @Test
     fun `before anything has been asked for, the button offers to suggest`() {
-        show(OutfitsViewModel.State(hasGenerated = false))
+        show(OutfitsScreenState(hasGenerated = false))
 
         compose.onNodeWithText("Suggest outfits").assertIsDisplayed()
     }
@@ -112,7 +117,7 @@ class OutfitsScreenTest {
         // Same button, different job: the first press fills an empty list, and
         // every one after it replaces three outfits that have already been read.
         // Two tests rather than one, because the rule composes once.
-        show(OutfitsViewModel.State(hasGenerated = true))
+        show(OutfitsScreenState(hasGenerated = true))
 
         compose.onNodeWithText("Suggest again").assertIsDisplayed()
         compose.onNodeWithText("Suggest outfits").assertDoesNotExist()
@@ -125,7 +130,7 @@ class OutfitsScreenTest {
         // withholding each card until its turn -- looks identical on a phone and
         // makes the card unreachable to anything that does not wait out an
         // animation, this suite included.
-        show(OutfitsViewModel.State(suggestions = listOf(suggestion(emptyList()))))
+        show(OutfitsScreenState(suggestions = listOf(suggestion(emptyList()))))
 
         compose.onNodeWithText("Shirt + Jeans").assertIsDisplayed()
     }
@@ -136,7 +141,7 @@ class OutfitsScreenTest {
         // worth reading, and the reason the engine keeps them rather than summing
         // them away.
         show(
-            OutfitsViewModel.State(
+            OutfitsScreenState(
                 hasGenerated = true,
                 suggestions = listOf(suggestion(listOf(OutfitReason.LEARNED, OutfitReason.COLOURS))),
             )
@@ -151,7 +156,7 @@ class OutfitsScreenTest {
         // Rather than an empty line, or a placeholder claiming a reason it does
         // not have.
         show(
-            OutfitsViewModel.State(
+            OutfitsScreenState(
                 hasGenerated = true,
                 suggestions = listOf(suggestion(emptyList())),
             )
@@ -163,7 +168,7 @@ class OutfitsScreenTest {
     @Test
     fun `rating a suggestion reports the stars that were tapped`() {
         show(
-            OutfitsViewModel.State(
+            OutfitsScreenState(
                 hasGenerated = true,
                 suggestions = listOf(suggestion(emptyList())),
             )
@@ -181,7 +186,7 @@ class OutfitsScreenTest {
         // matters is that the prompt exists at all, since without it a rating
         // would quietly file the outfit away with no way to change your mind.
         show(
-            OutfitsViewModel.State(
+            OutfitsScreenState(
                 hasGenerated = true,
                 suggestions = listOf(suggestion(emptyList())),
                 keeping = suggestion(emptyList()).copy(rating = 2),
@@ -200,14 +205,14 @@ class OutfitsScreenTest {
 
     @Test
     fun `an empty archive offers no way in`() {
-        show(OutfitsViewModel.State(hasGenerated = true, archivedCount = 0))
+        show(OutfitsScreenState(hasGenerated = true, archivedCount = 0))
 
         compose.onNodeWithTag(OUTFIT_ARCHIVE_TOGGLE).assertDoesNotExist()
     }
 
     @Test
     fun `an archive with outfits in it says how many`() {
-        show(OutfitsViewModel.State(hasGenerated = true, archivedCount = 3))
+        show(OutfitsScreenState(hasGenerated = true, archivedCount = 3))
 
         compose.onNodeWithText("Show 3 rated-only outfits").assertIsDisplayed()
     }

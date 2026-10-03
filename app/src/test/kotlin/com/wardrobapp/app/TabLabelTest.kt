@@ -4,11 +4,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.text.TextLayoutResult
+import com.wardrobapp.ui.HOME
+import com.wardrobapp.ui.TABS
+import com.wardrobapp.ui.WardrobeBottomBar
+import org.jetbrains.compose.resources.stringResource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

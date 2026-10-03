@@ -8,20 +8,26 @@ ships, so what a phone shows is the artwork itself rather than a redrawing of it
 
     python3 scripts/generate-launcher-icons.py
 
-What it writes, all under `app/src/main/res`:
+What it writes, under `app/src/main/res`:
 
     mipmap-*/ic_launcher_foreground.png   the adaptive icon's top layer
     mipmap-*/ic_launcher_monochrome.png   the same shape, flat, for themed icons
     mipmap-*/ic_launcher.png              Android 7's icon: the two composited
     mipmap-*/ic_launcher_round.png        the same under a circular mask
-    drawable-*/ic_brand_mark.png          the same again, for the app to draw
     values/ic_launcher_background.xml     the cream, sampled from the card
+
+and under `ui/src/commonMain/composeResources`:
+
+    drawable-*/ic_brand_mark.png          the same again, for the app to draw
 
 `ic_brand_mark` is the one that is not a launcher icon, and it exists because
 `R.mipmap.ic_launcher` cannot stand in for it. From Android 8 that name resolves
 to the adaptive icon's XML, and `painterResource` loads bitmaps and vectors and
 not `<adaptive-icon>` -- so a screen that asks for it throws while composing.
-It is the same picture, at a size a screen uses rather than a launcher.
+It is the same picture, at a size a screen uses rather than a launcher. It is a
+Compose Multiplatform resource rather than an Android one because the screen
+that draws it is shared with the browser; the density folders are named the
+same in both systems, and both pick the one nearest the screen.
 
 The hard part is separating the mark from the paper. The card is not one flat
 colour -- it is lit, so it shades from about 240 at the top to 253 in the middle
@@ -46,6 +52,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / 'art' / 'logo.png'
 RES = ROOT / 'app' / 'src' / 'main' / 'res'
+SCREEN_RES = ROOT / 'ui' / 'src' / 'commonMain' / 'composeResources'
 
 # The adaptive icon's layers are 108dp; the legacy rasters are 48dp. Both are
 # listed per density because a bitmap, unlike a vector, has one.
@@ -645,16 +652,14 @@ def main() -> None:
             write_png(RES / folder / f'{name}.png', legacy, legacy,
                       rows_of(small, legacy, shape_mask(legacy, shape)))
 
-        # The same card, for the app to draw itself. In `drawable-` rather than
-        # `mipmap-`, which is the distinction those two folders are actually for:
-        # mipmap is for what a launcher shows and keeps every density of, drawable
-        # is for what the app shows and may be stripped down to the one density a
-        # given phone needs.
+        # The same card, for the app to draw itself: a `drawable-` of the
+        # screens' own resources rather than a launcher `mipmap-`, since it is
+        # something a screen shows and not something a launcher does.
         brand = round(BRAND_DP * density)
         brand_scale = radius / (SAFE_RADIUS / LAYER_DP * brand)
         card = over(sample(logo, logo.mark, None, brand, (cx, cy), brand_scale),
                     logo.paper_colour)
-        write_png(RES / f'drawable-{folder.split("-", 1)[1]}' / 'ic_brand_mark.png',
+        write_png(SCREEN_RES / f'drawable-{folder.split("-", 1)[1]}' / 'ic_brand_mark.png',
                   brand, brand, rows_of(card, brand, shape_mask(brand, 'rounded')))
 
         print(f'{folder}: layers {layer}x{layer}, icons {legacy}x{legacy}, '

@@ -17,10 +17,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.data.AppRelease
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.action_close
+import com.wardrobapp.ui.resources.update_available_title
+import com.wardrobapp.ui.resources.update_build
+import com.wardrobapp.ui.resources.update_changes
+import com.wardrobapp.ui.resources.update_changes_more
+import com.wardrobapp.ui.resources.update_downloading
+import com.wardrobapp.ui.resources.update_failed_title
+import com.wardrobapp.ui.resources.update_install
+import com.wardrobapp.ui.resources.update_later
+import com.wardrobapp.ui.resources.update_skip
+import com.wardrobapp.ui.resources.update_version
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 /** The notice itself, for the tests that ask whether it is on screen. */
 const val UPDATE_NOTICE = "update-notice"
@@ -58,10 +70,10 @@ fun UpdateNotice(
     if (failure != null) {
         AlertDialog(
             onDismissRequest = onFailureDismissed,
-            title = { Text(stringResource(R.string.update_failed_title)) },
+            title = { Text(stringResource(Res.string.update_failed_title)) },
             text = { Text(failure) },
             confirmButton = {
-                TextButton(onClick = onFailureDismissed) { Text(stringResource(R.string.action_close)) }
+                TextButton(onClick = onFailureDismissed) { Text(stringResource(Res.string.action_close)) }
             },
         )
         return
@@ -74,23 +86,23 @@ fun UpdateNotice(
         // finish or fail, both of which end this dialog by themselves.
         onDismissRequest = { if (!state.downloading) onDismiss() },
         modifier = Modifier.testTag(UPDATE_NOTICE),
-        title = { Text(stringResource(R.string.update_available_title)) },
+        title = { Text(stringResource(Res.string.update_available_title)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     // The name as well as the build number, because the name is
                     // what Settings shows and the number is what makes it newer.
                     if (release.versionName.isBlank()) {
-                        stringResource(R.string.update_build, release.versionCode)
+                        stringResource(Res.string.update_build, release.versionCode)
                     } else {
-                        stringResource(R.string.update_version, release.versionName, release.versionCode)
+                        stringResource(Res.string.update_version, release.versionName, release.versionCode)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                 )
 
                 if (release.changes.isNotEmpty()) {
                     Text(
-                        stringResource(R.string.update_changes),
+                        stringResource(Res.string.update_changes),
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.padding(top = 12.dp),
                     )
@@ -104,7 +116,7 @@ fun UpdateNotice(
                     if (release.changes.size > CHANGES_SHOWN) {
                         val hidden = release.changes.size - CHANGES_SHOWN
                         Text(
-                            pluralStringResource(R.plurals.update_changes_more, hidden, hidden),
+                            pluralStringResource(Res.plurals.update_changes_more, hidden, hidden),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp),
@@ -119,14 +131,14 @@ fun UpdateNotice(
             // Absent rather than disabled while downloading: what it would do is
             // already happening, and the progress underneath says so.
             if (!state.downloading) {
-                TextButton(onClick = onInstall) { Text(stringResource(R.string.update_install)) }
+                TextButton(onClick = onInstall) { Text(stringResource(Res.string.update_install)) }
             }
         },
         dismissButton = {
             if (!state.downloading) {
                 Row {
-                    TextButton(onClick = onSkip) { Text(stringResource(R.string.update_skip)) }
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.update_later)) }
+                    TextButton(onClick = onSkip) { Text(stringResource(Res.string.update_skip)) }
+                    TextButton(onClick = onDismiss) { Text(stringResource(Res.string.update_later)) }
                 }
             }
         },
@@ -140,7 +152,7 @@ private fun Downloading(progress: Float?) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             CircularProgressIndicator(modifier = Modifier.size(18.dp))
             Text(
-                stringResource(R.string.update_downloading),
+                stringResource(Res.string.update_downloading),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(start = 12.dp),
             )

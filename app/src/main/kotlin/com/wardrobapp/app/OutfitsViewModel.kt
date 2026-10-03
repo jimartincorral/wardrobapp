@@ -12,8 +12,13 @@ import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.SuggestionPreferences
 import com.wardrobapp.domain.seasonOfMonth
 import com.wardrobapp.presentation.OutfitFilters
+import com.wardrobapp.presentation.OutfitsScreenState
+import com.wardrobapp.presentation.OutfitsScreenState.Suggestion
 import com.wardrobapp.presentation.withOccasionSelected
 import com.wardrobapp.presentation.withSeasonToggled
+import java.util.Calendar
+import java.util.UUID
+import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,9 +26,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.Calendar
-import java.util.UUID
-import kotlin.random.Random
 
 /**
  * Outfit suggestions, and the ones that were kept.
@@ -34,61 +36,8 @@ import kotlin.random.Random
  */
 class OutfitsViewModel(private val container: AppContainer) : ViewModel() {
 
-    /**
-     * A suggestion with the id it will be saved under.
-     *
-     * Minted when the batch is produced rather than when it is saved, which is
-     * what makes saving idempotent: tapping "save" and rating it -- which saves
-     * it first -- are the same request, and the second one writes nothing.
-     */
-    data class Suggestion(
-        val id: String,
-        val outfit: SuggestedOutfit,
-        /** The rating given in this session, if any. */
-        val rating: Int? = null,
-        val saved: Boolean = false,
-    )
-
-    data class State(
-        val filters: OutfitFilters = OutfitFilters(),
-        val suggestions: List<Suggestion> = emptyList(),
-        val saved: List<OutfitRecord> = emptyList(),
-        val generating: Boolean = false,
-        /** True once a batch has been asked for, so "none" can differ from "not yet". */
-        val hasGenerated: Boolean = false,
-        val error: String? = null,
-        /**
-         * The saved outfit being asked about, if any.
-         *
-         * The outfit rather than its id, so the prompt can name it -- "delete
-         * this?" next to a list of several is a question nobody should have to
-         * answer from position alone.
-         */
-        val deleting: OutfitRecord? = null,
-        /**
-         * The garment every suggestion is being built around, if any.
-         *
-         * The record rather than its id, so the screen can name and show the
-         * garment it is working from -- "building around something" is not an
-         * answer anybody can act on.
-         */
-        val seed: GarmentRecord? = null,
-        /**
-         * The rated outfit being asked about, if any.
-         *
-         * A rating is already recorded and already learned from by the time this
-         * appears -- what is being asked is only whether to keep the outfit in the
-         * list of things to wear.
-         */
-        val keeping: Suggestion? = null,
-        /** Whether the rated-only outfits are being shown alongside the kept ones. */
-        val showingArchived: Boolean = false,
-        /** How many are put away, so the toggle can say whether it is worth tapping. */
-        val archivedCount: Long = 0,
-    )
-
-    private val _state = MutableStateFlow(State())
-    val state: StateFlow<State> = _state.asStateFlow()
+    private val _state = MutableStateFlow(OutfitsScreenState())
+    val state: StateFlow<OutfitsScreenState> = _state.asStateFlow()
 
     init {
         loadSaved()

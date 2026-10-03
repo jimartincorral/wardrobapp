@@ -1,8 +1,9 @@
 // Wardrobapp.
 //
-// :domain, :data, :presentation and :net are deliberately plain Kotlin/JVM, so
-// they build and test without the Android SDK -- on any machine and in CI. Only :app
-// needs the SDK, and it is included only where one exists. That split started as
+// :domain, :data, :presentation and :net need nothing but a JDK, so they build
+// and test without the Android SDK -- on any machine and in CI. :app needs the
+// SDK, and is included only where one exists; :ui, the screens, builds fully
+// where there is one and for the browser alone where there is not. That split started as
 // a way to port the app a layer at a time; it is kept because it is the reason
 // most of this codebase can be tested in seconds without an emulator.
 //
@@ -57,11 +58,23 @@ val androidSdk = System.getenv("ANDROID_HOME")?.takeIf { it.isNotBlank() }
                     ?.firstOrNull { it.startsWith("sdk.dir=") }
                     ?.removePrefix("sdk.dir=")
 
+// :app needs the SDK, so it is included only where there is one. :ui always is,
+// but where there is no SDK it is built from build.wasm.gradle.kts: the same
+// screens, compiled for the browser alone. Its full build needs Google's Maven
+// twice over -- for the Android library plugin, and for the androidx artifacts
+// Compose Multiplatform's Android and desktop builds resolve to -- which is the
+// repository the probe above leaves out. Its Wasm build needs only Maven
+// Central, so the screens are compiled on every machine that runs
+// `./gradlew test`. build.wasm.gradle.kts says the rest.
+include(":ui")
+
 if (androidSdk != null && file(androidSdk).isDirectory) {
     include(":app")
 } else {
+    project(":ui").buildFileName = "build.wasm.gradle.kts"
     logger.lifecycle(
         "No Android SDK found (ANDROID_HOME, ANDROID_SDK_ROOT or local.properties) -- " +
-            "skipping :app. The pure modules still build and test."
+            "skipping :app, and building :ui for the browser only. The pure modules " +
+            "still build and test."
     )
 }

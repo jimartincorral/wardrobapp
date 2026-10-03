@@ -1,26 +1,52 @@
 import org.gradle.api.tasks.PathSensitivity
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // What the screens show, as pure functions over records.
 //
-// Plain Kotlin/JVM, like :domain and :data, and for the same reason: this is the
+// Free of Android, like :domain and :data, and for the same reason: this is the
 // logic that decides what a list contains and what a form will accept, and it is
 // worth being able to test all of it without an emulator. Compose sits on top of
 // this and renders -- it should hold layout, not decisions.
+//
+// Kotlin Multiplatform, like them, because the browser's screens make the same
+// decisions the phone's do. Common code apart from the Drive backup schedule,
+// which is a phone feature. The things the platforms genuinely do differently
+// are expects with each platform's own answer behind it: how a reader's
+// language sorts (`readerOrder`, a collator each), and how a date is written
+// for them (`formatStoredDateForReader`, DateFormat on the JVM and
+// Intl.DateTimeFormat in the browser). Which strings are dates at all is common,
+// in StoredMoment, so that the two cannot disagree about it.
 plugins {
-    kotlin("jvm") version "2.1.20"
+    kotlin("multiplatform") version "2.1.20"
 }
 
 repositories {
     mavenCentral()
 }
 
-dependencies {
-    api(project(":data"))
-    testImplementation(kotlin("test"))
-    // Only for ArchiveMessageParityTest, which asks UnrestorableReason for its
-    // sealed subclasses to prove it has a sample of every one. Nothing ships it.
-    testImplementation(kotlin("reflect"))
+kotlin {
+    jvm {
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_17
+        }
+    }
+
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs()
+
+    sourceSets {
+        commonMain.dependencies {
+            api(project(":data"))
+        }
+        jvmTest.dependencies {
+            implementation(kotlin("test"))
+            // Only for ArchiveMessageParityTest, which asks UnrestorableReason for
+            // its sealed subclasses to prove it has a sample of every one. Nothing
+            // ships it.
+            implementation(kotlin("reflect"))
+        }
+    }
 }
 
 // Where :app keeps its string resources, for StringResourceParityTest.
@@ -57,15 +83,41 @@ tasks.withType<Test>().configureEach {
     inputs.dir(appSources)
         .withPropertyName("appScreenSources")
         .withPathSensitivity(PathSensitivity.RELATIVE)
-}
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-}
+    // And the glyph sources, for GlyphSourcesTest, which checks that the
+    // generated vectors in :ui still say what the SVGs do. An input for the same
+    // reason as the resources above: without it, editing an SVG would leave the
+    // test UP-TO-DATE and the check silently not run.
+    val glyphSources = rootProject.file("art/glyphs")
+    systemProperty("glyphSourceDir", glyphSources.absolutePath)
+    inputs.dir(glyphSources)
+        .withPropertyName("glyphSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 
-kotlin {
-    compilerOptions {
-        jvmTarget = JvmTarget.JVM_17
-    }
+    // And the screens' strings, which moved to :ui as Compose Multiplatform
+    // resources: StringResourceParityTest reads both tables, the message parity
+    // tests compare against these, and XmlWellFormedTest parses them. An input,
+    // like :app's resources above, so that editing a string reruns the tests.
+    val uiResources = rootProject.file("ui/src/commonMain/composeResources")
+    systemProperty("uiResDir", uiResources.absolutePath)
+    inputs.dir(uiResources)
+        .withPropertyName("uiStringResources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+
+    // And :ui's two build files, for UiBuildFilesTest, which holds them to the
+    // same dependencies. Inputs for the same reason as everything above.
+    val uiModule = rootProject.file("ui")
+    systemProperty("uiModuleDir", uiModule.absolutePath)
+    inputs.files(File(uiModule, "build.gradle.kts"), File(uiModule, "build.wasm.gradle.kts"))
+        .withPropertyName("uiBuildFiles")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+
+    // And where the generated vectors are, for GlyphSourcesTest. :ui has no local
+    // compiler either -- it builds only where :app does -- so its files are read
+    // from here too.
+    val uiSources = rootProject.file("ui/src/commonMain/kotlin/com/wardrobapp/ui")
+    systemProperty("uiSourceDir", uiSources.absolutePath)
+    inputs.dir(uiSources)
+        .withPropertyName("uiSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }

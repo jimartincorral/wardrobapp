@@ -26,18 +26,58 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.data.DriveBackup
 import com.wardrobapp.data.isoTimestamp
 import com.wardrobapp.presentation.BackupFrequency
 import com.wardrobapp.presentation.BackupRetention
-import com.wardrobapp.presentation.keep
 import com.wardrobapp.presentation.formatMegabytes
 import com.wardrobapp.presentation.formatStoredDateTime
+import com.wardrobapp.presentation.keep
+import com.wardrobapp.ui.RESTORE_WITH_SETTINGS
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.action_cancel
+import com.wardrobapp.ui.resources.action_close
+import com.wardrobapp.ui.resources.action_done
+import com.wardrobapp.ui.resources.backup_frequency_daily
+import com.wardrobapp.ui.resources.backup_frequency_monthly
+import com.wardrobapp.ui.resources.backup_frequency_weekly
+import com.wardrobapp.ui.resources.restore_done_body
+import com.wardrobapp.ui.resources.restore_done_title
+import com.wardrobapp.ui.resources.restore_preview_made
+import com.wardrobapp.ui.resources.restore_preview_settings
+import com.wardrobapp.ui.resources.settings_cloud_backing_up
+import com.wardrobapp.ui.resources.settings_cloud_backup_now
+import com.wardrobapp.ui.resources.settings_cloud_battery
+import com.wardrobapp.ui.resources.settings_cloud_connect
+import com.wardrobapp.ui.resources.settings_cloud_connecting
+import com.wardrobapp.ui.resources.settings_cloud_disconnect
+import com.wardrobapp.ui.resources.settings_cloud_disconnect_note
+import com.wardrobapp.ui.resources.settings_cloud_empty
+import com.wardrobapp.ui.resources.settings_cloud_frequency
+import com.wardrobapp.ui.resources.settings_cloud_hint
+import com.wardrobapp.ui.resources.settings_cloud_keep
+import com.wardrobapp.ui.resources.settings_cloud_keep_all
+import com.wardrobapp.ui.resources.settings_cloud_keep_one_warning
+import com.wardrobapp.ui.resources.settings_cloud_kept
+import com.wardrobapp.ui.resources.settings_cloud_last_backup
+import com.wardrobapp.ui.resources.settings_cloud_last_failed
+import com.wardrobapp.ui.resources.settings_cloud_listing
+import com.wardrobapp.ui.resources.settings_cloud_refresh
+import com.wardrobapp.ui.resources.settings_cloud_restore
+import com.wardrobapp.ui.resources.settings_cloud_restore_body
+import com.wardrobapp.ui.resources.settings_cloud_restore_title
+import com.wardrobapp.ui.resources.settings_cloud_restoring
+import com.wardrobapp.ui.resources.settings_cloud_schedule
+import com.wardrobapp.ui.resources.settings_cloud_wifi_only
+import com.wardrobapp.ui.resources.settings_cloud_wifi_only_hint
+import com.wardrobapp.ui.resources.settings_megabytes
+import com.wardrobapp.ui.resources.settings_section_cloud
 import java.util.Locale
 import java.util.TimeZone
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 
 /** For the tests that ask whether the section is on screen. */
 const val CLOUD_SECTION = "cloud-section"
@@ -79,11 +119,11 @@ fun CloudBackupSection(
     state.failure?.let { failure ->
         AlertDialog(
             onDismissRequest = onFailureDismissed,
-            title = { Text(stringResource(R.string.settings_section_cloud)) },
+            title = { Text(stringResource(Res.string.settings_section_cloud)) },
             text = { Text(failure) },
             confirmButton = {
                 TextButton(onClick = onFailureDismissed) {
-                    Text(stringResource(R.string.action_close))
+                    Text(stringResource(Res.string.action_close))
                 }
             },
         )
@@ -95,11 +135,11 @@ fun CloudBackupSection(
     if (state.restored) {
         AlertDialog(
             onDismissRequest = onRestoredDismissed,
-            title = { Text(stringResource(R.string.restore_done_title)) },
-            text = { Text(stringResource(R.string.restore_done_body)) },
+            title = { Text(stringResource(Res.string.restore_done_title)) },
+            text = { Text(stringResource(Res.string.restore_done_body)) },
             confirmButton = {
                 TextButton(onClick = onRestoredDismissed) {
-                    Text(stringResource(R.string.action_done))
+                    Text(stringResource(Res.string.action_done))
                 }
             },
         )
@@ -113,7 +153,7 @@ fun CloudBackupSection(
 
         AlertDialog(
             onDismissRequest = { confirming = null },
-            title = { Text(stringResource(R.string.settings_cloud_restore_title)) },
+            title = { Text(stringResource(Res.string.settings_cloud_restore_title)) },
             text = {
                 // Which one, not merely whether. The list is five rows of the same
                 // sentence, so a confirmation that did not name the archive would
@@ -122,7 +162,7 @@ fun CloudBackupSection(
                 Column {
                     Text(
                         stringResource(
-                            R.string.restore_preview_made,
+                            Res.string.restore_preview_made,
                             formatStoredDateTime(
                                 isoTimestamp(backup.modifiedAt),
                                 TimeZone.getDefault(),
@@ -149,14 +189,14 @@ fun CloudBackupSection(
                     ) {
                         Checkbox(checked = withSettings, onCheckedChange = null)
                         Text(
-                            stringResource(R.string.restore_preview_settings),
+                            stringResource(Res.string.restore_preview_settings),
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(start = 8.dp),
                         )
                     }
 
                     Text(
-                        stringResource(R.string.settings_cloud_restore_body),
+                        stringResource(Res.string.settings_cloud_restore_body),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 12.dp),
@@ -170,12 +210,12 @@ fun CloudBackupSection(
                         onRestore(backup, withSettings)
                     },
                 ) {
-                    Text(stringResource(R.string.settings_cloud_restore))
+                    Text(stringResource(Res.string.settings_cloud_restore))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { confirming = null }) {
-                    Text(stringResource(R.string.action_cancel))
+                    Text(stringResource(Res.string.action_cancel))
                 }
             },
         )
@@ -183,7 +223,7 @@ fun CloudBackupSection(
 
     Column(modifier = Modifier.fillMaxWidth().testTag(CLOUD_SECTION)) {
         Text(
-            stringResource(R.string.settings_cloud_hint),
+            stringResource(Res.string.settings_cloud_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -198,7 +238,7 @@ fun CloudBackupSection(
                 enabled = idle,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             ) {
-                Text(stringResource(R.string.settings_cloud_connect))
+                Text(stringResource(Res.string.settings_cloud_connect))
             }
         } else {
             Button(
@@ -206,12 +246,12 @@ fun CloudBackupSection(
                 enabled = idle,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             ) {
-                Text(stringResource(R.string.settings_cloud_backup_now))
+                Text(stringResource(Res.string.settings_cloud_backup_now))
             }
 
             if (state.backups.isEmpty() && idle) {
                 Text(
-                    stringResource(R.string.settings_cloud_empty),
+                    stringResource(Res.string.settings_cloud_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 12.dp),
                 )
@@ -239,21 +279,21 @@ fun CloudBackupSection(
                         )
                         backup.bytes?.let { bytes ->
                             Text(
-                                stringResource(R.string.settings_megabytes, formatMegabytes(bytes)),
+                                stringResource(Res.string.settings_megabytes, formatMegabytes(bytes)),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
                     TextButton(onClick = { confirming = backup }, enabled = idle) {
-                        Text(stringResource(R.string.settings_cloud_restore))
+                        Text(stringResource(Res.string.settings_cloud_restore))
                     }
                 }
             }
 
             if (state.backups.isNotEmpty()) {
                 Text(
-                    stringResource(R.string.settings_cloud_kept),
+                    stringResource(Res.string.settings_cloud_kept),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp),
@@ -269,7 +309,7 @@ fun CloudBackupSection(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    stringResource(R.string.settings_cloud_schedule),
+                    stringResource(Res.string.settings_cloud_schedule),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f),
                 )
@@ -288,7 +328,7 @@ fun CloudBackupSection(
             val settable = idle && state.scheduled
 
             Text(
-                stringResource(R.string.settings_cloud_frequency),
+                stringResource(Res.string.settings_cloud_frequency),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 12.dp),
@@ -308,7 +348,7 @@ fun CloudBackupSection(
             }
 
             Text(
-                stringResource(R.string.settings_cloud_keep),
+                stringResource(Res.string.settings_cloud_keep),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 12.dp),
@@ -328,7 +368,7 @@ fun CloudBackupSection(
                         label = {
                             Text(
                                 choice.keep?.toString()
-                                    ?: stringResource(R.string.settings_cloud_keep_all),
+                                    ?: stringResource(Res.string.settings_cloud_keep_all),
                             )
                         },
                     )
@@ -340,7 +380,7 @@ fun CloudBackupSection(
             // should be told at the moment they do.
             if (state.retention == BackupRetention.ONE) {
                 Text(
-                    stringResource(R.string.settings_cloud_keep_one_warning),
+                    stringResource(Res.string.settings_cloud_keep_one_warning),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 4.dp),
@@ -353,7 +393,7 @@ fun CloudBackupSection(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    stringResource(R.string.settings_cloud_wifi_only),
+                    stringResource(Res.string.settings_cloud_wifi_only),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
@@ -365,7 +405,7 @@ fun CloudBackupSection(
                 )
             }
             Text(
-                stringResource(R.string.settings_cloud_wifi_only_hint),
+                stringResource(Res.string.settings_cloud_wifi_only_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -376,7 +416,7 @@ fun CloudBackupSection(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    stringResource(R.string.settings_cloud_battery),
+                    stringResource(Res.string.settings_cloud_battery),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
@@ -401,8 +441,8 @@ fun CloudBackupSection(
 
                 Text(
                     state.lastRunFailure
-                        ?.let { stringResource(R.string.settings_cloud_last_failed, it) }
-                        ?: stringResource(R.string.settings_cloud_last_backup, moment),
+                        ?.let { stringResource(Res.string.settings_cloud_last_failed, it) }
+                        ?: stringResource(Res.string.settings_cloud_last_backup, moment),
                     style = MaterialTheme.typography.bodySmall,
                     color = if (state.lastRunFailure != null) {
                         MaterialTheme.colorScheme.error
@@ -418,15 +458,15 @@ fun CloudBackupSection(
                 modifier = Modifier.padding(top = 8.dp),
             ) {
                 OutlinedButton(onClick = onRefresh, enabled = idle) {
-                    Text(stringResource(R.string.settings_cloud_refresh))
+                    Text(stringResource(Res.string.settings_cloud_refresh))
                 }
                 OutlinedButton(onClick = onDisconnect, enabled = idle) {
-                    Text(stringResource(R.string.settings_cloud_disconnect))
+                    Text(stringResource(Res.string.settings_cloud_disconnect))
                 }
             }
 
             Text(
-                stringResource(R.string.settings_cloud_disconnect_note),
+                stringResource(Res.string.settings_cloud_disconnect_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp),
@@ -447,10 +487,10 @@ private fun Working(working: CloudBackupViewModel.Working, progress: Float?) {
             Text(
                 stringResource(
                     when (working) {
-                        CloudBackupViewModel.Working.CONNECTING -> R.string.settings_cloud_connecting
-                        CloudBackupViewModel.Working.LISTING -> R.string.settings_cloud_listing
-                        CloudBackupViewModel.Working.BACKING_UP -> R.string.settings_cloud_backing_up
-                        CloudBackupViewModel.Working.RESTORING -> R.string.settings_cloud_restoring
+                        CloudBackupViewModel.Working.CONNECTING -> Res.string.settings_cloud_connecting
+                        CloudBackupViewModel.Working.LISTING -> Res.string.settings_cloud_listing
+                        CloudBackupViewModel.Working.BACKING_UP -> Res.string.settings_cloud_backing_up
+                        CloudBackupViewModel.Working.RESTORING -> Res.string.settings_cloud_restoring
                     },
                 ),
                 style = MaterialTheme.typography.bodyMedium,
@@ -469,3 +509,22 @@ private fun Working(working: CloudBackupViewModel.Working, progress: Float?) {
         }
     }
 }
+
+/**
+ * What to call each backup frequency.
+ *
+ * Adjectives rather than "Every day": the row reads as an answer to "how often",
+ * which is the heading above it, and "Daily / Weekly / Monthly" scans as one set
+ * where "Every day / Every week" repeats a word three times.
+ *
+ * Here rather than in Vocabulary with the rest, because Vocabulary is shared
+ * with the browser and a backup schedule is not: Drive backups are a phone
+ * feature, and BackupFrequency lives on the JVM side of :presentation with the
+ * scheduling it describes.
+ */
+val BackupFrequency.labelRes: StringResource
+    get() = when (this) {
+        BackupFrequency.DAILY -> Res.string.backup_frequency_daily
+        BackupFrequency.WEEKLY -> Res.string.backup_frequency_weekly
+        BackupFrequency.MONTHLY -> Res.string.backup_frequency_monthly
+    }

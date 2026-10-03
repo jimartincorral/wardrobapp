@@ -1,5 +1,8 @@
 package com.wardrobapp.app
 
+import com.wardrobapp.presentation.ErrorTitle
+import com.wardrobapp.presentation.GarmentFormScreenState
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -10,8 +13,8 @@ import org.robolectric.RuntimeEnvironment
  * Closing an error dialog has to actually close it.
  *
  * The bug this guards against: most errors on this screen carry no message of
- * their own and are shown through [GarmentFormViewModel.State.errorFallback], a
- * resource id rather than a string. `onErrorDismissed` cleared only `error`, so
+ * their own and are shown through [GarmentFormScreenState.errorFallback], a
+ * reason rather than a string. `onErrorDismissed` cleared only `error`, so
  * the moment the dialog closed, `errorText()` fell back to the still-set
  * `errorFallback` and drew the same dialog again -- immediately, since nothing
  * else changed. An `AlertDialog` is modal, so this read as the close button doing
@@ -32,5 +35,21 @@ class GarmentFormErrorDismissalTest {
         val state = model.state.value
         assertNull("the message survived being dismissed", state.error)
         assertNull("the fallback survived being dismissed, which is what reopened the dialog", state.errorFallback)
+    }
+
+    @Test
+    fun `an error after a dismissed one is not titled with the first one's title`() {
+        val model = GarmentFormViewModel(AppContainer(RuntimeEnvironment.getApplication()), garmentId = null)
+
+        // A photo failure, titled as one...
+        model.onCameraUnavailable()
+        assertEquals(ErrorTitle.PHOTO, model.state.value.errorTitle)
+        model.onErrorDismissed()
+
+        // ...and then a save with no photo, which sets no title of its own and
+        // used to arrive under "Couldn't use that photo".
+        model.onSaveRequested()
+
+        assertEquals(ErrorTitle.SAVE, model.state.value.errorTitle)
     }
 }

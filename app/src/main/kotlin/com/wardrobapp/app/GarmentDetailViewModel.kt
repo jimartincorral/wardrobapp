@@ -9,10 +9,14 @@ import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.isoTimestamp
 import com.wardrobapp.data.resolveImageRef
 import com.wardrobapp.presentation.BackgroundEdit
+import com.wardrobapp.presentation.ErrorFallback
+import com.wardrobapp.presentation.GarmentDetailScreenState
+import com.wardrobapp.presentation.GarmentDetailScreenState.Confirm
 import com.wardrobapp.presentation.GarmentDetailView
 import com.wardrobapp.presentation.garmentDetail
 import com.wardrobapp.presentation.withBackgroundRemovedAt
 import com.wardrobapp.presentation.withBackgroundRestoredAt
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +24,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 /**
  * One garment's detail.
@@ -34,53 +37,8 @@ class GarmentDetailViewModel(
     private val garmentId: String,
 ) : ViewModel() {
 
-    data class State(
-        val garmentId: String = "",
-        val loading: Boolean = true,
-        val view: GarmentDetailView? = null,
-        /**
-         * Set when the garment is not in the wardrobe -- deleted, or a link to
-         * one that never existed. Distinct from an error: there is nothing to
-         * retry.
-         */
-        val missing: Boolean = false,
-        /** Set when the read failed, which is not the same as finding nothing. */
-        val error: String? = null,
-        /** True while a write is in flight, so the actions cannot be double-tapped. */
-        val working: Boolean = false,
-        /** Non-null while a destructive action is being confirmed. */
-        val confirming: Confirm? = null,
-        /**
-         * Set once the garment is gone, so the screen showing it can leave.
-         *
-         * Distinct from [missing], which means it was never found. This one says
-         * *this* screen deleted it, which is the difference between "that garment
-         * does not exist" and closing quietly on the wardrobe behind.
-         */
-        val deleted: Boolean = false,
-        /** Set when an action failed. The read is fine; the write was not. */
-        /** What the exception said, which is not translated and may be null. */
-        val actionError: String? = null,
-        /**
-         * What the app was doing, for when the exception says nothing useful.
-         *
-         * A resource id rather than a sentence: the model has no Context, and the
-         * screen is where the reader's language is known.
-         */
-        @StringRes val actionErrorFallback: Int? = null,
-    )
-
-    /**
-     * The two actions worth asking about first.
-     *
-     * Retiring is reversible and would not need a prompt on its own, but it is
-     * what the React Native app asks about, and it does change what the wardrobe
-     * shows. Deleting is not reversible at all.
-     */
-    enum class Confirm { RETIRE, DELETE }
-
-    private val _state = MutableStateFlow(State(garmentId = garmentId))
-    val state: StateFlow<State> = _state.asStateFlow()
+    private val _state = MutableStateFlow(GarmentDetailScreenState(garmentId = garmentId))
+    val state: StateFlow<GarmentDetailScreenState> = _state.asStateFlow()
 
     /**
      * The record, and which of its photos is selected.
@@ -210,7 +168,7 @@ class GarmentDetailViewModel(
                     it.copy(
                         working = false,
                         actionError = e.message,
-                        actionErrorFallback = R.string.error_garment_not_deleted,
+                        actionErrorFallback = ErrorFallback.GARMENT_NOT_DELETED,
                     )
                 }
             }
@@ -263,7 +221,7 @@ class GarmentDetailViewModel(
                     it.copy(
                         working = false,
                         actionError = e.message,
-                        actionErrorFallback = R.string.error_background_not_removed,
+                        actionErrorFallback = ErrorFallback.BACKGROUND_NOT_REMOVED,
                     )
                 }
             }
@@ -301,7 +259,7 @@ class GarmentDetailViewModel(
                     it.copy(
                         working = false,
                         actionError = e.message,
-                        actionErrorFallback = R.string.error_not_undone,
+                        actionErrorFallback = ErrorFallback.NOT_UNDONE,
                     )
                 }
             }

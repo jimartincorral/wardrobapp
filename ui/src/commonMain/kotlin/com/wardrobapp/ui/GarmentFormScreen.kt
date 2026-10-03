@@ -1,0 +1,917 @@
+package com.wardrobapp.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import com.wardrobapp.data.DuplicateGarment
+import com.wardrobapp.domain.COMMON_SIZES
+import com.wardrobapp.domain.GARMENT_CATEGORIES
+import com.wardrobapp.domain.SIZE_CHIPS
+import com.wardrobapp.domain.Season
+import com.wardrobapp.domain.garmentCategory
+import com.wardrobapp.presentation.BackgroundAction
+import com.wardrobapp.presentation.GARMENT_COLORS
+import com.wardrobapp.presentation.GarmentFormScreenState
+import com.wardrobapp.presentation.backgroundActionFor
+import com.wardrobapp.presentation.hostOfAddress
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.action_back
+import com.wardrobapp.ui.resources.action_close
+import com.wardrobapp.ui.resources.background_cutting
+import com.wardrobapp.ui.resources.background_remove
+import com.wardrobapp.ui.resources.background_undo
+import com.wardrobapp.ui.resources.duplicate_add_anyway
+import com.wardrobapp.ui.resources.duplicate_review
+import com.wardrobapp.ui.resources.duplicate_title
+import com.wardrobapp.ui.resources.filter_brand
+import com.wardrobapp.ui.resources.filter_section_category
+import com.wardrobapp.ui.resources.filter_section_season
+import com.wardrobapp.ui.resources.filter_section_type
+import com.wardrobapp.ui.resources.filter_size
+import com.wardrobapp.ui.resources.form_add_photo
+import com.wardrobapp.ui.resources.form_detecting_colors
+import com.wardrobapp.ui.resources.form_remove_photo
+import com.wardrobapp.ui.resources.form_remove_tag
+import com.wardrobapp.ui.resources.form_save_add
+import com.wardrobapp.ui.resources.form_save_edit
+import com.wardrobapp.ui.resources.form_saving
+import com.wardrobapp.ui.resources.form_section_photos
+import com.wardrobapp.ui.resources.form_section_tags
+import com.wardrobapp.ui.resources.form_size_custom
+import com.wardrobapp.ui.resources.form_tag_hint
+import com.wardrobapp.ui.resources.form_take_photo
+import com.wardrobapp.ui.resources.form_title_add
+import com.wardrobapp.ui.resources.form_title_edit
+import com.wardrobapp.ui.resources.garment_missing
+import com.wardrobapp.ui.resources.import_action
+import com.wardrobapp.ui.resources.import_failed_title
+import com.wardrobapp.ui.resources.import_hint
+import com.wardrobapp.ui.resources.import_invalid_url
+import com.wardrobapp.ui.resources.import_notes
+import com.wardrobapp.ui.resources.import_running
+import com.wardrobapp.ui.resources.import_section
+import com.wardrobapp.ui.resources.import_source
+import com.wardrobapp.ui.resources.import_success
+import com.wardrobapp.ui.resources.import_url_label
+import com.wardrobapp.ui.resources.property_colours
+import com.wardrobapp.ui.resources.shared_link_body
+import com.wardrobapp.ui.resources.shared_link_cancel
+import com.wardrobapp.ui.resources.shared_link_confirm
+import com.wardrobapp.ui.resources.shared_link_title
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
+
+/** The scrolling body of the form, for tests that need to reach past the fold. */
+const val GARMENT_FORM_LIST = "garment-form-list"
+
+/**
+ * Adding or editing a garment.
+ *
+ * Layout only. Which types a category offers, what a tag is, whether the palette
+ * may be emptied and which seasons a type implies were all decided in :domain and
+ * :presentation before anything reached here.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun GarmentFormScreen(
+    state: GarmentFormScreenState,
+    isEditing: Boolean,
+    brandSuggestions: (String) -> List<String>,
+    onBack: () -> Unit,
+    onAddPhoto: () -> Unit,
+    onTakePhoto: () -> Unit,
+    onPhotoSelected: (Int) -> Unit,
+    onPhotoRemoved: (Int) -> Unit,
+    onRemoveBackground: () -> Unit,
+    onUndoBackground: () -> Unit,
+    onCategorySelected: (String) -> Unit,
+    onSubcategoryToggled: (String) -> Unit,
+    onSeasonToggled: (Season) -> Unit,
+    onColorToggled: (String) -> Unit,
+    onBrandChanged: (String) -> Unit,
+    onSizeChanged: (String) -> Unit,
+    onTagsChanged: (List<String>) -> Unit,
+    onSave: () -> Unit,
+    onSaveAnyway: () -> Unit,
+    onDuplicatesDismissed: () -> Unit,
+    onErrorDismissed: () -> Unit,
+    onImportUrlChanged: (String) -> Unit,
+    onImportRequested: () -> Unit,
+    onSharedLinkConfirmed: () -> Unit,
+    onSharedLinkDismissed: () -> Unit,
+    onImportProblemDismissed: () -> Unit,
+) {
+    val form = state.form
+
+    if (state.duplicates.isNotEmpty()) {
+        DuplicateWarning(state.duplicates, onSaveAnyway, onDuplicatesDismissed)
+    }
+
+    state.urlImport.awaitingConfirmation?.let { url ->
+        SharedLinkConfirmation(url, onSharedLinkConfirmed, onSharedLinkDismissed)
+    }
+
+    state.urlImport.problem?.let { problem ->
+        ImportProblemDialog(problem, onImportProblemDismissed)
+    }
+
+    state.errorText()?.let { error ->
+        AlertDialog(
+            onDismissRequest = onErrorDismissed,
+            title = { Text(stringResource(state.errorTitle.labelRes)) },
+            text = { Text(error) },
+            confirmButton = { TextButton(onClick = onErrorDismissed) { Text(stringResource(Res.string.action_close)) } },
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        stringResource(
+                            if (isEditing) Res.string.form_title_edit else Res.string.form_title_add
+                        )
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
+                    }
+                },
+            )
+        },
+    ) { insets ->
+        if (state.missing) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(insets),
+                contentAlignment = Alignment.Center,
+            ) { Text(stringResource(Res.string.garment_missing)) }
+            return@Scaffold
+        }
+
+        LazyColumn(
+            // Tagged so a test can scroll it. A LazyColumn only composes what is on
+            // screen, so anything below the fold -- the camera button, the colour
+            // chips -- is not merely invisible to a test, it does not exist yet.
+            // Scrolling to it needs the list named, and naming it here is cheaper
+            // than a test that only ever checks the top of the form.
+            modifier = Modifier.testTag(GARMENT_FORM_LIST).padding(insets),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            // Only when adding. An import replaces every photo in the form, which
+            // on an edit would mean quietly discarding the garment's own -- and
+            // the app this replaced offers it on the add screen alone for the same
+            // reason.
+            if (!isEditing) {
+                item {
+                    Section(stringResource(Res.string.import_section)) {
+                        ImportFromLink(
+                            state = state.urlImport,
+                            onUrlChanged = onImportUrlChanged,
+                            onImport = onImportRequested,
+                        )
+                    }
+                }
+            }
+
+            item {
+                Section(stringResource(Res.string.form_section_photos)) {
+                    Column {
+                        Photos(
+                            uris = form.galleryItems().map { it.uri },
+                            selected = form.selectedImageIndex,
+                            busy = state.saving,
+                            onAdd = onAddPhoto,
+                            onSelect = onPhotoSelected,
+                            onRemove = onPhotoRemoved,
+                        )
+
+                        // Two ways to add one, as the app this replaced has: the
+                        // picker for a photo already taken, the camera for a
+                        // garment in front of you.
+                        OutlinedButton(
+                            onClick = onTakePhoto,
+                            enabled = !state.saving,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        ) {
+                            Text(stringResource(Res.string.form_take_photo))
+                        }
+
+                        // No button: the colours are read when a photo arrives and
+                        // again when its background is removed. This is only the
+                        // wait, so that a palette filling itself in is explained
+                        // rather than surprising.
+                        if (state.detectingColor) DetectingColors()
+
+                        // What to offer is :presentation's call, from the same
+                        // function the detail screen asks -- "is there an original"
+                        // is true for a photo with no cut-out at all, so asking it
+                        // directly offered undo where there was nothing to undo.
+                        BackgroundControl(
+                            action = backgroundActionFor(
+                                form.imageUris.getOrNull(form.selectedImageIndex),
+                                form.bgRemovedUris.getOrNull(form.selectedImageIndex),
+                            ),
+                            running = state.removingBackground,
+                            onRemove = onRemoveBackground,
+                            onUndo = onUndoBackground,
+                        )
+                    }
+                }
+            }
+
+            item {
+                Section(stringResource(Res.string.filter_section_category)) {
+                    Chips(GARMENT_CATEGORIES.map { it.id }, setOf(form.category), { categoryLabel(it) }) {
+                        onCategorySelected(it)
+                    }
+                }
+            }
+
+            garmentCategory(form.category)?.let { category ->
+                item {
+                    Section(stringResource(Res.string.filter_section_type)) {
+                        Chips(category.subcategories, form.subcategories.toSet(), { garmentTypeLabel(it) }) {
+                            onSubcategoryToggled(it)
+                        }
+                    }
+                }
+            }
+
+            item {
+                Section(stringResource(Res.string.filter_section_season)) {
+                    Chips(Season.entries.toList(), form.seasons.toSet(), { stringResource(it.labelRes) }) {
+                        onSeasonToggled(it)
+                    }
+                }
+            }
+
+            item {
+                Section(stringResource(Res.string.property_colours)) {
+                    Colors(form.colorPalette.toSet(), onColorToggled)
+                }
+            }
+
+            item {
+                Section(stringResource(Res.string.form_section_tags)) {
+                    Tags(form.tags, onTagsChanged)
+                }
+            }
+
+            item {
+                Section(stringResource(Res.string.filter_brand)) {
+                    Brand(form.brand, brandSuggestions(form.brand), onBrandChanged)
+                }
+            }
+
+            item {
+                Section(stringResource(Res.string.filter_size)) {
+                    Column {
+                        Chips(
+                            COMMON_SIZES.take(SIZE_CHIPS),
+                            setOf(form.size),
+                            { it },
+                        ) { onSizeChanged(if (form.size == it) "" else it) }
+
+                        OutlinedTextField(
+                            value = form.size,
+                            onValueChange = onSizeChanged,
+                            label = { Text(stringResource(Res.string.form_size_custom)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        )
+                    }
+                }
+            }
+
+            item {
+                val press = remember { MutableInteractionSource() }
+
+                Button(
+                    onClick = onSave,
+                    enabled = !state.saving && !state.loading,
+                    interactionSource = press,
+                    modifier = Modifier.fillMaxWidth().height(CTA_HEIGHT).pressScale(press),
+                ) {
+                    Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Text(
+                        when {
+                            state.saving -> stringResource(Res.string.form_saving)
+                            isEditing -> stringResource(Res.string.form_save_edit)
+                            else -> stringResource(Res.string.form_save_add)
+                        },
+                        style = ctaLabel(),
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Remove or restore the selected photo's background.
+ *
+ * Runs a model on the device, which takes seconds rather than milliseconds, so it
+ * says what it is doing rather than just disabling itself. Undo appears only while
+ * there is a separate original to go back to: after a garment is saved the cut-out
+ * *is* the photo, and offering undo then would be a button that destroys the only
+ * copy.
+ */
+@Composable
+private fun BackgroundControl(
+    action: BackgroundAction?,
+    running: Boolean,
+    onRemove: () -> Unit,
+    onUndo: () -> Unit,
+) {
+    // Nothing to offer once a cut-out has replaced the photo it came from: there
+    // is no original left, and a button there would destroy the only copy.
+    if (action == null && !running) return
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = 8.dp),
+    ) {
+        when {
+            running -> {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                Text(
+                    stringResource(Res.string.background_cutting),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+            // Outlined chips rather than bare words: they sit under a row of
+            // photos, and text alone there reads as a caption on the last one.
+            action == BackgroundAction.REMOVE -> CutOutChip(
+                label = stringResource(Res.string.background_remove),
+                onClick = onRemove,
+            )
+            action == BackgroundAction.UNDO -> CutOutChip(
+                label = stringResource(Res.string.background_undo),
+                onClick = onUndo,
+            )
+        }
+    }
+}
+
+/** The cut-out offer, under the photo row: a 36dp outlined chip with its glyph. */
+@Composable
+private fun CutOutChip(label: String, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        modifier = Modifier.height(36.dp),
+    ) {
+        Icon(Glyph.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
+        Text(label, modifier = Modifier.padding(start = 6.dp))
+    }
+}
+
+/**
+ * A labelled block of a form.
+ *
+ * Internal rather than private because the bulk-add queue asks for a category
+ * and a type the same way this form does, and two spellings of the same heading
+ * is how one screen ends up looking like a different app.
+ */
+@Composable
+internal fun Section(title: String, content: @Composable () -> Unit) {
+    Column {
+        Text(
+            title,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        content()
+    }
+}
+
+/** A row of choices, wrapping. Shared with the bulk-add queue, as [Section] is. */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+internal fun <T> Chips(
+    options: List<T>,
+    selected: Set<T>,
+    // Composable because the label comes out of resources now, and a plain
+    // function type cannot hold a lookup that reads the reader's language.
+    label: @Composable (T) -> String,
+    onTap: (T) -> Unit,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        for (option in options) {
+            FilterChip(
+                selected = option in selected,
+                onClick = { onTap(option) },
+                label = { Text(label(option)) },
+                shape = RoundedCornerShape(8.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun Photos(
+    uris: List<String>,
+    selected: Int,
+    busy: Boolean,
+    onAdd: () -> Unit,
+    onSelect: (Int) -> Unit,
+    onRemove: (Int) -> Unit,
+) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        itemsIndexed(uris) { index, uri ->
+            Box {
+                AsyncImage(
+                    model = uri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .width(96.dp)
+                        .aspectRatio(0.75f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(
+                            2.dp,
+                            if (index == selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                Color.Transparent
+                            },
+                            RoundedCornerShape(8.dp),
+                        )
+                        .background(photoSurface())
+                        .clickable { onSelect(index) },
+                )
+
+                // On the photo rather than beside it, so the row stays a row of
+                // photos however many there are.
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = CircleShape,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                ) {
+                    IconButton(onClick = { onRemove(index) }, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            Icons.Filled.Clear,
+                            contentDescription = stringResource(Res.string.form_remove_photo),
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            // Outlined rather than filled, and the only frame in the row that is:
+            // an empty tile the same grey as a photo's backing reads as a photo
+            // that failed to load. A border says the tile is a slot.
+            Box(
+                modifier = Modifier
+                    .width(96.dp)
+                    .aspectRatio(0.75f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                    .clickable(enabled = !busy, onClick = onAdd),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (busy) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                } else {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = stringResource(Res.string.form_add_photo),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Colors(selected: Set<String>, onToggle: (String) -> Unit) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        for ((key, hex) in GARMENT_COLORS) {
+            val color = hex.toComposeColor()
+            // The multi-colour sentinel has no colour of its own to draw, so it
+            // is left out rather than shown as a blank swatch.
+            if (color == null) continue
+
+            // A named chip rather than a bare swatch: 24 circles that differ only
+            // by shade is a picker nobody can use from memory, and every other
+            // choice on this form -- category, season, occasion -- is offered as
+            // a label you read rather than a colour you guess.
+            FilterChip(
+                selected = hex in selected,
+                onClick = { onToggle(hex) },
+                label = { Text(paletteLabel(key)) },
+                leadingIcon = { ColorSwatch(color) },
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.testTag(colorSwatchTag(hex)),
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun Tags(tags: List<String>, onChange: (List<String>) -> Unit) {
+    Column {
+        if (tags.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 8.dp),
+            ) {
+                for (tag in tags) {
+                    FilterChip(
+                        selected = true,
+                        onClick = { onChange(tags - tag) },
+                        label = { Text(tag) },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Filled.Clear,
+                                contentDescription = stringResource(Res.string.form_remove_tag),
+                                modifier = Modifier.size(16.dp),
+                            )
+                        },
+                    )
+                }
+            }
+        }
+
+        // One text field rather than a chip editor: a smaller thing to get right
+        // than an input that has to manage its own keyboard. A comma commits,
+        // which also means pasting a list of tags works.
+        var draft by remember { mutableStateOf("") }
+
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { text ->
+                val entered = text.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+
+                if (text.endsWith(',') && entered.isNotEmpty()) {
+                    // Lowercased on the way in, as mergeStructuredTags will do
+                    // anyway, so the chip reads the way the stored tag will.
+                    onChange((tags + entered.map { it.lowercase() }).distinct())
+                    draft = ""
+                } else {
+                    draft = text
+                }
+            },
+            label = { Text(stringResource(Res.string.form_tag_hint)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun Brand(brand: String, suggestions: List<String>, onChange: (String) -> Unit) {
+    Column {
+        OutlinedTextField(
+            value = brand,
+            onValueChange = onChange,
+            label = { Text(stringResource(Res.string.filter_brand)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        if (suggestions.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                itemsIndexed(suggestions) { _, suggestion ->
+                    TextButton(onClick = { onChange(suggestion) }) { Text(suggestion) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * What is already in the wardrobe that this might be.
+ *
+ * Shown before anything is written, and dismissable both ways: the check is a
+ * question, not a refusal, since two similar garments are a perfectly ordinary
+ * thing to own.
+ */
+@Composable
+private fun DuplicateWarning(
+    matches: List<DuplicateGarment>,
+    onSaveAnyway: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.duplicate_title)) },
+        text = {
+            Column {
+                for (match in matches.take(3)) {
+                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Row(
+                            modifier = Modifier.padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            AsyncImage(
+                                model = match.garment.displayImage,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                            )
+                            // The type, and nothing under it. Every match is here
+                            // for the identical reason -- same type, same colours --
+                            // so printing that reason under each one says nothing the
+                            // dialog's own title has not, and the photo shows the
+                            // colour better than a word for it would.
+                            Text(
+                                match.garment.subcategory?.let { garmentTypeLabel(it) }
+                                    ?: categoryLabel(match.garment.category),
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(start = 12.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onSaveAnyway) { Text(stringResource(Res.string.duplicate_add_anyway)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.duplicate_review)) } },
+    )
+}
+
+/**
+ * What to show when saving or importing failed.
+ *
+ * The exception's own words if it had any, and otherwise what the app was doing.
+ * The same rule every screen here follows.
+ */
+@Composable
+private fun GarmentFormScreenState.errorText(): String? =
+    error ?: errorFallback?.let { stringResource(it.messageRes) }
+
+/**
+ * Paste a product link and pull its photos in.
+ *
+ * First on the screen, above the photo picker, because an import fills in the rest
+ * of the form: pasting a link and then scrolling back up to it would be the wrong
+ * way round. It is also the only section that disappears -- on an edit there is
+ * nothing here to replace the garment's own photos with.
+ */
+@Composable
+private fun ImportFromLink(
+    state: GarmentFormScreenState.UrlImport,
+    onUrlChanged: (String) -> Unit,
+    onImport: () -> Unit,
+) {
+    Column {
+        Text(
+            stringResource(Res.string.import_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        // The field and the button it feeds, on one line. A full-width button
+        // under a full-width box read as two steps; a box with a fetch beside it
+        // reads as one, which is what it is.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        ) {
+            OutlinedTextField(
+                value = state.url,
+                onValueChange = onUrlChanged,
+                label = { Text(stringResource(Res.string.import_url_label)) },
+                leadingIcon = { Icon(Glyph.Link, contentDescription = null) },
+                singleLine = true,
+                enabled = !state.running,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                modifier = Modifier.weight(1f),
+            )
+
+            if (state.running) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            } else {
+                FilledIconButton(
+                    onClick = onImport,
+                    enabled = state.url.isNotBlank(),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                    modifier = Modifier.size(48.dp),
+                ) {
+                    Icon(
+                        Glyph.Download,
+                        contentDescription = stringResource(Res.string.import_action),
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+        }
+
+        if (state.running) {
+            Text(
+                stringResource(Res.string.import_running),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+
+        // What happened, once it has. The count and the shop are separate lines
+        // because either can be present without the other: a page can give up its
+        // photos while naming no brand at all.
+        state.imported?.let { count ->
+            Text(
+                pluralStringResource(Res.plurals.import_success, count, count),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+
+        state.source?.let { source ->
+            Text(
+                stringResource(Res.string.import_source, source),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (state.warnings.isNotEmpty()) {
+            Text(
+                stringResource(
+                    Res.string.import_notes,
+                    // `map` rather than joinToString's own transform, because the
+                    // warnings are composable to read now and only an inline
+                    // lambda can make a composable call.
+                    state.warnings.map { importWarningText(it) }.joinToString(" "),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Asking before fetching an address the user did not type.
+ *
+ * The host is the whole message: it is the one part that says where this app is
+ * about to go, and the reason the answer is not just "yes" is that the address
+ * came from outside -- a link, a share, a QR code -- and none of those is a
+ * decision the user made.
+ */
+@Composable
+private fun SharedLinkConfirmation(
+    url: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.shared_link_title)) },
+        text = { Text(stringResource(Res.string.shared_link_body, hostOf(url))) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(stringResource(Res.string.shared_link_confirm)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.shared_link_cancel)) }
+        },
+    )
+}
+
+/** Why an import did not happen, in the reader's language where it can be. */
+@Composable
+private fun ImportProblemDialog(
+    problem: GarmentFormScreenState.ImportProblem,
+    onDismiss: () -> Unit,
+) {
+    val message = when (problem) {
+        is GarmentFormScreenState.ImportProblem.Unsafe -> unsafeUrlText(problem.reason)
+        is GarmentFormScreenState.ImportProblem.Failed -> importFailureText(problem.reason)
+        // The network's own words, or nothing useful at all -- in which case the
+        // app says what it was trying to do instead of showing an empty dialog.
+        is GarmentFormScreenState.ImportProblem.Foreign ->
+            problem.text ?: stringResource(Res.string.import_invalid_url)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.import_failed_title)) },
+        text = { Text(message) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_close)) } },
+    )
+}
+
+/**
+ * The host of an address, for the confirmation.
+ *
+ * Falls back to the whole address rather than to nothing: the dialog exists to say
+ * where the app is about to go, and a blank there would make it meaningless. It
+ * cannot happen for an address that passed the check, which is the only kind that
+ * reaches this.
+ */
+private fun hostOf(url: String): String =
+    hostOfAddress(url) ?: url
+
+/**
+ * The wait while a photo's colours are being read.
+ *
+ * There is nothing to press. Detection happens on its own when there is something
+ * new to read -- a photo added, or a background removed -- and this says so while
+ * it does, because a palette that changes by itself with no explanation looks like
+ * a bug rather than a convenience.
+ */
+@Composable
+private fun DetectingColors() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = 12.dp),
+    ) {
+        CircularProgressIndicator(modifier = Modifier.size(18.dp))
+        Text(
+            stringResource(Res.string.form_detecting_colors),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 12.dp),
+        )
+    }
+}
