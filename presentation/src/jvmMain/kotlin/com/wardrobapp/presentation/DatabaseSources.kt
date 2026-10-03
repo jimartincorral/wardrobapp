@@ -1,10 +1,15 @@
 package com.wardrobapp.presentation
 
+import com.wardrobapp.data.AnalyticsQueries
+import com.wardrobapp.data.Duplicates
 import com.wardrobapp.data.GarmentQueries
+import com.wardrobapp.data.Gaps
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.isoTimestamp
+import com.wardrobapp.domain.seasonOfMonth
+import java.util.Calendar
 import java.util.UUID
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -130,4 +135,48 @@ class DatabaseWardrobeSource(
             .filterBy(query.garmentFilter())
             .orderedBy(query.sort)
     }
+}
+
+class DatabaseStatisticsSource(
+    private val garments: GarmentQueries,
+    private val analytics: AnalyticsQueries,
+    private val duplicates: Duplicates,
+    private val gaps: Gaps,
+    /** Where photos live, which the lifespan rows resolve their images against. */
+    private val imageDirectory: String,
+    private val io: CoroutineDispatcher,
+) : StatisticsSource {
+    override suspend fun counts() = withContext(io) {
+        StatisticsCounts(
+            inUse = garments.availableCount(),
+            retired = garments.unavailableCount(),
+            categories = analytics.byCategory().asDistributions(),
+            colors = analytics.byColor().asDistributions(),
+            brands = analytics.byBrand().asDistributions(),
+            subcategories = analytics.bySubcategory().mapValues { (_, subs) -> subs.asDistributions() },
+            lifespans = analytics.lifespans(imageDirectory).map { lifespan ->
+                LifespanEntry(
+                    garmentId = lifespan.garment.id,
+                    category = lifespan.garment.category,
+                    subcategories = lifespan.garment.effectiveSubcategories,
+                    days = lifespan.days,
+                )
+            },
+        )
+    }
+
+    override suspend fun duplicates() = withContext(io) { duplicates.groups() }
+
+    override suspend fun gaps() = withContext(io) {
+        // The clock is read here, on the side that holds the wardrobe; the
+        // analysis only sees the season.
+        gaps.analyze(currentSeason = seasonOfMonth(Calendar.getInstance().get(Calendar.MONTH)))
+    }
+
+    /**
+     * The queries call every key a `label`; the module calls a key a key -- these
+     * distributions hold colours and brands as often as they hold categories.
+     */
+    private fun List<AnalyticsQueries.Count>.asDistributions(): List<Distribution> =
+        map { Distribution(key = it.label, count = it.count) }
 }
