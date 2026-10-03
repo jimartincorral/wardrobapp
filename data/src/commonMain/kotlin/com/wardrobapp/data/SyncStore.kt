@@ -73,7 +73,12 @@ class SyncStore(private val driver: SqlDriver) {
     fun mergeWith(theirs: WardrobeSnapshot): MergedWardrobe = driver.transaction {
         val ours = snapshot()
         val merged = merge(ours, theirs)
-        MergedWardrobe(merged = merged, photosNoLongerUsed = apply(changesTo(ours, merged)))
+        val changes = changesTo(ours, merged)
+        MergedWardrobe(
+            merged = merged,
+            photosNoLongerUsed = apply(changes),
+            changedAnything = !changes.isEmpty,
+        )
     }
 
     /**
@@ -236,5 +241,13 @@ private fun GarmentRecord.withStoredPhotoNames() = copy(
     imageUrisNoBg = imageUrisNoBg.map(::toStoredImageRef),
 )
 
-/** A merge, applied: the wardrobe both sides now have, and the files this side can let go. */
-data class MergedWardrobe(val merged: WardrobeSnapshot, val photosNoLongerUsed: List<String>)
+/**
+ * A merge, applied: the wardrobe both sides now have, the files this side can
+ * let go, and whether anything here changed -- which is what tells the phone's
+ * screens whether what they are showing is still true.
+ */
+data class MergedWardrobe(
+    val merged: WardrobeSnapshot,
+    val photosNoLongerUsed: List<String>,
+    val changedAnything: Boolean,
+)

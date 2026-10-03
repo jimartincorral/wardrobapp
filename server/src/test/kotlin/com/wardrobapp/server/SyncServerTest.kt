@@ -1,6 +1,6 @@
 package com.wardrobapp.server
 
-import com.wardrobapp.api.PhotoFolder
+import com.wardrobapp.api.DirectoryPhotoFolder
 import com.wardrobapp.api.ServerException
 import com.wardrobapp.api.ServerVersion
 import com.wardrobapp.api.SyncPairing
@@ -43,23 +43,10 @@ import kotlinx.coroutines.Dispatchers
  */
 class SyncServerTest {
 
-    /** A phone's photos: files in a directory, by name. */
-    private class FolderOfPhotos(val directory: File) : PhotoFolder {
-        override suspend fun has(name: String) = File(directory, name).isFile
-        override suspend fun read(name: String) = File(directory, name).takeIf { it.isFile }?.readBytes()
-        override suspend fun write(name: String, bytes: ByteArray) {
-            directory.mkdirs()
-            File(directory, name).writeBytes(bytes)
-        }
-        override suspend fun delete(name: String) {
-            File(directory, name).delete()
-        }
-    }
-
     private class Phone(directory: File) {
         // A file, opened as the app opens one: foreign keys on, as on a phone.
         val database = JdbcSqlDriver.open(File(directory, "phone.db")).also { WardrobeSchema.applyTo(it) }
-        val photos = FolderOfPhotos(File(directory, "phone-photos"))
+        val photos = DirectoryPhotoFolder(File(directory, "phone-photos"))
         val garments = GarmentWrites(database)
         fun garment(id: String) = GarmentQueries(database, "").garment(id)
     }
@@ -138,13 +125,14 @@ class SyncServerTest {
 
         assertEquals(1, report.uploaded)
         assertEquals(1, report.downloaded)
+        assertTrue(report.changed)
         assertEquals("Phone", server.garmentForm.garment("phone-garment")?.brand)
         assertContentEquals(phonePhoto, server.photos.file("from-phone.jpg")?.readBytes())
         val fromServer = SyncStore(phone.database).snapshot().garments.single { it.category == "bottoms" }
         assertContentEquals(server.photos.file(serverPhoto)!!.readBytes(), phone.photos.read(fromServer.imageUri))
 
         // Settled: a second sync has nothing to move.
-        assertEquals(SyncReport(uploaded = 0, downloaded = 0), sync())
+        assertEquals(SyncReport(uploaded = 0, downloaded = 0, changed = false), sync())
         assertEquals(SyncStore(phone.database).snapshot(), server.sync.snapshot())
     }
 

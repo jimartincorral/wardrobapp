@@ -709,4 +709,7 @@
     <string name="settings_sync_unreachable">No se ha podido conectar con Home Assistant en esa dirección.</string>
     <string name="settings_sync_background">Sincronizar en segundo plano</string>
     <string name="settings_sync_wifi_only">Solo con Wi-Fi</string>
+    <string name="settings_sync_wifi_only_hint">Para las sincronizaciones que el teléfono hace por su cuenta, al abrir la aplicación y en segundo plano. Sincronizar ahora siempre sincroniza.</string>
+    <string name="settings_sync_address_invalid">Eso no es una dirección. Escríbela como abres Home Assistant, con el puerto de sincronización: homeassistant.local:8100, o su dirección IP.</string>
+    <string name="settings_sync_paired_with">Sincronizando con %1$s</string>
 </resources>

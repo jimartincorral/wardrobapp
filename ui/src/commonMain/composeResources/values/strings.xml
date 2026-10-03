@@ -766,4 +766,7 @@
     <string name="settings_sync_unreachable">Couldn't reach Home Assistant at that address.</string>
     <string name="settings_sync_background">Sync in the background</string>
     <string name="settings_sync_wifi_only">Only on Wi-Fi</string>
+    <string name="settings_sync_wifi_only_hint">For the syncs the phone starts by itself, on opening the app and in the background. Sync now always syncs.</string>
+    <string name="settings_sync_address_invalid">That isn't an address. Type it the way you open Home Assistant, with the sync port: homeassistant.local:8100, or its IP address.</string>
+    <string name="settings_sync_paired_with">Syncing with %1$s</string>
 </resources>

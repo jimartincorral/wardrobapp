@@ -21,6 +21,12 @@
 # one, which would present as being silently signed out.
 -keep class net.openid.appauth.** { *; }
 
+# Ktor, for syncing with Home Assistant. Its utilities check whether a JVM debugger
+# is attached through java.lang.management, which Android does not have: the code
+# is never reached here, and R8 only needs telling not to fail on the reference.
+-dontwarn java.lang.management.ManagementFactory
+-dontwarn java.lang.management.RuntimeMXBean
+
 # The line numbers in a crash report, which are worth more than the few kilobytes
 # the table costs.
 -keepattributes SourceFile,LineNumberTable

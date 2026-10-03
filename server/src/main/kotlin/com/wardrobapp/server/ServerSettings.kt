@@ -52,8 +52,12 @@ data class ServerSettings(
         /** The port the app's ingress is pointed at; config.yaml says the same, and a test holds them equal. */
         const val DEFAULT_PORT = 8099
 
-        /** The port phones sync through, inside the container; config.yaml offers it to be mapped. */
-        const val DEFAULT_SYNC_PORT = 8100
+        /**
+         * The port phones sync through, inside the container; config.yaml offers
+         * it to be mapped. The phone's own, which it assumes when somebody types
+         * an address without one, so the two cannot drift apart.
+         */
+        const val DEFAULT_SYNC_PORT = com.wardrobapp.presentation.DEFAULT_SYNC_PORT
 
         fun from(environment: Map<String, String>): ServerSettings {
             fun value(name: String) = environment[name]?.trim()?.takeIf { it.isNotEmpty() }

@@ -79,8 +79,12 @@ interface PhotoFolder {
     suspend fun delete(name: String)
 }
 
-/** What a sync did, for the screen that started it. */
-data class SyncReport(val uploaded: Int, val downloaded: Int)
+/**
+ * What a sync did, for whatever started it: the photos it moved, and whether
+ * this side's wardrobe changed -- photos arriving included, since a garment that
+ * was drawn without its photo is drawn differently once it has one.
+ */
+data class SyncReport(val uploaded: Int, val downloaded: Int, val changed: Boolean)
 
 /**
  * One phone's syncing: its wardrobe, its photos, and a client pointed at the
@@ -148,6 +152,10 @@ class WardrobeSyncClient(
             downloaded++
         }
 
-        return SyncReport(uploaded = uploaded, downloaded = downloaded)
+        return SyncReport(
+            uploaded = uploaded,
+            downloaded = downloaded,
+            changed = result.changedAnything || downloaded > 0,
+        )
     }
 }
