@@ -3,12 +3,14 @@ package com.wardrobapp.presentation
 import com.wardrobapp.data.AnalyticsQueries
 import com.wardrobapp.data.Duplicates
 import com.wardrobapp.data.GarmentQueries
+import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.Gaps
 import com.wardrobapp.data.Suggestions
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.isoTimestamp
+import com.wardrobapp.data.resolveImageRef
 import com.wardrobapp.domain.GenerateSuggestionsOptions
 import com.wardrobapp.domain.SuggestionPreferences
 import com.wardrobapp.domain.seasonOfMonth
@@ -258,5 +260,60 @@ class DatabaseOutfitsSource(
             isArchived = archived,
             now = nowTimestamp(),
         )
+    }
+}
+
+/**
+ * The garment screen's source over a database, handed the two things that are
+ * not the database's: removing a file, and cutting a photo out of its
+ * background. On the phone those are the photo store and ML Kit; the server
+ * will bring its own.
+ */
+class DatabaseGarmentDetailSource(
+    private val garments: GarmentQueries,
+    private val garmentWrites: GarmentWrites,
+    /** Where photos live, which a fresh cut-out's reference is resolved against. */
+    private val imageDirectory: String,
+    /** Delete a stored photo by the name the rows hold. */
+    private val deletePhoto: (String) -> Unit,
+    /** Cut [photo] out of its background and store it under [id]; the stored name. */
+    private val removeBackground: (photo: String, id: String) -> String,
+    private val io: CoroutineDispatcher,
+) : GarmentDetailSource {
+    override suspend fun garment(id: String) = withContext(io) { garments.garment(id) }
+
+    override suspend fun setInUse(id: String, inUse: Boolean) {
+        withContext(io) {
+            if (inUse) garmentWrites.markAvailable(id, nowTimestamp()) else garmentWrites.markUnavailable(id, nowTimestamp())
+        }
+    }
+
+    override suspend fun delete(id: String) {
+        withContext(io) {
+            val photos = garmentWrites.delete(id)
+            for (photo in photos) runCatching { deletePhoto(photo) }
+        }
+    }
+
+    override suspend fun cutOut(photo: String) = withContext(io) {
+        resolveImageRef(removeBackground(photo, newRowId()), imageDirectory)
+    }
+
+    override suspend fun savePhotos(id: String, edit: BackgroundEdit, alsoImages: Boolean) {
+        withContext(io) {
+            garmentWrites.update(
+                id,
+                GarmentWrites.GarmentEdit(
+                    imageUri = if (alsoImages) edit.images.firstOrNull() ?: "" else null,
+                    imageUris = if (alsoImages) edit.images else null,
+                    // Written as an empty string rather than NULL when a slot is
+                    // cleared; every reader treats the two the same.
+                    imageUriNoBg = edit.cutouts.firstOrNull() ?: "",
+                    imageUrisNoBg = edit.cutouts,
+                ),
+                nowTimestamp(),
+            )
+            edit.discardable?.let { runCatching { deletePhoto(it) } }
+        }
     }
 }
