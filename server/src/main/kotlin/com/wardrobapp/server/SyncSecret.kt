@@ -29,16 +29,24 @@ class SyncSecret(private val file: File) {
     private val lock = Any()
 
     /** The code, made now if there is none yet. */
-    fun current(): String = synchronized(lock) {
-        file.takeIf { it.isFile }?.readText()?.trim()?.takeIf { it.isNotEmpty() } ?: write(generate())
-    }
+    fun current(): String = synchronized(lock) { stored() ?: write(generate()) }
 
     /** Replace the code with a new one; every phone paired with the old one will have to pair again. */
     fun reset(): String = synchronized(lock) { write(generate()) }
 
-    /** Whether [offered] is the code, read the forgiving way a person types it. */
-    fun accepts(offered: String): Boolean =
-        MessageDigest.isEqual(normalized(offered).toByteArray(), normalized(current()).toByteArray())
+    /**
+     * Whether [offered] is the code, read the forgiving way a person types it.
+     *
+     * Never when there is no code yet. Asking does not make one: a phone's
+     * code is checked against every profile's in turn (see Profiles), and a
+     * profile nobody has shown a code for has no phone that could know it.
+     */
+    fun accepts(offered: String): Boolean {
+        val code = synchronized(lock) { stored() } ?: return false
+        return MessageDigest.isEqual(normalized(offered).toByteArray(), normalized(code).toByteArray())
+    }
+
+    private fun stored(): String? = file.takeIf { it.isFile }?.readText()?.trim()?.takeIf { it.isNotEmpty() }
 
     private fun write(code: String): String {
         file.absoluteFile.parentFile?.mkdirs()

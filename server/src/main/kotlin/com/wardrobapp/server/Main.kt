@@ -14,14 +14,14 @@ import io.ktor.server.engine.embeddedServer
 fun main() {
     val settings = ServerSettings.from(System.getenv())
 
-    val wardrobe = ServerWardrobe(settings.dataDirectory)
-    Runtime.getRuntime().addShutdownHook(Thread { wardrobe.close() })
+    val profiles = ProfileRegistry(settings.dataDirectory)
+    Runtime.getRuntime().addShutdownHook(Thread { profiles.close() })
 
     // The phones' port first, without waiting, then the browser's, which
-    // holds the process open. Two servers over one wardrobe: see SyncServer
-    // for why sync has a port of its own.
+    // holds the process open. Two servers over the same wardrobes: see
+    // SyncServer for why sync has a port of its own.
     settings.syncPort?.let { syncPort ->
-        embeddedServer(CIO, port = syncPort) { wardrobeSync(wardrobe, settings.version) }.start(wait = false)
+        embeddedServer(CIO, port = syncPort) { wardrobeSync(profiles, settings.version) }.start(wait = false)
     }
-    embeddedServer(CIO, port = settings.port) { wardrobeApi(wardrobe, settings) }.start(wait = true)
+    embeddedServer(CIO, port = settings.port) { wardrobeApi(profiles, settings) }.start(wait = true)
 }

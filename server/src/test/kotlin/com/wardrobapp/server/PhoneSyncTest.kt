@@ -63,11 +63,12 @@ class PhoneSyncTest {
 
     private fun phoneTest(block: suspend Setup.() -> Unit) {
         val directory = Files.createTempDirectory("phone-sync").toFile()
-        val server = ServerWardrobe(File(directory, "server"))
+        val profiles = ProfileRegistry(File(directory, "server"))
+        val server = profiles.wardrobe(ProfileRegistry.FIRST)!!
         val database = JdbcSqlDriver.open(File(directory, "phone.db")).also { WardrobeSchema.applyTo(it) }
         try {
             testApplication {
-                application { wardrobeSync(server, ServerVersion("0.2.0", 9)) }
+                application { wardrobeSync(profiles, ServerVersion("0.2.0", 9)) }
                 val preferences = Preferences()
                 val schedule = Schedule()
                 val clock = Clock()
@@ -83,7 +84,7 @@ class PhoneSyncTest {
             }
         } finally {
             database.close()
-            server.close()
+            profiles.close()
             directory.deleteRecursively()
         }
     }
@@ -207,9 +208,10 @@ class PhoneSyncTest {
         // client the phone builds -- CIO, its timeouts, the code in a header --
         // over a socket, to the server as Main starts it.
         val directory = Files.createTempDirectory("phone-sync-socket").toFile()
-        val wardrobe = ServerWardrobe(File(directory, "server"))
+        val profiles = ProfileRegistry(File(directory, "server"))
+        val wardrobe = profiles.wardrobe(ProfileRegistry.FIRST)!!
         val port = ServerSocket(0).use { it.localPort }
-        val server = embeddedServer(CIO, port = port) { wardrobeSync(wardrobe, ServerVersion("0.2.0", 9)) }.start(wait = false)
+        val server = embeddedServer(CIO, port = port) { wardrobeSync(profiles, ServerVersion("0.2.0", 9)) }.start(wait = false)
         val database = JdbcSqlDriver.open(File(directory, "phone.db")).also { WardrobeSchema.applyTo(it) }
         try {
             runBlocking {
@@ -231,7 +233,7 @@ class PhoneSyncTest {
         } finally {
             server.stop(0, 0)
             database.close()
-            wardrobe.close()
+            profiles.close()
             directory.deleteRecursively()
         }
     }

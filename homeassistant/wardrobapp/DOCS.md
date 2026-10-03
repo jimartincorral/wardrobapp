@@ -16,6 +16,22 @@ in the Android app, with a few things that need the phone:
   so a large photo from a camera takes a moment.
 - **Language** follows your browser's.
 
+## A wardrobe for each person
+
+Everyone at home can have a wardrobe of their own. The first time somebody
+opens **Wardrobe** in the sidebar, it asks whose wardrobe this is: they choose
+theirs, or start a new one. After that, Home Assistant opens their own for them.
+Anybody can switch to another person's wardrobe, rename one, or start one under
+**Settings → Wardrobe**, so a child without a Home Assistant login can still
+have a wardrobe.
+
+The wardrobe the app had before it had profiles is kept as it was, and listed as
+**The original wardrobe** until somebody renames it. Phones already paired with
+it carry on syncing with it.
+
+Profiles keep each person's clothes apart in everyday use. They do not keep them
+secret: anyone who can open the app can switch to any wardrobe.
+
 ## Syncing the Android app
 
 The Android app keeps working on its own, and can also keep its wardrobe in
@@ -24,7 +40,8 @@ step with this one:
 1. In this app's **Configuration** tab, under **Network**, give the phone sync
    port (8100) a host port — 8100 is fine unless something else uses it.
 2. Open **Wardrobe** in the sidebar, go to **Settings**, and find the pairing
-   code under **Phone sync**.
+   code under **Phone sync**. Each wardrobe has its own code, and a phone syncs
+   with the wardrobe whose code it was given, so open your own first.
 3. In the phone's **Settings → Home Assistant**, enter this Home Assistant's
    address with that port (for example `http://homeassistant.local:8100`) and
    the code.
@@ -35,7 +52,7 @@ places, the latest change wins; something deleted in one place is deleted in
 both.
 
 The sync port answers nothing but sync, and only to a phone that has the code.
-**Make a new code** in Settings unpairs every phone at once — the way to shut
+**Make a new code** in Settings unpairs every phone using that wardrobe's code at once — the way to shut
 out a phone that was lost. The code travels over your home network as plain
 HTTP; if the port is reachable from outside your home, put it behind HTTPS.
 

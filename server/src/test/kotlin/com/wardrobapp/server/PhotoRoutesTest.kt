@@ -24,7 +24,7 @@ class PhotoRoutesTest {
             // sender's claim, and the server goes by the bytes.
             val ref = photos.upload(bytes, ContentType.Application.OctetStream)
 
-            val served = http.get(ref)
+            val served = fromPage(ref)
             assertEquals(type, served.contentType()?.withoutParameters(), ref)
             assertContentEquals(bytes, served.readRawBytes())
             assertEquals("nosniff", served.headers["X-Content-Type-Options"])
@@ -54,13 +54,13 @@ class PhotoRoutesTest {
     @Test
     fun `a photo is deleted by any form of its reference`() = serverTest {
         val ref = uploadPhoto()
-        val file = File(photoDirectory, ref.removePrefix("photos/"))
+        val file = File(photoDirectory, ref.substringAfterLast('/'))
         assertTrue(file.isFile)
 
         photos.delete(ref)
 
         assertFalse(file.exists())
-        assertFailsWith<NotFoundException> { http.get(ref) }
+        assertFailsWith<NotFoundException> { fromPage(ref) }
     }
 
     @Test

@@ -47,6 +47,11 @@ import io.ktor.utils.io.readRemaining
 import kotlinx.io.readByteArray
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import io.ktor.util.AttributeKey
+import io.ktor.server.routing.route
+import com.wardrobapp.api.Profiles
+import com.wardrobapp.api.ProfileName
+import com.wardrobapp.api.NewProfile
 
 /**
  * The routes in :api, answered from [wardrobe].
@@ -66,7 +71,7 @@ import kotlinx.coroutines.withContext
  * network is not a way around that check.
  */
 fun Application.wardrobeApi(
-    wardrobe: ServerWardrobe,
+    profiles: ProfileRegistry,
     settings: ServerSettings = ServerSettings(),
 ) {
     settings.allowedClients?.let { allowed -> install(onlyFrom(allowed)) }
@@ -75,52 +80,65 @@ fun Application.wardrobeApi(
 
     answerFailures()
 
+    attributes.put(ProfilesKey, profiles)
+
     routing {
-        get(Routes.HOME_COUNTS) { call.respond(wardrobe.home.counts()) }
+        profileRoutes(profiles)
 
-        garments(wardrobe)
-        outfits(wardrobe)
-        statistics(wardrobe)
-        photos(wardrobe)
+        // Everything else is one profile's, under its own path: the browser
+        // makes `p/<id>/` its base once it knows which profile it is showing,
+        // so these are the routes it always asked for, with the profile in
+        // front. Each request reaches its profile's wardrobe through
+        // [wardrobe] below; an id there is no profile for is a 404.
+        route("/p/{profile}") {
+            get(Routes.HOME_COUNTS) { call.respond(wardrobe.home.counts()) }
 
-        get(Routes.STORAGE) { call.respond(wardrobe.storage()) }
+            garments()
+            outfits()
+            statistics()
+            photos()
 
-        get(Routes.VERSION) { call.respond(settings.version) }
+            get(Routes.STORAGE) { call.respond(wardrobe.storage()) }
 
-        // Served as the workflow wrote it: the browser reads it with the same
-        // lenient parser the phone reads its own document with, so a server
-        // that checked it first would only be a second opinion. Read per
-        // request, since it is small and asked for once per page load.
-        get(Routes.WHATS_NEW) {
-            val notes = withContext(Dispatchers.IO) {
-                settings.releaseNotes?.takeIf { it.isFile }?.readText()
+            get(Routes.VERSION) { call.respond(settings.version) }
+
+            // Served as the workflow wrote it: the browser reads it with the same
+            // lenient parser the phone reads its own document with, so a server
+            // that checked it first would only be a second opinion. Read per
+            // request, since it is small and asked for once per page load.
+            get(Routes.WHATS_NEW) {
+                val notes = withContext(Dispatchers.IO) {
+                    settings.releaseNotes?.takeIf { it.isFile }?.readText()
+                }
+                call.respondText(notes ?: "[]", ContentType.Application.Json)
             }
-            call.respondText(notes ?: "[]", ContentType.Application.Json)
-        }
 
-        // What a phone needs to pair, for Settings in the browser to show --
-        // behind ingress, so only somebody signed in to Home Assistant sees it.
-        get(Routes.SYNC_PAIRING) {
-            val port = settings.syncPort
-            if (port == null) {
-                call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
-            } else {
-                call.respond(SyncPairing(code = wardrobe.syncSecret.current(), port = port))
+            // What a phone needs to pair with this profile, for Settings in the
+            // browser to show -- behind ingress, so only somebody signed in to
+            // Home Assistant sees it. Each profile has its own code, and a phone
+            // syncs with whichever profile's code it was given.
+            get(Routes.SYNC_PAIRING) {
+                val port = settings.syncPort
+                if (port == null) {
+                    call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
+                } else {
+                    call.respond(SyncPairing(code = wardrobe.syncSecret.current(), port = port))
+                }
             }
-        }
 
-        post(Routes.SYNC_PAIRING_RESET) {
-            val port = settings.syncPort
-            if (port == null) {
-                call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
-            } else {
-                call.respond(SyncPairing(code = wardrobe.syncSecret.reset(), port = port))
+            post(Routes.SYNC_PAIRING_RESET) {
+                val port = settings.syncPort
+                if (port == null) {
+                    call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
+                } else {
+                    call.respond(SyncPairing(code = wardrobe.syncSecret.reset(), port = port))
+                }
             }
-        }
 
-        post(Routes.IMPORT) {
-            val url = wardrobe.importer.check(call.receive<ImportRequest>().url)
-            call.respond(wardrobe.importer.import(url))
+            post(Routes.IMPORT) {
+                val url = wardrobe.importer.check(call.receive<ImportRequest>().url)
+                call.respond(wardrobe.importer.import(url))
+            }
         }
 
         val webDirectory = settings.webDirectory
@@ -144,7 +162,7 @@ fun Application.wardrobeApi(
     }
 }
 
-private fun Route.garments(wardrobe: ServerWardrobe) {
+private fun Route.garments() {
     // The wardrobe the outfit editor picks from: everything in use.
     get(Routes.GARMENTS) { call.respond(wardrobe.outfitEdit.wardrobe()) }
 
@@ -194,7 +212,7 @@ private fun Route.garments(wardrobe: ServerWardrobe) {
     }
 }
 
-private fun Route.outfits(wardrobe: ServerWardrobe) {
+private fun Route.outfits() {
     get(Routes.OUTFITS) {
         val includeArchived = call.request.queryParameters["archived"] == "true"
         call.respond(wardrobe.outfitList.saved(includeArchived))
@@ -248,20 +266,20 @@ private fun Route.outfits(wardrobe: ServerWardrobe) {
     }
 }
 
-private fun Route.statistics(wardrobe: ServerWardrobe) {
+private fun Route.statistics() {
     get(Routes.STATISTICS) { call.respond(wardrobe.statistics.counts()) }
     get(Routes.STATISTICS_DUPLICATES) { call.respond(wardrobe.statistics.duplicates()) }
     get(Routes.STATISTICS_GAPS) { call.respond(wardrobe.statistics.gaps()) }
 }
 
-private fun Route.photos(wardrobe: ServerWardrobe) {
+private fun Route.photos() {
     post(Routes.PHOTOS) {
         // Read with a ceiling, so a body that never ends is refused at the
         // limit instead of after it has been held in memory whole. One byte
         // past the limit is enough to know.
         val bytes = call.receiveChannel().readRemaining(PhotoFiles.MAX_PHOTO_BYTES + 1L).readByteArray()
         val name = wardrobe.photos.store(bytes)
-        call.respond(HttpStatusCode.Created, StoredPhoto(resolveImageRef(name, Routes.PHOTO_FILES)))
+        call.respond(HttpStatusCode.Created, StoredPhoto(wardrobe.photoRef(name)))
     }
 
     delete(Routes.PHOTO) {
@@ -318,6 +336,53 @@ private fun Route.put(route: String, body: suspend RoutingContext.() -> Unit) = 
 private fun Route.delete(route: String, body: suspend RoutingContext.() -> Unit) = delete("/$route", body)
 
 private fun RoutingContext.id(): String = call.parameters["id"].orEmpty()
+
+private val ProfilesKey = AttributeKey<ProfileRegistry>("profiles")
+
+/**
+ * The wardrobe of the profile this request is for: the one named in its path.
+ * Read where the handlers used to read the server's one wardrobe, so moving to
+ * profiles changed where each route is registered and nothing in what it does.
+ */
+private val RoutingContext.wardrobe: ServerWardrobe
+    get() = call.application.attributes[ProfilesKey].wardrobe(call.parameters["profile"].orEmpty())
+        ?: throw ProfileNotFound()
+
+/**
+ * Who is asking, as Home Assistant's ingress says: the id of the signed-in
+ * user, in a header the Supervisor sets on every request it forwards, having
+ * removed any the browser sent itself. Believed only because nothing but
+ * ingress reaches this server (see [onlyFrom]); null where nobody says, as on
+ * a development server answering a browser directly.
+ */
+private fun RoutingContext.homeAssistantUser(): String? =
+    call.request.headers["X-Remote-User-Id"]?.trim()?.takeIf { it.isNotEmpty() }
+
+/** The profiles themselves: answered at the root, since the browser asks before it has one. */
+private fun Route.profileRoutes(profiles: ProfileRegistry) {
+    get(Routes.PROFILES) {
+        val user = homeAssistantUser()
+        call.respond(Profiles(profiles = profiles.list(), yours = profiles.yours(user), signedIn = user != null))
+    }
+
+    post(Routes.PROFILES) {
+        val wanted = call.receive<NewProfile>()
+        if (wanted.name.isBlank()) throw BadRequestException("A profile needs a name.")
+        call.respond(profiles.create(wanted.name, owner = if (wanted.yours) homeAssistantUser() else null))
+    }
+
+    put(Routes.PROFILE) {
+        val name = call.receive<ProfileName>().name
+        if (name.isBlank()) throw BadRequestException("A profile needs a name.")
+        if (profiles.rename(id(), name)) call.respond(HttpStatusCode.NoContent) else throw ProfileNotFound()
+    }
+
+    post(Routes.PROFILE_YOURS) {
+        val user = homeAssistantUser()
+            ?: throw BadRequestException("Only somebody signed in to Home Assistant can have a profile of their own.")
+        if (profiles.makeYours(id(), user)) call.respond(HttpStatusCode.NoContent) else throw ProfileNotFound()
+    }
+}
 
 /** One to five, as every screen that rates offers; anything else is a request that did not come from one. */
 private fun validRating(rating: Int): Int {

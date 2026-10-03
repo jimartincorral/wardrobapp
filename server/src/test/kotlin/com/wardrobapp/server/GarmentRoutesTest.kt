@@ -39,11 +39,11 @@ class GarmentRoutesTest {
         // The reference is relative to the page -- which is where the server
         // answers it -- not a path on the server's disk.
         assertEquals(photo, garment.imageUri)
-        assertTrue(photo.startsWith("photos/"), photo)
+        assertTrue(photo.startsWith("p/main/photos/"), photo)
         assertEquals(listOf("Acme"), garmentForm.brands())
         assertEquals(HomeCounts(items = 1, archived = 0, rated = 0), home.counts())
 
-        val served = http.get(photo)
+        val served = fromPage(photo)
         assertEquals(ContentType.Image.JPEG, served.contentType())
         assertContentEquals(bytes, served.readRawBytes())
     }
@@ -57,7 +57,7 @@ class GarmentRoutesTest {
         val row = JdbcSqlDriver.open(wardrobeFilesIn(dataDirectory).databaseFile).use { database ->
             database.query("SELECT image_uri, image_uris FROM garments WHERE id = ?", listOf(garment.id)).single()
         }
-        val name = garment.imageUri.removePrefix("photos/")
+        val name = garment.imageUri.substringAfterLast('/')
         assertEquals(name, row["image_uri"])
         assertEquals("[\"$name\"]", row["image_uris"])
         assertTrue(File(photoDirectory, name).isFile)

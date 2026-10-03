@@ -60,6 +60,7 @@ import com.wardrobapp.ui.SyncPairingSection
 import com.wardrobapp.ui.WardrobeScreen
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.launch
+import com.wardrobapp.ui.ProfileSection
 
 /** Every screen's source, answered by the server this page came from. */
 class WebSources(http: HttpClient) {
@@ -111,6 +112,8 @@ class WebSettingsSource(private val storage: HttpStorageSource) : SettingsSource
 class Screens(
     private val sources: WebSources,
     private val navigator: Navigator,
+    /** The open profile, read when Settings is drawn, so a rename shows without rebuilding every screen. */
+    private val profile: () -> ProfileControls,
     private val openWardrobe: (WardrobeQuery?) -> Unit,
     private val buildOutfitAround: (String) -> Unit,
 ) {
@@ -322,6 +325,19 @@ class Screens(
             onTidyDismissed = model::onTidyDismissed,
             onRetry = model::refresh,
             cloudSection = null,
+            profileSection = {
+                val controls = profile()
+                ProfileSection(
+                    current = controls.current,
+                    profiles = controls.all,
+                    isYours = controls.isYours,
+                    signedIn = controls.signedIn,
+                    onSwitch = controls.switchTo,
+                    onRename = controls.rename,
+                    onMakeYours = controls.makeYours,
+                    onCreate = controls.create,
+                )
+            },
             // Left out until the server has answered, so a slow answer does
             // not read as "sync is off"; a pairing of null then means it is.
             syncSection = if (!pairingKnown) null else { {
