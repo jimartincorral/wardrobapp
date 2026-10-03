@@ -25,6 +25,19 @@ configuration, anything nobody using the app could notice — say that instead:
 Release-Note: none
 ```
 
+A note can also say what kind of change it is, which app it is about, and where
+in the app to see it, and should carry its Spanish — the app is in both
+languages, and What's new shows the note in the reader's:
+
+```
+Release-Note: [new android -> settings] Your wardrobe can sync with Home Assistant.
+Release-Note-es: Tu armario puede sincronizarse con Home Assistant.
+```
+
+The kind is `new`, `improved` or `fixed`; the app is `android` or `web` (the
+browser, in Home Assistant); the destination is one the script lists. Each is
+optional, and a note with no brackets is an improvement to both apps.
+
 Several trailers become several lines, and they may be on any commit the merge
 brings in, so the line can be written while the work is fresh. A change carrying
 neither is named in a warning on the release run. See `scripts/release-notes.py`,

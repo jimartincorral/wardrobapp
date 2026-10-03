@@ -272,3 +272,30 @@ class SkippedUpdate(context: Context) {
         const val KEY = "skipped_version_code"
     }
 }
+
+/**
+ * The build What's new was last shown for, or decided against for.
+ *
+ * Null until anything has been recorded, which is a fresh install or a phone
+ * updated from a build older than What's new -- whatsNewDecision tells the two
+ * apart by asking whether the app was ever updated at all.
+ *
+ * A file of its own, and not one AppSettings backs up: it is about this
+ * installation, and a restore carrying another phone's number would tell this
+ * one it had already seen a build it never ran.
+ */
+class WhatsNewRecord(context: Context) {
+
+    private val preferences = context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+
+    var lastSeenBuild: Long?
+        get() = preferences.getLong(KEY, 0L).takeIf { it > 0L }
+        set(value) = preferences.edit {
+            if (value == null) remove(KEY) else putLong(KEY, value)
+        }
+
+    private companion object {
+        const val FILE_NAME = "wardrobapp_whats_new"
+        const val KEY = "last_seen_build"
+    }
+}

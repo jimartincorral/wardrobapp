@@ -151,4 +151,12 @@ tasks.withType<Test>().configureEach {
     inputs.dir(uiSources)
         .withPropertyName("uiSources")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+
+    // The script that writes the changelog, for ReleaseNoteDestinationsTest,
+    // which holds the destinations a note may name to the ones the app knows.
+    val releaseNotesScript = rootProject.file("scripts/release-notes.py")
+    systemProperty("releaseNotesScript", releaseNotesScript.absolutePath)
+    inputs.file(releaseNotesScript)
+        .withPropertyName("releaseNotesScript")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }

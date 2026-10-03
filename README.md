@@ -208,7 +208,9 @@ The images are built by `.github/workflows/home-assistant.yml` on every pull
 request, and published to GitHub's container registry from `main` when
 `homeassistant/wardrobapp/config.yaml` names a version that is not published
 yet. **Bumping that version, with an entry in the app's `CHANGELOG.md`, is what
-releases it**; a version is never republished. `HomeAssistantAppTest` holds the
+releases it**; a version is never republished. The entry's first draft is the
+browser's release notes since the last bump — see [Writing the
+changelog](#writing-the-changelog). `HomeAssistantAppTest` holds the
 config, the Dockerfile, the workflow and the server's defaults to each other.
 
 To run the same thing locally:
@@ -254,7 +256,8 @@ art/           logo.png — the logo, as delivered. Every launcher icon the app
                naming the upstream file it came from.
 scripts/       generate-launcher-icons.py — cuts them, with no dependencies.
                generate-glyphs.py — turns the glyphs into Compose vectors.
-               release-notes.py — the changelog the update dialog shows.
+               release-notes.py — the changelog the update dialog and What's
+               new show; test_release_notes.py tests it.
 ```
 
 ### Writing the changelog
@@ -285,10 +288,40 @@ remembered at merge time. A change that carries neither contributes nothing and 
 named in a warning on the release run — silence and "nothing to say" look the same
 in a changelog, and only one of them is deliberate.
 
-Every line is published with the build it arrived in, and the last fifty travel
-forward from one release to the next, so the dialog lists everything since the
-build on the phone rather than only what the newest build added. A phone that
-missed a few launches is told about all of them.
+A note can also say what kind of change it is, which app it is about and where
+it can be seen, and carry its Spanish:
+
+```
+Release-Note: [new android -> settings] Your wardrobe can sync with Home Assistant.
+Release-Note-es: Tu armario puede sincronizarse con Home Assistant.
+```
+
+- **Kind:** `new`, `improved` or `fixed`.
+- **App:** `android` or `web`, the browser in Home Assistant.
+- **Destination:** one of the screens listed in `release-notes.py`, which
+  `ReleaseNoteDestinationsTest` holds equal to the app's.
+
+Every part is optional. A note with no brackets is an improvement to both apps,
+which is how every note written before the brackets reads. The Spanish pairs with
+the English by position within the commit. A note without Spanish shows its
+English to somebody reading in Spanish. A word in the brackets that the script
+does not know costs a warning on the release run, not the note.
+
+Every note is published with the build it arrived in, and the last fifty travel
+forward from one release to the next. So the update dialog lists everything since
+the build on the phone rather than only what the newest build added, and a phone
+that missed a few launches is told about all of them. The dialog shows only notes
+about the phone, in the app's language.
+
+Once the update is installed, the new build shows **What's new**: the same notes
+since the last build it was shown for, under New, Improved and Fixed. A note with
+a destination gets a **Show me** button, which only the new build can offer.
+Nothing is shown on a fresh install.
+
+The Home Assistant app's `CHANGELOG.md` is written by hand when its version is
+bumped. `python3 scripts/release-notes.py <last-bump> HEAD --home-assistant`
+prints the browser's notes since then as a first draft. The script's own tests
+are `python3 -m unittest discover -s scripts`.
 
 ## Architecture
 

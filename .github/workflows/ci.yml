@@ -62,6 +62,12 @@ jobs:
           ANDROID_HOME: ""
           ANDROID_SDK_ROOT: ""
 
+      # The script that writes the changelog every build publishes. Its tests
+      # make git repositories of their own, so the single-commit checkout above
+      # is enough; they need git and Python, both on the runner already.
+      - name: Test the release notes
+        run: python3 -m unittest discover -s scripts -v
+
   # The app itself. Everything that needs the Android SDK happens here, and
   # nothing here needs an emulator: the Compose tests are Robolectric ones.
   android:
@@ -330,6 +336,12 @@ jobs:
           # one published. Carried forward only from a document whose commit is
           # in this history: after a force push its notes may describe work that
           # is gone, and starting again from this build is the honest answer.
+          #
+          # Each history entry carries the note's kind, the apps it is about, its
+          # Spanish and where in the app it can be seen; `changes` stays the
+          # phone's lines as plain English strings, for the builds already
+          # installed that read nothing else. The new build reads the history
+          # twice: in the update dialog, and in What's new once installed.
           version_code=$((1000 + GITHUB_RUN_NUMBER))
           carry=''
           if [ -n "$previous" ] && git cat-file -e "$previous^{commit}" 2>/dev/null; then

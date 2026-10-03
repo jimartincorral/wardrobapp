@@ -50,10 +50,45 @@ data class AppRelease(
      * published before builds carried it, in which case [changes] is all there is.
      */
     val history: List<ReleaseNote> = emptyList(),
+    /**
+     * What to tell somebody about this build, as notes rather than lines: the
+     * same cut as [changes], with each note's kind and Spanish, for a dialog
+     * that shows them in the reader's language. Empty until
+     * [updateWorthOffering] has seen it.
+     */
+    val notes: List<ReleaseNote> = emptyList(),
 )
 
-/** One changelog line, and the build that brought it. */
-data class ReleaseNote(val build: Long, val text: String)
+/** What a note says changed. A note that does not say is an improvement. */
+enum class ReleaseNoteKind { NEW, IMPROVED, FIXED }
+
+/** Which of the two apps a note is about: this one, or the browser's in Home Assistant. */
+enum class ReleasePlatform { ANDROID, WEB }
+
+/**
+ * One changelog line, and the build that brought it.
+ *
+ * Written as a `Release-Note:` trailer on the commit that made the change --
+ * see scripts/release-notes.py for the grammar, and for why a note that
+ * predates it reads as an improvement to the phone.
+ */
+data class ReleaseNote(
+    val build: Long,
+    val text: String,
+    val kind: ReleaseNoteKind = ReleaseNoteKind.IMPROVED,
+    val platforms: Set<ReleasePlatform> = setOf(ReleasePlatform.ANDROID),
+    /** The note in Spanish, when its author wrote one. */
+    val textEs: String? = null,
+    /**
+     * Where in the app the change can be seen, as the script names it --
+     * `settings`, `garment.new` -- or null. Read by :presentation, which knows
+     * the app's screens; kept as written here, since a name this build does not
+     * know is still not a reason to drop the note.
+     */
+    val destination: String? = null,
+) {
+    val forPhone: Boolean get() = ReleasePlatform.ANDROID in platforms
+}
 
 /**
  * The only hosts an APK may be downloaded from.
@@ -129,14 +164,47 @@ fun parseAppRelease(text: String): AppRelease? {
 private fun parseReleaseNote(element: JsonElement): ReleaseNote? {
     val entry = element as? JsonObject ?: return null
     val build = (entry["build"] as? JsonPrimitive)?.content?.toLongOrNull() ?: return null
-    val text = (entry["text"] as? JsonPrimitive)
+    val text = entry.text("text") ?: return null
+
+    // Each of the rest read leniently, for the same reason as the entry itself:
+    // a kind or an app this build has never heard of costs the detail, not the
+    // note. An entry that names no app this build knows predates the field, and
+    // every note from then was about the phone.
+    val kind = when (entry.text("kind")) {
+        "new" -> ReleaseNoteKind.NEW
+        "fixed" -> ReleaseNoteKind.FIXED
+        else -> ReleaseNoteKind.IMPROVED
+    }
+    val platforms = (entry["platforms"] as? JsonArray)
+        ?.mapNotNull { (it as? JsonPrimitive)?.takeIf { value -> value.isString }?.content }
+        ?.mapNotNull {
+            when (it) {
+                "android" -> ReleasePlatform.ANDROID
+                "web" -> ReleasePlatform.WEB
+                else -> null
+            }
+        }
+        ?.toSet()
+        ?.ifEmpty { null }
+        ?: setOf(ReleasePlatform.ANDROID)
+
+    return ReleaseNote(
+        build = build,
+        text = text,
+        kind = kind,
+        platforms = platforms,
+        textEs = entry.text("text_es"),
+        destination = entry.text("to"),
+    )
+}
+
+/** A string field, trimmed, or null if it is absent, not a string, or blank. */
+private fun JsonObject.text(key: String): String? =
+    (this[key] as? JsonPrimitive)
         ?.takeIf { it.isString }
         ?.content
         ?.trim()
         ?.takeIf { it.isNotEmpty() }
-        ?: return null
-    return ReleaseNote(build, text)
-}
 
 /**
  * Whether an address is one this app will download a package from.
@@ -175,7 +243,10 @@ fun updateWorthOffering(installed: Long, skipped: Long, release: AppRelease?): A
     if (release.versionCode <= installed) return null
     if (release.versionCode <= skipped) return null
 
-    return release.copy(changes = changesSince(installed, release))
+    return release.copy(
+        changes = changesSince(installed, release),
+        notes = notesSince(installed, release),
+    )
 }
 
 /**
@@ -196,8 +267,19 @@ fun updateWorthOffering(installed: Long, skipped: Long, release: AppRelease?): A
  * something this download does not contain.
  */
 fun changesSince(installed: Long, release: AppRelease): List<String> =
+    notesSince(installed, release).map { it.text }
+
+/**
+ * [changesSince] as notes: the phone's, newer than [installed] and no newer
+ * than the build offered, each once.
+ *
+ * Only the phone's, now that the history also carries the browser's notes: a
+ * change to the Home Assistant app is nothing a phone deciding whether to
+ * update needs to hear. The fallback lines are the phone's already -- the
+ * script writes `changes` for the builds that read nothing else.
+ */
+fun notesSince(installed: Long, release: AppRelease): List<ReleaseNote> =
     release.history
-        .filter { it.build > installed && it.build <= release.versionCode }
-        .map { it.text }
-        .distinct()
-        .ifEmpty { release.changes }
+        .filter { it.forPhone && it.build > installed && it.build <= release.versionCode }
+        .distinctBy { it.text }
+        .ifEmpty { release.changes.map { ReleaseNote(build = release.versionCode, text = it) } }

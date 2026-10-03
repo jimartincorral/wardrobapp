@@ -17,6 +17,9 @@ import kotlin.test.assertTrue
  */
 class AppUpdatesTest {
 
+    /** The release as published: an offer carries its notes as well, which these tests are not about. */
+    private fun AppRelease.withoutNotes() = copy(notes = emptyList())
+
     private val published = """
         {
           "version_code": 1120,
@@ -95,7 +98,7 @@ class AppUpdatesTest {
     fun `only a build newer than this one is worth mentioning`() {
         val release = parseAppRelease(published)!!
 
-        assertEquals(release, updateWorthOffering(installed = 1119, skipped = 0, release = release))
+        assertEquals(release, updateWorthOffering(installed = 1119, skipped = 0, release = release)?.withoutNotes())
         assertNull(updateWorthOffering(installed = 1120, skipped = 0, release = release), "the build it is running")
         assertNull(updateWorthOffering(installed = 1121, skipped = 0, release = release), "an older published build")
         assertNull(updateWorthOffering(installed = 1, skipped = 0, release = null), "nothing was read")
@@ -109,7 +112,7 @@ class AppUpdatesTest {
         assertNull(updateWorthOffering(installed = 1000, skipped = 1200, release = release), "and anything older")
 
         // But the next build is a new decision, not a settled one.
-        assertEquals(release, updateWorthOffering(installed = 1000, skipped = 1119, release = release))
+        assertEquals(release, updateWorthOffering(installed = 1000, skipped = 1119, release = release)?.withoutNotes())
     }
 
     /*
@@ -260,5 +263,83 @@ class AppUpdatesTest {
         val offered = updateWorthOffering(installed = 1100, skipped = 0, release = parseAppRelease(repeated))!!
 
         assertEquals(listOf("Photos import the right way up."), offered.changes)
+    }
+
+    /*
+     * Notes with a kind, the apps they are about, Spanish and a destination --
+     * scripts/release-notes.py's grammar, as published.
+     */
+
+    private val structured = """
+        {
+          "version_code": 1130,
+          "apk_url": "https://github.com/jimartincorral/wardrobapp/releases/download/nightly/wardrobapp.apk",
+          "changes": ["Sync with Home Assistant."],
+          "history": [
+            {"build": 1130, "text": "Sync with Home Assistant.", "kind": "new", "platforms": ["android"],
+             "text_es": "Sincroniza con Home Assistant.", "to": "settings"},
+            {"build": 1130, "text": "The browser keeps its place.", "kind": "fixed", "platforms": ["web"]},
+            {"build": 1129, "text": "Both apps.", "kind": "improved", "platforms": ["android", "web"]},
+            {"build": 1128, "text": "From a later build of the script.", "kind": "sparkly", "platforms": ["watch"], "to": "somewhere"}
+          ]
+        }
+    """.trimIndent()
+
+    @Test
+    fun `a note's kind, apps, Spanish and destination are read`() {
+        val history = parseAppRelease(structured)!!.history
+
+        assertEquals(
+            ReleaseNote(
+                build = 1130,
+                text = "Sync with Home Assistant.",
+                kind = ReleaseNoteKind.NEW,
+                platforms = setOf(ReleasePlatform.ANDROID),
+                textEs = "Sincroniza con Home Assistant.",
+                destination = "settings",
+            ),
+            history[0],
+        )
+        assertEquals(setOf(ReleasePlatform.ANDROID, ReleasePlatform.WEB), history[2].platforms)
+        // What this build does not know costs the detail, not the note -- and a
+        // note naming no app it knows is about the phone, as old ones were.
+        assertEquals(ReleaseNoteKind.IMPROVED, history[3].kind)
+        assertEquals(setOf(ReleasePlatform.ANDROID), history[3].platforms)
+        assertEquals("somewhere", history[3].destination)
+    }
+
+    @Test
+    fun `a note from before the grammar is an improvement to the phone`() {
+        val note = parseAppRelease(withHistory)!!.history[0]
+
+        assertEquals(ReleaseNoteKind.IMPROVED, note.kind)
+        assertEquals(setOf(ReleasePlatform.ANDROID), note.platforms)
+        assertNull(note.textEs)
+        assertNull(note.destination)
+    }
+
+    @Test
+    fun `a phone is not told about the browser`() {
+        val offer = updateWorthOffering(installed = 1127, skipped = 0, release = parseAppRelease(structured))!!
+
+        assertEquals(
+            listOf("Sync with Home Assistant.", "Both apps.", "From a later build of the script."),
+            offer.changes,
+        )
+        assertEquals(offer.changes, offer.notes.map { it.text })
+        assertEquals("Sincroniza con Home Assistant.", offer.notes[0].textEs)
+    }
+
+    @Test
+    fun `when only the browser changed, the published line still speaks for the phone`() {
+        val browserOnly = parseAppRelease(structured)!!.copy(
+            history = listOf(ReleaseNote(1130, "Browser only.", platforms = setOf(ReleasePlatform.WEB))),
+            changes = listOf("Fixes and groundwork. Nothing you should notice."),
+        )
+
+        val offer = updateWorthOffering(installed = 1129, skipped = 0, release = browserOnly)!!
+
+        assertEquals(listOf("Fixes and groundwork. Nothing you should notice."), offer.changes)
+        assertEquals(listOf(ReleaseNote(1130, "Fixes and groundwork. Nothing you should notice.")), offer.notes)
     }
 }

@@ -19,6 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.data.AppRelease
+import com.wardrobapp.data.ReleaseNote
+import com.wardrobapp.presentation.textIn
+import com.wardrobapp.ui.releaseNotesLanguage
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_close
 import com.wardrobapp.ui.resources.update_available_title
@@ -100,21 +103,28 @@ fun UpdateNotice(
                     style = MaterialTheme.typography.bodyMedium,
                 )
 
-                if (release.changes.isNotEmpty()) {
+                // The phone's notes, in the language the app is in when the
+                // note's author gave one -- English otherwise, which every
+                // note has.
+                val language = releaseNotesLanguage()
+                // An offer has been through updateWorthOffering, which fills
+                // the notes; a release that somehow has not still has its lines.
+                val notes = release.notes.ifEmpty { release.changes.map { ReleaseNote(release.versionCode, it) } }
+                if (notes.isNotEmpty()) {
                     Text(
                         stringResource(Res.string.update_changes),
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.padding(top = 12.dp),
                     )
-                    for (change in release.changes.take(CHANGES_SHOWN)) {
+                    for (note in notes.take(CHANGES_SHOWN)) {
                         Text(
-                            "• $change",
+                            "• ${note.textIn(language)}",
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
-                    if (release.changes.size > CHANGES_SHOWN) {
-                        val hidden = release.changes.size - CHANGES_SHOWN
+                    if (notes.size > CHANGES_SHOWN) {
+                        val hidden = notes.size - CHANGES_SHOWN
                         Text(
                             pluralStringResource(Res.plurals.update_changes_more, hidden, hidden),
                             style = MaterialTheme.typography.bodySmall,
