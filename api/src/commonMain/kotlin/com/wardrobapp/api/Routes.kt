@@ -82,6 +82,14 @@ object Routes {
     /** GET: the server's [ServerVersion]. */
     const val VERSION = "api/version"
 
+    /**
+     * GET: what each version of the Home Assistant app changed for the
+     * browser, as scripts/release-notes.py's `--web-history` wrote it into the
+     * image; read with :data's parseWebReleases. An empty list from a server
+     * that was not built with any.
+     */
+    const val WHATS_NEW = "api/whats-new"
+
     /** GET: the [SyncPairing] a phone needs, for Settings to show. */
     const val SYNC_PAIRING = "api/sync/pairing"
 

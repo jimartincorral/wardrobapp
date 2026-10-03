@@ -55,6 +55,7 @@ import androidx.navigation.navArgument
 import com.canhub.cropper.CropImageContract
 import com.wardrobapp.data.backupFilename
 import com.wardrobapp.domain.PhantomGarment
+import com.wardrobapp.presentation.AppDestination
 import com.wardrobapp.presentation.BULK_ADD_MINIMUM
 import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.presentation.FirstStep
@@ -93,6 +94,7 @@ import com.wardrobapp.ui.WARDROBE
 import com.wardrobapp.ui.WardrobappTheme
 import com.wardrobapp.ui.WardrobeBottomBar
 import com.wardrobapp.ui.WardrobeScreen
+import com.wardrobapp.ui.WhatsNewDialog
 import com.wardrobapp.ui.springGentle
 import java.io.File
 import java.io.FileNotFoundException
@@ -239,19 +241,35 @@ class MainActivity : AppCompatActivity() {
                                     updates = AndroidAppUpdates(applicationContext),
                                     skipped = SkippedUpdate(applicationContext),
                                     installedVersionCode = appVersion().code,
+                                    whatsNewRecord = WhatsNewRecord(applicationContext),
+                                    freshInstall = neverUpdated(),
                                 )
                             }
                         },
                     )
                     val updateState by updates.state.collectAsStateWithLifecycle()
 
-                    UpdateNotice(
-                        state = updateState,
-                        onInstall = updates::onInstallRequested,
-                        onSkip = updates::onSkipRequested,
-                        onDismiss = updates::onDismissed,
-                        onFailureDismissed = updates::onFailureDismissed,
-                    )
+                    // What this build changed first, and only then an offer of the
+                    // next one: the first is about what somebody already has.
+                    val whatsNew = updateState.whatsNew
+                    if (whatsNew != null) {
+                        WhatsNewDialog(
+                            notes = whatsNew,
+                            onShow = { destination ->
+                                updates.onWhatsNewSeen()
+                                navigator.open(destination)
+                            },
+                            onDismiss = updates::onWhatsNewSeen,
+                        )
+                    } else {
+                        UpdateNotice(
+                            state = updateState,
+                            onInstall = updates::onInstallRequested,
+                            onSkip = updates::onSkipRequested,
+                            onDismiss = updates::onDismissed,
+                            onFailureDismissed = updates::onFailureDismissed,
+                        )
+                    }
 
                     // Routed once, when it arrives. Not consumed here -- the form
                     // is what asks about it, and it has to exist first.
@@ -1427,6 +1445,36 @@ class MainActivity : AppCompatActivity() {
             // and this app supports 24.
             code = PackageInfoCompat.getLongVersionCode(info),
         )
+    }
+
+    /**
+     * Whether this installation has never been updated, which is what a fresh
+     * install is: Android records when the app was first installed and when it
+     * was last replaced, and they are the same moment until the first update.
+     */
+    private fun neverUpdated(): Boolean {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        return info.firstInstallTime == info.lastUpdateTime
+    }
+
+    /**
+     * Go where a release note says its change can be seen.
+     *
+     * The tabs as the bottom bar switches to them, so following a note leaves
+     * the back stack as tapping the tab would; the rest pushed, as the buttons
+     * that open them do.
+     */
+    private fun NavHostController.open(destination: AppDestination) {
+        when (destination) {
+            AppDestination.HOME -> switchTo(HOME)
+            AppDestination.WARDROBE -> switchTo(WARDROBE)
+            AppDestination.OUTFITS -> switchTo(OUTFITS)
+            AppDestination.STATISTICS -> switchTo(STATISTICS)
+            AppDestination.SETTINGS -> switchTo(SETTINGS)
+            AppDestination.NEW_GARMENT -> navigate(GARMENT_ADD)
+            AppDestination.BULK_ADD -> navigate(GARMENT_BULK_ADD)
+            AppDestination.NEW_OUTFIT -> navigate(OUTFIT_BUILD)
+        }
     }
 
     /**

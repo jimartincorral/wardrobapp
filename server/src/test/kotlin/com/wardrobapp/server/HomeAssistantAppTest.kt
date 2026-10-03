@@ -109,6 +109,18 @@ class HomeAssistantAppTest {
     }
 
     @Test
+    fun `the browser's release notes are written where the server reads them`() {
+        // The workflow writes them into the install directory the image copies
+        // to /opt/wardrobapp, after building it and before building the image.
+        val written = "server/build/install/wardrobapp-server/release-notes.json"
+        assertTrue("--web-history" in workflow && written in workflow, "the workflow does not write the notes")
+        assertTrue(workflow.indexOf(written) > workflow.indexOf(":server:installDist"), "written before the build that would replace them")
+        assertTrue(workflow.indexOf(written) < workflow.indexOf("docker/build-push-action"), "written after the image is built")
+        assertTrue("fetch-depth: 0" in workflow, "the notes need the whole history")
+        assertEquals("/opt/wardrobapp/release-notes.json", environment("WARDROBAPP_RELEASE_NOTES"))
+    }
+
+    @Test
     fun `the server knows its version from the build that made it`() {
         assertEquals("\${BUILD_VERSION}", environment("WARDROBAPP_VERSION"))
         assertTrue("BUILD_VERSION=\${{ steps.app.outputs.version }}" in workflow)

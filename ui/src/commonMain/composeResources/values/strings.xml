@@ -652,6 +652,19 @@
     <string name="update_version">Version %1$s, build %2$d.</string>
     <string name="update_build">Build %1$d.</string>
     <string name="update_changes">What changed</string>
+    <!--
+        Which language the release notes are shown in: the one these strings are
+        in, read as a string so the answer is whatever Compose resolved this
+        table to, rather than a second guess at the locale that could disagree
+        with it. Not shown to anyone.
+    -->
+    <string name="release_notes_language">en</string>
+    <string name="whats_new_title">What's new</string>
+    <string name="whats_new_new">New</string>
+    <string name="whats_new_improved">Improved</string>
+    <string name="whats_new_fixed">Fixed</string>
+    <string name="whats_new_show">Show me</string>
+    <string name="whats_new_done">Got it</string>
     <plurals name="update_changes_more">
         <item quantity="one">and %1$d more.</item>
         <item quantity="other">and %1$d more.</item>

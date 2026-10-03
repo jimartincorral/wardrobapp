@@ -45,6 +45,8 @@ import io.ktor.server.routing.put
 import io.ktor.server.routing.routing
 import io.ktor.utils.io.readRemaining
 import kotlinx.io.readByteArray
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * The routes in :api, answered from [wardrobe].
@@ -84,6 +86,17 @@ fun Application.wardrobeApi(
         get(Routes.STORAGE) { call.respond(wardrobe.storage()) }
 
         get(Routes.VERSION) { call.respond(settings.version) }
+
+        // Served as the workflow wrote it: the browser reads it with the same
+        // lenient parser the phone reads its own document with, so a server
+        // that checked it first would only be a second opinion. Read per
+        // request, since it is small and asked for once per page load.
+        get(Routes.WHATS_NEW) {
+            val notes = withContext(Dispatchers.IO) {
+                settings.releaseNotes?.takeIf { it.isFile }?.readText()
+            }
+            call.respondText(notes ?: "[]", ContentType.Application.Json)
+        }
 
         // What a phone needs to pair, for Settings in the browser to show --
         // behind ingress, so only somebody signed in to Home Assistant sees it.

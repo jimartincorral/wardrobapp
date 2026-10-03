@@ -37,7 +37,11 @@ jobs:
       packages: write
 
     steps:
+      # Whole history, for the browser's release notes below, which are read
+      # from every merge since the app existed.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -94,6 +98,17 @@ jobs:
 
       # Emulation only so the arm64 image's build steps can run; there is
       # nothing to compile in it.
+      # What each version of the app changed for the browser, for its What's
+      # new: the Release-Note trailers since the app existed, grouped by the
+      # version bump that first shipped each (see web_history in the script).
+      # Written into the server's install directory, which the image already
+      # copies, at the path WARDROBAPP_RELEASE_NOTES names.
+      - name: Write the browser's release notes
+        run: |
+          first=$(git log --diff-filter=A --format=%H -- homeassistant/wardrobapp/config.yaml | tail -1)
+          python3 scripts/release-notes.py "$first" HEAD --web-history \
+            > server/build/install/wardrobapp-server/release-notes.json
+
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
