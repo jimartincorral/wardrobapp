@@ -34,7 +34,7 @@ which explains the rest, and the README section it points at.
 
 - **`:app` does not build without the Android SDK.** `settings.gradle.kts`
   includes it only when one is present, so on a machine without it
-  `./gradlew test` runs the four pure-Kotlin modules, compiles the screens in
+  `./gradlew test` runs the six pure-Kotlin modules, compiles the screens in
   `:ui` for the browser, and silently skips the app. CI is the only place `:app`
   is compiled, linted or Robolectric-tested, and the only place `:ui` is built
   for Android — which is why `:presentation` carries tests that read `:app`'s
