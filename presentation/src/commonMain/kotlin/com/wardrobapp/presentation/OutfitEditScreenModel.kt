@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 
 /**
  * An outfit as the editor hands it over to be stored: its name already decided,
@@ -18,6 +19,7 @@ import kotlinx.coroutines.launch
  * What a name falls back to and what order the garments go in are decided in
  * OutfitEditState and tested there; the source only stores the answer.
  */
+@Serializable
 data class OutfitDraft(
     val name: String,
     val garmentIds: List<String>,

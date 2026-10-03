@@ -1,5 +1,7 @@
 package com.wardrobapp.presentation
 
+import kotlinx.serialization.Serializable
+
 
 /**
  * What the statistics page shows.
@@ -16,6 +18,7 @@ package com.wardrobapp.presentation
  */
 
 /** One (key, count) pair, as the distribution queries return them. */
+@Serializable
 data class Distribution(val key: String, val count: Long)
 
 /** One bar: what it counts, and how much of the track to fill. */

@@ -8,8 +8,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 
 /** One saved outfit, with the garments it holds and its rating if it has one. */
+@Serializable
 data class OutfitDetailContent(
     val outfit: OutfitRecord,
     /**

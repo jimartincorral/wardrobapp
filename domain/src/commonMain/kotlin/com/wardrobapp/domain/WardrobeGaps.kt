@@ -1,6 +1,7 @@
 package com.wardrobapp.domain
 
 import kotlin.math.abs
+import kotlinx.serialization.Serializable
 
 /**
  * What the wardrobe is missing, and the outfits that would prove it.
@@ -61,6 +62,7 @@ const val MIN_WARDROBE_FOR_GAPS = 10
  * *description of something to want*, and giving it the same type as a garment
  * somebody owns would make it possible to save one by accident.
  */
+@Serializable
 data class PhantomGarment(
     val category: String,
     val subcategory: String?,
@@ -107,6 +109,7 @@ enum class GapEvidence {
 }
 
 /** A garment worth wanting, and the case for it. */
+@Serializable
 data class WardrobeGap(
     val want: PhantomGarment,
     val slot: OutfitSlot,

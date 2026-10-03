@@ -3,6 +3,7 @@ package com.wardrobapp.data
 import com.wardrobapp.domain.DuplicateCandidate
 import com.wardrobapp.domain.duplicateGroups
 import com.wardrobapp.domain.findDuplicatesAmong
+import kotlinx.serialization.Serializable
 
 /**
  * Finding the garments a new one might already be.
@@ -13,9 +14,11 @@ import com.wardrobapp.domain.findDuplicatesAmong
  */
 
 /** Garments that are each other, with the photos a list needs to show. */
+@Serializable
 data class DuplicateGarmentGroup(val garments: List<GarmentRecord>)
 
 /** A garment the wardrobe already has, with the photo a warning needs to show. */
+@Serializable
 data class DuplicateGarment(val garment: GarmentRecord)
 
 class Duplicates(private val garments: GarmentQueries) {

@@ -1,5 +1,7 @@
 package com.wardrobapp.domain
 
+import kotlinx.serialization.Serializable
+
 /**
  * What a URL import says back: its limits, its outcomes and the reasons it gives.
  *
@@ -39,18 +41,23 @@ enum class ImportParser {
 }
 
 /** Something worth saying about an import that still succeeded. */
+@Serializable
 sealed interface ImportWarning {
 
     /** A `ld+json` block that was not JSON. */
+    @Serializable
     data object StructuredDataUnreadable : ImportWarning
 
     /** The page listed more images than the app will take. */
+    @Serializable
     data class ImagesCapped(val listed: Int, val used: Int) : ImportWarning
 
     /** Images pointing somewhere the app will not fetch. */
+    @Serializable
     data class ImagesBlocked(val count: Int) : ImportWarning
 
     /** Images that were allowed but did not arrive. */
+    @Serializable
     data class ImagesFailed(val count: Int) : ImportWarning
 }
 
@@ -87,27 +94,35 @@ data class ImportedGarmentData(
 )
 
 /** Why an import produced nothing. */
+@Serializable
 sealed interface ImportFailureReason {
 
     /** The server did not answer inside the deadline. */
+    @Serializable
     data object PageTimedOut : ImportFailureReason
 
     /** Bigger than this app will read. */
+    @Serializable
     data object PageTooLarge : ImportFailureReason
 
     /** Answered, but not with a page. */
+    @Serializable
     data class PageNotLoaded(val status: Int) : ImportFailureReason
 
     /** A PDF, an image, a download -- something that is not a web page. */
+    @Serializable
     data object NotAWebPage : ImportFailureReason
 
     /** A page, but with no garment on it. */
+    @Serializable
     data object NoImagesFound : ImportFailureReason
 
     /** Images, but every one of them somewhere the app will not go. */
+    @Serializable
     data object NoFetchableImages : ImportFailureReason
 
     /** Images this app would fetch, none of which arrived. */
+    @Serializable
     data object NoImagesDownloaded : ImportFailureReason
 }
 
@@ -175,6 +190,7 @@ fun interface ImageFetcher {
 }
 
 /** What an import came back with, ready for the form to be filled from. */
+@Serializable
 data class ImportedGarmentPreview(
     val sourceUrl: String,
     val title: String?,

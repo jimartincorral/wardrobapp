@@ -1,5 +1,7 @@
 package com.wardrobapp.domain
 
+import kotlinx.serialization.Serializable
+
 /**
  * Why an address was refused, and the sentence that says so.
  *
@@ -10,15 +12,19 @@ package com.wardrobapp.domain
  */
 
 /** Why a URL was refused, as a value rather than a sentence. */
+@Serializable
 sealed interface UnsafeUrlReason {
 
     /** Nothing was entered. */
+    @Serializable
     data object UrlRequired : UnsafeUrlReason
 
     /** Not parseable as an address at all. */
+    @Serializable
     data object NotAWebAddress : UnsafeUrlReason
 
     /** Parseable, but not a web page: `ftp:`, `file:`, an app's own scheme. */
+    @Serializable
     data object SchemeNotAllowed : UnsafeUrlReason
 
     /**
@@ -27,15 +33,19 @@ sealed interface UnsafeUrlReason {
      * A phishing shape -- `https://real.example@evil.test` reads as the first host
      * and fetches the second -- and no product page needs one.
      */
+    @Serializable
     data object CredentialsInUrl : UnsafeUrlReason
 
     /** Names this device or something on its network. */
+    @Serializable
     data class HostIsLocal(val host: String) : UnsafeUrlReason
 
     /** Redirected somewhere that will not parse. */
+    @Serializable
     data object RedirectUnreadable : UnsafeUrlReason
 
     /** Redirected onto this device or its network, or off the web entirely. */
+    @Serializable
     data class RedirectedToLocalHost(val host: String) : UnsafeUrlReason
 }
 

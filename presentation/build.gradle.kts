@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // in StoredMoment, so that the two cannot disagree about it.
 plugins {
     kotlin("multiplatform") version "2.1.20"
+    kotlin("plugin.serialization") version "2.1.20"
 }
 
 repositories {
@@ -126,6 +127,15 @@ tasks.withType<Test>().configureEach {
     // And where the generated vectors are, for GlyphSourcesTest. :ui has no local
     // compiler either -- it builds only where :app does -- so its files are read
     // from here too.
+    // Where the types that cross the wire are declared -- every @Serializable
+    // class in common code -- so WireTypesTest can insist on a sample of each.
+    val wireSources = listOf("domain", "data", "presentation")
+        .map { rootProject.file("$it/src/commonMain/kotlin") }
+    systemProperty("wireSourceDirs", wireSources.joinToString(File.pathSeparator) { it.absolutePath })
+    inputs.files(wireSources)
+        .withPropertyName("wireSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+
     val uiSources = rootProject.file("ui/src/commonMain/kotlin/com/wardrobapp/ui")
     systemProperty("uiSourceDir", uiSources.absolutePath)
     inputs.dir(uiSources)

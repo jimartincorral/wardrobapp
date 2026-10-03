@@ -2,6 +2,7 @@ package com.wardrobapp.presentation
 
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import kotlinx.serialization.Serializable
 
 /**
  * The season and occasion chips on the outfits screen.
@@ -15,6 +16,7 @@ import com.wardrobapp.domain.Season
  * garment for spring is often a garment for fall; occasion is one choice,
  * because an outfit is for one thing at a time.
  */
+@Serializable
 data class OutfitFilters(
     val seasons: List<Season> = emptyList(),
     val occasion: Occasion? = null,

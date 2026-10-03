@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // the JVM; see the root build file for why Wasm is compiled and not yet run.
 plugins {
     kotlin("multiplatform") version "2.1.20"
+    kotlin("plugin.serialization") version "2.1.20"
 }
 
 repositories {
@@ -40,7 +41,16 @@ kotlin {
             // production concern here rather than a test one -- the same reason
             // :data depends on this. No new weight in the APK: :data already ships
             // it. Common, because the library is.
-            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
+            //
+            // `api`, and the serialization compiler plugin above, since the
+            // garments, outfits and everything else a screen is handed started
+            // crossing HTTP: the Home Assistant server sends them to the browser
+            // as JSON. The types carry `@Serializable` themselves rather than
+            // being copied into transfer objects, so a field added to one is on
+            // the wire without a second edit. A serializer is part of a type's
+            // public face once it has one, so the library that defines it is
+            // exposed with it.
+            api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
         }
         jvmTest.dependencies {
             implementation(kotlin("test"))

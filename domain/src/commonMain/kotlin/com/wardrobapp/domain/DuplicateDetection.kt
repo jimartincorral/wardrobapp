@@ -1,5 +1,7 @@
 package com.wardrobapp.domain
 
+import kotlinx.serialization.Serializable
+
 /**
  * Duplicate detection.
  *
@@ -26,6 +28,7 @@ package com.wardrobapp.domain
 data class DuplicateMatch(val garment: Garment)
 
 /** The subset of a garment duplicate detection actually compares. */
+@Serializable
 data class DuplicateCandidate(
     val category: String,
     val subcategories: List<String> = emptyList(),

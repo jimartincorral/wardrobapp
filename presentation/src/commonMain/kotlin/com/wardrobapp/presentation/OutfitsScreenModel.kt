@@ -11,8 +11,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 
 /** What the outfits screen asks the engine for. */
+@Serializable
 data class SuggestionRequest(
     val filters: OutfitFilters,
     /**
@@ -27,6 +29,7 @@ data class SuggestionRequest(
 )
 
 /** The saved outfits, and how many are archived whether or not they are shown. */
+@Serializable
 data class SavedOutfits(val outfits: List<OutfitRecord>, val archivedCount: Long)
 
 /** Where the outfits screen's suggestions and saved outfits come from, and where its changes go. */

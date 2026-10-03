@@ -2,6 +2,7 @@ package com.wardrobapp.domain
 
 import kotlin.math.abs
 import kotlin.math.exp
+import kotlinx.serialization.Serializable
 
 /**
  * Outfit suggestion algorithm.
@@ -85,6 +86,8 @@ private fun pickTemplate(
     // Only reachable through floating-point drift at the very end of the wheel.
     return templates.last()
 }
+
+@Serializable
 
 data class ScoredOutfit(
     val garments: List<Garment>,

@@ -1,6 +1,7 @@
 package com.wardrobapp.presentation
 
 import com.wardrobapp.domain.Season
+import kotlinx.serialization.Serializable
 
 /**
  * Adding a wardrobe, rather than a garment.
@@ -35,6 +36,7 @@ data class BulkAddState(
      * choose: a palette that needs correcting is a job for the garment's own form,
      * after it exists.
      */
+    @Serializable
     data class Draft(
         /** The stored photo, resolved to something drawable. */
         val imageUri: String,
