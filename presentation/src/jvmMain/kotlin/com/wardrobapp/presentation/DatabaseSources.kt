@@ -4,13 +4,18 @@ import com.wardrobapp.data.AnalyticsQueries
 import com.wardrobapp.data.Duplicates
 import com.wardrobapp.data.GarmentQueries
 import com.wardrobapp.data.Gaps
+import com.wardrobapp.data.Suggestions
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.isoTimestamp
+import com.wardrobapp.domain.GenerateSuggestionsOptions
+import com.wardrobapp.domain.SuggestionPreferences
 import com.wardrobapp.domain.seasonOfMonth
+import com.wardrobapp.presentation.OutfitsScreenState.Suggestion
 import java.util.Calendar
 import java.util.UUID
+import kotlin.random.Random
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
@@ -179,4 +184,79 @@ class DatabaseStatisticsSource(
      */
     private fun List<AnalyticsQueries.Count>.asDistributions(): List<Distribution> =
         map { Distribution(key = it.label, count = it.count) }
+}
+
+class DatabaseOutfitsSource(
+    private val garments: GarmentQueries,
+    private val outfits: OutfitQueries,
+    private val outfitWrites: OutfitWrites,
+    private val suggestions: Suggestions,
+    private val io: CoroutineDispatcher,
+) : OutfitsSource {
+    override suspend fun garment(id: String) = withContext(io) { garments.garment(id) }
+
+    override suspend fun suggest(request: SuggestionRequest) = withContext(io) {
+        suggestions.suggest(
+            // The season the wardrobe is judged against when none is picked, and
+            // the dice: read here because this is the side allowed a clock and a
+            // random source. The engine only ever sees the answers.
+            currentSeason = seasonOfMonth(Calendar.getInstance().get(Calendar.MONTH)),
+            random = { Random.nextDouble() },
+            options = GenerateSuggestionsOptions(
+                count = request.count,
+                preferences = SuggestionPreferences(
+                    seasons = request.filters.seasons,
+                    occasion = request.filters.occasion,
+                ),
+                alreadySeen = request.alreadySeen,
+            ),
+            seedGarmentId = request.seedGarmentId,
+        ).map { Suggestion(id = newRowId(), outfit = it) }
+    }
+
+    override suspend fun saved(includeArchived: Boolean) = withContext(io) {
+        SavedOutfits(outfits = outfits.all(includeArchived = includeArchived), archivedCount = outfits.archivedCount())
+    }
+
+    override suspend fun keep(suggestion: Suggestion) {
+        withContext(io) {
+            store(suggestion)
+            // And un-archived, which is not the same as inserting it: rating this
+            // suggestion already wrote the row, archived, so the insert above does
+            // nothing and without this the outfit would stay hidden while the card
+            // said "Saved". Idempotent either way.
+            outfitWrites.setArchived(suggestion.id, false)
+        }
+    }
+
+    override suspend fun rate(suggestion: Suggestion, rating: Int) {
+        withContext(io) {
+            // A rating is a rating *of* an outfit, so it has to exist first.
+            store(suggestion, archived = true)
+            outfitWrites.rate(ratingId = newRowId(), outfitId = suggestion.id, rating = rating, now = nowTimestamp())
+        }
+    }
+
+    override suspend fun unarchive(outfitId: String) {
+        withContext(io) { outfitWrites.setArchived(outfitId, false) }
+    }
+
+    override suspend fun setPinned(outfitId: String, pinned: Boolean) {
+        withContext(io) { outfitWrites.setPinned(outfitId, pinned) }
+    }
+
+    override suspend fun delete(outfitId: String) {
+        withContext(io) { outfitWrites.delete(outfitId) }
+    }
+
+    private fun store(suggestion: Suggestion, archived: Boolean = false) {
+        outfitWrites.insertIfAbsent(
+            id = suggestion.id,
+            name = suggestion.outfit.name,
+            garmentIds = suggestion.outfit.garments.map { it.id },
+            isSuggested = true,
+            isArchived = archived,
+            now = nowTimestamp(),
+        )
+    }
 }
