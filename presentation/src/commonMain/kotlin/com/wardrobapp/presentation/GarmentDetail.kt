@@ -5,6 +5,7 @@ import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.occasions
 import com.wardrobapp.domain.splitStructuredTags
+import kotlinx.serialization.Serializable
 
 /**
  * What a garment's detail screen shows.
@@ -147,6 +148,7 @@ fun backgroundActionFor(original: String?, cutout: String?): BackgroundAction? =
  * without deleting the file leaks it, and deleting the file without writing the
  * rows leaves a garment pointing at nothing.
  */
+@Serializable
 data class BackgroundEdit(
     val images: List<String>,
     val cutouts: List<String>,

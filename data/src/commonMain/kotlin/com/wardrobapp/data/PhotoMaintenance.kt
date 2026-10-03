@@ -1,5 +1,7 @@
 package com.wardrobapp.data
 
+import kotlinx.serialization.Serializable
+
 /**
  * Tidying up photos stored before they were stored properly.
  *
@@ -61,6 +63,7 @@ fun cutoutsToShrink(files: List<StoredCutout>): List<StoredCutout> =
         .sortedWith(compareByDescending<StoredCutout> { it.bytes }.thenBy { it.name })
 
 /** What a maintenance pass came to. */
+@Serializable
 data class MaintenanceSummary(
     /** How many files were looked at, including the ones left alone. */
     val examined: Int,

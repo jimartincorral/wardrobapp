@@ -1,5 +1,8 @@
 package com.wardrobapp.domain
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
 /**
  * Why an address was refused, and the sentence that says so.
  *
@@ -9,16 +12,29 @@ package com.wardrobapp.domain
  * including the browser's, which never checks an address itself.
  */
 
-/** Why a URL was refused, as a value rather than a sentence. */
+/**
+ * Why a URL was refused, as a value rather than a sentence.
+ *
+ * Each kind names itself on the wire with `@SerialName`, which is how JSON says
+ * which one it is. Left to itself the serializer would use the Kotlin class's
+ * full name, and renaming or moving a class would change what the server sends.
+ */
+@Serializable
 sealed interface UnsafeUrlReason {
 
     /** Nothing was entered. */
+    @Serializable
+    @SerialName("url-required")
     data object UrlRequired : UnsafeUrlReason
 
     /** Not parseable as an address at all. */
+    @Serializable
+    @SerialName("not-a-web-address")
     data object NotAWebAddress : UnsafeUrlReason
 
     /** Parseable, but not a web page: `ftp:`, `file:`, an app's own scheme. */
+    @Serializable
+    @SerialName("scheme-not-allowed")
     data object SchemeNotAllowed : UnsafeUrlReason
 
     /**
@@ -27,15 +43,23 @@ sealed interface UnsafeUrlReason {
      * A phishing shape -- `https://real.example@evil.test` reads as the first host
      * and fetches the second -- and no product page needs one.
      */
+    @Serializable
+    @SerialName("credentials-in-url")
     data object CredentialsInUrl : UnsafeUrlReason
 
     /** Names this device or something on its network. */
+    @Serializable
+    @SerialName("host-is-local")
     data class HostIsLocal(val host: String) : UnsafeUrlReason
 
     /** Redirected somewhere that will not parse. */
+    @Serializable
+    @SerialName("redirect-unreadable")
     data object RedirectUnreadable : UnsafeUrlReason
 
     /** Redirected onto this device or its network, or off the web entirely. */
+    @Serializable
+    @SerialName("redirected-to-local-host")
     data class RedirectedToLocalHost(val host: String) : UnsafeUrlReason
 }
 

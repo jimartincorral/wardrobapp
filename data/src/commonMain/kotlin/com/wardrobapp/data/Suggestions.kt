@@ -5,6 +5,7 @@ import com.wardrobapp.domain.OutfitReason
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.SuggestionContext
 import com.wardrobapp.domain.buildSuggestions
+import kotlinx.serialization.Serializable
 
 /**
  * Loading what the suggestion engine needs, then running it.
@@ -22,6 +23,7 @@ import com.wardrobapp.domain.buildSuggestions
  * depends on that. A screen needs the photos, so the ids come back out of the
  * result and are matched to the records they were built from.
  */
+@Serializable
 data class SuggestedOutfit(
     val name: String,
     val score: Double,

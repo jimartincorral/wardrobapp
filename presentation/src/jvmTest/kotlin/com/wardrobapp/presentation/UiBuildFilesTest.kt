@@ -19,9 +19,9 @@ import kotlin.test.assertTrue
  *
  * Compared as text, because neither file can be evaluated from here -- one needs
  * an SDK -- and because what has to match is what is written: the common
- * dependencies, the resource settings and the shared plugins with their
- * versions. Comments are ignored, so either file can explain itself at whatever
- * length it needs to.
+ * dependencies, the resource settings and the shared plugins, whose versions are
+ * declared once in the root build file. Comments are ignored, so either file can
+ * explain itself at whatever length it needs to.
  */
 class UiBuildFilesTest {
 

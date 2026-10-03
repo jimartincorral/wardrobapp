@@ -1,5 +1,7 @@
 package com.wardrobapp.presentation
 
+import kotlinx.serialization.Serializable
+
 /**
  * How long the things you stopped wearing lasted.
  *
@@ -10,6 +12,7 @@ package com.wardrobapp.presentation
  */
 
 /** A garment as the lifespan chart needs it, which is only its name and its span. */
+@Serializable
 data class LifespanEntry(
     val garmentId: String,
     val category: String,

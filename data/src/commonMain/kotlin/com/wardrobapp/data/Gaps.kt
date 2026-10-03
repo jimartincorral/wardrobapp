@@ -9,6 +9,7 @@ import com.wardrobapp.domain.WardrobeGap
 import com.wardrobapp.domain.analyzeGaps
 import com.wardrobapp.domain.coverageGrid
 import kotlin.random.Random
+import kotlinx.serialization.Serializable
 
 /**
  * Loading what the gap analysis needs, then running it.
@@ -53,12 +54,14 @@ const val GAP_SEED: Long = 20260831L
  * makes. Dropping it would leave an outfit that looks like one the reader could
  * already put on.
  */
+@Serializable
 data class GapOutfit(
     val name: String,
     val garments: List<GarmentRecord?>,
 )
 
 /** A gap as a screen needs it: the domain's answer, plus the photographs. */
+@Serializable
 data class GapWithPhotos(
     val gap: WardrobeGap,
     val examples: List<GapOutfit>,

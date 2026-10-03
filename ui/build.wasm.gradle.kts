@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 // cannot be written: the plugins block resolves every plugin it names before any
 // code in the file runs, `apply false` included, so the Android plugin cannot be
 // mentioned at all where Google's Maven cannot be reached. What the two files
-// share -- the plugins and versions, the common dependencies, and the resource
+// share -- the plugins, the common dependencies, and the resource
 // settings -- is held equal by UiBuildFilesTest in :presentation, so a dependency
 // added to one and not the other fails `./gradlew test` rather than surfacing as
 // a browser build that drifted.
@@ -24,9 +24,9 @@ import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 // The jvmMain, jvmTest and androidMain sources are simply not compiled here; the
 // Wasm actuals in wasmJsMain are.
 plugins {
-    kotlin("multiplatform") version "2.1.20"
-    id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
-    id("org.jetbrains.compose") version "1.7.3"
+    kotlin("multiplatform")
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.compose")
 }
 
 repositories {
@@ -34,8 +34,12 @@ repositories {
 }
 
 kotlin {
+    // In a browser: :web, the app the Home Assistant server hands out, is built
+    // from this, and every library an executable uses has to say where it runs.
+    // That configures browser tests as well, which nothing runs -- the root build
+    // file says why `test` compiles Wasm rather than running it.
     @OptIn(ExperimentalWasmDsl::class)
-    wasmJs()
+    wasmJs { browser() }
 
     sourceSets {
         commonMain.dependencies {

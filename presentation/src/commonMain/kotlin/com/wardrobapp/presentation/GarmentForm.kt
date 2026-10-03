@@ -1,6 +1,7 @@
 package com.wardrobapp.presentation
 
 import com.wardrobapp.domain.Season
+import kotlinx.serialization.Serializable
 
 /**
  * Garment form state, as pure transitions.
@@ -10,6 +11,7 @@ import com.wardrobapp.domain.Season
  * that is the platform layer's business -- which is what lets all of it be
  * tested without an emulator.
  */
+@Serializable
 data class GarmentFormState(
     val imageUris: List<String> = emptyList(),
     /**

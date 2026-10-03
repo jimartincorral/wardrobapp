@@ -472,8 +472,12 @@ private fun PhotoActions(
         return
     }
 
+    // Only what the platform can do; see PhotoTools. Undoing a cut-out always
+    // can, so that chip stays whenever there is one to undo.
+    val tools = LocalPhotoTools.current
+
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
-        GlassChip(
+        if (tools.crops) GlassChip(
             onClick = onCrop.takeIf { !busy },
             modifier = Modifier.testTag(BULK_ADD_CROP),
         ) {
@@ -485,7 +489,7 @@ private fun PhotoActions(
             )
         }
 
-        GlassChip(
+        if (hasCutout || tools.removesBackgrounds) GlassChip(
             onClick = (if (hasCutout) onUndoBackground else onRemoveBackground).takeIf { !busy },
         ) {
             Icon(Glyph.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))

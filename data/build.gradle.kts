@@ -5,8 +5,9 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 //
 // No Android in it, on purpose. This is the code that decides whether an existing
 // wardrobe opens correctly, so it is the code most worth being able to test
-// anywhere. The SQLite and filesystem access that uses it lives elsewhere --
-// `AndroidSqlDriver` in :app, the JDBC driver in the tests.
+// anywhere. The SQLite access it runs through is a small interface with two
+// implementations: `AndroidSqlDriver` in :app, and `JdbcSqlDriver` here, which
+// the tests and the Home Assistant server use.
 //
 // Kotlin Multiplatform, like :domain. The records, the queries, the writes and
 // the schema are common code, because the browser version shows the same
@@ -16,7 +17,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // and the timestamps a write stamps rows with. All of it runs only on the phone,
 // and later the Home Assistant server, which are both JVMs.
 plugins {
-    kotlin("multiplatform") version "2.1.20"
+    kotlin("multiplatform")
+    kotlin("plugin.serialization")
 }
 
 repositories {
@@ -30,8 +32,12 @@ kotlin {
         }
     }
 
+    // In a browser: :web, the app the Home Assistant server hands out, is built
+    // from this, and every library an executable uses has to say where it runs.
+    // That configures browser tests as well, which nothing runs -- the root build
+    // file says why `test` compiles Wasm rather than running it.
     @OptIn(ExperimentalWasmDsl::class)
-    wasmJs()
+    wasmJs { browser() }
 
     sourceSets {
         commonMain.dependencies {
@@ -43,8 +49,11 @@ kotlin {
         jvmTest.dependencies {
             implementation(kotlin("test"))
             // Real SQLite, so the read paths are exercised against the schema the
-            // app actually applies rather than a stand-in. Test-only: the Android
-            // implementation of SqlDriver wraps SupportSQLiteDatabase instead.
+            // app actually applies rather than a stand-in. Only here, never in
+            // jvmMain: JdbcSqlDriver compiles against java.sql alone, so the
+            // driver behind it is chosen by whoever runs it -- the tests here,
+            // :server in production -- and the phone, which uses
+            // SupportSQLiteDatabase instead, never carries it.
             implementation("org.xerial:sqlite-jdbc:3.50.1.0")
         }
     }

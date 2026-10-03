@@ -1,5 +1,8 @@
 package com.wardrobapp.domain
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
 /**
  * What a URL import says back: its limits, its outcomes and the reasons it gives.
  *
@@ -38,19 +41,34 @@ enum class ImportParser {
     NONE,
 }
 
-/** Something worth saying about an import that still succeeded. */
+/**
+ * Something worth saying about an import that still succeeded.
+ *
+ * Each kind names itself on the wire with `@SerialName`, which is how JSON says
+ * which one it is. Left to itself the serializer would use the Kotlin class's
+ * full name, and renaming or moving a class would change what the server sends.
+ */
+@Serializable
 sealed interface ImportWarning {
 
     /** A `ld+json` block that was not JSON. */
+    @Serializable
+    @SerialName("structured-data-unreadable")
     data object StructuredDataUnreadable : ImportWarning
 
     /** The page listed more images than the app will take. */
+    @Serializable
+    @SerialName("images-capped")
     data class ImagesCapped(val listed: Int, val used: Int) : ImportWarning
 
     /** Images pointing somewhere the app will not fetch. */
+    @Serializable
+    @SerialName("images-blocked")
     data class ImagesBlocked(val count: Int) : ImportWarning
 
     /** Images that were allowed but did not arrive. */
+    @Serializable
+    @SerialName("images-failed")
     data class ImagesFailed(val count: Int) : ImportWarning
 }
 
@@ -86,28 +104,49 @@ data class ImportedGarmentData(
     val parser: ImportParser,
 )
 
-/** Why an import produced nothing. */
+/**
+ * Why an import produced nothing.
+ *
+ * Each kind names itself on the wire with `@SerialName`, which is how JSON says
+ * which one it is. Left to itself the serializer would use the Kotlin class's
+ * full name, and renaming or moving a class would change what the server sends.
+ */
+@Serializable
 sealed interface ImportFailureReason {
 
     /** The server did not answer inside the deadline. */
+    @Serializable
+    @SerialName("page-timed-out")
     data object PageTimedOut : ImportFailureReason
 
     /** Bigger than this app will read. */
+    @Serializable
+    @SerialName("page-too-large")
     data object PageTooLarge : ImportFailureReason
 
     /** Answered, but not with a page. */
+    @Serializable
+    @SerialName("page-not-loaded")
     data class PageNotLoaded(val status: Int) : ImportFailureReason
 
     /** A PDF, an image, a download -- something that is not a web page. */
+    @Serializable
+    @SerialName("not-a-web-page")
     data object NotAWebPage : ImportFailureReason
 
     /** A page, but with no garment on it. */
+    @Serializable
+    @SerialName("no-images-found")
     data object NoImagesFound : ImportFailureReason
 
     /** Images, but every one of them somewhere the app will not go. */
+    @Serializable
+    @SerialName("no-fetchable-images")
     data object NoFetchableImages : ImportFailureReason
 
     /** Images this app would fetch, none of which arrived. */
+    @Serializable
+    @SerialName("no-images-downloaded")
     data object NoImagesDownloaded : ImportFailureReason
 }
 
@@ -175,6 +214,7 @@ fun interface ImageFetcher {
 }
 
 /** What an import came back with, ready for the form to be filled from. */
+@Serializable
 data class ImportedGarmentPreview(
     val sourceUrl: String,
     val title: String?,

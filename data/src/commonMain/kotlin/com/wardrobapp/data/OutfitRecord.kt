@@ -1,6 +1,9 @@
 package com.wardrobapp.data
 
+import kotlinx.serialization.Serializable
+
 /** An outfit as the database holds it. */
+@Serializable
 data class OutfitRecord(
     val id: String,
     val name: String,

@@ -136,14 +136,24 @@ fun SettingsScreen(
      * with what Android's per-app language screen shows.
      */
     language: LanguageChoice,
-    onLanguageSelected: (LanguageChoice) -> Unit,
+    /**
+     * Null where the platform chooses the language and there is nothing for this
+     * app to override: the browser, which reads it from the browser's own
+     * settings. The section is left out rather than shown doing nothing.
+     */
+    onLanguageSelected: ((LanguageChoice) -> Unit)?,
     /**
      * The colours in force. Unlike the language this app stores it itself, since
      * Android has no per-app equivalent of the language screen to defer to.
      */
     theme: ThemeChoice,
     onThemeSelected: (ThemeChoice) -> Unit,
-    onBackupRequested: () -> Unit,
+    /**
+     * Null where this app does not make its own backups, and the section is left
+     * out: in Home Assistant the wardrobe is part of the app's data, which Home
+     * Assistant's own backups already include.
+     */
+    onBackupRequested: (() -> Unit)?,
     onBackupDismissed: () -> Unit,
     onRestoreRequested: () -> Unit,
     /** Agreed to restore in principle: opens the file picker. */
@@ -151,7 +161,8 @@ fun SettingsScreen(
     /** Agreed to restore *this* archive, having been shown what is in it. */
     onArchiveConfirmed: (withSettings: Boolean) -> Unit,
     onRestoreDismissed: () -> Unit,
-    onTidyRequested: () -> Unit,
+    /** Null where there is nothing to tidy with -- the server keeps photos as it was sent them. */
+    onTidyRequested: (() -> Unit)?,
     onTidyDismissed: () -> Unit,
     onRetry: () -> Unit,
     /**
@@ -160,9 +171,10 @@ fun SettingsScreen(
      * A slot because this screen does not need to know what is in it: cloud backup
      * has its own state, its own failures and its own model, and threading six more
      * callbacks through here would make this signature about Drive rather than
-     * about settings.
+     * about settings. Null where there is no cloud to back up to, and the section is
+     * left out.
      */
-    cloudSection: @Composable () -> Unit,
+    cloudSection: (@Composable () -> Unit)?,
 ) {
     state.backup?.let { backup ->
         BackupDialog(backup, onBackupDismissed)
@@ -230,72 +242,80 @@ fun SettingsScreen(
                 }
             }
 
-            Text(
-                stringResource(Res.string.settings_tidy_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            OutlinedButton(
-                onClick = onTidyRequested,
-                enabled = state.tidy !is SettingsScreenState.Tidy.Running,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            ) {
-                Text(stringResource(Res.string.settings_tidy))
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            Section(stringResource(Res.string.settings_section_backup))
-            Text(
-                stringResource(Res.string.settings_backup_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Button(
-                onClick = onBackupRequested,
-                enabled = state.backup !is SettingsScreenState.Backup.Running,
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            ) {
-                Text(stringResource(Res.string.settings_backup_create))
-            }
-            OutlinedButton(
-                onClick = onRestoreRequested,
-                enabled = state.restore == null && state.backup !is SettingsScreenState.Backup.Running,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            ) {
-                Text(stringResource(Res.string.settings_backup_restore))
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            // Directly under the backup section, because it answers the same
-            // question: where a copy of this wardrobe goes.
-            Section(stringResource(Res.string.settings_section_cloud))
-            cloudSection()
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            Section(stringResource(Res.string.settings_language))
-            Text(
-                stringResource(Res.string.settings_language_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(top = 12.dp),
-            ) {
-                for (choice in LanguageChoice.entries) {
-                    FilterChip(
-                        selected = choice == language,
-                        onClick = { onLanguageSelected(choice) },
-                        label = { Text(stringResource(choice.labelRes)) },
-                    )
+            if (onTidyRequested != null) {
+                Text(
+                    stringResource(Res.string.settings_tidy_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                OutlinedButton(
+                    onClick = onTidyRequested,
+                    enabled = state.tidy !is SettingsScreenState.Tidy.Running,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                ) {
+                    Text(stringResource(Res.string.settings_tidy))
                 }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            if (onBackupRequested != null) {
+                Section(stringResource(Res.string.settings_section_backup))
+                Text(
+                    stringResource(Res.string.settings_backup_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                    onClick = onBackupRequested,
+                    enabled = state.backup !is SettingsScreenState.Backup.Running,
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                ) {
+                    Text(stringResource(Res.string.settings_backup_create))
+                }
+                OutlinedButton(
+                    onClick = onRestoreRequested,
+                    enabled = state.restore == null && state.backup !is SettingsScreenState.Backup.Running,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                ) {
+                    Text(stringResource(Res.string.settings_backup_restore))
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            }
+
+            // Directly under the backup section, because it answers the same
+            // question: where a copy of this wardrobe goes.
+            if (cloudSection != null) {
+                Section(stringResource(Res.string.settings_section_cloud))
+                cloudSection()
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            }
+
+            if (onLanguageSelected != null) {
+                Section(stringResource(Res.string.settings_language))
+                Text(
+                    stringResource(Res.string.settings_language_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(top = 12.dp),
+                ) {
+                    for (choice in LanguageChoice.entries) {
+                        FilterChip(
+                            selected = choice == language,
+                            onClick = { onLanguageSelected(choice) },
+                            label = { Text(stringResource(choice.labelRes)) },
+                        )
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            }
 
             Section(stringResource(Res.string.settings_theme))
             Text(

@@ -13,8 +13,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 
 /** What the storage section reports, as read. */
+@Serializable
 data class StorageFigures(val garments: Long, val retired: Long, val photoBytes: Long)
 
 /**

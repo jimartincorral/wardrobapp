@@ -1,0 +1,132 @@
+name: Home Assistant app
+
+# The images Home Assistant installs the app from: one per architecture, on
+# GitHub's container registry, tagged with the version in
+# homeassistant/wardrobapp/config.yaml.
+#
+# Built on every pull request and every push to main, so a change that breaks
+# the image breaks a check before it merges. Published only from main, and only
+# when config.yaml names a version that is not on the registry yet: a version
+# is published once and never replaced, because Home Assistant decides whether
+# there is an update by the version alone, and an image that changed under a
+# tag somebody already has would be an update nobody is offered. Bumping the
+# version in config.yaml is therefore what releases the app.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # As ci.yml's, for the same reason: one run per branch, the newest.
+  group: home-assistant-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: Build the Home Assistant app
+    runs-on: ubuntu-latest
+
+    # Writing to the registry, which the repository's default token may only
+    # do when asked for here.
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cache Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Both read from config.yaml, which is what Home Assistant reads: the
+      # version it compares and the image it pulls. Written down once, there,
+      # so the workflow cannot publish a tag or a name that Home Assistant
+      # would not ask for. HomeAssistantAppTest checks the lines these parse.
+      - name: Read the app's version and image
+        id: app
+        run: |
+          config=homeassistant/wardrobapp/config.yaml
+          version=$(sed -n 's/^version: *"\{0,1\}\([^"]*\)"\{0,1\} *$/\1/p' "$config")
+          image=$(sed -n 's/^image: *\(.*[^ ]\) *$/\1/p' "$config")
+          if [ -z "$version" ] || [ -z "$image" ]; then
+            echo "::error file=$config::version or image is missing"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "amd64=${image//\{arch\}/amd64}" >> "$GITHUB_OUTPUT"
+          echo "aarch64=${image//\{arch\}/aarch64}" >> "$GITHUB_OUTPUT"
+
+      # Published only from main, and only a version the registry does not
+      # have; see the top of this file.
+      - name: Decide whether to publish
+        id: publish
+        run: |
+          if [ "${{ github.event_name }}" != "push" ] || [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Not main: building only."
+          elif docker manifest inspect "${{ steps.app.outputs.amd64 }}:${{ steps.app.outputs.version }}" > /dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "${{ steps.app.outputs.version }} is already published: bump the version in config.yaml to release."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "Publishing ${{ steps.app.outputs.version }}."
+          fi
+
+      # Once, for both images: the server is bytecode and the browser app is
+      # WebAssembly, the same files on every architecture. The production
+      # bundle is the slow part -- Binaryen's optimiser -- and doing it once
+      # natively is much faster than twice under emulation.
+      - name: Build the server and the browser app
+        run: ./gradlew :server:installDist :web:wasmJsBrowserDistribution --console=plain
+        env:
+          ANDROID_HOME: ""
+          ANDROID_SDK_ROOT: ""
+
+      # Emulation only so the arm64 image's build steps can run; there is
+      # nothing to compile in it.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Sign in to the registry
+        if: steps.publish.outputs.publish == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image for amd64
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: homeassistant/wardrobapp/Dockerfile
+          platforms: linux/amd64
+          push: ${{ steps.publish.outputs.publish == 'true' }}
+          tags: ${{ steps.app.outputs.amd64 }}:${{ steps.app.outputs.version }}
+          build-args: |
+            BUILD_VERSION=${{ steps.app.outputs.version }}
+            BUILD_NUMBER=${{ github.run_number }}
+            BUILD_ARCH=amd64
+
+      - name: Image for aarch64
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: homeassistant/wardrobapp/Dockerfile
+          platforms: linux/arm64
+          push: ${{ steps.publish.outputs.publish == 'true' }}
+          tags: ${{ steps.app.outputs.aarch64 }}:${{ steps.app.outputs.version }}
+          build-args: |
+            BUILD_VERSION=${{ steps.app.outputs.version }}
+            BUILD_NUMBER=${{ github.run_number }}
+            BUILD_ARCH=aarch64

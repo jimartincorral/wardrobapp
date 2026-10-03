@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 
 /**
  * The home screen's three numbers, from one trip to wherever the wardrobe is.
@@ -13,6 +14,7 @@ import kotlinx.coroutines.launch
  * A type rather than a Triple: three Longs positionally is exactly the shape
  * where a transposition compiles and shows the wrong count on the wrong card.
  */
+@Serializable
 data class HomeCounts(val items: Long, val archived: Long, val rated: Long)
 
 /** Where the home screen's numbers come from. See ScreenModels.kt. */

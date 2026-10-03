@@ -1,0 +1,6 @@
+# This repository, as a Home Assistant app (add-on) repository: add its URL in
+# the store under Settings, through ⋮ → Repositories, and Wardrobapp appears in
+# it. The app itself is in homeassistant/wardrobapp.
+name: Wardrobapp
+url: https://github.com/jimartincorral/wardrobapp
+maintainer: jimartincorral

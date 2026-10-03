@@ -18,7 +18,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // Intl.DateTimeFormat in the browser). Which strings are dates at all is common,
 // in StoredMoment, so that the two cannot disagree about it.
 plugins {
-    kotlin("multiplatform") version "2.1.20"
+    kotlin("multiplatform")
+    kotlin("plugin.serialization")
 }
 
 repositories {
@@ -32,8 +33,12 @@ kotlin {
         }
     }
 
+    // In a browser: :web, the app the Home Assistant server hands out, is built
+    // from this, and every library an executable uses has to say where it runs.
+    // That configures browser tests as well, which nothing runs -- the root build
+    // file says why `test` compiles Wasm rather than running it.
     @OptIn(ExperimentalWasmDsl::class)
-    wasmJs()
+    wasmJs { browser() }
 
     sourceSets {
         commonMain.dependencies {
@@ -117,6 +122,12 @@ tasks.withType<Test>().configureEach {
 
     // And :ui's two build files, for UiBuildFilesTest, which holds them to the
     // same dependencies. Inputs for the same reason as everything above.
+    // The Home Assistant app's icon, which LauncherIconTest checks with the
+    // launcher icons because the same script cuts it from the same logo.
+    inputs.file(rootProject.file("homeassistant/wardrobapp/icon.png"))
+        .withPropertyName("homeAssistantIcon")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+
     val uiModule = rootProject.file("ui")
     systemProperty("uiModuleDir", uiModule.absolutePath)
     inputs.files(File(uiModule, "build.gradle.kts"), File(uiModule, "build.wasm.gradle.kts"))
@@ -126,6 +137,15 @@ tasks.withType<Test>().configureEach {
     // And where the generated vectors are, for GlyphSourcesTest. :ui has no local
     // compiler either -- it builds only where :app does -- so its files are read
     // from here too.
+    // Where the types that cross the wire are declared -- every @Serializable
+    // class in common code -- so WireTypesTest can insist on a sample of each.
+    val wireSources = listOf("domain", "data", "presentation")
+        .map { rootProject.file("$it/src/commonMain/kotlin") }
+    systemProperty("wireSourceDirs", wireSources.joinToString(File.pathSeparator) { it.absolutePath })
+    inputs.files(wireSources)
+        .withPropertyName("wireSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+
     val uiSources = rootProject.file("ui/src/commonMain/kotlin/com/wardrobapp/ui")
     systemProperty("uiSourceDir", uiSources.absolutePath)
     inputs.dir(uiSources)

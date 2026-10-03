@@ -3,6 +3,7 @@ package com.wardrobapp.presentation
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.SuggestedOutfit
+import kotlinx.serialization.Serializable
 
 /**
  * What the outfits screen is given to draw.
@@ -58,6 +59,7 @@ data class OutfitsScreenState(
      * what makes saving idempotent: tapping "save" and rating it -- which saves
      * it first -- are the same request, and the second one writes nothing.
      */
+    @Serializable
     data class Suggestion(
         val id: String,
         val outfit: SuggestedOutfit,

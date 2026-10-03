@@ -1,6 +1,7 @@
 package com.wardrobapp.data
 
 import com.wardrobapp.domain.Garment
+import kotlinx.serialization.Serializable
 
 /**
  * A garment as the database holds it, after normalization.
@@ -17,6 +18,7 @@ import com.wardrobapp.domain.Garment
  * since SQLite cannot add a NOT NULL column without a default and none was
  * supplied. Both populations exist, so this has to tolerate both.
  */
+@Serializable
 data class GarmentRecord(
     val id: String,
     val imageUri: String,

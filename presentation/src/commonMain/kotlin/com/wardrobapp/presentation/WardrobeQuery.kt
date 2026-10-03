@@ -2,6 +2,7 @@ package com.wardrobapp.presentation
 
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import kotlinx.serialization.Serializable
 
 /**
  * Everything the wardrobe screen lets you narrow by, in one place.
@@ -17,6 +18,7 @@ import com.wardrobapp.domain.Season
  * they are rules, not layout: the React Native screen computes both inline and
  * has no test for either.
  */
+@Serializable
 data class WardrobeQuery(
     val search: String = "",
     val sort: GarmentSort = GarmentSort.NEWEST,

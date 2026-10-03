@@ -1,5 +1,7 @@
 package com.wardrobapp.domain
 
+import kotlinx.serialization.Serializable
+
 /**
  * A garment, as the algorithms see it.
  *
@@ -8,6 +10,7 @@ package com.wardrobapp.domain
  * their permissive nulls. Mapping the two is the data layer's job; by the time a
  * garment reaches here the shape is settled.
  */
+@Serializable
 data class Garment(
     val id: String,
     val category: String,

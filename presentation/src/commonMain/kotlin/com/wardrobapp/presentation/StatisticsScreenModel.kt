@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 
 /**
  * Every count the statistics page draws, as read.
@@ -17,6 +18,7 @@ import kotlinx.coroutines.launch
  * than the queries' labels -- see Distribution -- since these hold colours and
  * brands as often as categories.
  */
+@Serializable
 data class StatisticsCounts(
     val inUse: Long,
     val retired: Long,

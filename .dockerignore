@@ -1,0 +1,8 @@
+# The Home Assistant app's image is built from the repository's root, but it
+# needs only two directories of what Gradle has already built -- see
+# homeassistant/wardrobapp/Dockerfile. Everything else stays out of the build
+# context: Gradle's caches and every module's build output would otherwise be
+# sent to the daemon on every build, for nothing.
+*
+!server/build/install/wardrobapp-server
+!web/build/dist/wasmJs/productionExecutable
