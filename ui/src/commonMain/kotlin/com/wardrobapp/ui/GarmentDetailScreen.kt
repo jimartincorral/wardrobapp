@@ -318,6 +318,7 @@ private fun BackgroundControl(
     onUndo: () -> Unit,
 ) {
     if (action == null) return
+    if (action == BackgroundAction.REMOVE && !LocalPhotoTools.current.removesBackgrounds) return
 
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),

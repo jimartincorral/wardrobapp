@@ -389,6 +389,8 @@ private fun BackgroundControl(
     // Nothing to offer once a cut-out has replaced the photo it came from: there
     // is no original left, and a button there would destroy the only copy.
     if (action == null && !running) return
+    // Nor a removal the platform cannot do; see PhotoTools.
+    if (action == BackgroundAction.REMOVE && !running && !LocalPhotoTools.current.removesBackgrounds) return
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
