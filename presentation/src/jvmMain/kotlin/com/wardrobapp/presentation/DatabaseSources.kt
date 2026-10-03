@@ -10,8 +10,15 @@ import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.isoTimestamp
+import com.wardrobapp.data.orphanedImageRefs
 import com.wardrobapp.data.resolveImageRef
+import com.wardrobapp.domain.DuplicateCandidate
 import com.wardrobapp.domain.GenerateSuggestionsOptions
+import com.wardrobapp.domain.ImageFetcher
+import com.wardrobapp.domain.ImportedGarmentPreview
+import com.wardrobapp.domain.PageFetcher
+import com.wardrobapp.domain.importGarmentFromUrl
+import com.wardrobapp.domain.safeImportUrl
 import com.wardrobapp.domain.SuggestionPreferences
 import com.wardrobapp.domain.mergeStructuredTags
 import com.wardrobapp.domain.seasonOfMonth
@@ -361,5 +368,110 @@ class DatabaseBulkAddSource(
             // garment whose write then failed.
             for (orphan in images.discardable) deletePhoto(orphan)
         }
+    }
+}
+
+/**
+ * The garment form's source over a database. Handed a way to delete a photo,
+ * for the same reason DatabaseGarmentDetailSource is: files are not the
+ * database's.
+ */
+class DatabaseGarmentFormSource(
+    private val garments: GarmentQueries,
+    private val garmentWrites: GarmentWrites,
+    private val duplicates: Duplicates,
+    private val deletePhoto: (String) -> Unit,
+    private val io: CoroutineDispatcher,
+) : GarmentFormSource {
+    override suspend fun garment(id: String) = withContext(io) { garments.garment(id) }
+
+    override suspend fun brands() = withContext(io) { garments.brands() }
+
+    override suspend fun duplicatesOf(candidate: DuplicateCandidate) = withContext(io) { duplicates.matching(candidate) }
+
+    override suspend fun save(garmentId: String?, form: GarmentFormState, previouslyStored: List<String>) {
+        withContext(io) {
+            val now = nowTimestamp()
+            val tags = mergeStructuredTags(form.tags, form.seasons)
+
+            // A slot whose background was removed stores the cut-out in both
+            // columns and lets the original go. Decided in GarmentFormState, and
+            // shared with the React Native app, because both mistakes are silent
+            // ones: discard a file still referenced and the garment shows a gap;
+            // miss one and it sits on the device with nothing pointing at it.
+            val images = form.imagesToStore()
+
+            if (garmentId == null) {
+                garmentWrites.insert(
+                    GarmentWrites.NewGarment(
+                        id = newRowId(),
+                        imageUri = images.imageUris.first(),
+                        imageUriNoBg = images.bgRemovedUris.firstOrNull()?.ifEmpty { null },
+                        imageUris = images.imageUris,
+                        imageUrisNoBg = images.bgRemovedUris,
+                        category = form.category,
+                        subcategories = form.subcategories,
+                        tags = tags,
+                        brand = form.brand.ifBlank { null },
+                        colorPrimary = form.colorPalette.first(),
+                        colorSecondary = form.colorPalette.getOrNull(1),
+                        colorPalette = form.colorPalette,
+                        size = form.size.ifBlank { null },
+                        now = now,
+                    ),
+                )
+            } else {
+                garmentWrites.update(
+                    garmentId,
+                    GarmentWrites.GarmentEdit(
+                        imageUri = images.imageUris.first(),
+                        imageUriNoBg = images.bgRemovedUris.firstOrNull() ?: "",
+                        imageUris = images.imageUris,
+                        imageUrisNoBg = images.bgRemovedUris,
+                        category = form.category,
+                        subcategories = form.subcategories,
+                        tags = tags,
+                        brand = form.brand,
+                        colorPrimary = form.colorPalette.first(),
+                        colorSecondary = form.colorPalette.getOrNull(1) ?: "",
+                        colorPalette = form.colorPalette,
+                        size = form.size,
+                    ),
+                    now = now,
+                )
+            }
+
+            // Only after the row is written, and all of it at once: the originals
+            // this save collapsed away, plus anything the garment referenced before
+            // and no longer does -- a photo removed from the form, or a cut-out
+            // undone. Deleting any of it sooner would break a garment whose edit
+            // was abandoned.
+            val kept = images.imageUris + images.bgRemovedUris
+            for (orphan in orphanedImageRefs(previouslyStored + images.discardable, kept)) {
+                deletePhoto(orphan)
+            }
+        }
+    }
+}
+
+/**
+ * URL import on a JVM: the address checks in :domain and a page fetcher that
+ * reaches only the addresses they allow -- :net's, on the phone and the server.
+ *
+ * [openPages] makes a fetcher per import because :domain judges a response's
+ * headers before asking for its body and may never ask, so the connection has to
+ * be closed by whoever opened it -- which is here, once the import is done.
+ */
+class FetchingGarmentImporter<P>(
+    private val openPages: () -> P,
+    /** Downloads a page's photos and stores them, the way a picked photo is. */
+    private val images: ImageFetcher,
+    private val io: CoroutineDispatcher,
+) : GarmentImporter where P : PageFetcher, P : AutoCloseable {
+
+    override fun check(url: String): String = safeImportUrl(url)
+
+    override suspend fun import(url: String): ImportedGarmentPreview = withContext(io) {
+        openPages().use { pages -> importGarmentFromUrl(url, pages, images) }
     }
 }
