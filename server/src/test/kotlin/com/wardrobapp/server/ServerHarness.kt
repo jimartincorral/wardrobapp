@@ -80,12 +80,16 @@ class ServerUnderTest(val http: HttpClient, val wardrobe: ServerWardrobe, val da
     suspend fun everything(): List<GarmentRecord> = wardrobeList.garments(WardrobeQuery(includeRetired = true))
 }
 
-fun serverTest(importer: GarmentImporter? = null, block: suspend ServerUnderTest.() -> Unit) {
+fun serverTest(
+    importer: GarmentImporter? = null,
+    settings: ServerSettings = ServerSettings(),
+    block: suspend ServerUnderTest.() -> Unit,
+) {
     val directory = Files.createTempDirectory("wardrobe-server").toFile()
     val wardrobe = ServerWardrobe(directory, importer)
     try {
         testApplication {
-            application { wardrobeApi(wardrobe) }
+            application { wardrobeApi(wardrobe, settings) }
             // The base the browser will have, so the routes are resolved the
             // way they will be there: relative to the page.
             val http = createClient { speakWardrobe("http://localhost/") }

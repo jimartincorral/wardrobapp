@@ -25,6 +25,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.application.createApplicationPlugin
 import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.http.content.LocalFileContent
@@ -36,6 +37,7 @@ import io.ktor.server.request.receive
 import io.ktor.server.request.receiveChannel
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.RoutingContext
 import io.ktor.server.routing.delete
@@ -44,7 +46,6 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.routing
 import io.ktor.utils.io.readRemaining
-import java.io.File
 import kotlinx.io.readByteArray
 
 /**
@@ -57,19 +58,19 @@ import kotlinx.io.readByteArray
  * reading bodies, saying 404, and turning a failure into an ApiFailure the
  * browser can turn back into the exception it was.
  *
- * Nothing here checks who is asking. Home Assistant does, before a request
+ * Nothing here checks who is asking; Home Assistant does, before a request
  * reaches the app: ingress lets through only people signed in to Home
- * Assistant. Which means the port must not be reachable any other way, and the
- * app's packaging is where that is enforced.
+ * Assistant. What is here is the other half, [ServerSettings.allowedClients]:
+ * a request that did not come through ingress is refused before anything
+ * else sees it, so the port being reachable from elsewhere on Home Assistant's
+ * network is not a way around that check.
  */
 fun Application.wardrobeApi(
     wardrobe: ServerWardrobe,
-    /**
-     * The browser app's files -- :web's distribution -- served from the root,
-     * or null to serve the API alone, as the tests do.
-     */
-    webDirectory: File? = null,
+    settings: ServerSettings = ServerSettings(),
 ) {
+    settings.allowedClients?.let { allowed -> install(onlyFrom(allowed)) }
+
     install(ContentNegotiation) { json(WireJson) }
 
     install(StatusPages) {
@@ -109,11 +110,14 @@ fun Application.wardrobeApi(
 
         get(Routes.STORAGE) { call.respond(wardrobe.storage()) }
 
+        get(Routes.VERSION) { call.respond(settings.version) }
+
         post(Routes.IMPORT) {
             val url = wardrobe.importer.check(call.receive<ImportRequest>().url)
             call.respond(wardrobe.importer.import(url))
         }
 
+        val webDirectory = settings.webDirectory
         if (webDirectory != null) {
             // Below every route above, so the API and the photos are never
             // shadowed by a file of the same name.
@@ -272,6 +276,28 @@ private fun Route.photos(wardrobe: ServerWardrobe) {
         call.response.header("X-Content-Type-Options", "nosniff")
         call.response.header("Cache-Control", "private, max-age=86400")
         call.respond(LocalFileContent(file, ContentType.parse(type.contentType)))
+    }
+}
+
+/**
+ * Refuse any request from an address not in [allowed], before routing,
+ * content negotiation or anything else has looked at it.
+ *
+ * The socket's own peer, `local.remoteAddress`, rather than `origin`: origin
+ * is what a request says about itself once forwarding headers are believed,
+ * and this is exactly the place not to believe them. Ingress connects from its
+ * own address, so the peer is the proxy, which is the thing being checked.
+ */
+private fun onlyFrom(allowed: Set<String>) = createApplicationPlugin("OnlyFrom") {
+    onCall { call ->
+        val peer = call.request.local.remoteAddress
+        if (peer !in allowed) {
+            call.application.log.warn("Refused a request from $peer, which is not Home Assistant's ingress")
+            call.respondText(
+                "This app answers only through Home Assistant.",
+                status = HttpStatusCode.Forbidden,
+            )
+        }
     }
 }
 

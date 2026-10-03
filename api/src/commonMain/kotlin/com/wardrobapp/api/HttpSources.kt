@@ -277,9 +277,11 @@ class HttpGarmentImporter(private val http: HttpClient) : GarmentImporter {
         http.postJson(Routes.IMPORT, ImportRequest(url)).body()
 }
 
-/** The storage figures, which is all of the settings screen the server answers so far. */
+/** What the settings screen asks the server: the storage figures, and which build it is. */
 class HttpStorageSource(private val http: HttpClient) {
     suspend fun storage(): StorageFigures = http.get(Routes.STORAGE).body()
+
+    suspend fun version(): ServerVersion = http.get(Routes.VERSION).body()
 }
 
 /**

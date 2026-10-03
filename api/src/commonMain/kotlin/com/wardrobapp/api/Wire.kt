@@ -57,6 +57,19 @@ data class SavedGarment(val form: GarmentFormState, val previouslyStored: List<S
 @Serializable
 data class ImportRequest(val url: String)
 
+/**
+ * Which build of the server this is, for Settings' About section: the Home
+ * Assistant app's version and the CI run that built it, or "development" and 0
+ * for a server built anywhere else.
+ */
+@Serializable
+data class ServerVersion(val name: String, val build: Long) {
+    companion object {
+        /** A server not built by the release workflow, and what the page shows until the server answers. */
+        val DEVELOPMENT = ServerVersion(name = "development", build = 0)
+    }
+}
+
 /** Where an uploaded photo was stored, in the form a garment row refers to it by. */
 @Serializable
 data class StoredPhoto(val ref: String)

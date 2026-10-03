@@ -79,6 +79,9 @@ object Routes {
 
     const val STORAGE = "api/storage"
 
+    /** GET: the server's [ServerVersion]. */
+    const val VERSION = "api/version"
+
     /** POST [ImportRequest]. */
     const val IMPORT = "api/import"
 

@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.wardrobapp.api.HttpBulkAddSource
@@ -19,6 +20,7 @@ import com.wardrobapp.api.HttpPhotos
 import com.wardrobapp.api.HttpStatisticsSource
 import com.wardrobapp.api.HttpStorageSource
 import com.wardrobapp.api.HttpWardrobeSource
+import com.wardrobapp.api.ServerVersion
 import com.wardrobapp.data.ArchivePreview
 import com.wardrobapp.data.BackupSummary
 import com.wardrobapp.data.MaintenanceSummary
@@ -70,7 +72,8 @@ class WebSources(http: HttpClient) {
     val importer = HttpGarmentImporter(http)
     val bulkAdd = HttpBulkAddSource(http)
     val photos = BrowserPhotoWork(HttpPhotos(http))
-    val settings = WebSettingsSource(HttpStorageSource(http))
+    val server = HttpStorageSource(http)
+    val settings = WebSettingsSource(server)
 }
 
 /**
@@ -281,9 +284,16 @@ class Screens(
         val state by model.state.collectAsState()
         entry.onReturn = model::refresh
 
+        // The server's, which is the Home Assistant app's version: the page
+        // comes with it and has none of its own. Shown as the development
+        // build's until it answers, which on a working server is at once.
+        val version by produceState(ServerVersion.DEVELOPMENT.asAppVersion()) {
+            runCatching { sources.server.version() }.onSuccess { value = it.asAppVersion() }
+        }
+
         SettingsScreen(
             state = state,
-            version = WEB_VERSION,
+            version = version,
             // The browser's, and not this app's to override; see SettingsScreen.
             language = LanguageChoice.SYSTEM,
             onLanguageSelected = null,
@@ -453,13 +463,6 @@ class Screens(
             onErrorDismissed = model::onErrorDismissed,
         )
     }
-
-    private companion object {
-        /**
-         * Settings' About section. The browser app has no package to read a
-         * version from; the Home Assistant app's version will be stamped in
-         * here when it is packaged, and until then this says what it is.
-         */
-        val WEB_VERSION = AppVersion(name = "development", code = 0)
-    }
 }
+
+private fun ServerVersion.asAppVersion() = AppVersion(name = name, code = build)
