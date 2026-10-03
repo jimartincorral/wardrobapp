@@ -1,6 +1,7 @@
 package com.wardrobapp.presentation
 
 import com.wardrobapp.data.GarmentQueries
+import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.isoTimestamp
@@ -68,5 +69,43 @@ class DatabaseOutfitDetailSource(
 
     override suspend fun delete(outfitId: String) {
         withContext(io) { outfitWrites.delete(outfitId) }
+    }
+}
+
+class DatabaseOutfitEditSource(
+    private val garments: GarmentQueries,
+    private val outfits: OutfitQueries,
+    private val outfitWrites: OutfitWrites,
+    private val io: CoroutineDispatcher,
+) : OutfitEditSource {
+    // The default filters are available-only, which is what this wants.
+    override suspend fun wardrobe() = withContext(io) { garments.allGarments() }
+
+    override suspend fun outfit(id: String): OutfitRecord? = withContext(io) { outfits.outfit(id) }
+
+    override suspend fun create(draft: OutfitDraft) {
+        withContext(io) {
+            outfitWrites.insert(
+                id = newRowId(),
+                name = draft.name,
+                garmentIds = draft.garmentIds,
+                occasion = draft.occasion?.id,
+                season = draft.season?.tag,
+                isSuggested = false,
+                now = nowTimestamp(),
+            )
+        }
+    }
+
+    override suspend fun update(id: String, draft: OutfitDraft) {
+        withContext(io) {
+            outfitWrites.update(
+                id = id,
+                name = draft.name,
+                garmentIds = draft.garmentIds,
+                occasion = draft.occasion?.id,
+                season = draft.season?.tag,
+            )
+        }
     }
 }
