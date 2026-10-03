@@ -103,7 +103,7 @@ class OutfitsScreenModel(
                     _state.update { it.copy(seed = garment) }
                     generate()
                 }
-                .onFailure { e -> _state.update { it.copy(error = e.readableMessage()) } }
+                .onFailure { e -> showError(e) }
         }
     }
 
@@ -122,7 +122,8 @@ class OutfitsScreenModel(
                 count = SUGGESTION_COUNT,
             )
         }
-        _state.update { it.copy(generating = true, error = null) }
+        clearError()
+        _state.update { it.copy(generating = true) }
 
         scope.launch {
             attempt { source.suggest(request) }
@@ -130,7 +131,8 @@ class OutfitsScreenModel(
                     _state.update { it.copy(generating = false, hasGenerated = true, suggestions = suggested) }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(generating = false, hasGenerated = true, error = e.readableMessage()) }
+                    _state.update { it.copy(generating = false, hasGenerated = true) }
+                    showError(e)
                 }
         }
     }
@@ -236,28 +238,58 @@ class OutfitsScreenModel(
         }
     }
 
+    /**
+     * Whether the error on screen is a failure to read the saved outfits, which a
+     * read that then succeeds has answered.
+     *
+     * Every write is followed by a re-read, and the re-read used to clear any
+     * error at all on success -- so a write that failed set its error and the
+     * read right behind it wiped it out, and a failed save, rating, pin or delete
+     * was never seen. A write's error now stays until the next action starts.
+     */
+    private var errorFromLoad = false
+
     private fun loadSaved() {
         scope.launch {
             val showArchived = _state.value.showingArchived
             attempt { source.saved(includeArchived = showArchived) }
                 .onSuccess { saved ->
-                    _state.update { it.copy(saved = saved.outfits, archivedCount = saved.archivedCount, error = null) }
+                    val clear = errorFromLoad
+                    errorFromLoad = false
+                    _state.update {
+                        it.copy(
+                            saved = saved.outfits,
+                            archivedCount = saved.archivedCount,
+                            error = if (clear) null else it.error,
+                        )
+                    }
                 }
                 // Reported, not swallowed: the React Native screen logged this and
                 // left the list at its previous value, so a failed read was
                 // indistinguishable from having saved nothing.
-                .onFailure { e -> _state.update { it.copy(error = e.readableMessage()) } }
+                .onFailure { e -> showError(e, fromLoad = true) }
         }
+    }
+
+    private fun showError(e: Throwable, fromLoad: Boolean = false) {
+        errorFromLoad = fromLoad
+        _state.update { it.copy(error = e.readableMessage()) }
+    }
+
+    /** A new action: whatever went wrong before it has been superseded. */
+    private fun clearError() {
+        errorFromLoad = false
+        _state.update { it.copy(error = null) }
     }
 
     /**
      * Run a write, surfacing a failure rather than logging it. Returns whether it
      * got through, so callers do not report a change that did not happen.
      */
-    private suspend fun write(block: suspend () -> Unit): Boolean =
-        attempt { block() }
-            .onFailure { e -> _state.update { it.copy(error = e.readableMessage()) } }
-            .isSuccess
+    private suspend fun write(block: suspend () -> Unit): Boolean {
+        clearError()
+        return attempt { block() }.onFailure { e -> showError(e) }.isSuccess
+    }
 
     private companion object {
         const val SUGGESTION_COUNT = 3

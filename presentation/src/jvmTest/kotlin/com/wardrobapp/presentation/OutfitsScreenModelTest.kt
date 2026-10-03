@@ -124,6 +124,43 @@ class OutfitsScreenModelTest {
         advanceUntilIdle()
 
         assertFalse(model.state.value.suggestions.first().saved)
+        assertEquals("full", model.state.value.error, "the re-read after the write must not wipe out its error")
+    }
+
+    @Test
+    fun `a write's error is cleared by the next action, not by the next read`() = runTest {
+        val source = FakeSource()
+        val model = OutfitsScreenModel(this, source)
+        advanceUntilIdle()
+        source.failWrites = IOException("locked")
+        model.onPinToggled(model.state.value.saved.first())
+        advanceUntilIdle()
+
+        model.refresh()
+        advanceUntilIdle()
+        assertEquals("locked", model.state.value.error)
+
+        source.failWrites = null
+        model.onPinToggled(model.state.value.saved.first())
+        advanceUntilIdle()
+        assertNull(model.state.value.error)
+    }
+
+    @Test
+    fun `a failed read's error is cleared by a read that succeeds`() = runTest {
+        var fail = true
+        val failingOnce = object : OutfitsSource by FakeSource() {
+            override suspend fun saved(includeArchived: Boolean): SavedOutfits =
+                if (fail) throw IOException("busy") else SavedOutfits(emptyList(), 0)
+        }
+        val model = OutfitsScreenModel(this, failingOnce)
+        advanceUntilIdle()
+        assertEquals("busy", model.state.value.error)
+
+        fail = false
+        model.refresh()
+        advanceUntilIdle()
+        assertNull(model.state.value.error)
     }
 
     @Test
