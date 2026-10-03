@@ -79,6 +79,29 @@ object Routes {
 
     const val STORAGE = "api/storage"
 
+    /**
+     * GET: the [Profiles] there are, and which is the asking person's own.
+     * POST a [NewProfile]: make one; answers its [Profile].
+     *
+     * These are answered at the page's root. Everything else is answered under
+     * a profile's own path, [profileBase], which the browser makes its base
+     * once it knows which profile it is showing -- so every route below, the
+     * photos included, reaches that profile's wardrobe without naming it.
+     */
+    const val PROFILES = "api/profiles"
+
+    /** PUT a [ProfileName]: rename the profile. */
+    const val PROFILE = "api/profiles/{id}"
+
+    /** POST: make the profile the one the asking Home Assistant user opens by default. */
+    const val PROFILE_YOURS = "api/profiles/{id}/yours"
+
+    fun profile(id: String) = PROFILE.replace("{id}", id.encodeURLPathPart())
+    fun profileYours(id: String) = PROFILE_YOURS.replace("{id}", id.encodeURLPathPart())
+
+    /** Where a profile's wardrobe is answered, relative to the page: every other route, under this. */
+    fun profileBase(id: String) = "p/${id.encodeURLPathPart()}/"
+
     /** GET: the server's [ServerVersion]. */
     const val VERSION = "api/version"
 

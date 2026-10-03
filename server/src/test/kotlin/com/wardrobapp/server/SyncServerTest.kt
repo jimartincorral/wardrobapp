@@ -63,14 +63,15 @@ class SyncServerTest {
 
     private fun syncTest(block: suspend Setup.() -> Unit) {
         val directory = Files.createTempDirectory("wardrobe-sync").toFile()
-        val server = ServerWardrobe(File(directory, "server"))
+        val profiles = ProfileRegistry(File(directory, "server"))
+        val server = profiles.wardrobe(ProfileRegistry.FIRST)!!
         try {
             testApplication {
-                application { wardrobeSync(server, ServerVersion("0.2.0", 9)) }
+                application { wardrobeSync(profiles, ServerVersion("0.2.0", 9)) }
                 Setup(server, Phone(directory), this).block()
             }
         } finally {
-            server.close()
+            profiles.close()
             directory.deleteRecursively()
         }
     }

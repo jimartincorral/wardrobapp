@@ -1,5 +1,8 @@
 package com.wardrobapp.server
 
+import com.wardrobapp.api.Routes
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.request.get
 import com.wardrobapp.api.HttpBulkAddSource
 import com.wardrobapp.api.HttpGarmentDetailSource
 import com.wardrobapp.api.HttpGarmentFormSource
@@ -49,6 +52,13 @@ class ServerUnderTest(val http: HttpClient, val wardrobe: ServerWardrobe, val da
 
     val photoDirectory: File get() = wardrobe.photos.directory
 
+    /**
+     * Fetch a photo reference the way the browser does: relative to the page,
+     * not to the profile's base the client's other requests go under. The
+     * reference names its profile itself (`p/<id>/photos/<name>`).
+     */
+    suspend fun fromPage(ref: String): HttpResponse = http.get("/$ref")
+
     /** Upload a photo, as the browser will before saving a garment. */
     suspend fun uploadPhoto(bytes: ByteArray = jpeg()): String = photos.upload(bytes, ContentType.Image.JPEG)
 
@@ -86,17 +96,18 @@ fun serverTest(
     block: suspend ServerUnderTest.() -> Unit,
 ) {
     val directory = Files.createTempDirectory("wardrobe-server").toFile()
-    val wardrobe = ServerWardrobe(directory, importer)
+    val profiles = ProfileRegistry(directory, importer)
     try {
         testApplication {
-            application { wardrobeApi(wardrobe, settings) }
-            // The base the browser will have, so the routes are resolved the
-            // way they will be there: relative to the page.
-            val http = createClient { speakWardrobe("http://localhost/") }
-            ServerUnderTest(http, wardrobe, directory).block()
+            application { wardrobeApi(profiles, settings) }
+            // The base the browser will have once it has opened the first
+            // profile -- the one an upgraded server's wardrobe became -- so the
+            // routes are resolved the way they will be there: relative to it.
+            val http = createClient { speakWardrobe("http://localhost/${Routes.profileBase(ProfileRegistry.FIRST)}") }
+            ServerUnderTest(http, profiles.wardrobe(ProfileRegistry.FIRST)!!, directory).block()
         }
     } finally {
-        wardrobe.close()
+        profiles.close()
         directory.deleteRecursively()
     }
 }

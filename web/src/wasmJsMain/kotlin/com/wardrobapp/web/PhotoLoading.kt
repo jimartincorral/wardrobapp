@@ -37,8 +37,15 @@ fun ProvidePhotoLoading() {
     }
 }
 
-/** A server photo reference, as the address the page would load it from. */
+/**
+ * A server photo reference, as the address the page would load it from.
+ *
+ * `p/<profile>/photos/<name>` -- each profile's photos under its own path --
+ * or `photos/<name>` from a server answering one wardrobe at its root.
+ */
 private object PageRelativePhotos : Mapper<String, String> {
     override fun map(data: String, options: Options): String? =
-        if (data.startsWith(Routes.PHOTO_FILES)) URL(data, document.baseURI).href else null
+        if (PHOTO_REF.containsMatchIn(data)) URL(data, document.baseURI).href else null
 }
+
+private val PHOTO_REF = Regex("""^(p/[^/]+/)?${Regex.escape(Routes.PHOTO_FILES)}""")

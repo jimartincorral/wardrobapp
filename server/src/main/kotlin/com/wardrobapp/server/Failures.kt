@@ -32,6 +32,11 @@ internal fun Application.answerFailures() {
         exception<PhotoRejected.NotAPhoto> { call, e ->
             call.fail(HttpStatusCode.UnsupportedMediaType, ApiFailure.Message(e.message.orEmpty()))
         }
+        // A profile id in the path that names no profile: a bookmark from a
+        // profile that was since removed, or a hand-typed address.
+        exception<ProfileNotFound> { call, _ ->
+            call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
+        }
         // A body that is not the JSON the route takes. Ktor wraps the
         // serializer's complaint; the complaint is the useful part.
         exception<BadRequestException> { call, e ->
@@ -58,3 +63,6 @@ private fun Throwable.readable(): String {
     val meaningful = if (this is BadRequestException && cause != null) cause!! else this
     return meaningful.message ?: meaningful::class.simpleName ?: "Something went wrong."
 }
+
+/** A request for a profile there is none of; answered as any other missing thing. */
+internal class ProfileNotFound : RuntimeException("No such profile.")

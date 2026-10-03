@@ -181,6 +181,13 @@ fun SettingsScreen(
      * and each has its own state for it. Heading included. Null to leave it out.
      */
     syncSection: (@Composable () -> Unit)? = null,
+    /**
+     * Which of several wardrobes this is, and switching between them: the
+     * browser's, where one Home Assistant app holds a profile per person.
+     * First, since everything below it is about the profile it names. Heading
+     * included; null on the phone, which holds one wardrobe.
+     */
+    profileSection: (@Composable () -> Unit)? = null,
 ) {
     state.backup?.let { backup ->
         BackupDialog(backup, onBackupDismissed)
@@ -211,6 +218,11 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
+            if (profileSection != null) {
+                profileSection()
+                HorizontalDivider(modifier = Modifier.padding(top = 16.dp))
+            }
+
             Section(stringResource(Res.string.settings_section_storage))
             when {
                 view != null -> {

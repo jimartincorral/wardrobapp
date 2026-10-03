@@ -28,6 +28,7 @@ import io.ktor.utils.io.readRemaining
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.io.readByteArray
+import io.ktor.util.AttributeKey
 
 /**
  * The sync port: what a paired phone talks to.
@@ -38,12 +39,17 @@ import kotlinx.io.readByteArray
  * name. Nothing a screen uses is here, so opening this port opens nothing but
  * sync.
  *
+ * Which wardrobe it syncs with is the pairing code's to say: every profile
+ * has its own (see ProfileRegistry), and a phone holding one profile's code
+ * reaches that profile and no other. So the phones in a household each keep
+ * their own wardrobe in step with their owner's profile, and never meet.
+ *
  * A merge is one transaction on the server's database -- read, merge, write --
  * so a phone syncing while somebody edits in the browser, or two phones at
  * once, cannot interleave with it; see SyncStore.mergeWith.
  */
-fun Application.wardrobeSync(wardrobe: ServerWardrobe, version: ServerVersion) {
-    install(paired(wardrobe.syncSecret))
+fun Application.wardrobeSync(profiles: ProfileRegistry, version: ServerVersion) {
+    install(paired(profiles))
     install(ContentNegotiation) { json(WireJson) }
     answerFailures()
 
@@ -51,6 +57,7 @@ fun Application.wardrobeSync(wardrobe: ServerWardrobe, version: ServerVersion) {
         get("/${SyncRoutes.STATUS}") { call.respond(version) }
 
         post("/${SyncRoutes.EXCHANGE}") {
+            val wardrobe = call.attributes[Syncing]
             val theirs = call.receive<WardrobeSnapshot>()
             val result = withContext(Dispatchers.IO) { wardrobe.sync.mergeWith(theirs) }
             for (name in result.photosNoLongerUsed) wardrobe.photos.delete(name)
@@ -63,12 +70,14 @@ fun Application.wardrobeSync(wardrobe: ServerWardrobe, version: ServerVersion) {
         }
 
         put("/${SyncRoutes.PHOTO}") {
+            val wardrobe = call.attributes[Syncing]
             val bytes = call.receiveChannel().readRemaining(PhotoFiles.MAX_PHOTO_BYTES + 1L).readByteArray()
             wardrobe.photos.storeAs(call.parameters["name"].orEmpty(), bytes)
             call.respond(HttpStatusCode.NoContent)
         }
 
         get("/${SyncRoutes.PHOTO}") {
+            val wardrobe = call.attributes[Syncing]
             val name = call.parameters["name"].orEmpty()
             val file = wardrobe.photos.file(name)
             val type = PhotoType.ofName(name)
@@ -89,12 +98,15 @@ fun Application.wardrobeSync(wardrobe: ServerWardrobe, version: ServerVersion) {
  * a ServerException with that status and the phone can say "pair again" rather
  * than "something went wrong".
  */
-private fun paired(secret: SyncSecret) = createApplicationPlugin("Paired") {
+private fun paired(profiles: ProfileRegistry) = createApplicationPlugin("Paired") {
     onCall { call ->
         val offered = call.request.headers[HttpHeaders.Authorization]
             ?.removePrefix("Bearer ")
             ?.takeIf { it.isNotBlank() }
-        if (offered == null || !secret.accepts(offered)) {
+        val wardrobe = offered?.let(profiles::pairedWith)
+        if (wardrobe != null) {
+            call.attributes.put(Syncing, wardrobe)
+        } else {
             call.application.log.warn("Refused a sync request from ${call.request.local.remoteAddress}: no pairing code, or the wrong one")
             call.fail(
                 HttpStatusCode.Unauthorized,
@@ -103,3 +115,6 @@ private fun paired(secret: SyncSecret) = createApplicationPlugin("Paired") {
         }
     }
 }
+
+/** The wardrobe the request's pairing code opened, put there by [paired]. */
+private val Syncing = AttributeKey<ServerWardrobe>("syncing")
