@@ -122,6 +122,23 @@ data class GarmentFormState(
     )
 
     /**
+     * Record [cutout] against [photo], wherever that photo now is -- or null if
+     * the form no longer holds it.
+     *
+     * For a cut-out that took a while to make. Removing a background is slow
+     * enough that the reader can select another photo, reorder them, or remove
+     * this one while it runs, and the selected slot at the end is then a
+     * different photo's: [withBackgroundRemoved] would put one photo's cut-out on
+     * another. Found by its photo rather than by its index, since reordering moves
+     * the index too. Null is the caller's cue that the cut-out belongs to nothing.
+     */
+    fun withBackgroundRemovedFrom(photo: String, cutout: String): GarmentFormState? {
+        val index = imageUris.indexOf(photo)
+        if (index < 0) return null
+        return copy(bgRemovedUris = bgRemovedUris.mapIndexed { i, item -> if (i == index) cutout else item })
+    }
+
+    /**
      * Choosing a garment type implies seasons (a blazer is not summerwear), so
      * they are filled in -- but only while the user has chosen none, so an
      * explicit choice is never overwritten.

@@ -412,13 +412,17 @@ class GarmentFormScreenModel<Picked>(
             attempt { photos.cutOut(photo) }
                 .onSuccess { cutout ->
                     created.add(cutout)
-                    _state.update {
-                        it.copy(
-                            removingBackground = false,
-                            form = it.form.withBackgroundRemoved(cutout),
-                            duplicates = emptyList(),
-                        )
+                    // Onto the photo it was cut from, wherever that is now: the
+                    // reader can select, reorder or remove photos while this runs,
+                    // and the slot selected at the end may be another photo's.
+                    val placed = _state.value.form.withBackgroundRemovedFrom(photo, cutout)
+                    if (placed == null) {
+                        // Its photo was removed meanwhile, so it belongs to nothing.
+                        _state.update { it.copy(removingBackground = false) }
+                        discardIfOurs(cutout)
+                        return@onSuccess
                     }
+                    _state.update { it.copy(removingBackground = false, form = placed, duplicates = emptyList()) }
                     // The cut-out is a better photo of the same garment: only the
                     // garment's own pixels are left in it, so its colours are worth
                     // reading again.

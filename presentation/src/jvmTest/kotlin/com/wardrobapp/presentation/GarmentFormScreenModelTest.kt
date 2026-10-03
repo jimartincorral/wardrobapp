@@ -23,12 +23,16 @@ class GarmentFormScreenModelTest {
 
     private class FakePhotos : PhotoWork<String> {
         val deleted = mutableListOf<String>()
+        var cutGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
         override suspend fun store(photo: String) = "stored/$photo"
         override suspend fun delete(photo: String) {
             deleted += photo
         }
         override suspend fun colors(photo: String) = listOf("#AA0000")
-        override suspend fun cutOut(photo: String) = "$photo.nobg"
+        override suspend fun cutOut(photo: String): String {
+            cutGate?.await()
+            return "$photo.nobg"
+        }
     }
 
     private class FakeSource : GarmentFormSource {
@@ -117,6 +121,46 @@ class GarmentFormScreenModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf("stored/new.jpg"), photos.deleted, "the stored garment's photo is the row's until a save")
+    }
+
+    @Test
+    fun `a cut-out lands on its own photo even if another was selected meanwhile`() = runTest {
+        val photos = FakePhotos().apply { cutGate = kotlinx.coroutines.CompletableDeferred() }
+        val form = model(photos = photos)
+        advanceUntilIdle()
+        form.onPhotoPicked("a.jpg")
+        form.onPhotoPicked("b.jpg")
+        advanceUntilIdle()
+        form.onPhotoSelected(0)
+
+        form.onRemoveBackground()
+        advanceUntilIdle()
+        form.onPhotoSelected(1)
+        photos.cutGate!!.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf("stored/a.jpg.nobg", ""), form.state.value.form.bgRemovedUris)
+    }
+
+    @Test
+    fun `a cut-out of a photo removed meanwhile is thrown away`() = runTest {
+        val photos = FakePhotos().apply { cutGate = kotlinx.coroutines.CompletableDeferred() }
+        val form = model(photos = photos)
+        advanceUntilIdle()
+        form.onPhotoPicked("a.jpg")
+        form.onPhotoPicked("b.jpg")
+        advanceUntilIdle()
+        form.onPhotoSelected(0)
+
+        form.onRemoveBackground()
+        advanceUntilIdle()
+        form.onPhotoRemoved(0)
+        photos.cutGate!!.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf(""), form.state.value.form.bgRemovedUris)
+        assertTrue("stored/a.jpg.nobg" in photos.deleted)
+        assertEquals(false, form.state.value.removingBackground)
     }
 
     @Test
