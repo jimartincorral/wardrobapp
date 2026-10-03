@@ -24,6 +24,7 @@ import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.UnsafeUrlReason
 import com.wardrobapp.domain.WardrobeGap
 import java.io.File
+import kotlin.reflect.full.allSuperclasses
 import kotlin.reflect.full.createType
 import kotlin.reflect.full.primaryConstructor
 import kotlin.test.Test
@@ -291,6 +292,18 @@ class WireTypesTest {
                 sent.toSet(),
                 "${sample::class.qualifiedName} sends something its constructor does not take",
             )
+        }
+    }
+
+    @Test
+    fun `one of several kinds says which by a name of its own`() {
+        // The JSON for a sealed type's subclass carries a discriminator, and
+        // without @SerialName that is the class's fully qualified name: move
+        // or rename the class and the server sends something an older client
+        // cannot read.
+        for (sample in samples.filter { s -> s::class.allSuperclasses.any { it.isSealed } }) {
+            val name = serializer(sample::class.createType()).descriptor.serialName
+            assertTrue('.' !in name, "${sample::class.qualifiedName} goes on the wire as $name; give it a @SerialName")
         }
     }
 
