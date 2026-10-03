@@ -59,6 +59,24 @@ kotlin {
     }
 }
 
+// HomeAssistantAppTest reads the Home Assistant app's files -- its config.yaml,
+// its Dockerfile, the workflow that builds its images -- to hold them to the
+// server and to each other. Declared as inputs, so editing one of them reruns
+// the test rather than replaying a cached pass.
+tasks.withType<Test>().configureEach {
+    systemProperty("repositoryDir", rootDir.absolutePath)
+    inputs.dir(rootProject.file("homeassistant"))
+        .withPropertyName("homeAssistantApp")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(
+        rootProject.file(".github/workflows/home-assistant.yml"),
+        rootProject.file(".dockerignore"),
+        rootProject.file("repository.yaml"),
+    )
+        .withPropertyName("homeAssistantBuild")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 application {
     mainClass = "com.wardrobapp.server.MainKt"
     applicationName = "wardrobapp-server"

@@ -20,6 +20,10 @@ and under `ui/src/commonMain/composeResources`:
 
     drawable-*/ic_brand_mark.png          the same again, for the app to draw
 
+and under `homeassistant/wardrobapp`:
+
+    icon.png                              the Home Assistant app's icon
+
 `ic_brand_mark` is the one that is not a launcher icon, and it exists because
 `R.mipmap.ic_launcher` cannot stand in for it. From Android 8 that name resolves
 to the adaptive icon's XML, and `painterResource` loads bitmaps and vectors and
@@ -53,6 +57,12 @@ ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / 'art' / 'logo.png'
 RES = ROOT / 'app' / 'src' / 'main' / 'res'
 SCREEN_RES = ROOT / 'ui' / 'src' / 'commonMain' / 'composeResources'
+HOME_ASSISTANT_APP = ROOT / 'homeassistant' / 'wardrobapp'
+
+# Home Assistant shows an app's icon.png in its app store and on the app's page,
+# and asks for a 128px square. One size, because it is one file: Home Assistant
+# scales it for whatever it is drawing.
+HOME_ASSISTANT_ICON_PX = 128
 
 # The adaptive icon's layers are 108dp; the legacy rasters are 48dp. Both are
 # listed per density because a bitmap, unlike a vector, has one.
@@ -664,6 +674,15 @@ def main() -> None:
 
         print(f'{folder}: layers {layer}x{layer}, icons {legacy}x{legacy}, '
               f'mark {brand}x{brand}')
+
+    # The Home Assistant app's icon: the brand mark's card again, since it is
+    # the same thing -- the app, shown by something that is not a launcher --
+    # at the one size Home Assistant asks for.
+    icon = HOME_ASSISTANT_ICON_PX
+    icon_scale = radius / (SAFE_RADIUS / LAYER_DP * icon)
+    card = over(sample(logo, logo.mark, None, icon, (cx, cy), icon_scale), logo.paper_colour)
+    write_png(HOME_ASSISTANT_APP / 'icon.png', icon, icon, rows_of(card, icon, shape_mask(icon, 'rounded')))
+    print(f'homeassistant/wardrobapp/icon.png: {icon}x{icon}')
 
 
 if __name__ == '__main__':

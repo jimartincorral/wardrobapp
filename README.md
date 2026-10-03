@@ -2,6 +2,8 @@
 
 A local-first wardrobe and outfit planner for **Android**, written in Kotlin and Compose. Catalog the clothes you own, rate outfit suggestions, and let the app learn what you like — all stored on-device, with no account and no server.
 
+The same app also runs in **Home Assistant**, opened from its sidebar in any browser signed in to it, with the wardrobe kept in Home Assistant's own storage and backups. See [Home Assistant](#home-assistant).
+
 > Status: pre-1.0, actively developed. The roadmap lives in [TODO.md](TODO.md).
 
 ## Features
@@ -188,6 +190,40 @@ name, and the app builds the matching one from `BuildConfig.APPLICATION_ID`
 `app/build.gradle.kts` has to match that per build type, or the browser will not
 find its way back.
 
+## Home Assistant
+
+The browser version is a Home Assistant app — an add-on, as older versions of
+Home Assistant call them. To install it, open the app (or add-on) store under
+**Settings**, choose **⋮ → Repositories**, and add this repository's URL; then
+install **Wardrobapp** and open **Wardrobe** in the sidebar. Home Assistant
+2024.1 or newer, on amd64 or 64-bit ARM.
+
+It is one container: `:server`, which holds the wardrobe in the same SQLite
+schema and photo layout as the phone and answers with the same code, and
+`:web`, the browser app it serves. Home Assistant's ingress is the only way in —
+no port is published, and the server refuses any request that does not come
+from ingress's address.
+
+The images are built by `.github/workflows/home-assistant.yml` on every pull
+request, and published to GitHub's container registry from `main` when
+`homeassistant/wardrobapp/config.yaml` names a version that is not published
+yet. **Bumping that version, with an entry in the app's `CHANGELOG.md`, is what
+releases it**; a version is never republished. `HomeAssistantAppTest` holds the
+config, the Dockerfile, the workflow and the server's defaults to each other.
+
+To run the same thing locally:
+
+```bash
+./gradlew :server:installDist :web:wasmJsBrowserDevelopmentExecutableDistribution
+WARDROBAPP_DATA=/tmp/wardrobe \
+WARDROBAPP_WEB=web/build/dist/wasmJs/developmentExecutable \
+  server/build/install/wardrobapp-server/bin/wardrobapp-server
+# then open http://localhost:8099/
+```
+
+The development bundle builds in about a minute; `wasmJsBrowserDistribution`,
+the optimised one the image ships, takes several.
+
 ## Project structure
 
 ```
@@ -205,6 +241,13 @@ net/           URL import's requests: a product page and its images, with
                every redirect checked before it is followed.
 data/          SQLite queries and row mapping, photo references, reading and
                writing backup archives.
+ui/            The screens, in Compose Multiplatform, for the phone and the
+               browser alike.
+api/           The wardrobe over HTTP: routes, and every screen's source as
+               requests to the server.
+server/        The Home Assistant app's server, answering those requests.
+web/           The browser app the server hands out.
+homeassistant/ The Home Assistant app: its config.yaml, Dockerfile and docs.
 art/           logo.png — the logo, as delivered. Every launcher icon the app
                ships is cut from this file.
                glyphs/ — the Material glyphs the app vendors, as SVG, each

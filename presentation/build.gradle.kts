@@ -122,6 +122,12 @@ tasks.withType<Test>().configureEach {
 
     // And :ui's two build files, for UiBuildFilesTest, which holds them to the
     // same dependencies. Inputs for the same reason as everything above.
+    // The Home Assistant app's icon, which LauncherIconTest checks with the
+    // launcher icons because the same script cuts it from the same logo.
+    inputs.file(rootProject.file("homeassistant/wardrobapp/icon.png"))
+        .withPropertyName("homeAssistantIcon")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+
     val uiModule = rootProject.file("ui")
     systemProperty("uiModuleDir", uiModule.absolutePath)
     inputs.files(File(uiModule, "build.gradle.kts"), File(uiModule, "build.wasm.gradle.kts"))

@@ -75,6 +75,10 @@ class LauncherIconTest {
             )
         }
 
+        // And the Home Assistant app's, at the one size Home Assistant asks for.
+        val repository = resourceDirectory().parentFile.parentFile.parentFile.parentFile
+        check(File(repository, "homeassistant/wardrobapp/icon.png"), 128, "homeassistant/wardrobapp", failures)
+
         assertTrue(
             failures.isEmpty(),
             "run scripts/generate-launcher-icons.py:\n  " + failures.joinToString("\n  "),
