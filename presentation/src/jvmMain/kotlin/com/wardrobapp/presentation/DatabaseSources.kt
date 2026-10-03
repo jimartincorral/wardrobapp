@@ -13,6 +13,7 @@ import com.wardrobapp.data.isoTimestamp
 import com.wardrobapp.data.resolveImageRef
 import com.wardrobapp.domain.GenerateSuggestionsOptions
 import com.wardrobapp.domain.SuggestionPreferences
+import com.wardrobapp.domain.mergeStructuredTags
 import com.wardrobapp.domain.seasonOfMonth
 import com.wardrobapp.presentation.OutfitsScreenState.Suggestion
 import java.util.Calendar
@@ -314,6 +315,51 @@ class DatabaseGarmentDetailSource(
                 nowTimestamp(),
             )
             edit.discardable?.let { runCatching { deletePhoto(it) } }
+        }
+    }
+}
+
+/**
+ * Bulk add's garments, into a database. Handed a way to delete a photo, for the
+ * same reason DatabaseGarmentDetailSource is: files are not the database's.
+ */
+class DatabaseBulkAddSource(
+    private val garmentWrites: GarmentWrites,
+    private val deletePhoto: (String) -> Unit,
+    private val io: CoroutineDispatcher,
+) : BulkAddSource {
+    override suspend fun save(draft: BulkAddState.Draft) {
+        withContext(io) {
+            // A cut-out is stored in both columns and the original let go --
+            // saving space is the whole point of removing a background, and
+            // keeping both would mean every removal costing more storage rather
+            // than less. The rule is the form's, delegated rather than restated.
+            val images = draft.imagesToStore()
+
+            garmentWrites.insert(
+                GarmentWrites.NewGarment(
+                    id = newRowId(),
+                    imageUri = images.imageUris.first(),
+                    imageUriNoBg = images.bgRemovedUris.firstOrNull()?.ifEmpty { null },
+                    imageUris = images.imageUris,
+                    imageUrisNoBg = images.bgRemovedUris,
+                    category = draft.category,
+                    subcategories = draft.subcategories,
+                    // Seasons are stored as tags, the way the form stores them and
+                    // the way every reader downstream expects to find them.
+                    tags = mergeStructuredTags(emptyList(), draft.seasons),
+                    brand = draft.brand.ifBlank { null },
+                    colorPrimary = draft.colorPalette.first(),
+                    colorSecondary = draft.colorPalette.getOrNull(1),
+                    colorPalette = draft.colorPalette,
+                    size = null,
+                    now = nowTimestamp(),
+                ),
+            )
+
+            // Only after the row is written: deleting sooner would break a
+            // garment whose write then failed.
+            for (orphan in images.discardable) deletePhoto(orphan)
         }
     }
 }
