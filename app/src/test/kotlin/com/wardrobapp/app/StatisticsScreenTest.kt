@@ -3,28 +3,34 @@ package com.wardrobapp.app
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.wardrobapp.data.DuplicateGarmentGroup
-import com.wardrobapp.data.normalizeGarmentRow
-import com.wardrobapp.domain.PhantomGarment
-import androidx.compose.ui.test.onNodeWithContentDescription
 import com.wardrobapp.data.GapOutfit
 import com.wardrobapp.data.GapWithPhotos
 import com.wardrobapp.data.GarmentRecord
+import com.wardrobapp.data.normalizeGarmentRow
 import com.wardrobapp.domain.GapEvidence
 import com.wardrobapp.domain.MIN_WARDROBE_FOR_GAPS
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.OutfitSlot
+import com.wardrobapp.domain.PhantomGarment
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.WardrobeGap
 import com.wardrobapp.presentation.BrandSort
 import com.wardrobapp.presentation.Distribution
 import com.wardrobapp.presentation.LifespanEntry
+import com.wardrobapp.presentation.StatisticsScreenState
+import com.wardrobapp.presentation.StatisticsSection
 import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.statisticsView
+import com.wardrobapp.ui.STATISTICS_PAGE
+import com.wardrobapp.ui.StatisticsScreen
+import com.wardrobapp.ui.duplicateTag
+import com.wardrobapp.ui.statFilterTag
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -72,7 +78,7 @@ class StatisticsScreenTest {
     private var wanted: PhantomGarment? = null
 
     private fun show(
-        state: StatisticsViewModel.State = StatisticsViewModel.State(loading = false, view = view()),
+        state: StatisticsScreenState = StatisticsScreenState(loading = false, view = view()),
     ) {
         compose.setContent {
             StatisticsScreen(
@@ -137,7 +143,7 @@ class StatisticsScreenTest {
     @Test
     fun `an open section shows its bars`() {
         show(
-            StatisticsViewModel.State(
+            StatisticsScreenState(
                 loading = false,
                 view = view(),
                 openSections = setOf(StatisticsSection.BRAND),
@@ -162,7 +168,7 @@ class StatisticsScreenTest {
         // translated word next to the bar -- would filter by "Tops" and match
         // nothing, and on a Spanish phone it would match nothing differently.
         show(
-            StatisticsViewModel.State(
+            StatisticsScreenState(
                 loading = false,
                 view = view(),
                 openSections = setOf(StatisticsSection.CATEGORY),
@@ -190,7 +196,7 @@ class StatisticsScreenTest {
         // wardrobe with nothing retired looked like an app that does not measure
         // them. Here the heading is always there and says so when opened.
         show(
-            StatisticsViewModel.State(
+            StatisticsScreenState(
                 loading = false,
                 view = view(retired = 0, lifespans = emptyList()),
                 openSections = setOf(StatisticsSection.LIFESPAN),
@@ -204,7 +210,7 @@ class StatisticsScreenTest {
     @Test
     fun `a wardrobe with nothing in it says so instead of listing sections`() {
         show(
-            StatisticsViewModel.State(
+            StatisticsScreenState(
                 loading = false,
                 view = view(
                     inUse = 0,
@@ -237,7 +243,7 @@ class StatisticsScreenTest {
         "",
     )
 
-    private fun withDuplicates(open: Boolean) = StatisticsViewModel.State(
+    private fun withDuplicates(open: Boolean) = StatisticsScreenState(
         loading = false,
         view = view(),
         openSections = if (open) setOf(StatisticsSection.DUPLICATES) else emptySet(),
@@ -296,7 +302,7 @@ class StatisticsScreenTest {
     @Test
     fun `a wardrobe with nothing alike says so rather than showing an empty heading`() {
         show(
-            StatisticsViewModel.State(
+            StatisticsScreenState(
                 loading = false,
                 view = view(),
                 openSections = setOf(StatisticsSection.DUPLICATES),
@@ -314,7 +320,7 @@ class StatisticsScreenTest {
         // no answer. Saying "nothing looks like anything else" then would be a
         // verdict delivered before anything had been examined.
         show(
-            StatisticsViewModel.State(
+            StatisticsScreenState(
                 loading = false,
                 view = view(),
                 openSections = setOf(StatisticsSection.DUPLICATES),
@@ -381,7 +387,7 @@ class StatisticsScreenTest {
     private fun showingGaps(
         gaps: List<GapWithPhotos>?,
         inUse: Long = 20,
-    ) = StatisticsViewModel.State(
+    ) = StatisticsScreenState(
         loading = false,
         view = view(inUse = inUse),
         openSections = setOf(StatisticsSection.GAPS),

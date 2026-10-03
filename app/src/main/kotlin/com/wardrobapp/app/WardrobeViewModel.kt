@@ -9,10 +9,11 @@ import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.WardrobeFacets
 import com.wardrobapp.presentation.WardrobeQuery
+import com.wardrobapp.presentation.WardrobeScreenState
 import com.wardrobapp.presentation.WardrobeView
-import com.wardrobapp.presentation.wardrobeFacets
 import com.wardrobapp.presentation.filterBy
 import com.wardrobapp.presentation.orderedBy
+import com.wardrobapp.presentation.wardrobeFacets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -32,64 +33,13 @@ import kotlinx.coroutines.withContext
  */
 class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
 
-    data class State(
-        val loading: Boolean = true,
-        val garments: List<GarmentRecord> = emptyList(),
-        /** Everything the screen is narrowing by. */
-        val query: WardrobeQuery = WardrobeQuery(),
-        /** Whether the filter panel is open. Kept here so it survives a tab switch. */
-        val filtersExpanded: Boolean = false,
-        /**
-         * Set when loading failed. Shown rather than swallowed: the React Native
-         * app logged the error and left the list at its previous value, so a
-         * failure looked exactly like an empty wardrobe.
-         */
-        val error: String? = null,
-        /**
-         * Rows or cells, and how many across.
-         *
-         * Alongside the query rather than inside it: it changes how the same
-         * garments are drawn, not which ones they are, so it never triggers a
-         * re-read. Persisted, so it is the same wardrobe you left.
-         */
-        val view: WardrobeView = WardrobeView(),
-        /**
-         * What a grid cell says under its photo.
-         *
-         * Beside [view] and for the same reason: it changes what the same garments
-         * are labelled with, not which ones they are, so it never triggers a
-         * re-read either. Persisted alongside the layout.
-         */
-        val caption: GarmentCaption = GarmentCaption.BRAND,
-        /**
-         * What the filter panel has to offer, from what the list holds.
-         *
-         * Derived when the list is, rather than in the composable: which values a
-         * wardrobe contains is a fact about the wardrobe, and a screen that worked
-         * it out per frame would recompute it on every scroll.
-         */
-        val facets: WardrobeFacets = WardrobeFacets(),
-    ) {
-        /** True only when the wardrobe really is empty, not when a read failed. */
-        val isEmpty: Boolean get() = !loading && error == null && garments.isEmpty()
-
-        /**
-         * True when nothing matched but something would have.
-         *
-         * Worth distinguishing: "no garments yet" and "nothing matches these
-         * filters" call for different things to do next, and the second is
-         * reached by narrowing rather than by having an empty wardrobe.
-         */
-        val isFilteredEmpty: Boolean get() = isEmpty && query.isNarrowed
-    }
-
     private val _state = MutableStateFlow(
-        State(
+        WardrobeScreenState(
             view = container.wardrobeView.view,
             caption = container.wardrobeView.caption,
         ),
     )
-    val state: StateFlow<State> = _state.asStateFlow()
+    val state: StateFlow<WardrobeScreenState> = _state.asStateFlow()
 
     /**
      * The pending reload for a typed filter.

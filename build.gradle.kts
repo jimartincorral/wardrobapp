@@ -54,6 +54,94 @@ subprojects {
         }
     }
 
+    // The same two guards for the modules that have become Kotlin Multiplatform,
+    // plus a third thing only they need: a task called `test`.
+    //
+    // The multiplatform plugin names a target's tests after the target -- `jvmTest`
+    // -- and creates no `test` at all. `./gradlew test` is what CI and every
+    // contributor runs, and asked for a task a project does not have, Gradle runs
+    // it in the projects that do and says nothing about the rest: the module's
+    // tests would stop running and the build would stay green, which is the exact
+    // failure the guards above were written for, arriving by a route they cannot
+    // see. So `test` is defined here, for every such module, rather than trusted
+    // to each module's build file.
+    //
+    // It also compiles every non-JVM target. Common code that only compiles on the
+    // JVM -- a `java.*` import, `String.format` -- is invisible to the JVM tests
+    // and breaks the browser build, so `test` is where it should fail: on any
+    // machine, in seconds, before CI. The Wasm compiler needs nothing beyond Maven
+    // Central. Running the tests there too would need Node.js, which is why it is
+    // compiled and not yet run; the tests are the same common code either way.
+    //
+    // Repeated rather than shared with the block above because what differs is
+    // the part that matters: where the test sources live (one directory per
+    // source set here, against the Java plugin's single `test` set there), and
+    // the task that has to exist.
+    plugins.withId("org.jetbrains.kotlin.multiplatform") {
+        val verifyMultiplatformTestSourcesExist = tasks.register("verifyTestSourcesExist") {
+            val sourceRoot = project.file("src")
+            doLast {
+                val testSets = sourceRoot.listFiles { dir -> dir.isDirectory && dir.name.endsWith("Test") }.orEmpty()
+                if (testSets.none { set -> set.walkTopDown().any { it.extension == "kt" } }) {
+                    throw GradleException(
+                        "No Kotlin test sources found in ${project.path}. These modules are " +
+                            "pure so that they can be tested, so an untested one is a failure, " +
+                            "not a pass."
+                    )
+                }
+            }
+        }
+
+        tasks.withType<Test>().configureEach {
+            dependsOn(verifyMultiplatformTestSourcesExist)
+            useJUnitPlatform()
+            testLogging {
+                events("failed")
+                exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+            }
+
+            afterSuite(
+                KotlinClosure2<TestDescriptor, TestResult, Unit>({ descriptor, result ->
+                    if (descriptor.parent == null && result.testCount == 0L) {
+                        throw GradleException(
+                            "No tests were discovered in ${project.path}. An empty run is a " +
+                                "failure, not a pass."
+                        )
+                    }
+                })
+            )
+        }
+
+        // Registered only if nothing else has: :ui is also an Android library, and
+        // the Android plugin brings a `test` of its own -- its unit tests, of which
+        // :ui has none. Two tasks cannot share the name, so there the existing one
+        // is given the JVM tests to run as well.
+        //
+        // Once every project is evaluated, not in this one's afterEvaluate, which
+        // is what this first did and what broke CI. The Android plugin creates its
+        // `test` in an afterEvaluate hook of its own, and those hooks run in the
+        // order they were added: :ui applies the multiplatform plugin first, so
+        // this check ran before the Android plugin's, found no `test`, registered
+        // one, and the Android plugin then failed adding its own with "Cannot add
+        // task 'test' as a task with that name already exists". projectsEvaluated
+        // runs after every afterEvaluate in the build, so what it sees no longer
+        // depends on the order a module lists its plugins in. Tasks can still be
+        // registered then: nothing has built the task graph yet.
+        gradle.projectsEvaluated {
+            val tasks = project.tasks
+            val runs = tasks.matching { it.name == "jvmTest" || it.name == "compileKotlinWasmJs" }
+            if (tasks.findByName("test") == null) {
+                tasks.register("test") {
+                    group = "verification"
+                    description = "Runs the JVM tests and compiles every other target. See the root build file."
+                    dependsOn(runs)
+                }
+            } else {
+                tasks.named("test") { dependsOn(runs) }
+            }
+        }
+    }
+
     // The same two guards for the Android module, deliberately repeated rather
     // than shared: its tests run on JUnit 4, because Robolectric needs a runner,
     // so it must not get the useJUnitPlatform() above -- and its source sets come

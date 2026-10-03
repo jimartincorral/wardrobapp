@@ -10,7 +10,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.wardrobapp.domain.ImportFailureReason
 import com.wardrobapp.domain.UnsafeUrlReason
+import com.wardrobapp.presentation.GarmentFormScreenState
 import com.wardrobapp.presentation.GarmentFormState
+import com.wardrobapp.ui.GARMENT_FORM_LIST
+import com.wardrobapp.ui.GarmentFormScreen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -37,7 +40,7 @@ class GarmentFormScreenTest {
     val compose = createComposeRule()
 
     private fun show(
-        state: GarmentFormViewModel.State = GarmentFormViewModel.State(),
+        state: GarmentFormScreenState = GarmentFormScreenState(),
         isEditing: Boolean = false,
         onColorToggled: (String) -> Unit = {},
     ) {
@@ -128,8 +131,8 @@ class GarmentFormScreenTest {
         // The confirmation is the whole safety story for a shared link: it says
         // where the app is about to go, and nothing has been fetched yet.
         show(
-            GarmentFormViewModel.State(
-                urlImport = GarmentFormViewModel.UrlImport(
+            GarmentFormScreenState(
+                urlImport = GarmentFormScreenState.UrlImport(
                     awaitingConfirmation = "https://shop.example.com/product/shirt",
                 ),
             )
@@ -147,9 +150,9 @@ class GarmentFormScreenTest {
         // Naming the host is what makes the refusal worth reading: "that link
         // points somewhere I will not go" is not actionable, and the host is.
         show(
-            GarmentFormViewModel.State(
-                urlImport = GarmentFormViewModel.UrlImport(
-                    problem = GarmentFormViewModel.ImportProblem.Unsafe(
+            GarmentFormScreenState(
+                urlImport = GarmentFormScreenState.UrlImport(
+                    problem = GarmentFormScreenState.ImportProblem.Unsafe(
                         UnsafeUrlReason.HostIsLocal("192.168.1.1")
                     ),
                 ),
@@ -163,9 +166,9 @@ class GarmentFormScreenTest {
     @Test
     fun `a failed import says what went wrong with the page`() {
         show(
-            GarmentFormViewModel.State(
-                urlImport = GarmentFormViewModel.UrlImport(
-                    problem = GarmentFormViewModel.ImportProblem.Failed(
+            GarmentFormScreenState(
+                urlImport = GarmentFormScreenState.UrlImport(
+                    problem = GarmentFormScreenState.ImportProblem.Failed(
                         ImportFailureReason.PageNotLoaded(404)
                     ),
                 ),
@@ -178,9 +181,9 @@ class GarmentFormScreenTest {
     @Test
     fun `the network's own words are shown when there is nothing better`() {
         show(
-            GarmentFormViewModel.State(
-                urlImport = GarmentFormViewModel.UrlImport(
-                    problem = GarmentFormViewModel.ImportProblem.Foreign("Unable to resolve host"),
+            GarmentFormScreenState(
+                urlImport = GarmentFormScreenState.UrlImport(
+                    problem = GarmentFormScreenState.ImportProblem.Foreign("Unable to resolve host"),
                 ),
             )
         )
@@ -191,9 +194,9 @@ class GarmentFormScreenTest {
     @Test
     fun `a finished import says how many photos arrived and where from`() {
         show(
-            GarmentFormViewModel.State(
+            GarmentFormScreenState(
                 form = GarmentFormState(imageUris = listOf("file:///a.jpg", "file:///b.jpg")),
-                urlImport = GarmentFormViewModel.UrlImport(
+                urlImport = GarmentFormScreenState.UrlImport(
                     imported = 2,
                     source = "Zara",
                 ),
@@ -208,8 +211,8 @@ class GarmentFormScreenTest {
     @Config(qualifiers = "es")
     fun `a Spanish phone is asked about a link in Spanish`() {
         show(
-            GarmentFormViewModel.State(
-                urlImport = GarmentFormViewModel.UrlImport(
+            GarmentFormScreenState(
+                urlImport = GarmentFormScreenState.UrlImport(
                     awaitingConfirmation = "https://shop.example.com/p",
                 ),
             )

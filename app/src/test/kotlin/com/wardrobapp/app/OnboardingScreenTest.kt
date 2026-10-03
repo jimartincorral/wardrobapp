@@ -11,6 +11,8 @@ import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.MAX_RATING
 import com.wardrobapp.presentation.OnboardingStep
 import com.wardrobapp.presentation.ThemeChoice
+import com.wardrobapp.ui.OnboardingScreen
+import com.wardrobapp.ui.starTag
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

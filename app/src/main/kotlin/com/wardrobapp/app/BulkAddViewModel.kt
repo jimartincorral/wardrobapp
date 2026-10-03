@@ -10,8 +10,11 @@ import com.wardrobapp.data.isoTimestamp
 import com.wardrobapp.data.resolveImageRef
 import com.wardrobapp.domain.mergeStructuredTags
 import com.wardrobapp.domain.seasonsForSubcategories
+import com.wardrobapp.presentation.BulkAddScreenState
 import com.wardrobapp.presentation.BulkAddState
+import com.wardrobapp.presentation.ErrorFallback
 import com.wardrobapp.presentation.dominantGarmentColors
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +22,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 /**
  * Cataloguing several garments from several photos.
@@ -36,28 +38,8 @@ import java.util.UUID
  */
 class BulkAddViewModel(private val container: AppContainer) : ViewModel() {
 
-    data class State(
-        val queue: BulkAddState = BulkAddState(),
-        /**
-         * Photos still being copied in.
-         *
-         * Kept apart from [saving] because they mean opposite things for the
-         * buttons: a garment cannot be confirmed twice, so writing one disables
-         * them, but a batch still arriving must not -- the first garment is meant
-         * to be fillable while the twentieth photo is still being copied, which is
-         * the whole difference between a queue and a wait.
-         */
-        val importing: Boolean = false,
-        /** A garment being written. */
-        val saving: Boolean = false,
-        /** A background being cut out of the garment on screen. */
-        val removingBackground: Boolean = false,
-        val error: String? = null,
-        @StringRes val errorFallback: Int? = null,
-    )
-
-    private val _state = MutableStateFlow(State())
-    val state: StateFlow<State> = _state.asStateFlow()
+    private val _state = MutableStateFlow(BulkAddScreenState())
+    val state: StateFlow<BulkAddScreenState> = _state.asStateFlow()
 
     /**
      * Store the photos and queue them up.
@@ -102,7 +84,7 @@ class BulkAddViewModel(private val container: AppContainer) : ViewModel() {
             _state.update {
                 it.copy(
                     importing = false,
-                    errorFallback = if (failed > 0) R.string.error_photo_not_imported else null,
+                    errorFallback = if (failed > 0) ErrorFallback.PHOTO_NOT_IMPORTED else null,
                 )
             }
         }
@@ -186,7 +168,7 @@ class BulkAddViewModel(private val container: AppContainer) : ViewModel() {
                     it.copy(
                         saving = false,
                         error = e.message,
-                        errorFallback = R.string.error_photo_not_imported,
+                        errorFallback = ErrorFallback.PHOTO_NOT_IMPORTED,
                     )
                 }
             }
@@ -200,7 +182,7 @@ class BulkAddViewModel(private val container: AppContainer) : ViewModel() {
      * so only a real error says anything, and the draft keeps the photo it had.
      */
     fun onCropFailed() = _state.update {
-        it.copy(errorFallback = R.string.error_photo_not_imported)
+        it.copy(errorFallback = ErrorFallback.PHOTO_NOT_IMPORTED)
     }
 
     /** Cut the garment on screen out of its background. */
@@ -237,7 +219,7 @@ class BulkAddViewModel(private val container: AppContainer) : ViewModel() {
                     it.copy(
                         removingBackground = false,
                         error = e.message,
-                        errorFallback = R.string.error_background_not_removed,
+                        errorFallback = ErrorFallback.BACKGROUND_NOT_REMOVED,
                     )
                 }
             }
@@ -285,7 +267,7 @@ class BulkAddViewModel(private val container: AppContainer) : ViewModel() {
                     it.copy(
                         saving = false,
                         error = e.message,
-                        errorFallback = R.string.error_garment_not_saved,
+                        errorFallback = ErrorFallback.GARMENT_NOT_SAVED,
                     )
                 }
             }

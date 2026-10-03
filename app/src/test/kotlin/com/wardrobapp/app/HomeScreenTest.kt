@@ -5,6 +5,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.wardrobapp.presentation.HomeScreenState
+import com.wardrobapp.ui.HomeScreen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -29,7 +31,7 @@ class HomeScreenTest {
     private var wardrobe = 0
     private var archived = 0
 
-    private fun show(state: HomeViewModel.State) {
+    private fun show(state: HomeScreenState) {
         compose.setContent {
             HomeScreen(
                 state = state,
@@ -52,7 +54,7 @@ class HomeScreenTest {
 
     @Test
     fun `the item count opens the wardrobe and the archived count opens the archive`() {
-        show(HomeViewModel.State(loading = false, items = 14, archived = 3))
+        show(HomeScreenState(loading = false, items = 14, archived = 3))
 
         compose.onNodeWithText("14").performClick()
         assertEquals(1, wardrobe)
@@ -68,7 +70,7 @@ class HomeScreenTest {
         // The counts read as a dash while the database is being read or after it
         // failed. Tapping is still worth allowing: the wardrobe screen can say what
         // went wrong far better than a card with a dash on it can.
-        show(HomeViewModel.State(loading = true))
+        show(HomeScreenState(loading = true))
 
         // Both of them, which is why this is counted rather than looked up: two
         // nodes with the same text is a match failure, not an assertion.

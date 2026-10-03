@@ -46,11 +46,11 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
-import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.canhub.cropper.CropImageContract
 import com.wardrobapp.data.backupFilename
 import com.wardrobapp.domain.PhantomGarment
@@ -58,6 +58,7 @@ import com.wardrobapp.presentation.BULK_ADD_MINIMUM
 import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.OnboardingStep
+import com.wardrobapp.presentation.SettingsScreenState
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.WardrobeQuery
@@ -67,6 +68,30 @@ import com.wardrobapp.presentation.languageTag
 import com.wardrobapp.presentation.next
 import com.wardrobapp.presentation.previous
 import com.wardrobapp.presentation.usesDarkColors
+import com.wardrobapp.ui.AppVersion
+import com.wardrobapp.ui.BulkAddScreen
+import com.wardrobapp.ui.GarmentDetailScreen
+import com.wardrobapp.ui.GarmentFormScreen
+import com.wardrobapp.ui.HOME
+import com.wardrobapp.ui.HomeScreen
+import com.wardrobapp.ui.LocalNavAnimatedVisibilityScope
+import com.wardrobapp.ui.LocalSharedTransitionScope
+import com.wardrobapp.ui.OUTFITS
+import com.wardrobapp.ui.OnboardingScreen
+import com.wardrobapp.ui.OutfitDetailScreen
+import com.wardrobapp.ui.OutfitEditScreen
+import com.wardrobapp.ui.OutfitsScreen
+import com.wardrobapp.ui.RestoreDialog
+import com.wardrobapp.ui.SETTINGS
+import com.wardrobapp.ui.STATISTICS
+import com.wardrobapp.ui.SettingsScreen
+import com.wardrobapp.ui.StatisticsScreen
+import com.wardrobapp.ui.TABS
+import com.wardrobapp.ui.WARDROBE
+import com.wardrobapp.ui.WardrobappTheme
+import com.wardrobapp.ui.WardrobeBottomBar
+import com.wardrobapp.ui.WardrobeScreen
+import com.wardrobapp.ui.springGentle
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -526,7 +551,7 @@ class MainActivity : AppCompatActivity() {
         // has ever been seen. Written as soon as the restore lands rather than on
         // the way out, because being killed between the two would leave a restored
         // wardrobe with an empty checklist on top of it.
-        val restoreSucceeded = restoreState.restore is SettingsViewModel.Restore.Done
+        val restoreSucceeded = restoreState.restore is SettingsScreenState.Restore.Done
         LaunchedEffect(restoreSucceeded) {
             if (restoreSucceeded) onboarding.firstStepsDismissed = true
         }
@@ -541,7 +566,7 @@ class MainActivity : AppCompatActivity() {
                     // restore finishing behind a dialog nobody has answered. A
                     // failure dismisses back to the welcome screen, which is where
                     // "start fresh" still is.
-                    val restored = restore is SettingsViewModel.Restore.Done
+                    val restored = restore is SettingsScreenState.Restore.Done
                     restoring.onRestoreDismissed()
                     if (restored) leave()
                 },

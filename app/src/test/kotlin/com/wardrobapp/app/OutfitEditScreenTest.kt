@@ -3,15 +3,21 @@ package com.wardrobapp.app
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.hasTestTag
 import com.wardrobapp.data.GarmentRecord
+import com.wardrobapp.presentation.OutfitEditScreenState
 import com.wardrobapp.presentation.OutfitEditState
+import com.wardrobapp.ui.OUTFIT_EDIT_LIST
+import com.wardrobapp.ui.OUTFIT_EDIT_SAVE
+import com.wardrobapp.ui.OUTFIT_PICK_SEARCH
+import com.wardrobapp.ui.OutfitEditScreen
+import com.wardrobapp.ui.outfitPickTag
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -73,7 +79,7 @@ class OutfitEditScreenTest {
     ) {
         compose.setContent {
             OutfitEditScreen(
-                state = OutfitEditViewModel.State(
+                state = OutfitEditScreenState(
                     edit = edit,
                     garments = garments,
                     search = search,

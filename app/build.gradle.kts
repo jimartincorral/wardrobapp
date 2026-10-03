@@ -125,6 +125,14 @@ android {
         // So CI can print the findings into the build log. The HTML report is no
         // use to anyone reading a workflow run.
         textReport = true
+
+        // And :ui with it, which is where the screens are moving. Lint looks only
+        // at the module it runs in unless told otherwise, so without this every
+        // screen that moved would quietly stop being checked -- a missing
+        // contentDescription in :ui would pass a build that fails it in :app.
+        // From here rather than a lint block of :ui's own so that both are held
+        // to the one configuration above and land in the one report CI prints.
+        checkDependencies = true
     }
 
     signingConfigs {
@@ -258,6 +266,8 @@ kotlin {
 
 dependencies {
     implementation(project(":presentation"))
+    // The screens, as they move to Compose Multiplatform.
+    implementation(project(":ui"))
     // URL import's requests. Plain JVM, so it is tested without an SDK; see its
     // build file.
     implementation(project(":net"))
@@ -320,8 +330,8 @@ dependencies {
     // that forgets it exists after a restart is not one.
     implementation("androidx.work:work-runtime-ktx:2.10.0")
 
-    // Photos are files on disk; Coil loads them without hand-rolled decoding.
-    implementation("io.coil-kt:coil-compose:2.7.0")
+    // No Coil: every screen that draws a photo is in :ui now, and :ui depends
+    // on it.
 
     // The crop screen a photo goes through on its way in. Android has none to
     // call -- ACTION_CROP is an undocumented intent that most phones answer with

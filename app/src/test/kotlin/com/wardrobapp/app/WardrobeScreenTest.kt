@@ -13,9 +13,18 @@ import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.GarmentFilter
 import com.wardrobapp.presentation.WardrobeLayout
+import com.wardrobapp.presentation.WardrobeScreenState
 import com.wardrobapp.presentation.WardrobeView
 import com.wardrobapp.presentation.filterBy
 import com.wardrobapp.presentation.wardrobeFacets
+import com.wardrobapp.ui.WARDROBE_FILTER_SHEET
+import com.wardrobapp.ui.WARDROBE_LIST
+import com.wardrobapp.ui.WARDROBE_VIEW_MENU
+import com.wardrobapp.ui.WardrobeScreen
+import com.wardrobapp.ui.appliedFilterTag
+import com.wardrobapp.ui.colorSwatchTag
+import com.wardrobapp.ui.filterChipTag
+import com.wardrobapp.ui.wardrobeSizeTag
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -73,7 +82,7 @@ class WardrobeScreenTest {
     )
 
     private fun show(
-        state: WardrobeViewModel.State,
+        state: WardrobeScreenState,
         onColorTapped: (String) -> Unit = {},
         onViewSelected: (WardrobeView) -> Unit = {},
         onCaptionSelected: (GarmentCaption) -> Unit = {},
@@ -110,7 +119,7 @@ class WardrobeScreenTest {
         caption: GarmentCaption = GarmentCaption.BRAND,
         garments: List<com.wardrobapp.data.GarmentRecord> = (1..12).map { garment(it) },
         query: com.wardrobapp.presentation.WardrobeQuery = com.wardrobapp.presentation.WardrobeQuery(),
-    ) = WardrobeViewModel.State(
+    ) = WardrobeScreenState(
         loading = false,
         garments = garments,
         query = query,
