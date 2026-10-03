@@ -3,26 +3,17 @@ package com.wardrobapp.app
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.data.ArchivePreview
-import com.wardrobapp.data.UnrestorableArchiveException
-import com.wardrobapp.data.UnrestorableReason
+import com.wardrobapp.data.BackupSummary
+import com.wardrobapp.data.MaintenanceSummary
 import com.wardrobapp.data.readArchivePreview
-import com.wardrobapp.presentation.BackupPhase
+import com.wardrobapp.presentation.SettingsScreenModel
 import com.wardrobapp.presentation.SettingsScreenState
-import com.wardrobapp.presentation.SettingsScreenState.Backup
-import com.wardrobapp.presentation.SettingsScreenState.Restore
-import com.wardrobapp.presentation.SettingsScreenState.Tidy
-import com.wardrobapp.presentation.SettingsView
-import com.wardrobapp.presentation.backupPercent
-import com.wardrobapp.presentation.formatMegabytes
-import com.wardrobapp.presentation.settingsView
+import com.wardrobapp.presentation.SettingsSource
+import com.wardrobapp.presentation.StorageFigures
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -34,93 +25,21 @@ import kotlinx.coroutines.withContext
  *
  * Neither half decides anything: what the numbers read as and how full the
  * progress bar is come from :presentation, and the archive itself from :data.
+ *
+ * What it does lives in SettingsScreenModel, in common code, so the browser can
+ * run it too; this is the Android half: the scope that ends with the screen,
+ * and PhoneSettingsSource as what does the work -- the photo store, the backup
+ * writer and the restore, all through AppContainer.
  */
-class SettingsViewModel(private val container: AppContainer) : ViewModel() {
+class SettingsViewModel(container: AppContainer) : ViewModel() {
 
-    /** Where a backup has got to. */
+    private val model = SettingsScreenModel(viewModelScope, PhoneSettingsSource(container))
 
-    private val _state = MutableStateFlow(SettingsScreenState())
-    val state: StateFlow<SettingsScreenState> = _state.asStateFlow()
+    val state: StateFlow<SettingsScreenState> = model.state
 
-    init {
-        refresh()
-    }
-
-    fun refresh() {
-        viewModelScope.launch { reload() }
-    }
-
-    /**
-     * Shrink what is oversized, delete what nothing points at.
-     *
-     * Safe to run whenever: a file already small enough is skipped, a file something
-     * references is never touched, and anything written in the last hour is left
-     * alone -- so a second run over the same wardrobe finds nothing to do and says
-     * so. No file is renamed, so no row is touched and the wardrobe is readable
-     * throughout.
-     */
-    fun onTidyRequested() {
-        if (_state.value.tidy is Tidy.Running) return
-
-        _state.update { it.copy(tidy = Tidy.Running(done = 0, total = 0)) }
-
-        viewModelScope.launch {
-            try {
-                val summary = withContext(Dispatchers.IO) {
-                    container.tidyPhotos { done, total ->
-                        _state.update { it.copy(tidy = Tidy.Running(done, total)) }
-                    }
-                }
-
-                _state.update {
-                    it.copy(
-                        tidy = if (!summary.changedAnything) {
-                            Tidy.NothingToDo(summary.examined)
-                        } else {
-                            Tidy.Done(
-                                tidied = summary.shrunk + summary.deleted,
-                                reclaimed = summary.deleted,
-                                megabytes = formatMegabytes(summary.bytesSaved),
-                            )
-                        },
-                    )
-                }
-
-                // The storage figures above this button are now wrong, which is the
-                // point of having pressed it.
-                reload()
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(tidy = Tidy.Failed(e.message ?: e.javaClass.simpleName))
-                }
-            }
-        }
-    }
-
-    fun onTidyDismissed() = _state.update { it.copy(tidy = null) }
-
-    private suspend fun reload(): Long? {
-        _state.update { it.copy(loading = true, error = null) }
-
-        return try {
-            val view = withContext(Dispatchers.IO) {
-                settingsView(
-                    garments = container.garments.availableCount(),
-                    retired = container.garments.unavailableCount(),
-                    photoBytes = container.photoStorageBytes(),
-                )
-            }
-            _state.update { it.copy(loading = false, view = view, error = null) }
-            view.garments
-        } catch (e: Exception) {
-            _state.update {
-                it.copy(loading = false, error = e.message ?: e.javaClass.simpleName)
-            }
-            null
-        }
-    }
-
-    // ---- backup -------------------------------------------------------------
+    fun refresh() = model.refresh()
+    fun onTidyRequested() = model.onTidyRequested()
+    fun onTidyDismissed() = model.onTidyDismissed()
 
     /**
      * Write a backup into the file the user chose.
@@ -130,75 +49,12 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
      * the thread that writes to it. The same seam [onArchivePicked] uses in the
      * other direction.
      */
-    fun onBackupDestinationPicked(openDestination: () -> OutputStream) {
-        _state.update {
-            it.copy(backup = Backup.Running(backupPercent(BackupPhase.STAGING, 0, 0)))
-        }
+    fun onBackupDestinationPicked(openDestination: () -> OutputStream) =
+        model.onBackupDestinationPicked(openDestination)
 
-        viewModelScope.launch {
-            val outcome = withContext(Dispatchers.IO) {
-                runCatching {
-                    container.backupTo(openDestination) { copied, total ->
-                        _state.update { current ->
-                            // Only while it is still this backup being reported:
-                            // a failure that has already been posted must not be
-                            // overwritten by a progress callback behind it.
-                            if (current.backup is Backup.Running) {
-                                current.copy(
-                                    backup = Backup.Running(
-                                        backupPercent(BackupPhase.ARCHIVING, copied, total)
-                                    )
-                                )
-                            } else {
-                                current
-                            }
-                        }
-                    }
-                }
-            }
-
-            _state.update {
-                it.copy(
-                    backup = outcome.fold(
-                        onSuccess = { summary ->
-                            Backup.Done(
-                                megabytes = formatMegabytes(summary.bytes),
-                                photos = summary.images,
-                                skipped = summary.skipped,
-                            )
-                        },
-                        onFailure = { error ->
-                            Backup.Failed(error.message ?: error.javaClass.simpleName)
-                        },
-                    )
-                )
-            }
-        }
-    }
-
-    /** The picker was dismissed, or the report was read. */
-    fun onBackupDismissed() {
-        _state.update { it.copy(backup = null) }
-    }
-
-    // ---- restore ------------------------------------------------------------
-
-    fun onRestoreRequested() {
-        _state.update { it.copy(restore = Restore.Confirming) }
-    }
-
-    fun onRestoreDismissed() {
-        pendingArchive = null
-        _state.update { it.copy(restore = null) }
-    }
-
-    /**
-     * The archive waiting to be confirmed.
-     *
-     * Cleared on dismissal as well as on use, so backing out of a preview cannot
-     * leave a file armed for the next confirmation.
-     */
-    private var pendingArchive: (() -> InputStream)? = null
+    fun onBackupDismissed() = model.onBackupDismissed()
+    fun onRestoreRequested() = model.onRestoreRequested()
+    fun onRestoreDismissed() = model.onRestoreDismissed()
 
     /**
      * Read the chosen archive and say what is in it, without applying it.
@@ -207,77 +63,46 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
      * makes this step possible at all: the preview consumes a stream and so does
      * the restore, and a `content://` stream does not rewind. A factory can be
      * called twice.
-     *
-     * An archive that cannot be restored fails here instead, which is the other
-     * half of what this step is for: the same refusal, the same sentence, but
-     * arriving before somebody has been told their wardrobe is about to be
-     * replaced rather than after.
      */
-    fun onArchivePicked(openArchive: () -> InputStream) {
-        _state.update { it.copy(restore = Restore.Running) }
+    fun onArchivePicked(openArchive: () -> InputStream) = model.onArchivePicked(openArchive)
 
-        viewModelScope.launch {
-            val read = withContext(Dispatchers.IO) {
-                runCatching { openArchive().use { readArchivePreview(it) } }
-            }
+    fun onRestoreConfirmed(withSettings: Boolean) = model.onRestoreConfirmed(withSettings)
+}
 
-            // Outside the update: `update` re-runs its lambda when another writer
-            // got there first, and a lambda that also assigns a field would do it
-            // twice. Harmless for this assignment, and the wrong habit to keep.
-            pendingArchive = read.getOrNull()?.let { openArchive }
+/**
+ * The settings screen's source on the phone: the figures, the tidy, the backup
+ * and the restore, each through AppContainer and each on Dispatchers.IO as the
+ * ViewModel used to run them.
+ *
+ * Here rather than in :presentation with the other database sources, because
+ * every part of it reaches past the database -- into the photo store, the
+ * phone's own settings, and closing the database to stage or replace it -- and
+ * those are AppContainer's. The server will have its own.
+ */
+private class PhoneSettingsSource(
+    private val container: AppContainer,
+) : SettingsSource<() -> InputStream, () -> OutputStream> {
 
-            val next = read.fold(
-                onSuccess = { preview -> Restore.Previewing(preview) },
-                onFailure = { error -> error.asRestoreFailure() },
-            )
-
-            _state.update { it.copy(restore = next) }
-        }
+    override suspend fun storage() = withContext(Dispatchers.IO) {
+        StorageFigures(
+            garments = container.garments.availableCount(),
+            retired = container.garments.unavailableCount(),
+            photoBytes = container.photoStorageBytes(),
+        )
     }
 
-    /**
-     * Apply the archive that was previewed.
-     *
-     * The opener is kept here rather than carried in the state: a lambda in a data
-     * class breaks equality, and a state that is never equal to itself makes a
-     * StateFlow emit on every update.
-     */
-    fun onRestoreConfirmed(withSettings: Boolean) {
-        val openArchive = pendingArchive ?: return
+    override suspend fun tidy(onProgress: (Int, Int) -> Unit): MaintenanceSummary =
+        withContext(Dispatchers.IO) { container.tidyPhotos(onProgress) }
 
-        _state.update { it.copy(restore = Restore.Running) }
+    override suspend fun backup(
+        destination: () -> OutputStream,
+        onProgress: (Int, Int) -> Unit,
+    ): BackupSummary = withContext(Dispatchers.IO) { container.backupTo(destination, onProgress) }
 
-        viewModelScope.launch {
-            val outcome = withContext(Dispatchers.IO) {
-                runCatching { openArchive().use { container.restoreFrom(it, withSettings) } }
-            }
+    override suspend fun preview(archive: () -> InputStream): ArchivePreview =
+        withContext(Dispatchers.IO) { archive().use { readArchivePreview(it) } }
 
-            // Reload either way: a refused archive changes nothing, but the
-            // figures on screen were read before the attempt and saying so
-            // costs nothing.
-            val garments = reload()
-            pendingArchive = null
-
-            _state.update {
-                it.copy(
-                    restore = outcome.fold(
-                        onSuccess = { Restore.Done(garments) },
-                        onFailure = { error -> error.asRestoreFailure() },
-                    )
-                )
-            }
-        }
+    override suspend fun restore(archive: () -> InputStream, withSettings: Boolean) {
+        withContext(Dispatchers.IO) { archive().use { container.restoreFrom(it, withSettings) } }
     }
-
-    /**
-     * A thrown thing as something the screen can say.
-     *
-     * Shared by the preview and the restore because they fail the same way and for
-     * the same reasons -- which is the point of the preview calling :data's
-     * validation rather than its own.
-     */
-    private fun Throwable.asRestoreFailure() = Restore.Failed(
-        message = message ?: javaClass.simpleName,
-        reason = (this as? UnrestorableArchiveException)?.reason,
-    )
 }

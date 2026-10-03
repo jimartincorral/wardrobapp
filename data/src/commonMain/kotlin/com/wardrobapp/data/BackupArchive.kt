@@ -156,3 +156,17 @@ fun checkLegacyPayload(version: Int, hasDatabase: Boolean) {
         throw UnrestorableArchiveException(UnrestorableReason.NoDatabase)
     }
 }
+
+/**
+ * What a finished backup turned out to hold.
+ *
+ * Common code, unlike the archive writer it comes from, because the settings
+ * screen reports it and the screen's logic is common: on the phone the writer
+ * is ArchiveBackup, and in the browser it will be the server's.
+ */
+data class BackupSummary(
+    val bytes: Long,
+    val images: Int,
+    /** Photos that vanished between being listed and being read. */
+    val skipped: Int,
+)
