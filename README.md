@@ -204,10 +204,20 @@ schema and photo layout as the phone and answers with the same code, and
 for a browser, and the server refuses any request on that port that does not
 come from ingress's address.
 
+It holds a wardrobe per person: named profiles, each with its own database,
+photos and pairing code, in its own directory under `/data` (`ProfileRegistry`).
+Each Home Assistant user opens their own, which ingress tells the server by the
+`X-Remote-User-Id` header it sets. Anyone can switch to another, so somebody
+without a Home Assistant login can still have one. A profile's routes are the
+same routes under `p/<id>/`, and its photos are referenced the same way. The
+wardrobe there was before profiles became the first, in place, under the id
+`main`.
+
 The Android app can sync with it. That goes through a second port, 8100, which
 answers nothing but sync and only to a phone carrying the pairing code shown in
 the browser's Settings; Home Assistant keeps it closed until it is given a host
-port in the app's **Network** settings. Each sync exchanges the whole wardrobe
+port in the app's **Network** settings. A phone syncs with the profile whose
+code it holds. Each sync exchanges the whole wardrobe
 and keeps the latest change to each garment and outfit, a deletion included;
 photos move by name, only when one side lacks them. The phone syncs when it is
 opened, from **Sync now**, and every few hours in the background, on Wi-Fi only

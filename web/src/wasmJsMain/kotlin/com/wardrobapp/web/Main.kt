@@ -17,5 +17,5 @@ import kotlinx.browser.document
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     val http = HttpClient(Js) { speakWardrobe(document.baseURI) }
-    ComposeViewport(document.body!!) { WebApp(http) }
+    ComposeViewport(document.body!!) { ProfileGate(http) }
 }

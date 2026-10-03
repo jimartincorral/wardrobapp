@@ -53,11 +53,16 @@ import kotlinx.coroutines.withContext
  * against as a parameter -- it was a parameter so that two apps could disagree
  * about it.
  *
+ * [photoPrefix] is that path: `photos/` for a wardrobe answered at the root,
+ * `p/<id>/photos/` for one of several profiles (see Profiles), so a reference
+ * names the profile its photo belongs to and still resolves against the page.
+ *
  * [importer] is for tests, which have no internet to import from.
  */
 class ServerWardrobe(
     dataDirectory: File,
     importer: GarmentImporter? = null,
+    private val photoPrefix: String = Routes.PHOTO_FILES,
 ) : AutoCloseable {
 
     private val files = wardrobeFilesIn(dataDirectory)
@@ -68,7 +73,7 @@ class ServerWardrobe(
 
     val photos = PhotoFiles(files.imagesDir)
 
-    private val garments = GarmentQueries(database, Routes.PHOTO_FILES)
+    private val garments = GarmentQueries(database, photoPrefix)
     private val garmentWrites = GarmentWrites(database)
     private val outfits = OutfitQueries(database)
     private val outfitWrites = OutfitWrites(database)
@@ -85,14 +90,14 @@ class ServerWardrobe(
         analytics = AnalyticsQueries(database),
         duplicates = duplicates,
         gaps = Gaps(garments, outfits),
-        imageDirectory = Routes.PHOTO_FILES,
+        imageDirectory = photoPrefix,
         io = io,
     )
     val outfitList = DatabaseOutfitsSource(garments, outfits, outfitWrites, Suggestions(garments, outfits), io)
     val garmentDetail = DatabaseGarmentDetailSource(
         garments = garments,
         garmentWrites = garmentWrites,
-        imageDirectory = Routes.PHOTO_FILES,
+        imageDirectory = photoPrefix,
         deletePhoto = photos::delete,
         // See HttpGarmentDetailSource.cutOut: not on the server, yet. Nothing
         // routes here, so this only says why if something one day does.
@@ -110,8 +115,11 @@ class ServerWardrobe(
 
     val importer: GarmentImporter = importer ?: run {
         val http = ImportHttp()
-        FetchingGarmentImporter(http::pages, DownloadedPhotos(http, photos), io)
+        FetchingGarmentImporter(http::pages, DownloadedPhotos(http, photos, photoPrefix), io)
     }
+
+    /** A reference to the stored photo [name], as this wardrobe's screens read references. */
+    fun photoRef(name: String): String = resolveImageRef(name, photoPrefix)
 
     suspend fun storage(): StorageFigures = withContext(io) {
         StorageFigures(
@@ -136,12 +144,16 @@ class ServerWardrobe(
  * server's choosing. :net does the request, inside its address checks and its
  * size limit, as on the phone.
  */
-private class DownloadedPhotos(private val http: ImportHttp, private val photos: PhotoFiles) : ImageFetcher {
+private class DownloadedPhotos(
+    private val http: ImportHttp,
+    private val photos: PhotoFiles,
+    private val photoPrefix: String,
+) : ImageFetcher {
     override fun download(url: String): String {
         val temporary = File.createTempFile("import-", null)
         return try {
             http.download(url, temporary)
-            resolveImageRef(photos.store(temporary.readBytes()), Routes.PHOTO_FILES)
+            resolveImageRef(photos.store(temporary.readBytes()), photoPrefix)
         } finally {
             temporary.delete()
         }

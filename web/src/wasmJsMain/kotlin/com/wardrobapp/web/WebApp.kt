@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.wardrobapp.api.Routes
@@ -51,10 +52,13 @@ import kotlin.coroutines.cancellation.CancellationException
  * navigation feature.
  */
 @Composable
-fun WebApp(http: HttpClient) {
+fun WebApp(http: HttpClient, profile: ProfileControls) {
     ProvidePhotoLoading()
 
     val sources = remember(http) { WebSources(http) }
+    // The screens are built once; this lets them read the profile as it is now
+    // -- renamed, made somebody's own -- rather than as it was then.
+    val currentProfile by rememberUpdatedState(profile)
     val navigator = remember { Navigator() }
     var theme by remember { mutableStateOf(ThemePreference.choice) }
 
@@ -96,6 +100,7 @@ fun WebApp(http: HttpClient) {
         Screens(
             sources = sources,
             navigator = navigator,
+            profile = { currentProfile },
             openWardrobe = { query ->
                 arrival = query
                 navigator.switchTo(Destination.Wardrobe)

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0
+
+- A wardrobe for each person. The first time you open the app it asks whose
+  wardrobe this is: choose yours, or start a new one. After that it opens
+  yours. Switch, rename or add wardrobes under **Settings → Wardrobe**.
+- The wardrobe you already had is kept as it was, as **The original
+  wardrobe**, and phones paired with it keep syncing with it.
+- Each wardrobe has its own pairing code, so each person's phone syncs with
+  their own wardrobe.
+- After an update, the app shows what's new in it.
+
 ## 0.2.0
 
 - The Android app can now sync with this one. Give the phone sync port a host

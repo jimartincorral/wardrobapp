@@ -69,6 +69,17 @@ object WhatsNewSeen {
         set(value) = write("wardrobapp.whatsNewSeen", value)
 }
 
+/**
+ * The profile this browser last opened, for a server that cannot say who is
+ * asking (see profileToOpen). Under Home Assistant the person's own profile
+ * wins over this, so a shared tablet opens each person's own.
+ */
+object LastProfile {
+    var id: String?
+        get() = read("wardrobapp.profile")
+        set(value) = write("wardrobapp.profile", value)
+}
+
 /** The first-steps card's two stored answers, as OnboardingPreference keeps them on the phone. */
 object FirstStepFlags {
     var dismissed: Boolean
