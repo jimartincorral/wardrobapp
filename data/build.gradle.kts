@@ -5,8 +5,9 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 //
 // No Android in it, on purpose. This is the code that decides whether an existing
 // wardrobe opens correctly, so it is the code most worth being able to test
-// anywhere. The SQLite and filesystem access that uses it lives elsewhere --
-// `AndroidSqlDriver` in :app, the JDBC driver in the tests.
+// anywhere. The SQLite access it runs through is a small interface with two
+// implementations: `AndroidSqlDriver` in :app, and `JdbcSqlDriver` here, which
+// the tests and the Home Assistant server use.
 //
 // Kotlin Multiplatform, like :domain. The records, the queries, the writes and
 // the schema are common code, because the browser version shows the same
@@ -43,8 +44,11 @@ kotlin {
         jvmTest.dependencies {
             implementation(kotlin("test"))
             // Real SQLite, so the read paths are exercised against the schema the
-            // app actually applies rather than a stand-in. Test-only: the Android
-            // implementation of SqlDriver wraps SupportSQLiteDatabase instead.
+            // app actually applies rather than a stand-in. Only here, never in
+            // jvmMain: JdbcSqlDriver compiles against java.sql alone, so the
+            // driver behind it is chosen by whoever runs it -- the tests here,
+            // :server in production -- and the phone, which uses
+            // SupportSQLiteDatabase instead, never carries it.
             implementation("org.xerial:sqlite-jdbc:3.50.1.0")
         }
     }

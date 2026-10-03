@@ -5,9 +5,9 @@ package com.wardrobapp.data
  *
  * Declared here rather than depending on androidx.sqlite so this module stays
  * free of Android -- and, since it became multiplatform, common code: the
- * Android implementation wraps a SupportSQLiteDatabase, the tests wrap JDBC
- * against the real schema the app applies, and the Home Assistant server will
- * wrap JDBC too. All of them run the same SQL, which is the point -- the
+ * Android implementation wraps a SupportSQLiteDatabase, and JdbcSqlDriver wraps
+ * JDBC for the tests and the Home Assistant server, against the real schema the
+ * app applies. All of them run the same SQL, which is the point -- the
  * statements are what have to be right, and they can be exercised without an
  * emulator.
  */
