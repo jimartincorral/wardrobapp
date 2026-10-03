@@ -8,11 +8,11 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // plain Kotlin and tested without an emulator. What belongs here is layout,
 // navigation and the platform plumbing that genuinely needs Android.
 plugins {
-    id("com.android.application") version "8.9.1"
-    kotlin("android") version "2.1.20"
+    id("com.android.application")
+    kotlin("android")
     // Kotlin 2.x ships the Compose compiler as a plugin rather than a separate
     // artifact pinned to a Kotlin version.
-    id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 // Bumped past the high-water mark of anything already published if

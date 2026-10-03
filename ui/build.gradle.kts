@@ -24,11 +24,14 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // adding this module does not quietly move the Android app to a newer Compose
 // with whatever changed in it. Moving to 1.8 is its own change, to be made and
 // checked on purpose.
+//
+// The version itself is in the root build file, with every other plugin's;
+// see there for why no module names one.
 plugins {
-    kotlin("multiplatform") version "2.1.20"
-    id("com.android.library") version "8.9.1"
-    id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
-    id("org.jetbrains.compose") version "1.7.3"
+    kotlin("multiplatform")
+    id("com.android.library")
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.compose")
 }
 
 repositories {

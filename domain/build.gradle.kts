@@ -15,8 +15,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // The tests are JVM tests. They run against the common code too, compiled for
 // the JVM; see the root build file for why Wasm is compiled and not yet run.
 plugins {
-    kotlin("multiplatform") version "2.1.20"
-    kotlin("plugin.serialization") version "2.1.20"
+    kotlin("multiplatform")
+    kotlin("plugin.serialization")
 }
 
 repositories {

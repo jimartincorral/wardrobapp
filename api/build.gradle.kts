@@ -16,8 +16,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // tests drive them against a real server, which is how both halves are tested
 // against each other rather than each against what its author assumed.
 plugins {
-    kotlin("multiplatform") version "2.1.20"
-    kotlin("plugin.serialization") version "2.1.20"
+    kotlin("multiplatform")
+    kotlin("plugin.serialization")
 }
 
 repositories {

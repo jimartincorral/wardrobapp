@@ -12,7 +12,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // on a JVM that is not Android. Neither needs anything from Android, and
 // `ImportHttpTest` runs them against a real HTTP server on loopback.
 plugins {
-    kotlin("jvm") version "2.1.20"
+    kotlin("jvm")
 }
 
 repositories {

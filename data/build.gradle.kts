@@ -17,8 +17,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // and the timestamps a write stamps rows with. All of it runs only on the phone,
 // and later the Home Assistant server, which are both JVMs.
 plugins {
-    kotlin("multiplatform") version "2.1.20"
-    kotlin("plugin.serialization") version "2.1.20"
+    kotlin("multiplatform")
+    kotlin("plugin.serialization")
 }
 
 repositories {

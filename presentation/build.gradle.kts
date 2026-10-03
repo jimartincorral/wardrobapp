@@ -18,8 +18,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // Intl.DateTimeFormat in the browser). Which strings are dates at all is common,
 // in StoredMoment, so that the two cannot disagree about it.
 plugins {
-    kotlin("multiplatform") version "2.1.20"
-    kotlin("plugin.serialization") version "2.1.20"
+    kotlin("multiplatform")
+    kotlin("plugin.serialization")
 }
 
 repositories {

@@ -14,8 +14,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // `application` rather than a fat jar: the container image copies what
 // `installDist` lays out, and the start script it writes is what runs.
 plugins {
-    kotlin("jvm") version "2.1.20"
-    kotlin("plugin.serialization") version "2.1.20"
+    kotlin("jvm")
+    kotlin("plugin.serialization")
     application
 }
 

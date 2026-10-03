@@ -1,3 +1,51 @@
+// The plugins every module uses, and their versions, declared once here.
+//
+// Each module used to name its own, with the same version written beside it.
+// That loads the Kotlin Gradle plugin once per module, in a class loader of each
+// module's own, which Gradle tolerated with a warning until the browser app
+// arrived: setting up Node.js for a Wasm executable is done once for the whole
+// build, and KGP refuses outright to do it when it finds copies of itself in
+// different class loaders. Declared here, it is loaded once, in the root's
+// class loader, and every module applies it from there by id.
+//
+// The Android Gradle plugin has to be in the same class loader -- KGP's Android
+// targets look for AGP's classes from wherever KGP itself was loaded -- but it
+// is published only on Google's Maven, which settings.gradle.kts leaves out
+// where there is no SDK so that the pure modules build anywhere. A `plugins`
+// block cannot be conditional, so AGP goes on the root's classpath through
+// `buildscript` instead, and only where there is an SDK: the same probe again,
+// for the reason settings.gradle.kts gives for repeating it.
+buildscript {
+    val androidSdk = System.getenv("ANDROID_HOME")?.takeIf { it.isNotBlank() }
+        ?: System.getenv("ANDROID_SDK_ROOT")?.takeIf { it.isNotBlank() }
+        ?: java.io.File(rootDir, "local.properties")
+            .takeIf { it.exists() }
+            ?.readLines()
+            ?.firstOrNull { it.startsWith("sdk.dir=") }
+            ?.removePrefix("sdk.dir=")
+
+    if (androidSdk != null && java.io.File(androidSdk).isDirectory) {
+        repositories {
+            google()
+            mavenCentral()
+        }
+        dependencies {
+            classpath("com.android.tools.build:gradle:8.9.1")
+        }
+    }
+}
+
+plugins {
+    kotlin("multiplatform") version "2.1.20" apply false
+    kotlin("jvm") version "2.1.20" apply false
+    kotlin("android") version "2.1.20" apply false
+    kotlin("plugin.serialization") version "2.1.20" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "2.1.20" apply false
+    // Compose Multiplatform. 1.7, one line behind the newest, deliberately: see
+    // ui/build.gradle.kts.
+    id("org.jetbrains.compose") version "1.7.3" apply false
+}
+
 // Test guards applied to every Kotlin module, rather than repeated in each.
 //
 // Both exist because a test task that verifies nothing reports success exactly
