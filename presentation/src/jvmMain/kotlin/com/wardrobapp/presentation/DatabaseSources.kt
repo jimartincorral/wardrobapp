@@ -109,3 +109,25 @@ class DatabaseOutfitEditSource(
         }
     }
 }
+
+class DatabaseWardrobeSource(
+    private val garments: GarmentQueries,
+    private val io: CoroutineDispatcher,
+) : WardrobeSource {
+    override suspend fun garments(query: WardrobeQuery) = withContext(io) {
+        // The database applies what it can express; :presentation applies the
+        // rest and the ordering.
+        garments
+            .allGarments(
+                GarmentQueries.Filters(
+                    category = query.category,
+                    // Null would mean available-only. Only asked for when the list
+                    // is showing retired garments too.
+                    availableOnly = if (query.includeRetired) false else null,
+                    search = query.searchTerm,
+                ),
+            )
+            .filterBy(query.garmentFilter())
+            .orderedBy(query.sort)
+    }
+}
