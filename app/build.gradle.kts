@@ -271,6 +271,10 @@ dependencies {
     // URL import's requests. Plain JVM, so it is tested without an SDK; see its
     // build file.
     implementation(project(":net"))
+    // Syncing with Home Assistant: the client, the merge it runs and the rules
+    // about when, all tested against a real server in :server, without an SDK.
+    // Brings Ktor's CIO client with it; see syncHttpClient for why that one.
+    implementation(project(":api"))
 
     implementation("androidx.core:core-ktx:1.15.0")
     // A photo from a camera roll records which way up it is in EXIF rather than

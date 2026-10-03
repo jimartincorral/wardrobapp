@@ -225,7 +225,7 @@ class WritePathsTest {
                 "$schema: rating should have taught one pair"
             )
 
-            val photos = writes.delete("gone")
+            val photos = writes.delete("gone", now)
 
             assertEquals(listOf("gone.jpg"), photos, "$schema: the caller needs the files to delete")
             assertNull(reads.garment("gone"), schema)
@@ -317,7 +317,7 @@ class WritePathsTest {
             outfits.insert(id = "old", name = "Old", garmentIds = listOf("a"), now = "2026-01-01")
             outfits.insert(id = "new", name = "New", garmentIds = listOf("a"), now = "2026-06-01")
             outfits.insert(id = "pinned", name = "Pinned", garmentIds = listOf("a"), now = "2026-02-01")
-            outfits.setPinned("pinned", true)
+            outfits.setPinned("pinned", true, now)
 
             assertEquals(listOf("pinned", "new", "old"), OutfitQueries(driver).all().map { it.id }, schema)
         }
@@ -353,7 +353,7 @@ class WritePathsTest {
         eachSchema { schema, driver, _, _ ->
             val outfits = OutfitWrites(driver)
             outfits.insertIfAbsent(id = "s1", name = "As saved", garmentIds = listOf("a"), now = now)
-            outfits.setPinned("s1", true)
+            outfits.setPinned("s1", true, now)
 
             outfits.insertIfAbsent(
                 id = "s1", name = "Different name", garmentIds = listOf("z"),
@@ -421,7 +421,7 @@ class WritePathsTest {
                 isArchived = true, now = now,
             )
 
-            outfits.setArchived("rated", false)
+            outfits.setArchived("rated", false, now)
 
             assertEquals(listOf("rated"), OutfitQueries(driver).all().map { it.id }, schema)
             assertEquals(0L, OutfitQueries(driver).archivedCount(), schema)
@@ -447,7 +447,7 @@ class WritePathsTest {
                 isArchived = true, now = now,
             )
 
-            outfits.removeGarment("gone")
+            outfits.removeGarment("gone", now)
 
             val queries = OutfitQueries(driver)
             assertEquals(
@@ -484,6 +484,7 @@ class WritePathsTest {
                 garmentIds = listOf("a", "c"),
                 occasion = "work",
                 season = null,
+                now = now,
             )
 
             val outfit = OutfitQueries(driver).outfit("o1")
@@ -506,7 +507,7 @@ class WritePathsTest {
             outfits.insert(id = "o1", name = "One", garmentIds = listOf("a"), now = now)
             outfits.insert(id = "o2", name = "Two", garmentIds = listOf("b"), now = now)
 
-            outfits.update(id = "o1", name = "Edited", garmentIds = listOf("z"), occasion = null, season = null)
+            outfits.update(id = "o1", name = "Edited", garmentIds = listOf("z"), occasion = null, season = null, now = now)
 
             val other = OutfitQueries(driver).outfit("o2")
             assertNotNull(other, schema)
@@ -640,7 +641,7 @@ class WritePathsTest {
             outfits.insert(id = "o1", name = "Fit", garmentIds = listOf("a", "b"), now = now)
             outfits.rate(ratingId = "r1", outfitId = "o1", rating = 5, now = now)
 
-            writes.delete("a")
+            writes.delete("a", now)
 
             val learned = OutfitQueries(driver).learnedPreferences()
             assertNull(learned.garment("a"), schema)
@@ -655,7 +656,7 @@ class WritePathsTest {
             outfits.insert(id = "o1", name = "Fit", garmentIds = listOf("a", "b"), now = now)
             outfits.rate(ratingId = "r1", outfitId = "o1", rating = 4, now = now)
 
-            outfits.delete("o1")
+            outfits.delete("o1", now)
 
             assertNull(OutfitQueries(driver).outfit("o1"), schema)
             assertEquals(emptyList(), driver.query("SELECT * FROM outfit_ratings"), schema)

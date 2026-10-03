@@ -93,7 +93,9 @@ class AppSettings(context: Context) {
          *
          * Conspicuously absent: `wardrobapp_drive`. See the note on this class --
          * that file is the Google credential, and it is the reason this is a list
-         * of what to include rather than a list of what to skip.
+         * of what to include rather than a list of what to skip. And
+         * `wardrobapp_sync`, which holds the code that pairs this phone with Home
+         * Assistant, a credential to the wardrobe on the server.
          */
         val BACKED_UP = listOf(
             // Theme, and how the wardrobe is drawn.

@@ -79,6 +79,9 @@ class StringResourceParityTest {
         // Names.
         "app_name",
         "settings_section_cloud",
+        "settings_section_home_assistant",
+        // An address, which is the same in any language.
+        "settings_sync_address_example",
         // Each language names itself in itself, as the shipping app does.
         "language_english",
         "language_spanish",

@@ -21,6 +21,7 @@ import com.wardrobapp.api.HttpStatisticsSource
 import com.wardrobapp.api.HttpStorageSource
 import com.wardrobapp.api.HttpWardrobeSource
 import com.wardrobapp.api.ServerVersion
+import com.wardrobapp.api.SyncPairing
 import com.wardrobapp.data.ArchivePreview
 import com.wardrobapp.data.BackupSummary
 import com.wardrobapp.data.MaintenanceSummary
@@ -55,6 +56,7 @@ import com.wardrobapp.ui.OutfitEditScreen
 import com.wardrobapp.ui.OutfitsScreen
 import com.wardrobapp.ui.SettingsScreen
 import com.wardrobapp.ui.StatisticsScreen
+import com.wardrobapp.ui.SyncPairingSection
 import com.wardrobapp.ui.WardrobeScreen
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.launch
@@ -291,6 +293,17 @@ class Screens(
             runCatching { sources.server.version() }.onSuccess { value = it.asAppVersion() }
         }
 
+        // What a phone needs to pair: asked once, and replaced when a new code
+        // is made.
+        var pairing by remember { mutableStateOf<SyncPairing?>(null) }
+        var pairingKnown by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            runCatching { sources.server.pairing() }.onSuccess {
+                pairing = it
+                pairingKnown = true
+            }
+        }
+
         SettingsScreen(
             state = state,
             version = version,
@@ -309,6 +322,19 @@ class Screens(
             onTidyDismissed = model::onTidyDismissed,
             onRetry = model::refresh,
             cloudSection = null,
+            // Left out until the server has answered, so a slow answer does
+            // not read as "sync is off"; a pairing of null then means it is.
+            syncSection = if (!pairingKnown) null else { {
+                SyncPairingSection(
+                    code = pairing?.code,
+                    port = pairing?.port,
+                    onResetConfirmed = {
+                        entry.scope.launch {
+                            runCatching { sources.server.resetPairing() }.onSuccess { pairing = it }
+                        }
+                    },
+                )
+            } },
         )
     }
 

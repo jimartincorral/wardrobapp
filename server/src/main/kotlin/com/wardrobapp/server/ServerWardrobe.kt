@@ -11,6 +11,7 @@ import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.ReopeningDriver
 import com.wardrobapp.data.Suggestions
+import com.wardrobapp.data.SyncStore
 import com.wardrobapp.data.WardrobeSchema
 import com.wardrobapp.data.resolveImageRef
 import com.wardrobapp.data.storedImageBytes
@@ -100,6 +101,12 @@ class ServerWardrobe(
     )
     val bulkAdd = DatabaseBulkAddSource(garmentWrites, photos::delete, io)
     val garmentForm = DatabaseGarmentFormSource(garments, garmentWrites, duplicates, photos::delete, io)
+
+    /** Sync's view of the same database; see SyncServer. */
+    val sync = SyncStore(database)
+
+    /** The code a phone pairs with, kept beside the wardrobe it opens. */
+    val syncSecret = SyncSecret(File(dataDirectory, "sync-code"))
 
     val importer: GarmentImporter = importer ?: run {
         val http = ImportHttp()

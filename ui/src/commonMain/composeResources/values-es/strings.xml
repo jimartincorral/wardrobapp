@@ -680,4 +680,36 @@
     <string name="error_outfit_not_saved">Ese conjunto no se pudo guardar.</string>
     <string name="outfit_pick_search">Buscar una prenda</string>
     <string name="outfit_pick_nothing_found">Ninguna prenda coincide con eso.</string>
+
+    <!--
+        Sincronizar el teléfono con la aplicación de Home Assistant. El
+        navegador muestra el código; el teléfono lo pide, con la dirección.
+    -->
+    <string name="settings_section_sync">Sincronización del teléfono</string>
+    <string name="sync_pairing_hint">La aplicación de Android puede mantener su armario al día con este. En Home Assistant, abre los ajustes de red de esta aplicación y asigna un puerto del equipo al puerto %1$d. Después, en los ajustes del teléfono, escribe la dirección de este Home Assistant con ese puerto y el código de abajo.</string>
+    <string name="sync_pairing_code">Código de emparejamiento</string>
+    <string name="sync_pairing_reset">Crear un código nuevo</string>
+    <string name="sync_pairing_reset_title">¿Crear un código nuevo?</string>
+    <string name="sync_pairing_reset_body">Los teléfonos emparejados con el código actual dejarán de sincronizar hasta que les des el nuevo.</string>
+    <string name="sync_pairing_off">La sincronización del teléfono está desactivada en este servidor.</string>
+    <string name="settings_section_home_assistant">Home Assistant</string>
+    <string name="settings_sync_hint">Mantén este armario al día con la aplicación Wardrobapp de Home Assistant. El teléfono sigue funcionando por su cuenta; sincronizar solo comparte los cambios. El código y el puerto están en los ajustes de la aplicación en Home Assistant.</string>
+    <string name="settings_sync_address">Dirección</string>
+    <string name="settings_sync_address_example">http://homeassistant.local:8100</string>
+    <string name="settings_sync_code">Código de emparejamiento</string>
+    <string name="settings_sync_connect">Conectar</string>
+    <string name="settings_sync_connecting">Comprobando…</string>
+    <string name="settings_sync_disconnect">Dejar de sincronizar</string>
+    <string name="settings_sync_now">Sincronizar ahora</string>
+    <string name="settings_sync_running">Sincronizando…</string>
+    <string name="settings_sync_last">Última sincronización: %1$s</string>
+    <string name="settings_sync_never">Aún no se ha sincronizado.</string>
+    <string name="settings_sync_failed">La última sincronización falló: %1$s</string>
+    <string name="settings_sync_not_paired">Home Assistant no ha aceptado ese código. Compruébalo en los ajustes de la aplicación allí.</string>
+    <string name="settings_sync_unreachable">No se ha podido conectar con Home Assistant en esa dirección.</string>
+    <string name="settings_sync_background">Sincronizar en segundo plano</string>
+    <string name="settings_sync_wifi_only">Solo con Wi-Fi</string>
+    <string name="settings_sync_wifi_only_hint">Para las sincronizaciones que el teléfono hace por su cuenta, al abrir la aplicación y en segundo plano. Sincronizar ahora siempre sincroniza.</string>
+    <string name="settings_sync_address_invalid">Eso no es una dirección. Escríbela como abres Home Assistant, con el puerto de sincronización: homeassistant.local:8100, o su dirección IP.</string>
+    <string name="settings_sync_paired_with">Sincronizando con %1$s</string>
 </resources>

@@ -76,7 +76,7 @@ class OutfitQueriesTest {
             val outfits = OutfitWrites(driver)
             outfits.insert(id = "o1", name = "Fit", garmentIds = listOf("a", "b"), now = now)
             outfits.rate(ratingId = "r1", outfitId = "o1", rating = 1, now = now)
-            outfits.setArchived("o1", isArchived = true)
+            outfits.setArchived("o1", isArchived = true, now = now)
 
             // Rating a suggestion you would not wear is how the app learns, and
             // archiving is what happens to it afterwards. Excluding those would
