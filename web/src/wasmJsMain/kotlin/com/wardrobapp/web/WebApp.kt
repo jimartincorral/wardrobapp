@@ -12,13 +12,25 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.wardrobapp.api.Routes
+import com.wardrobapp.api.ServerVersion
+import com.wardrobapp.data.ReleaseNote
+import com.wardrobapp.data.parseWebReleases
+import com.wardrobapp.presentation.AppDestination
 import com.wardrobapp.presentation.WardrobeQuery
+import com.wardrobapp.presentation.WhatsNewDecision
+import com.wardrobapp.presentation.webWhatsNewDecision
 import com.wardrobapp.ui.LocalPhotoTools
 import com.wardrobapp.ui.PhotoTools
 import com.wardrobapp.ui.TABS
 import com.wardrobapp.ui.WardrobappTheme
 import com.wardrobapp.ui.WardrobeBottomBar
+import com.wardrobapp.ui.WhatsNewDialog
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * The whole browser app: the theme, the bottom bar, and whichever screen is on
@@ -32,7 +44,8 @@ import io.ktor.client.HttpClient
  * by the model.
  *
  * What the browser leaves out is the phone's: the update check (the server is
- * updated by Home Assistant, and the page comes with it), onboarding (its
+ * updated by Home Assistant, and the page comes with it -- though What's new,
+ * once it has been, is here as it is there), onboarding (its
  * choices are the theme, which is in Settings, and a restore, which is Home
  * Assistant's), and the shared-element transitions, which are an Android
  * navigation feature.
@@ -51,6 +64,33 @@ fun WebApp(http: HttpClient) {
     // navigator.
     var arrival by remember { mutableStateOf<WardrobeQuery?>(null) }
     var outfitSeed by remember { mutableStateOf<String?>(null) }
+
+    // What Home Assistant's last update of the app changed, once per browser
+    // per version; see webWhatsNewDecision. Asked once per page load, like the
+    // phone's update check, and never in the way of anything: until it has an
+    // answer, and whenever it has nothing to say, nothing is shown.
+    var whatsNew by remember { mutableStateOf<Pair<String, List<ReleaseNote>>?>(null) }
+    LaunchedEffect(http) {
+        val current = try {
+            http.get(Routes.VERSION).body<ServerVersion>().name
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return@LaunchedEffect
+        }
+        val releases = try {
+            parseWebReleases(http.get(Routes.WHATS_NEW).bodyAsText())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+        when (val decision = webWhatsNewDecision(current, WhatsNewSeen.version, releases)) {
+            is WhatsNewDecision.Show -> whatsNew = current to decision.notes
+            WhatsNewDecision.NothingNew -> WhatsNewSeen.version = current
+            WhatsNewDecision.NotYet -> Unit
+        }
+    }
 
     val screens = remember(sources, navigator) {
         Screens(
@@ -102,6 +142,21 @@ fun WebApp(http: HttpClient) {
                     }
                 }
 
+                whatsNew?.let { (version, notes) ->
+                    fun seen() {
+                        WhatsNewSeen.version = version
+                        whatsNew = null
+                    }
+                    WhatsNewDialog(
+                        notes = notes,
+                        onShow = { destination ->
+                            seen()
+                            navigator.openFromNote(destination)
+                        },
+                        onDismiss = ::seen,
+                    )
+                }
+
                 // A screen returned to is read again, as RefreshOnReturn does on
                 // the phone: whatever was done on the screen above may have
                 // changed what this one shows.
@@ -111,6 +166,20 @@ fun WebApp(http: HttpClient) {
                 }
             }
         }
+    }
+}
+
+/** Where a release note says its change can be seen, as MainActivity's `open` does on the phone. */
+private fun Navigator.openFromNote(destination: AppDestination) {
+    when (destination) {
+        AppDestination.HOME -> switchTo(Destination.Home)
+        AppDestination.WARDROBE -> switchTo(Destination.Wardrobe)
+        AppDestination.OUTFITS -> switchTo(Destination.Outfits)
+        AppDestination.STATISTICS -> switchTo(Destination.Statistics)
+        AppDestination.SETTINGS -> switchTo(Destination.Settings)
+        AppDestination.NEW_GARMENT -> open(Destination.GarmentAdd())
+        AppDestination.BULK_ADD -> open(Destination.BulkAdd)
+        AppDestination.NEW_OUTFIT -> open(Destination.OutfitBuild)
     }
 }
 

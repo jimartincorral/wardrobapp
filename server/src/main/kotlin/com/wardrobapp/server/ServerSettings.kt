@@ -44,6 +44,13 @@ data class ServerSettings(
     val syncPort: Int? = DEFAULT_SYNC_PORT,
     /** `WARDROBAPP_VERSION` and `WARDROBAPP_BUILD`: what Settings' About section shows. */
     val version: ServerVersion = ServerVersion.DEVELOPMENT,
+    /**
+     * `WARDROBAPP_RELEASE_NOTES`: the browser's What's new, by version, as the
+     * release workflow wrote it into the image; null, or a file that is not
+     * there, for a server built without one -- which then has nothing new to
+     * say rather than failing to start.
+     */
+    val releaseNotes: File? = null,
 ) {
     companion object {
         /** The directory Home Assistant keeps for an app across updates and includes in its backups. */
@@ -89,6 +96,7 @@ data class ServerSettings(
                     name = value("WARDROBAPP_VERSION") ?: ServerVersion.DEVELOPMENT.name,
                     build = value("WARDROBAPP_BUILD")?.toLongOrNull() ?: ServerVersion.DEVELOPMENT.build,
                 ),
+                releaseNotes = value("WARDROBAPP_RELEASE_NOTES")?.let(::File),
             )
         }
     }

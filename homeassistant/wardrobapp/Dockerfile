@@ -42,6 +42,7 @@ ENV WARDROBAPP_DATA=/data \
     WARDROBAPP_ALLOWED_CLIENTS=172.30.32.2 \
     WARDROBAPP_VERSION=${BUILD_VERSION} \
     WARDROBAPP_BUILD=${BUILD_NUMBER} \
+    WARDROBAPP_RELEASE_NOTES=/opt/wardrobapp/release-notes.json \
     JAVA_OPTS="-XX:+UseSerialGC -XX:MaxRAMPercentage=25"
 
 LABEL io.hass.type="addon" \

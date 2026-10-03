@@ -4,9 +4,12 @@ import com.wardrobapp.data.AppRelease
 import com.wardrobapp.data.ReleaseNote
 import com.wardrobapp.data.ReleaseNoteKind
 import com.wardrobapp.data.ReleasePlatform
+import com.wardrobapp.data.WebRelease
+import com.wardrobapp.data.parseWebReleases
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class WhatsNewTest {
 
@@ -85,6 +88,74 @@ class WhatsNewTest {
         assertEquals(AppDestination.SETTINGS, AppDestination.of("settings"))
         assertEquals(null, AppDestination.of("somewhere-new"))
         assertEquals(null, AppDestination.of(null))
+    }
+}
+
+/** What's new in the browser, by the Home Assistant app's version. */
+class WebWhatsNewTest {
+
+    private fun note(text: String, vararg platforms: ReleasePlatform) =
+        ReleaseNote(0, text, platforms = platforms.toSet().ifEmpty { setOf(ReleasePlatform.WEB) })
+
+    private val releases = listOf(
+        WebRelease("0.10.0", listOf(note("Ten."))),
+        WebRelease("0.9.0", listOf(note("Nine."), note("Phone only.", ReleasePlatform.ANDROID))),
+        WebRelease("0.8.0", listOf(note("Eight."))),
+    )
+
+    @Test
+    fun `the browser's notes since the version it last showed, up to the one running`() {
+        assertEquals(
+            WhatsNewDecision.Show(listOf(note("Nine."))),
+            webWhatsNewDecision(current = "0.9.0", lastSeen = "0.8.0", releases = releases),
+        )
+        assertEquals(
+            WhatsNewDecision.Show(listOf(note("Ten."), note("Nine."))),
+            webWhatsNewDecision(current = "0.10.0", lastSeen = "0.8.0", releases = releases),
+        )
+    }
+
+    @Test
+    fun `nothing for a browser with nothing stored, a version already seen, or a development build`() {
+        assertEquals(WhatsNewDecision.NothingNew, webWhatsNewDecision("0.10.0", lastSeen = null, releases = releases))
+        assertEquals(WhatsNewDecision.NothingNew, webWhatsNewDecision("0.10.0", lastSeen = "0.10.0", releases = releases))
+        assertEquals(WhatsNewDecision.NothingNew, webWhatsNewDecision("0.9.0", lastSeen = "0.10.0", releases = releases))
+        assertEquals(WhatsNewDecision.NothingNew, webWhatsNewDecision("development", lastSeen = "0.8.0", releases = releases))
+    }
+
+    @Test
+    fun `notes that could not be read are asked for again`() {
+        assertEquals(WhatsNewDecision.NotYet, webWhatsNewDecision("0.9.0", lastSeen = "0.8.0", releases = null))
+    }
+
+    @Test
+    fun `versions compare as numbers`() {
+        assertTrue(compareVersions("0.10.0", "0.9.0")!! > 0)
+        assertEquals(0, compareVersions("0.2", "0.2.0"))
+        assertEquals(null, compareVersions("development", "0.2.0"))
+    }
+
+    @Test
+    fun `the served document is read leniently`() {
+        val text = """
+            [
+              {"version": "0.3.0", "notes": [
+                {"text": "New in the browser.", "kind": "new", "platforms": ["web"], "text_es": "Nuevo.", "to": "settings"},
+                {"kind": "new"}
+              ]},
+              {"notes": []},
+              {"version": "0.2.0"}
+            ]
+        """.trimIndent()
+
+        val read = parseWebReleases(text)!!
+
+        assertEquals(listOf("0.3.0", "0.2.0"), read.map { it.version })
+        assertEquals(
+            listOf(ReleaseNote(0, "New in the browser.", ReleaseNoteKind.NEW, setOf(ReleasePlatform.WEB), "Nuevo.", "settings")),
+            read[0].notes,
+        )
+        assertEquals(null, parseWebReleases("<html>"))
     }
 }
 

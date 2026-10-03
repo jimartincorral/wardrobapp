@@ -329,6 +329,15 @@ since the last build it was shown for, under New, Improved and Fixed. A note wit
 a destination gets a **Show me** button, which only the new build can offer.
 Nothing is shown on a fresh install.
 
+The browser has What's new too, after Home Assistant updates the app. Its notes
+are the ones tagged `web`, or not tagged at all. Each note belongs to the version
+whose bump first shipped it: the release workflow walks every merge since the
+app existed, reads `config.yaml` at each, and writes the result into the image
+(`release-notes.py --web-history`). The browser remembers the last version it
+showed notes for. A browser that has never shown them shows nothing, since it
+cannot tell a new visitor from somebody who used a version from before this
+existed.
+
 The Home Assistant app's `CHANGELOG.md` is written by hand when its version is
 bumped. `python3 scripts/release-notes.py <last-bump> HEAD --home-assistant`
 prints the browser's notes since then as a first draft. The script's own tests

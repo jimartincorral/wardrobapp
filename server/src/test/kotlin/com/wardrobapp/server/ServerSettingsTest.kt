@@ -29,6 +29,7 @@ class ServerSettingsTest {
                 "WARDROBAPP_ALLOWED_CLIENTS" to " 172.30.32.2 , 127.0.0.1,",
                 "WARDROBAPP_VERSION" to "0.1.0",
                 "WARDROBAPP_BUILD" to "345",
+                "WARDROBAPP_RELEASE_NOTES" to "/opt/notes.json",
             ),
         )
 
@@ -40,6 +41,7 @@ class ServerSettingsTest {
                 webDirectory = File("/opt/web"),
                 allowedClients = setOf("172.30.32.2", "127.0.0.1"),
                 version = ServerVersion("0.1.0", 345),
+                releaseNotes = File("/opt/notes.json"),
             ),
             settings,
         )

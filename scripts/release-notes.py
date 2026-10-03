@@ -5,6 +5,7 @@ What to tell somebody about a build, as opposed to what changed in it.
     python3 scripts/release-notes.py <previous-commit> <this-commit>
     python3 scripts/release-notes.py <previous-commit> <this-commit> --history <build> [<previous-document>]
     python3 scripts/release-notes.py <previous-commit> <this-commit> --home-assistant
+    python3 scripts/release-notes.py <previous-commit> <this-commit> --web-history
 
 Prints a JSON array of lines for the update dialog of phones already installed,
 and says on stderr which merges had nothing to contribute and did not say so,
@@ -17,6 +18,10 @@ build rather than since the last one published. See `history_for` below.
 
 With --home-assistant it prints the notes for the browser as a Markdown list,
 for the Home Assistant app's CHANGELOG.md -- see `home_assistant_changelog`.
+
+With --web-history it prints the browser's notes grouped by the version of the
+Home Assistant app that first carried each, for the browser's What's new -- see
+`web_history`.
 
 The changelog used to be the list of pull request titles in the range, which is
 how it ended up telling people about "Build each branch once, in one pass, and
@@ -299,6 +304,88 @@ def history_for(build: int, notes: list[dict], previous: dict) -> list[dict]:
     return (own + older)[:LIMIT]
 
 
+def landed(previous: str, head: str) -> list[str]:
+    """
+    What landed on the branch between the two, newest first.
+
+    First parent, so this walks one step per merge rather than every commit
+    inside each one.
+    """
+    return git('log', '--first-parent', '--format=%H', f'{previous}..{head}').split()
+
+
+def scope_of(commit: str) -> list[str]:
+    """
+    The commits [commit] answers for: a merge for itself and for everything it
+    brought in, a commit pushed straight to the branch for itself alone.
+    """
+    parents = git('log', '-1', '--format=%P', commit).split()
+    scope = [commit]
+    if len(parents) > 1:
+        scope += git('rev-list', f'{parents[0]}..{parents[1]}').split()
+    return scope
+
+
+# Where the Home Assistant app's version is written; bumping it is what releases
+# the app (see the README), so it is also what says which release a note
+# arrived in.
+HOME_ASSISTANT_CONFIG = 'homeassistant/wardrobapp/config.yaml'
+VERSION_LINE = re.compile(r'^version:\s*"?([^"\s]+)"?\s*$', re.M)
+
+
+def home_assistant_version(commit: str) -> str | None:
+    """The Home Assistant app's version at [commit], or None before the app existed."""
+    try:
+        config = git('show', f'{commit}:{HOME_ASSISTANT_CONFIG}')
+    except subprocess.CalledProcessError:
+        return None
+    match = VERSION_LINE.search(config)
+    return match.group(1) if match else None
+
+
+def web_history(previous: str, head: str) -> list[dict]:
+    """
+    The browser's notes, by the version of the Home Assistant app that first
+    carried each, newest version first:
+
+        [{"version": "0.3.0", "notes": [{"text": ..., "kind": ..., ...}]}, ...]
+
+    The Home Assistant app is released by hand, by bumping the version in its
+    config.yaml, and CI publishes an image only for a version not published
+    before -- so a version is the image built from the merge that bumped it.
+    A note merged after one bump and up to the next is therefore new in the
+    next, and that is the rule: walking forward, notes collect until a merge
+    changes the version, and go to the version it changed to. Notes after the
+    last bump are in no released version yet, and are left out.
+
+    Only notes about the browser, and only versions with something to say.
+    Bundled into the image by the release workflow and served to the browser,
+    which shows what is newer than the version it last showed.
+    """
+    version = home_assistant_version(previous)
+    pending: list[dict] = []
+    releases: dict[str, list[dict]] = {}
+    problems: list[str] = []
+
+    for commit in reversed(landed(previous, head)):
+        notes, _ = notes_in(scope_of(commit), problems)
+        pending += [note for note in notes if 'web' in note['platforms']]
+        now = home_assistant_version(commit)
+        if now is not None and now != version:
+            releases.setdefault(now, []).extend(pending)
+            pending = []
+            version = now
+
+    history = []
+    for name, notes in reversed(list(releases.items())):
+        seen = set()
+        unique = [note for note in notes if not (note['text'] in seen or seen.add(note['text']))]
+        if unique:
+            # Newest first within a version too, as everywhere else.
+            history.append({'version': name, 'notes': list(reversed(unique))})
+    return history
+
+
 def collect(previous: str, head: str) -> tuple[list[dict], list[str], list[str]]:
     """
     This build's notes, deduplicated in order; the merges that said nothing; and
@@ -308,18 +395,8 @@ def collect(previous: str, head: str) -> tuple[list[dict], list[str], list[str]]
     silent: list[str] = []
     problems: list[str] = []
 
-    # First parent, so this walks what landed on the branch -- one step per merge
-    # -- rather than every commit inside each one.
-    for commit in git('log', '--first-parent', '--format=%H', f'{previous}..{head}').split():
-        parents = git('log', '-1', '--format=%P', commit).split()
-
-        # A merge answers for itself and for everything it brought in; a commit
-        # pushed straight to the branch answers only for itself.
-        scope = [commit]
-        if len(parents) > 1:
-            scope += git('rev-list', f'{parents[0]}..{parents[1]}').split()
-
-        notes, spoken = notes_in(scope, problems)
+    for commit in landed(previous, head):
+        notes, spoken = notes_in(scope_of(commit), problems)
         changes += notes
         if not spoken:
             subject = git('log', '-1', '--format=%s', commit).strip()
@@ -365,12 +442,15 @@ def home_assistant_changelog(notes: list[dict]) -> str:
 
 def main() -> int:
     arguments = sys.argv[1:]
-    usage = '\n'.join(line.strip() for line in __doc__.strip().splitlines()[2:5])
+    usage = '\n'.join(line.strip() for line in __doc__.strip().splitlines()[2:6])
 
     if len(arguments) == 2:
         mode = 'changes'
     elif len(arguments) == 3 and arguments[2] == '--home-assistant':
         mode = 'home-assistant'
+    elif len(arguments) == 3 and arguments[2] == '--web-history':
+        print(json.dumps(web_history(arguments[0], arguments[1]), indent=2, ensure_ascii=False))
+        return 0
     elif len(arguments) in (4, 5) and arguments[2] == '--history':
         mode = 'history'
     else:

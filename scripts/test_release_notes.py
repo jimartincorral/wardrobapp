@@ -232,6 +232,42 @@ class ReleaseNotesTest(unittest.TestCase):
         self.assertEqual('- Brand new.\n- Both.\n- A fix.\n', notes.home_assistant_changelog(found))
         self.assertEqual(f'- {notes.NOTHING}\n', notes.home_assistant_changelog(found[1:2]))
 
+    def bump(self, version: str, message: str) -> str:
+        """Commit the Home Assistant app's config at [version], as releasing it does."""
+        config = Path(self.repo.directory, notes.HOME_ASSISTANT_CONFIG)
+        config.parent.mkdir(parents=True, exist_ok=True)
+        config.write_text(f'name: Wardrobapp\nversion: "{version}"\nslug: wardrobapp\n')
+        self.repo.git('add', '-A')
+        return self.repo.commit(message)
+
+    def test_browser_notes_belong_to_the_version_that_first_shipped_them(self):
+        start = self.bump('0.1.0', 'First release\n\nRelease-Note: none')
+        self.repo.commit('A\n\nRelease-Note: [new web] Browser thing.\nRelease-Note-es: Cosa del navegador.')
+        self.repo.commit('B\n\nRelease-Note: [fixed android] Phone only.')
+        self.bump('0.2.0', 'Release 0.2.0\n\nRelease-Note: [fixed] Shipped with the bump.')
+        self.repo.commit('C\n\nRelease-Note: [improved web] Not released yet.')
+
+        history = notes.web_history(start, self.repo.head())
+
+        self.assertEqual(['0.2.0'], [release['version'] for release in history])
+        self.assertEqual(
+            ['Shipped with the bump.', 'Browser thing.'],
+            [note['text'] for note in history[0]['notes']],
+        )
+        self.assertEqual('Cosa del navegador.', history[0]['notes'][1]['text_es'])
+
+    def test_versions_come_newest_first_and_a_silent_one_is_left_out(self):
+        start = self.bump('0.1.0', 'First\n\nRelease-Note: none')
+        self.repo.commit('A\n\nRelease-Note: [web] In 0.2.0.')
+        self.bump('0.2.0', 'Bump\n\nRelease-Note: none')
+        self.bump('0.2.1', 'Bump again\n\nRelease-Note: [android] Phone only.')
+        self.repo.commit('B\n\nRelease-Note: [web] In 0.3.0.')
+        self.bump('0.3.0', 'Bump\n\nRelease-Note: none')
+
+        history = notes.web_history(start, self.repo.head())
+
+        self.assertEqual(['0.3.0', '0.2.0'], [release['version'] for release in history])
+
     def test_the_document_is_written_as_json_the_app_reads(self):
         start = self.repo.head()
         self.repo.commit('Work\n\nRelease-Note: [new android] Línea.\nRelease-Note-es: Línea en español.')

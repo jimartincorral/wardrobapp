@@ -3,6 +3,8 @@ package com.wardrobapp.presentation
 import com.wardrobapp.data.AppRelease
 import com.wardrobapp.data.ReleaseNote
 import com.wardrobapp.data.ReleaseNoteKind
+import com.wardrobapp.data.ReleasePlatform
+import com.wardrobapp.data.WebRelease
 
 /*
  * What's new: telling somebody, once they have a build, what it changed.
@@ -110,3 +112,55 @@ fun whatsNewGroups(notes: List<ReleaseNote>): List<WhatsNewGroup> =
     ReleaseNoteKind.entries.mapNotNull { kind ->
         notes.filter { it.kind == kind }.takeIf { it.isNotEmpty() }?.let { WhatsNewGroup(kind, it) }
     }
+
+/**
+ * Whether the browser should show What's new, running the Home Assistant app
+ * at version [current], having last shown it for [lastSeen], given what the
+ * server says each version changed.
+ *
+ * As [whatsNewDecision], with one difference forced by the browser: it cannot
+ * tell a browser opening the app for the first time from one that has used
+ * it for months under a version from before this existed -- both have nothing
+ * stored. Both are told nothing and start counting from here, since a
+ * stranger's first look at the app is no time for a list of changes to it.
+ *
+ * Versions are compared as numbers, part by part, so 0.10.0 is newer than
+ * 0.9.0. One that is not numbers at all -- a development build calls itself
+ * "development" -- has nothing to compare and shows nothing.
+ */
+fun webWhatsNewDecision(
+    current: String,
+    lastSeen: String?,
+    releases: List<WebRelease>?,
+): WhatsNewDecision {
+    if (lastSeen == null) return WhatsNewDecision.NothingNew
+    val newer = compareVersions(current, lastSeen) ?: return WhatsNewDecision.NothingNew
+    if (newer <= 0) return WhatsNewDecision.NothingNew
+    if (releases == null) return WhatsNewDecision.NotYet
+
+    val notes = releases
+        .filter { release ->
+            val sinceSeen = compareVersions(release.version, lastSeen) ?: return@filter false
+            val upToCurrent = compareVersions(release.version, current) ?: return@filter false
+            sinceSeen > 0 && upToCurrent <= 0
+        }
+        .flatMap { it.notes }
+        .filter { ReleasePlatform.WEB in it.platforms }
+        .distinctBy { it.text }
+
+    return if (notes.isEmpty()) WhatsNewDecision.NothingNew else WhatsNewDecision.Show(notes)
+}
+
+/**
+ * [a] against [b] as dotted version numbers: negative, zero or positive, or
+ * null when either is not one. A missing part is a zero, so 0.2 is 0.2.0.
+ */
+fun compareVersions(a: String, b: String): Int? {
+    val left = a.split('.').map { it.toIntOrNull() ?: return null }
+    val right = b.split('.').map { it.toIntOrNull() ?: return null }
+    for (index in 0 until maxOf(left.size, right.size)) {
+        val difference = left.getOrElse(index) { 0 }.compareTo(right.getOrElse(index) { 0 })
+        if (difference != 0) return difference
+    }
+    return 0
+}

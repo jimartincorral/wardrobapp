@@ -57,6 +57,18 @@ class BrowserWardrobeView : WardrobeViewSettings {
         set(value) = write("wardrobapp.caption", value.storedValue)
 }
 
+/**
+ * The version of the Home Assistant app this browser last showed What's new
+ * for, or decided there was nothing to show for: WhatsNewRecord's counterpart.
+ * Per browser, like everything here, so each person sees it once wherever
+ * they open the app -- and not at all on a browser that has never opened it.
+ */
+object WhatsNewSeen {
+    var version: String?
+        get() = read("wardrobapp.whatsNewSeen")
+        set(value) = write("wardrobapp.whatsNewSeen", value)
+}
+
 /** The first-steps card's two stored answers, as OnboardingPreference keeps them on the phone. */
 object FirstStepFlags {
     var dismissed: Boolean

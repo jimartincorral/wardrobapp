@@ -161,9 +161,9 @@ fun parseAppRelease(text: String): AppRelease? {
  * object there would leave each of them with an empty changelog -- for the very
  * update that would teach them the new shape.
  */
-private fun parseReleaseNote(element: JsonElement): ReleaseNote? {
+private fun parseReleaseNote(element: JsonElement, unnumbered: Long? = null): ReleaseNote? {
     val entry = element as? JsonObject ?: return null
-    val build = (entry["build"] as? JsonPrimitive)?.content?.toLongOrNull() ?: return null
+    val build = (entry["build"] as? JsonPrimitive)?.content?.toLongOrNull() ?: unnumbered ?: return null
     val text = entry.text("text") ?: return null
 
     // Each of the rest read leniently, for the same reason as the entry itself:
@@ -196,6 +196,40 @@ private fun parseReleaseNote(element: JsonElement): ReleaseNote? {
         textEs = entry.text("text_es"),
         destination = entry.text("to"),
     )
+}
+
+/**
+ * One version of the Home Assistant app, and what it changed for the browser.
+ *
+ * The browser's notes are not numbered by build, as the phone's are: the Home
+ * Assistant app is released by version, by hand, and each note belongs to the
+ * version that first carried it (scripts/release-notes.py, `web_history`).
+ * Their [ReleaseNote.build] is zero.
+ */
+data class WebRelease(val version: String, val notes: List<ReleaseNote>)
+
+/**
+ * The browser's notes as the server serves them, newest version first; null
+ * if [text] is not that at all, which the browser treats as "could not be
+ * read" rather than "nothing new". Within it, leniently, as the phone's
+ * document is read: a malformed version or note is one fewer.
+ */
+fun parseWebReleases(text: String): List<WebRelease>? {
+    val root = try {
+        lenientJson.parseToJsonElement(text)
+    } catch (_: Exception) {
+        return null
+    }
+    if (root !is JsonArray) return null
+
+    return root.mapNotNull { element ->
+        val release = element as? JsonObject ?: return@mapNotNull null
+        val version = release.text("version") ?: return@mapNotNull null
+        val notes = (release["notes"] as? JsonArray)
+            ?.mapNotNull { parseReleaseNote(it, unnumbered = 0) }
+            ?: emptyList()
+        WebRelease(version, notes)
+    }
 }
 
 /** A string field, trimmed, or null if it is absent, not a string, or blank. */
