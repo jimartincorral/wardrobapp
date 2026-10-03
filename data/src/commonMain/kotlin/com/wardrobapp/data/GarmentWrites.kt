@@ -151,8 +151,11 @@ class GarmentWrites(private val driver: SqlDriver) {
      *
      * Returns the stored photo references, since deleting the files themselves is
      * the caller's job -- this module does not touch the filesystem.
+     *
+     * The deletion is remembered at [now], for sync, as an outfit's is; see
+     * OutfitWrites.delete.
      */
-    fun delete(id: String): List<String> = driver.transaction {
+    fun delete(id: String, now: String): List<String> = driver.transaction {
         val photos = driver.query(
             "SELECT image_uri, image_uri_nobg, image_uris, image_uris_nobg FROM garments WHERE id = ?",
             listOf(id),
@@ -174,7 +177,8 @@ class GarmentWrites(private val driver: SqlDriver) {
         // keyed on a garment that no longer exists is one nothing will ever ask
         // about again, and a backup should not carry it forever.
         driver.execute("DELETE FROM garment_scores WHERE garment_id = ?", listOf(id))
-        OutfitWrites(driver).removeGarment(id)
+        OutfitWrites(driver).removeGarment(id, now)
+        recordDeletion(driver, DeletionKind.GARMENT, id, now)
 
         photos
     }

@@ -1,5 +1,7 @@
 package com.wardrobapp.presentation
 
+import com.wardrobapp.data.Deletion
+import com.wardrobapp.data.DeletionKind
 import com.wardrobapp.data.DuplicateGarment
 import com.wardrobapp.data.DuplicateGarmentGroup
 import com.wardrobapp.data.GapOutfit
@@ -8,9 +10,12 @@ import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.MaintenanceSummary
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.SuggestedOutfit
+import com.wardrobapp.data.SyncOutfit
+import com.wardrobapp.data.SyncRating
+import com.wardrobapp.data.WardrobeSnapshot
 import com.wardrobapp.domain.DuplicateCandidate
-import com.wardrobapp.domain.Garment
 import com.wardrobapp.domain.GapEvidence
+import com.wardrobapp.domain.Garment
 import com.wardrobapp.domain.ImportFailureReason
 import com.wardrobapp.domain.ImportParser
 import com.wardrobapp.domain.ImportWarning
@@ -104,6 +109,23 @@ class WireTypesTest {
         isPinned = true,
     )
 
+    private val deletion = Deletion(kind = DeletionKind.OUTFIT, id = "o9", deletedAt = "2025-06-07T08:09:10.000Z")
+
+    private val syncOutfit = SyncOutfit(
+        id = "o1",
+        name = "Friday",
+        garmentIds = listOf("g1", "g2"),
+        occasion = "work",
+        season = "summer",
+        createdAt = "2025-01-01T00:00:00.000Z",
+        updatedAt = "2025-02-01T00:00:00.000Z",
+        isSuggested = true,
+        isPinned = true,
+        isArchived = true,
+    )
+
+    private val syncRating = SyncRating(id = "r1", outfitId = "o1", rating = 4, feedback = "comfy", ratedAt = "2025-03-01T00:00:00.000Z")
+
     private val suggested = SuggestedOutfit(
         name = "Linen and denim",
         score = 0.75,
@@ -173,6 +195,11 @@ class WireTypesTest {
         add(GapOutfit(name = "Missing shoes", garments = listOf(record, null)))
         add(GapWithPhotos(gap = gap, examples = listOf(GapOutfit("x", listOf(null))), replaces = record))
         add(MaintenanceSummary(examined = 10, shrunk = 3, bytesSaved = 4096, deleted = 2))
+        add(DeletionKind.entries.last())
+        add(deletion)
+        add(syncOutfit)
+        add(syncRating)
+        add(WardrobeSnapshot(garments = listOf(record), outfits = listOf(syncOutfit), ratings = listOf(syncRating), deletions = listOf(deletion)))
         add(
             DuplicateCandidate(
                 category = "tops",
@@ -285,6 +312,8 @@ class WireTypesTest {
         // in a round trip, wrong the day the two sides compute it differently.
         // So the wire carries exactly what the constructor takes.
         for (sample in samples) {
+            // An enum sends its name, and has no constructor anybody calls.
+            if (sample is Enum<*>) continue
             val constructor = sample::class.primaryConstructor ?: continue
             val sent = serializer(sample::class.createType()).descriptor.let { d -> (0 until d.elementsCount).map { d.getElementName(it) } }
             assertEquals(

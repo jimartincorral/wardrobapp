@@ -3,6 +3,10 @@ package com.wardrobapp.data
 /**
  * The wardrobe schema, applied on every open.
  *
+ * `deletions` is sync's, not the app's: a garment or outfit deleted here is
+ * remembered by id and time, so syncing with a copy that still has it removes
+ * it there instead of bringing it back. Nothing on a screen reads it.
+ *
  * Transcribed from `src/db/schema.ts` in the app this replaced, which is why it
  * is shaped the way it is: there is no `PRAGMA user_version`, so the DDL *is*
  * the schema, and every database out there was created by one of these
@@ -50,7 +54,8 @@ object WardrobeSchema {
       created_at TEXT NOT NULL,
       is_suggested INTEGER NOT NULL DEFAULT 0,
       is_pinned INTEGER NOT NULL DEFAULT 0,
-      is_archived INTEGER NOT NULL DEFAULT 0
+      is_archived INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT
     );
 
     CREATE TABLE IF NOT EXISTS outfit_ratings (
@@ -85,6 +90,13 @@ object WardrobeSchema {
     CREATE TABLE IF NOT EXISTS user_preferences (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS deletions (
+      kind TEXT NOT NULL,
+      id TEXT NOT NULL,
+      deleted_at TEXT NOT NULL,
+      PRIMARY KEY (kind, id)
     );"""
 
     /**
@@ -110,6 +122,11 @@ object WardrobeSchema {
         "ALTER TABLE garments ADD COLUMN unavailable_date TEXT",
         "ALTER TABLE garments ADD COLUMN created_at TEXT",
         "ALTER TABLE garments ADD COLUMN updated_at TEXT",
+        // When an outfit last changed, which sync needs to tell the newer of two
+        // versions apart. Nullable, on fresh installs too, because the rows that
+        // predate it have no answer; sync reads a missing one as the outfit's
+        // creation, which is the last change anybody can vouch for.
+        "ALTER TABLE outfits ADD COLUMN updated_at TEXT",
     )
 
     /** One statement at a time, so a failure names the index. */
