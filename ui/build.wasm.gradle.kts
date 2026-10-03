@@ -34,8 +34,12 @@ repositories {
 }
 
 kotlin {
+    // In a browser: :web, the app the Home Assistant server hands out, is built
+    // from this, and every library an executable uses has to say where it runs.
+    // That configures browser tests as well, which nothing runs -- the root build
+    // file says why `test` compiles Wasm rather than running it.
     @OptIn(ExperimentalWasmDsl::class)
-    wasmJs()
+    wasmJs { browser() }
 
     sourceSets {
         commonMain.dependencies {

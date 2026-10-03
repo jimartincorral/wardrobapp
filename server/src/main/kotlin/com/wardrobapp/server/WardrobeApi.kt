@@ -19,6 +19,7 @@ import com.wardrobapp.presentation.OutfitDraft
 import com.wardrobapp.presentation.OutfitsScreenState.Suggestion
 import com.wardrobapp.presentation.SuggestionRequest
 import com.wardrobapp.presentation.WardrobeQuery
+import io.ktor.http.CacheControl
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -27,6 +28,7 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.http.content.LocalFileContent
+import io.ktor.server.http.content.staticFiles
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
@@ -42,6 +44,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.routing
 import io.ktor.utils.io.readRemaining
+import java.io.File
 import kotlinx.io.readByteArray
 
 /**
@@ -59,7 +62,14 @@ import kotlinx.io.readByteArray
  * Assistant. Which means the port must not be reachable any other way, and the
  * app's packaging is where that is enforced.
  */
-fun Application.wardrobeApi(wardrobe: ServerWardrobe) {
+fun Application.wardrobeApi(
+    wardrobe: ServerWardrobe,
+    /**
+     * The browser app's files -- :web's distribution -- served from the root,
+     * or null to serve the API alone, as the tests do.
+     */
+    webDirectory: File? = null,
+) {
     install(ContentNegotiation) { json(WireJson) }
 
     install(StatusPages) {
@@ -102,6 +112,24 @@ fun Application.wardrobeApi(wardrobe: ServerWardrobe) {
         post(Routes.IMPORT) {
             val url = wardrobe.importer.check(call.receive<ImportRequest>().url)
             call.respond(wardrobe.importer.import(url))
+        }
+
+        if (webDirectory != null) {
+            // Below every route above, so the API and the photos are never
+            // shadowed by a file of the same name.
+            staticFiles("/", webDirectory) {
+                default("index.html")
+                // Browsers compile WebAssembly as it streams in only when it
+                // arrives as application/wasm, and fall back to a slower path,
+                // with a warning, for anything else.
+                contentType { file -> if (file.extension == "wasm") ContentType("application", "wasm") else null }
+                // The page itself names the current build's files, so it must
+                // be asked for again; the files are named by their content and
+                // never change under the same name.
+                cacheControl { file ->
+                    if (file.name == "index.html") listOf(CacheControl.NoCache(null)) else emptyList()
+                }
+            }
         }
     }
 }

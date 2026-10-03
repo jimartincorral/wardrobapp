@@ -69,6 +69,9 @@ val androidSdk = System.getenv("ANDROID_HOME")?.takeIf { it.isNotBlank() }
 // Central, so the screens are compiled on every machine that runs
 // `./gradlew test`. build.wasm.gradle.kts says the rest.
 include(":ui")
+// The browser app, built from :ui's screens. Wasm alone, so it builds wherever
+// :ui's browser build does -- which is everywhere.
+include(":web")
 
 if (androidSdk != null && file(androidSdk).isDirectory) {
     include(":app")
