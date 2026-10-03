@@ -1,7 +1,10 @@
 package com.wardrobapp.app
 
 import com.wardrobapp.data.wardrobeFilesIn
+import com.wardrobapp.presentation.DatabaseGarmentFormSource
 import com.wardrobapp.presentation.GarmentFormState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -23,7 +26,8 @@ import java.io.File
  * photo it cut out is twice the size it should be, in the app and in every backup.
  *
  * So this runs the real save against a real database and real files, and looks at
- * the directory afterwards.
+ * the directory afterwards: DatabaseGarmentFormSource, wired the way the form's
+ * ViewModel wires it, with the phone's photo store deleting the files.
  */
 @RunWith(RobolectricTestRunner::class)
 class GarmentSavePhotosTest {
@@ -47,14 +51,24 @@ class GarmentSavePhotosTest {
         cutouts: List<String>,
     ) = GarmentFormState(imageUris = images, bgRemovedUris = cutouts).normalized()
 
+    /** The save the garment form makes when adding, against this container. */
+    private fun save(container: AppContainer, form: GarmentFormState) = runBlocking {
+        DatabaseGarmentFormSource(
+            garments = container.garments,
+            garmentWrites = container.garmentWrites,
+            duplicates = container.duplicates,
+            deletePhoto = container.photos::delete,
+            io = Dispatchers.IO,
+        ).save(garmentId = null, form = form, previouslyStored = emptyList())
+    }
+
     @Test
     fun `a photo whose background was removed leaves only the cut-out`() {
         val original = photo("g1.jpg")
         val cutout = photo("g1_nobg.png")
         val container = AppContainer(context)
 
-        GarmentFormViewModel(container, garmentId = null)
-            .write(form(listOf("g1.jpg"), listOf("g1_nobg.png")))
+        save(container, form(listOf("g1.jpg"), listOf("g1_nobg.png")))
 
         assertFalse("the original was kept, and is dead weight", original.exists())
         assertTrue("the cut-out is the photo now, and must survive", cutout.exists())
@@ -70,8 +84,7 @@ class GarmentSavePhotosTest {
     fun `a photo with no cut-out is left exactly as it is`() {
         val plain = photo("g2.jpg")
 
-        GarmentFormViewModel(AppContainer(context), garmentId = null)
-            .write(form(listOf("g2.jpg"), listOf("")))
+        save(AppContainer(context), form(listOf("g2.jpg"), listOf("")))
 
         assertTrue("a photo with no cut-out is the garment's only copy", plain.exists())
     }
@@ -84,8 +97,7 @@ class GarmentSavePhotosTest {
         val cutout = photo("g3_nobg.png")
         val container = AppContainer(context)
 
-        GarmentFormViewModel(container, garmentId = null)
-            .write(form(listOf("g3_nobg.png"), listOf("g3_nobg.png")))
+        save(container, form(listOf("g3_nobg.png"), listOf("g3_nobg.png")))
 
         assertTrue(cutout.exists())
         assertEquals(1, container.garments.allGarments().size)

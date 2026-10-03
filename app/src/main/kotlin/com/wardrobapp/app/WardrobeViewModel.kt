@@ -2,27 +2,16 @@ package com.wardrobapp.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.wardrobapp.data.GarmentQueries
-import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.presentation.DatabaseWardrobeSource
 import com.wardrobapp.presentation.GarmentCaption
-import com.wardrobapp.presentation.WardrobeFacets
 import com.wardrobapp.presentation.WardrobeQuery
+import com.wardrobapp.presentation.WardrobeScreenModel
 import com.wardrobapp.presentation.WardrobeScreenState
 import com.wardrobapp.presentation.WardrobeView
-import com.wardrobapp.presentation.filterBy
-import com.wardrobapp.presentation.orderedBy
-import com.wardrobapp.presentation.wardrobeFacets
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * The wardrobe list.
@@ -30,184 +19,36 @@ import kotlinx.coroutines.withContext
  * Holds state and moves work off the main thread. It decides nothing: which
  * garments a filter keeps and in what order they appear comes from
  * :presentation, and the reading from :data.
+ *
+ * What it does lives in WardrobeScreenModel, in common code, so the browser can
+ * run it too; this is the Android half: the scope that ends with the screen, the
+ * phone's own database as where the garments come from, and SharedPreferences
+ * as where this device's choice of layout is kept.
  */
-class WardrobeViewModel(private val container: AppContainer) : ViewModel() {
+class WardrobeViewModel(container: AppContainer) : ViewModel() {
 
-    private val _state = MutableStateFlow(
-        WardrobeScreenState(
-            view = container.wardrobeView.view,
-            caption = container.wardrobeView.caption,
-        ),
+    private val model = WardrobeScreenModel(
+        scope = viewModelScope,
+        source = DatabaseWardrobeSource(container.garments, Dispatchers.IO),
+        settings = container.wardrobeView,
     )
-    val state: StateFlow<WardrobeScreenState> = _state.asStateFlow()
 
-    /**
-     * The pending reload for a typed filter.
-     *
-     * Cancelled and replaced on every keystroke, so a query runs once the typing
-     * stops rather than once per character. The React Native app debounces its
-     * three text boxes; this one re-read the whole wardrobe on every letter.
-     */
-    private var pendingReload: Job? = null
+    val state: StateFlow<WardrobeScreenState> = model.state
 
-    init {
-        refresh()
-    }
-
-    fun refresh() {
-        pendingReload?.cancel()
-        viewModelScope.launch { reload() }
-    }
-
-    /** Reload the list, reporting a failure rather than leaving the old one. */
-    private suspend fun reload() {
-        val query = _state.value.query
-        _state.update { it.copy(loading = true, error = null) }
-
-        try {
-            val garments = withContext(Dispatchers.IO) {
-                // The database applies what it can express; :presentation
-                // applies the rest and the ordering.
-                container.garments
-                    .allGarments(
-                        GarmentQueries.Filters(
-                            category = query.category,
-                            // Null would mean available-only. Only asked for when
-                            // the list is showing retired garments too.
-                            availableOnly = if (query.includeRetired) false else null,
-                            search = query.searchTerm,
-                        )
-                    )
-                    .filterBy(query.garmentFilter())
-                    .orderedBy(query.sort)
-            }
-            _state.update {
-                it.copy(
-                    loading = false,
-                    garments = garments,
-                    // From the garments this query returned, which is what makes
-                    // the choices narrow as filters are picked -- and what makes a
-                    // retired garment's brand appear exactly when retired garments
-                    // are being shown.
-                    facets = wardrobeFacets(garments, query),
-                    error = null,
-                )
-            }
-        } catch (e: Exception) {
-            _state.update {
-                it.copy(
-                    loading = false,
-                    error = e.message ?: e.javaClass.simpleName,
-                )
-            }
-        }
-    }
-
-    // ---- narrowing -----------------------------------------------------------
-
-    fun onFiltersToggled() {
-        _state.update { it.copy(filtersExpanded = !it.filtersExpanded) }
-    }
-
-    fun onSearchChanged(search: String) = typed { it.copy(search = search) }
-
-    // Brands and sizes are tapped now rather than typed, so they go through
-    // `narrow` like every other chip: there is nothing to debounce about a tap.
-    fun onBrandTapped(brand: String) = narrow { it.withBrand(brand) }
-
-    fun onSizeTapped(size: String) = narrow { it.withSize(size) }
-
-    fun onCategoryTapped(id: String) = narrow { it.withCategory(id) }
-
-    fun onSubcategoryTapped(id: String) = narrow { it.withSubcategory(id) }
-
-    fun onSeasonTapped(season: Season) = narrow { it.withSeason(season) }
-
-    fun onOccasionTapped(occasion: Occasion) = narrow { it.withOccasion(occasion) }
-
-    fun onColorTapped(color: String) = narrow { it.withColor(color) }
-
-    fun onRetiredToggled() = narrow { it.copy(includeRetired = !it.includeRetired) }
-
-    /**
-     * Draw the same wardrobe differently.
-     *
-     * Not through [narrow]: nothing about the query changed, so re-reading the
-     * database to lay the same rows out in two columns would be work for nothing.
-     * Written through as it is chosen, because a preference that is only saved on
-     * the way out is a preference that is lost when the app is killed.
-     */
-    fun onViewSelected(choice: WardrobeView) {
-        // Outside the update, not inside it. `update` re-runs its lambda when two
-        // callers race, so a write in there is a write that can happen twice --
-        // harmless for a preference being set to the same value, and the shape
-        // that has already cost this repo two bugs elsewhere.
-        val view = _state.value.view.withChoice(choice)
-        container.wardrobeView.view = view
-        _state.update { it.copy(view = view) }
-    }
-
-    /**
-     * Relabel the same cells.
-     *
-     * Not through [narrow], for the reason above: nothing about the query changed,
-     * so re-reading the database to put a different word under the same photos
-     * would be work for nothing.
-     */
-    fun onCaptionSelected(choice: GarmentCaption) {
-        container.wardrobeView.caption = choice
-        _state.update { it.copy(caption = choice) }
-    }
-
-    fun onSortToggled() = narrow { it.withSortToggled() }
-
-    fun onFiltersCleared() = narrow { it.cleared() }
-
-    /**
-     * Show what another screen asked for, and only that.
-     *
-     * The query arrives built -- [WardrobeQuery.showing] is where the rule about
-     * what a link may and may not carry lives -- so this is only the re-read. It
-     * replaces the query rather than adding to it, which is what makes the list
-     * agree with the number that was tapped.
-     */
-    fun onQueryRequested(query: WardrobeQuery) = narrow { query }
-
-    /**
-     * A tap: change the query and re-read at once.
-     *
-     * Nothing to wait for -- a chip cannot be half-tapped the way a word can be
-     * half-typed.
-     */
-    private fun narrow(change: (WardrobeQuery) -> WardrobeQuery) {
-        _state.update { it.copy(query = change(it.query)) }
-        refresh()
-    }
-
-    /**
-     * A keystroke: show it immediately, read shortly.
-     *
-     * The text has to land in the state now or the box would not show what was
-     * typed, but the query waits for a pause. Cancelling the previous pending
-     * reload is what makes it a pause rather than a stream.
-     */
-    private fun typed(change: (WardrobeQuery) -> WardrobeQuery) {
-        _state.update { it.copy(query = change(it.query)) }
-
-        pendingReload?.cancel()
-        pendingReload = viewModelScope.launch {
-            delay(TYPING_PAUSE_MS)
-            reload()
-        }
-    }
-
-    private companion object {
-        /**
-         * How long a pause in typing has to be before the wardrobe is re-read.
-         *
-         * Long enough that ordinary typing does not trigger a read per letter,
-         * short enough not to feel like lag on the last character.
-         */
-        const val TYPING_PAUSE_MS = 250L
-    }
+    fun onFiltersToggled() = model.onFiltersToggled()
+    fun onSearchChanged(search: String) = model.onSearchChanged(search)
+    fun onBrandTapped(brand: String) = model.onBrandTapped(brand)
+    fun onSizeTapped(size: String) = model.onSizeTapped(size)
+    fun onCategoryTapped(id: String) = model.onCategoryTapped(id)
+    fun onSubcategoryTapped(id: String) = model.onSubcategoryTapped(id)
+    fun onSeasonTapped(season: Season) = model.onSeasonTapped(season)
+    fun onOccasionTapped(occasion: Occasion) = model.onOccasionTapped(occasion)
+    fun onColorTapped(color: String) = model.onColorTapped(color)
+    fun onRetiredToggled() = model.onRetiredToggled()
+    fun onViewSelected(choice: WardrobeView) = model.onViewSelected(choice)
+    fun onCaptionSelected(choice: GarmentCaption) = model.onCaptionSelected(choice)
+    fun onSortToggled() = model.onSortToggled()
+    fun onFiltersCleared() = model.onFiltersCleared()
+    fun onQueryRequested(query: WardrobeQuery) = model.onQueryRequested(query)
+    fun refresh() = model.refresh()
 }

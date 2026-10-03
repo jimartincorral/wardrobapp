@@ -2,26 +2,13 @@ package com.wardrobapp.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.wardrobapp.data.AnalyticsQueries
-import com.wardrobapp.data.DuplicateGarmentGroup
-import com.wardrobapp.data.GapWithPhotos
-import com.wardrobapp.domain.seasonOfMonth
 import com.wardrobapp.presentation.BrandSort
-import com.wardrobapp.presentation.Distribution
-import com.wardrobapp.presentation.LifespanEntry
+import com.wardrobapp.presentation.DatabaseStatisticsSource
+import com.wardrobapp.presentation.StatisticsScreenModel
 import com.wardrobapp.presentation.StatisticsScreenState
 import com.wardrobapp.presentation.StatisticsSection
-import com.wardrobapp.presentation.StatisticsView
-import com.wardrobapp.presentation.statisticsView
-import java.util.Calendar
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * What the wardrobe is made of, and how long the things you stop wearing lasted.
@@ -34,211 +21,29 @@ import kotlinx.coroutines.withContext
  * is gone: the retired count and the lifespans were the only numbers that screen
  * had of its own, and they are two more reads on the same trip rather than a
  * second model on a second page.
+ *
+ * What it does lives in StatisticsScreenModel, in common code, so the browser
+ * can run it too; this is the Android half: the scope that ends with the screen,
+ * and the phone's own database as where the numbers come from.
  */
-class StatisticsViewModel(private val container: AppContainer) : ViewModel() {
+class StatisticsViewModel(container: AppContainer) : ViewModel() {
 
-    /** The counts as read, so re-sorting brands does not re-query for them. */
-    private data class Counts(
-        val inUse: Long,
-        val retired: Long,
-        val categories: List<Distribution>,
-        val colors: List<Distribution>,
-        val brands: List<Distribution>,
-        val subcategories: Map<String, List<Distribution>>,
-        val lifespans: List<LifespanEntry>,
+    private val model = StatisticsScreenModel(
+        scope = viewModelScope,
+        source = DatabaseStatisticsSource(
+            garments = container.garments,
+            analytics = container.analytics,
+            duplicates = container.duplicates,
+            gaps = container.gaps,
+            imageDirectory = container.imageDirectory,
+            io = Dispatchers.IO,
+        ),
     )
 
-    private var counts: Counts? = null
+    val state: StateFlow<StatisticsScreenState> = model.state
 
-    private val _state = MutableStateFlow(StatisticsScreenState())
-    val state: StateFlow<StatisticsScreenState> = _state.asStateFlow()
-
-    init {
-        refresh()
-    }
-
-    fun refresh() {
-        _state.update { it.copy(loading = true, error = null) }
-
-        viewModelScope.launch {
-            try {
-                val read = withContext(Dispatchers.IO) {
-                    Counts(
-                        inUse = container.garments.availableCount(),
-                        retired = container.garments.unavailableCount(),
-                        categories = container.analytics.byCategory().asDistributions(),
-                        colors = container.analytics.byColor().asDistributions(),
-                        brands = container.analytics.byBrand().asDistributions(),
-                        subcategories = container.analytics.bySubcategory()
-                            .mapValues { (_, subs) -> subs.asDistributions() },
-                        lifespans = container.analytics.lifespans(container.imageDirectory)
-                            .map { lifespan ->
-                                LifespanEntry(
-                                    garmentId = lifespan.garment.id,
-                                    category = lifespan.garment.category,
-                                    subcategories = lifespan.garment.effectiveSubcategories,
-                                    days = lifespan.days,
-                                )
-                            },
-                    )
-                }
-
-                counts = read
-                val reopening = _state.value.openSections
-                _state.update {
-                    it.copy(
-                        loading = false,
-                        view = read.viewSortedBy(it.brandSort),
-                        // Dropped rather than recomputed. This runs on every return
-                        // to the tab, and the sweep is by far the most expensive
-                        // thing the screen can ask for: it loads every garment and
-                        // compares each against every other in its category. Doing
-                        // that to fill in a section nobody has opened made the whole
-                        // page wait for an answer most visits never look at.
-                        duplicates = null,
-                        // Dropped alongside the duplicates, and for the same
-                        // reason: the wardrobe has just been re-read, so an
-                        // answer computed from the previous read is stale.
-                        gaps = null,
-                        error = null,
-                    )
-                }
-
-                // Both sections above were just emptied, and nothing else would
-                // ever ask for them again: they fill in when a section is opened,
-                // and these are already open. This runs on every return to the tab
-                // -- see RefreshOnReturn -- so without it, opening a section,
-                // tapping through to a garment and coming back left it spinning
-                // forever with nothing on the way.
-                if (StatisticsSection.DUPLICATES in reopening) sweepForDuplicates()
-                if (StatisticsSection.GAPS in reopening) lookForGaps()
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(loading = false, error = e.message ?: e.javaClass.simpleName)
-                }
-            }
-        }
-    }
-
-    /** Open or close one section of the page. */
-    fun onSectionTapped(section: StatisticsSection) {
-        val opening = section !in _state.value.openSections
-
-        _state.update {
-            it.copy(
-                openSections = if (opening) {
-                    it.openSections + section
-                } else {
-                    it.openSections - section
-                }
-            )
-        }
-
-        // The only section that has to go and find its answer. Asked for here
-        // rather than in `refresh` so that the cost falls on opening it, and only
-        // the first time it is opened between one read of the wardrobe and the
-        // next.
-        if (opening && section == StatisticsSection.DUPLICATES && _state.value.duplicates == null) {
-            sweepForDuplicates()
-        }
-
-        if (opening && section == StatisticsSection.GAPS && _state.value.gaps == null) {
-            lookForGaps()
-        }
-    }
-
-    /**
-     * The sweep in flight, so shutting and reopening the section does not start a
-     * second one. It stays null while nothing is running, which is also how
-     * [sweepForDuplicates] knows a previous one finished or failed.
-     */
-    private var sweep: Job? = null
-
-    private fun sweepForDuplicates() {
-        if (sweep?.isActive == true) return
-
-        sweep = viewModelScope.launch {
-            try {
-                val groups = withContext(Dispatchers.IO) { container.duplicates.groups() }
-                _state.update { it.copy(duplicates = groups) }
-            } catch (e: Exception) {
-                // Deliberately not `error`: the counts are on screen and correct,
-                // and turning a page that mostly worked into an error page would be
-                // a worse answer than one section that did not fill in. Leaving it
-                // null means opening the section again tries again.
-                _state.update { it.copy(duplicates = null) }
-            }
-        }
-    }
-
-    /**
-     * The gap analysis in flight, so shutting and reopening the section does not
-     * start a second one. Its own field rather than shared with [sweep]: the two
-     * sections are independent, and one cancelling the other would leave whichever
-     * lost the race showing a spinner forever.
-     */
-    private var search: Job? = null
-
-    private fun lookForGaps() {
-        if (search?.isActive == true) return
-
-        search = viewModelScope.launch {
-            try {
-                val found = withContext(Dispatchers.IO) {
-                    container.gaps.analyze(
-                        // Read here because this is the layer allowed a clock. The
-                        // analysis only ever sees the answer, which is what lets
-                        // the same wardrobe be told the same thing twice.
-                        currentSeason = seasonOfMonth(Calendar.getInstance().get(Calendar.MONTH)),
-                    )
-                }
-                _state.update { it.copy(gaps = found) }
-            } catch (e: Exception) {
-                // Not `error`, exactly as the duplicate sweep does not: the counts
-                // above are on screen and correct, and turning a page that mostly
-                // worked into an error page is a worse answer than one section
-                // that did not fill in. Null means opening it again tries again.
-                _state.update { it.copy(gaps = null) }
-            }
-        }
-    }
-
-    /** Open or close one category's subcategory breakdown. */
-    fun onCategoryTapped(category: String) {
-        _state.update {
-            it.copy(
-                expanded = if (category in it.expanded) it.expanded - category else it.expanded + category
-            )
-        }
-    }
-
-    /**
-     * By count or by name.
-     *
-     * Re-derived from the counts already read rather than re-queried: the order
-     * is the module's business and the numbers have not changed.
-     */
-    fun onBrandSortChanged(sort: BrandSort) {
-        _state.update { it.copy(brandSort = sort, view = counts?.viewSortedBy(sort) ?: it.view) }
-    }
-
-    private fun Counts.viewSortedBy(sort: BrandSort): StatisticsView = statisticsView(
-        inUse = inUse,
-        categories = categories,
-        colors = colors,
-        brands = brands,
-        subcategories = subcategories,
-        brandSort = sort,
-        retired = retired,
-        lifespans = lifespans,
-    )
-
-    /**
-     * The queries call every key a `label`; the module calls a key a key.
-     *
-     * The same adapter the React Native screen needs, for the same reason: these
-     * distributions hold colours and brands as often as they hold categories.
-     */
-    private fun List<AnalyticsQueries.Count>.asDistributions(): List<Distribution> =
-        map { Distribution(key = it.label, count = it.count) }
+    fun refresh() = model.refresh()
+    fun onSectionTapped(section: StatisticsSection) = model.onSectionTapped(section)
+    fun onCategoryTapped(category: String) = model.onCategoryTapped(category)
+    fun onBrandSortChanged(sort: BrandSort) = model.onBrandSortChanged(sort)
 }

@@ -130,6 +130,26 @@ class GarmentFormTest {
     }
 
     @Test
+    fun `a slow cut-out lands on the photo it was made from, wherever it has moved`() {
+        val started = form(listOf("a.jpg", "b.jpg"), selected = 0)
+
+        // The reader selected the other photo while it ran.
+        val reselected = started.copy(selectedImageIndex = 1)
+        assertEquals(listOf("a-cut.png", ""), reselected.withBackgroundRemovedFrom("a.jpg", "a-cut.png")?.bgRemovedUris)
+
+        // Or moved it.
+        val moved = started.withImagesReordered(0, 1)
+        assertEquals(listOf("", "a-cut.png"), moved.withBackgroundRemovedFrom("a.jpg", "a-cut.png")?.bgRemovedUris)
+    }
+
+    @Test
+    fun `a cut-out of a photo since removed belongs to nothing`() {
+        val removed = form(listOf("a.jpg", "b.jpg"), selected = 0).withoutImageAt(0)
+
+        assertEquals(null, removed.withBackgroundRemovedFrom("a.jpg", "a-cut.png"))
+    }
+
+    @Test
     fun `collapsing stores the cut-out and hands back the original to delete`() {
         // Saving space is the point of removing a background, so keeping both
         // files would make every removal cost storage rather than save it.

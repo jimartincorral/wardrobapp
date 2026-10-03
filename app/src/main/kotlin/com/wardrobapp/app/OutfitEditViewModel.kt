@@ -1,24 +1,14 @@
 package com.wardrobapp.app
 
-import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.wardrobapp.data.GarmentRecord
-import com.wardrobapp.data.isoTimestamp
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
-import com.wardrobapp.presentation.ErrorFallback
+import com.wardrobapp.presentation.DatabaseOutfitEditSource
+import com.wardrobapp.presentation.OutfitEditScreenModel
 import com.wardrobapp.presentation.OutfitEditScreenState
-import com.wardrobapp.presentation.OutfitEditState
-import com.wardrobapp.presentation.outfitEditStateOf
-import java.util.UUID
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Building an outfit by hand, and changing one.
@@ -27,141 +17,37 @@ import kotlinx.coroutines.withContext
  * point and a different write at the end -- the garment form is add-or-edit for
  * the same reason. The rules are in :presentation as transitions over
  * [OutfitEditState]; this loads the wardrobe to pick from and writes the row.
+ *
+ * What it does lives in OutfitEditScreenModel, in common code, so the browser
+ * can run it too; this is the Android half: the scope that ends with the screen,
+ * and the phone's own database as where the garments come from and the outfit
+ * goes.
  */
 class OutfitEditViewModel(
-    private val container: AppContainer,
+    container: AppContainer,
     /** Null when building a new outfit. */
-    private val outfitId: String?,
+    outfitId: String?,
 ) : ViewModel() {
 
-    val isEditing = outfitId != null
+    private val model = OutfitEditScreenModel(
+        scope = viewModelScope,
+        source = DatabaseOutfitEditSource(
+            garments = container.garments,
+            outfits = container.outfits,
+            outfitWrites = container.outfitWrites,
+            io = Dispatchers.IO,
+        ),
+        outfitId = outfitId,
+    )
 
-    private val _state = MutableStateFlow(OutfitEditScreenState())
-    val state: StateFlow<OutfitEditScreenState> = _state.asStateFlow()
+    val isEditing = model.isEditing
+    val state: StateFlow<OutfitEditScreenState> = model.state
 
-    init {
-        load()
-    }
-
-    private fun load() {
-        _state.update { it.copy(loading = true, error = null, errorFallback = null) }
-
-        viewModelScope.launch {
-            try {
-                // The default filters are available-only, which is what this
-                // wants: an outfit is something to wear, and offering a retired
-                // garment would be offering to build one out of clothes that are
-                // gone.
-                val garments = withContext(Dispatchers.IO) { container.garments.allGarments() }
-
-                val outfit = outfitId?.let {
-                    withContext(Dispatchers.IO) { container.outfits.outfit(it) }
-                }
-
-                if (outfitId != null && outfit == null) {
-                    _state.update { it.copy(loading = false, missing = true) }
-                    return@launch
-                }
-
-                _state.update { state ->
-                    state.copy(
-                        loading = false,
-                        garments = garments,
-                        edit = outfit?.let {
-                            outfitEditStateOf(
-                                name = it.name,
-                                garmentIds = it.garmentIds,
-                                occasion = it.occasion,
-                                season = it.season,
-                            )
-                        } ?: state.edit,
-                    )
-                }
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        loading = false,
-                        error = e.message,
-                        errorFallback = ErrorFallback.WARDROBE_UNREADABLE,
-                    )
-                }
-            }
-        }
-    }
-
-    fun onNameChanged(name: String) = edit { it.withName(name) }
-
-    fun onSearchChanged(search: String) = _state.update { it.copy(search = search) }
-
-    fun onGarmentToggled(garmentId: String) = edit { it.withGarmentToggled(garmentId) }
-
-    fun onOccasionTapped(occasion: Occasion) = edit { it.withOccasion(occasion) }
-
-    fun onSeasonTapped(season: Season) = edit { it.withSeason(season) }
-
-    /**
-     * Write the outfit.
-     *
-     * An outfit with nothing in it is not saved rather than saved empty: an empty
-     * outfit is a row nothing can draw and nothing can suggest from.
-     */
-    fun onSaveRequested() {
-        val state = _state.value
-        if (state.saving || !state.edit.canSave) return
-
-        _state.update { it.copy(saving = true, error = null, errorFallback = null) }
-
-        viewModelScope.launch {
-            try {
-                withContext(Dispatchers.IO) { write(state.edit, state.garments) }
-                _state.update { it.copy(saving = false, saved = true) }
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        saving = false,
-                        error = e.message,
-                        errorFallback = ErrorFallback.OUTFIT_NOT_SAVED,
-                    )
-                }
-            }
-        }
-    }
-
-    fun onErrorDismissed() = _state.update { it.copy(error = null, errorFallback = null) }
-
-    /**
-     * Insert or update, which is the only place the two jobs differ.
-     *
-     * Internal so a test can call it with a real database: what a name falls back
-     * to and what order the garments are stored in are decided in :presentation and
-     * tested there, but that they reach a row is only true here.
-     */
-    internal fun write(edit: OutfitEditState, garments: List<GarmentRecord>) {
-        val name = edit.nameFor(garments)
-
-        if (outfitId == null) {
-            container.outfitWrites.insert(
-                id = UUID.randomUUID().toString(),
-                name = name,
-                garmentIds = edit.garmentIds,
-                occasion = edit.occasion?.id,
-                season = edit.season?.tag,
-                // Built by hand, so not the engine's idea -- which is what the
-                // statistics count when they count suggestions.
-                isSuggested = false,
-                now = isoTimestamp(System.currentTimeMillis()),
-            )
-        } else {
-            container.outfitWrites.update(
-                id = outfitId,
-                name = name,
-                garmentIds = edit.garmentIds,
-                occasion = edit.occasion?.id,
-                season = edit.season?.tag,
-            )
-        }
-    }
-
-    private fun edit(transform: (OutfitEditState) -> OutfitEditState) =
-        _state.update { it.copy(edit = transform(it.edit)) }
+    fun onNameChanged(name: String) = model.onNameChanged(name)
+    fun onSearchChanged(search: String) = model.onSearchChanged(search)
+    fun onGarmentToggled(garmentId: String) = model.onGarmentToggled(garmentId)
+    fun onOccasionTapped(occasion: Occasion) = model.onOccasionTapped(occasion)
+    fun onSeasonTapped(season: Season) = model.onSeasonTapped(season)
+    fun onSaveRequested() = model.onSaveRequested()
+    fun onErrorDismissed() = model.onErrorDismissed()
 }

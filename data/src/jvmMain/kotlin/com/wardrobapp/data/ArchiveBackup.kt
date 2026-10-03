@@ -45,14 +45,6 @@ internal const val BACKUP_PREFIX = "wardrobapp-backup-"
 fun backupFilename(epochMillis: Long): String =
     BACKUP_PREFIX + isoTimestamp(epochMillis).replace(':', '-').replace('.', '-') + ".zip"
 
-/** What a finished backup turned out to hold. */
-data class BackupSummary(
-    val bytes: Long,
-    val images: Int,
-    /** Photos that vanished between being listed and being read. */
-    val skipped: Int,
-)
-
 class ArchiveBackup(
     private val files: WardrobeFiles,
     /** A scratch directory; cache is right. */

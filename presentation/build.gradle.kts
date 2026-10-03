@@ -38,9 +38,20 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":data"))
+            // For the screen models: each publishes its screen's state as a
+            // StateFlow and does its work in a scope it is handed, which is
+            // what lets one model drive a screen on the phone -- inside an
+            // Android ViewModel -- and in the browser alike. 1.9.0, the version
+            // :app already ships through kotlinx-coroutines-android, so the phone
+            // gets no second copy.
+            api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
         }
         jvmTest.dependencies {
             implementation(kotlin("test"))
+            // A virtual clock and a dispatcher the test controls, so a model's
+            // asynchronous work runs to completion on demand rather than racing
+            // the assertions.
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
             // Only for ArchiveMessageParityTest, which asks UnrestorableReason for
             // its sealed subclasses to prove it has a sample of every one. Nothing
             // ships it.

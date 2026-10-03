@@ -1,29 +1,13 @@
 package com.wardrobapp.app
 
-import androidx.annotation.StringRes
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.wardrobapp.data.GarmentRecord
-import com.wardrobapp.data.GarmentWrites
-import com.wardrobapp.data.isoTimestamp
-import com.wardrobapp.data.resolveImageRef
-import com.wardrobapp.presentation.BackgroundEdit
-import com.wardrobapp.presentation.ErrorFallback
+import com.wardrobapp.presentation.DatabaseGarmentDetailSource
+import com.wardrobapp.presentation.GarmentDetailScreenModel
 import com.wardrobapp.presentation.GarmentDetailScreenState
-import com.wardrobapp.presentation.GarmentDetailScreenState.Confirm
-import com.wardrobapp.presentation.GarmentDetailView
-import com.wardrobapp.presentation.garmentDetail
-import com.wardrobapp.presentation.withBackgroundRemovedAt
-import com.wardrobapp.presentation.withBackgroundRestoredAt
-import java.util.UUID
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * One garment's detail.
@@ -31,287 +15,41 @@ import kotlinx.coroutines.withContext
  * Decides nothing about what is shown: :presentation turns the record into a
  * [GarmentDetailView], and this holds which photo is selected and keeps the read
  * off the main thread.
+ *
+ * What it does lives in GarmentDetailScreenModel, in common code, so the browser
+ * can run it too; this is the Android half: the scope that ends with the screen,
+ * the phone's own database, and the two things only the phone does here --
+ * deleting photo files from its store, and ML Kit cutting a photo out of its
+ * background.
  */
 class GarmentDetailViewModel(
-    private val container: AppContainer,
-    private val garmentId: String,
+    container: AppContainer,
+    garmentId: String,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(GarmentDetailScreenState(garmentId = garmentId))
-    val state: StateFlow<GarmentDetailScreenState> = _state.asStateFlow()
+    private val model = GarmentDetailScreenModel(
+        scope = viewModelScope,
+        source = DatabaseGarmentDetailSource(
+            garments = container.garments,
+            garmentWrites = container.garmentWrites,
+            imageDirectory = container.imageDirectory,
+            deletePhoto = container.photos::delete,
+            removeBackground = { photo, id -> container.backgrounds.removeBackground(photo.toUri(), id) },
+            io = Dispatchers.IO,
+        ),
+        garmentId = garmentId,
+    )
 
-    /**
-     * The record, and which of its photos is selected.
-     *
-     * Both are kept so that selecting a photo can go back through
-     * [garmentDetail] rather than editing the view it produced. Recomputing is a
-     * pure call over data already in memory; patching the view would mean this
-     * class deciding what a photo shows, which is the one thing it is not
-     * supposed to know.
-     *
-     * The index survives a reload on purpose: removing a background reloads the
-     * garment, and jumping back to the first photo would lose the reader's place.
-     */
-    private var record: GarmentRecord? = null
-    private var selectedIndex = 0
+    val state: StateFlow<GarmentDetailScreenState> = model.state
 
-    init {
-        refresh()
-    }
-
-    fun refresh() {
-        _state.update { it.copy(loading = true, error = null) }
-
-        viewModelScope.launch {
-            try {
-                val loaded = withContext(Dispatchers.IO) { container.garments.garment(garmentId) }
-                record = loaded
-                _state.update {
-                    if (loaded == null) {
-                        it.copy(loading = false, view = null, missing = true)
-                    } else {
-                        it.copy(
-                            loading = false,
-                            view = garmentDetail(loaded, selectedIndex),
-                            missing = false,
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(loading = false, error = e.message ?: e.javaClass.simpleName)
-                }
-            }
-        }
-    }
-
-    fun onPhotoSelected(index: Int) {
-        selectedIndex = index
-        // Recomputed, not re-read: the row has not changed, only which of its
-        // photos is being looked at. No database work, and no second opinion
-        // about what that photo shows.
-        val loaded = record ?: return
-        _state.update { it.copy(view = garmentDetail(loaded, index)) }
-    }
-
-    // ---- retiring, returning, deleting --------------------------------------
-
-    fun onRetireRequested() {
-        _state.update { it.copy(confirming = Confirm.RETIRE) }
-    }
-
-    fun onDeleteRequested() {
-        _state.update { it.copy(confirming = Confirm.DELETE) }
-    }
-
-    fun onConfirmationDismissed() {
-        _state.update { it.copy(confirming = null) }
-    }
-
-    fun onActionErrorDismissed() {
-        _state.update { it.copy(actionError = null, actionErrorFallback = null) }
-    }
-
-    /** Carry out whatever is being confirmed. */
-    fun onConfirmed() {
-        when (_state.value.confirming) {
-            Confirm.RETIRE -> retire()
-            Confirm.DELETE -> delete()
-            null -> Unit
-        }
-    }
-
-    /**
-     * Put a retired garment back in use.
-     *
-     * No confirmation: it undoes something rather than doing something, and the
-     * React Native app does not ask either.
-     */
-    fun onReturnedToWardrobe() {
-        write { container.garmentWrites.markAvailable(garmentId, isoTimestamp(System.currentTimeMillis())) }
-    }
-
-    private fun retire() {
-        write { container.garmentWrites.markUnavailable(garmentId, isoTimestamp(System.currentTimeMillis())) }
-    }
-
-    /**
-     * Delete the garment, then its photos.
-     *
-     * In that order, and deliberately: the write is atomic and tells us which
-     * files are now unreferenced, so a failure leaves the garment and its photos
-     * both intact. Doing it the other way round would risk a row pointing at
-     * files that are gone -- which is the state the whole restore path exists to
-     * avoid.
-     *
-     * A file that fails to delete is not worth failing the action over. The
-     * garment is gone either way, and what is left is a few bytes nothing
-     * references -- while reporting failure would suggest the deletion had not
-     * happened.
-     */
-    private fun delete() {
-        _state.update {
-            it.copy(confirming = null, working = true, actionError = null, actionErrorFallback = null)
-        }
-
-        viewModelScope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    val photos = container.garmentWrites.delete(garmentId)
-                    for (photo in photos) {
-                        runCatching { container.photos.delete(photo) }
-                    }
-                }
-                _state.update { it.copy(working = false, deleted = true) }
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        working = false,
-                        actionError = e.message,
-                        actionErrorFallback = ErrorFallback.GARMENT_NOT_DELETED,
-                    )
-                }
-            }
-        }
-    }
-
-    // ---- the selected photo's background -----------------------------------
-
-    /**
-     * Cut the garment out of its background, and keep the result.
-     *
-     * Unlike the form, there is no save button here, so this writes as it goes.
-     * What the slots become is decided by [withBackgroundRemovedAt] rather than
-     * here -- the alignment and what becomes discardable are the parts that are
-     * quietly wrong when they are wrong, and they are tested where they live.
-     */
-    fun onRemoveBackground() {
-        val loaded = record ?: return
-        if (_state.value.working) return
-
-        val original = loaded.displayImageUris.getOrNull(selectedIndex) ?: return
-        if (original.isEmpty()) return
-
-        _state.update { it.copy(working = true, actionError = null, actionErrorFallback = null) }
-
-        viewModelScope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    val cutout = resolveImageRef(
-                        container.backgrounds.removeBackground(
-                            original.toUri(),
-                            UUID.randomUUID().toString(),
-                        ),
-                        container.imageDirectory,
-                    )
-
-                    val edit = withBackgroundRemovedAt(
-                        images = loaded.displayImageUris,
-                        cutouts = loaded.displayNoBgImageUris,
-                        index = selectedIndex,
-                        cutout = cutout,
-                    ) ?: return@withContext
-
-                    applyPhotos(edit, alsoImages = true)
-                }
-                _state.update { it.copy(working = false) }
-                refresh()
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        working = false,
-                        actionError = e.message,
-                        actionErrorFallback = ErrorFallback.BACKGROUND_NOT_REMOVED,
-                    )
-                }
-            }
-        }
-    }
-
-    /**
-     * Put the original photo back.
-     *
-     * Only offered where there is an original to go back to, which is the same
-     * condition [withBackgroundRestoredAt] enforces -- so a stale tap on a slot
-     * that has since collapsed does nothing rather than something wrong.
-     */
-    fun onUndoBackground() {
-        val loaded = record ?: return
-        if (_state.value.working) return
-
-        _state.update { it.copy(working = true, actionError = null, actionErrorFallback = null) }
-
-        viewModelScope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    val edit = withBackgroundRestoredAt(
-                        images = loaded.displayImageUris,
-                        cutouts = loaded.displayNoBgImageUris,
-                        index = selectedIndex,
-                    ) ?: return@withContext
-
-                    applyPhotos(edit, alsoImages = false)
-                }
-                _state.update { it.copy(working = false) }
-                refresh()
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        working = false,
-                        actionError = e.message,
-                        actionErrorFallback = ErrorFallback.NOT_UNDONE,
-                    )
-                }
-            }
-        }
-    }
-
-    /**
-     * Write the new slots, then drop the file nothing points at.
-     *
-     * That order matters: the row is the record of what exists, so a failure
-     * before it is written leaves both the old slots and their files intact. The
-     * file is deleted only after the row has stopped referring to it.
-     *
-     * [alsoImages] is false for an undo, which changes only the cut-out column --
-     * the image column already holds the original it is going back to.
-     */
-    private fun applyPhotos(edit: BackgroundEdit, alsoImages: Boolean) {
-        container.garmentWrites.update(
-            garmentId,
-            GarmentWrites.GarmentEdit(
-                imageUri = if (alsoImages) edit.images.firstOrNull() ?: "" else null,
-                imageUris = if (alsoImages) edit.images else null,
-                // Written as an empty string rather than NULL when a slot is
-                // cleared; every reader treats the two the same.
-                imageUriNoBg = edit.cutouts.firstOrNull() ?: "",
-                imageUrisNoBg = edit.cutouts,
-            ),
-            isoTimestamp(System.currentTimeMillis()),
-        )
-
-        edit.discardable?.let { runCatching { container.photos.delete(it) } }
-    }
-
-    /** Run a write, then re-read: what the screen shows comes from the row. */
-    private fun write(action: () -> Unit) {
-        _state.update {
-            it.copy(confirming = null, working = true, actionError = null, actionErrorFallback = null)
-        }
-
-        viewModelScope.launch {
-            try {
-                withContext(Dispatchers.IO) { action() }
-                _state.update { it.copy(working = false) }
-                refresh()
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        working = false,
-                        actionError = e.message ?: e.javaClass.simpleName,
-                    )
-                }
-            }
-        }
-    }
+    fun refresh() = model.refresh()
+    fun onPhotoSelected(index: Int) = model.onPhotoSelected(index)
+    fun onRetireRequested() = model.onRetireRequested()
+    fun onDeleteRequested() = model.onDeleteRequested()
+    fun onConfirmationDismissed() = model.onConfirmationDismissed()
+    fun onActionErrorDismissed() = model.onActionErrorDismissed()
+    fun onConfirmed() = model.onConfirmed()
+    fun onReturnedToWardrobe() = model.onReturnedToWardrobe()
+    fun onRemoveBackground() = model.onRemoveBackground()
+    fun onUndoBackground() = model.onUndoBackground()
 }

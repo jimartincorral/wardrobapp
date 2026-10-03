@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.core.content.edit
 import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.WardrobeView
+import com.wardrobapp.presentation.WardrobeViewSettings
 import com.wardrobapp.presentation.garmentCaptionFor
 import com.wardrobapp.presentation.storedValue
 import com.wardrobapp.presentation.wardrobeViewFor
@@ -21,13 +22,13 @@ import com.wardrobapp.presentation.wardrobeViewFor
  * a number and SharedPreferences can hold both. [wardrobeViewFor] decides what an
  * unrecognised pair means.
  */
-class WardrobeViewPreference(context: Context) {
+class WardrobeViewPreference(context: Context) : WardrobeViewSettings {
 
     private val preferences =
         context.getSharedPreferences(APPEARANCE_PREFERENCES, Context.MODE_PRIVATE)
 
     /** The view in force. Read every time, as the theme is, so there is one copy. */
-    var view: WardrobeView
+    override var view: WardrobeView
         get() = wardrobeViewFor(
             preferences.getString(KEY_LAYOUT, null),
             // Absent is null rather than 0: a count of zero is not a count, and
@@ -55,7 +56,7 @@ class WardrobeViewPreference(context: Context) {
      * width", and a third dimension with nothing to do with either would make both
      * harder to read for no gain.
      */
-    var caption: GarmentCaption
+    override var caption: GarmentCaption
         get() = garmentCaptionFor(preferences.getString(KEY_CAPTION, null))
         set(value) {
             preferences.edit {
