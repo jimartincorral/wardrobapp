@@ -31,6 +31,17 @@ data class ServerSettings(
      * every app using ingress.
      */
     val allowedClients: Set<String>? = null,
+    /**
+     * `WARDROBAPP_SYNC_PORT`: the port phones sync through, or `off` for none.
+     *
+     * A second server on its own port rather than more routes on the first,
+     * because the first answers only Home Assistant's ingress and a phone does
+     * not come through ingress. This one answers anybody who reaches it and
+     * holds the pairing code, and nothing but sync -- no screens, no photos to
+     * browse -- so a port opened for it opens nothing else. Home Assistant
+     * keeps it closed until it is given a host port in the app's settings.
+     */
+    val syncPort: Int? = DEFAULT_SYNC_PORT,
     /** `WARDROBAPP_VERSION` and `WARDROBAPP_BUILD`: what Settings' About section shows. */
     val version: ServerVersion = ServerVersion.DEVELOPMENT,
 ) {
@@ -41,18 +52,28 @@ data class ServerSettings(
         /** The port the app's ingress is pointed at; config.yaml says the same, and a test holds them equal. */
         const val DEFAULT_PORT = 8099
 
+        /** The port phones sync through, inside the container; config.yaml offers it to be mapped. */
+        const val DEFAULT_SYNC_PORT = 8100
+
         fun from(environment: Map<String, String>): ServerSettings {
             fun value(name: String) = environment[name]?.trim()?.takeIf { it.isNotEmpty() }
 
+            // Refused rather than defaulted: a typo here would otherwise start a
+            // server on a port nothing is pointed at, which looks like Home
+            // Assistant failing rather than this.
+            fun port(name: String): Int? = value(name)?.let { port ->
+                port.toIntOrNull()?.takeIf { it in 1..65535 }
+                    ?: throw IllegalArgumentException("$name is not a port: $port")
+            }
+
             return ServerSettings(
                 dataDirectory = File(value("WARDROBAPP_DATA") ?: DEFAULT_DATA),
-                port = value("WARDROBAPP_PORT")?.let { port ->
-                    // Refused rather than defaulted: a typo here would otherwise
-                    // start a server on a port nothing is pointed at, which looks
-                    // like Home Assistant failing rather than this.
-                    port.toIntOrNull()?.takeIf { it in 1..65535 }
-                        ?: throw IllegalArgumentException("WARDROBAPP_PORT is not a port: $port")
-                } ?: DEFAULT_PORT,
+                port = port("WARDROBAPP_PORT") ?: DEFAULT_PORT,
+                syncPort = if (value("WARDROBAPP_SYNC_PORT").equals("off", ignoreCase = true)) {
+                    null
+                } else {
+                    port("WARDROBAPP_SYNC_PORT") ?: DEFAULT_SYNC_PORT
+                },
                 webDirectory = value("WARDROBAPP_WEB")?.let(::File),
                 allowedClients = value("WARDROBAPP_ALLOWED_CLIENTS")
                     ?.split(',')

@@ -17,5 +17,11 @@ fun main() {
     val wardrobe = ServerWardrobe(settings.dataDirectory)
     Runtime.getRuntime().addShutdownHook(Thread { wardrobe.close() })
 
+    // The phones' port first, without waiting, then the browser's, which
+    // holds the process open. Two servers over one wardrobe: see SyncServer
+    // for why sync has a port of its own.
+    settings.syncPort?.let { syncPort ->
+        embeddedServer(CIO, port = syncPort) { wardrobeSync(wardrobe, settings.version) }.start(wait = false)
+    }
     embeddedServer(CIO, port = settings.port) { wardrobeApi(wardrobe, settings) }.start(wait = true)
 }

@@ -47,6 +47,35 @@ class PhotoFiles(val directory: File) {
         return name
     }
 
+    /**
+     * Store [bytes] under [name], which a phone chose: how sync moves a photo,
+     * since a garment row already refers to it by that name.
+     *
+     * Held to the same checks as [store] and one more: the name must be one
+     * this server or the phone writes, and its extension must say what the
+     * bytes are, or a `.jpg` that is really something else would be served as
+     * a JPEG. A name already stored is left alone -- a name is given to one
+     * photo once and never reused, so the same name is the same photo.
+     */
+    fun storeAs(name: String, bytes: ByteArray) {
+        if (!isPhotoName(name)) throw PhotoRejected.NotAPhoto()
+        if (bytes.size > MAX_PHOTO_BYTES) throw PhotoRejected.TooLarge()
+        val type = PhotoType.of(bytes) ?: throw PhotoRejected.NotAPhoto()
+        if (PhotoType.ofName(name) != type) throw PhotoRejected.NotAPhoto()
+
+        val target = File(directory, name)
+        if (target.isFile) return
+
+        directory.mkdirs()
+        val partial = File.createTempFile("upload-", ".part", directory)
+        try {
+            partial.writeBytes(bytes)
+            Files.move(partial.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE)
+        } finally {
+            partial.delete()
+        }
+    }
+
     /** The stored photo called [name], or null if there is none or the name is not one of ours. */
     fun file(name: String): File? {
         if (!isPhotoName(name)) return null

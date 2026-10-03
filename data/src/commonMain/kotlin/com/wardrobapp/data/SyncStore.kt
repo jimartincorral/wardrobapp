@@ -58,6 +58,25 @@ class SyncStore(private val driver: SqlDriver) {
     )
 
     /**
+     * Merge [theirs] into this wardrobe: read it, merge, and apply, as one
+     * transaction, so nothing written here between the read and the write --
+     * an edit in the browser, another phone's sync -- is overwritten by a
+     * merge that never saw it.
+     *
+     * The server answers a phone with this. The phone uses it too, on the
+     * wardrobe the server answers with, rather than applying that answer as
+     * it stands: the phone may have changed something while the request was
+     * out, and merging again keeps that change, to be sent next time, where
+     * applying the answer blindly would lose it. Merging an already-merged
+     * wardrobe again is harmless; that is what idempotent means.
+     */
+    fun mergeWith(theirs: WardrobeSnapshot): MergedWardrobe = driver.transaction {
+        val ours = snapshot()
+        val merged = merge(ours, theirs)
+        MergedWardrobe(merged = merged, photosNoLongerUsed = apply(changesTo(ours, merged)))
+    }
+
+    /**
      * Make this side's wardrobe the merged one, in one transaction, so a sync
      * that fails partway leaves the wardrobe as it was rather than half-merged.
      *
@@ -216,3 +235,6 @@ private fun GarmentRecord.withStoredPhotoNames() = copy(
     imageUris = imageUris.map(::toStoredImageRef),
     imageUrisNoBg = imageUrisNoBg.map(::toStoredImageRef),
 )
+
+/** A merge, applied: the wardrobe both sides now have, and the files this side can let go. */
+data class MergedWardrobe(val merged: WardrobeSnapshot, val photosNoLongerUsed: List<String>)

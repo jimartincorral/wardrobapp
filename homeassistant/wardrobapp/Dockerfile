@@ -37,6 +37,7 @@ COPY web/build/dist/wasmJs/productionExecutable /opt/wardrobapp/web
 # than fast.
 ENV WARDROBAPP_DATA=/data \
     WARDROBAPP_PORT=8099 \
+    WARDROBAPP_SYNC_PORT=8100 \
     WARDROBAPP_WEB=/opt/wardrobapp/web \
     WARDROBAPP_ALLOWED_CLIENTS=172.30.32.2 \
     WARDROBAPP_VERSION=${BUILD_VERSION} \

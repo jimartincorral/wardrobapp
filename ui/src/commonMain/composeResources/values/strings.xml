@@ -737,4 +737,33 @@
     <string name="error_outfit_not_saved">That outfit could not be saved.</string>
     <string name="outfit_pick_search">Find a garment</string>
     <string name="outfit_pick_nothing_found">No garment matches that.</string>
+
+    <!--
+        Syncing the phone with the Home Assistant app. The browser shows the
+        pairing code; the phone asks for it, with the address it is reached at.
+    -->
+    <string name="settings_section_sync">Phone sync</string>
+    <string name="sync_pairing_hint">The Android app can keep its wardrobe in step with this one. In Home Assistant, open this app's Network settings and give port %1$d a host port. Then, in the phone's Settings, enter this Home Assistant's address with that port, and the code below.</string>
+    <string name="sync_pairing_code">Pairing code</string>
+    <string name="sync_pairing_reset">Make a new code</string>
+    <string name="sync_pairing_reset_title">Make a new code?</string>
+    <string name="sync_pairing_reset_body">Phones paired with the current code stop syncing until they are given the new one.</string>
+    <string name="sync_pairing_off">Phone sync is switched off on this server.</string>
+    <string name="settings_section_home_assistant">Home Assistant</string>
+    <string name="settings_sync_hint">Keep this wardrobe in step with the Wardrobapp app in Home Assistant. The phone keeps working on its own; syncing only shares changes. The code and the port are in the app's Settings in Home Assistant.</string>
+    <string name="settings_sync_address">Address</string>
+    <string name="settings_sync_address_example">http://homeassistant.local:8100</string>
+    <string name="settings_sync_code">Pairing code</string>
+    <string name="settings_sync_connect">Connect</string>
+    <string name="settings_sync_connecting">Checking…</string>
+    <string name="settings_sync_disconnect">Stop syncing</string>
+    <string name="settings_sync_now">Sync now</string>
+    <string name="settings_sync_running">Syncing…</string>
+    <string name="settings_sync_last">Last synced: %1$s</string>
+    <string name="settings_sync_never">Not synced yet.</string>
+    <string name="settings_sync_failed">Last sync failed: %1$s</string>
+    <string name="settings_sync_not_paired">Home Assistant did not accept that code. Check it in the app's Settings there.</string>
+    <string name="settings_sync_unreachable">Couldn't reach Home Assistant at that address.</string>
+    <string name="settings_sync_background">Sync in the background</string>
+    <string name="settings_sync_wifi_only">Only on Wi-Fi</string>
 </resources>

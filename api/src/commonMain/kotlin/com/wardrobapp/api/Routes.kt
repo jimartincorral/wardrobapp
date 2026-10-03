@@ -82,6 +82,12 @@ object Routes {
     /** GET: the server's [ServerVersion]. */
     const val VERSION = "api/version"
 
+    /** GET: the [SyncPairing] a phone needs, for Settings to show. */
+    const val SYNC_PAIRING = "api/sync/pairing"
+
+    /** POST: a new pairing code, unpairing every phone; answers the new [SyncPairing]. */
+    const val SYNC_PAIRING_RESET = "api/sync/pairing/reset"
+
     /** POST [ImportRequest]. */
     const val IMPORT = "api/import"
 
