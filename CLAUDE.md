@@ -34,7 +34,7 @@ which explains the rest, and the README section it points at.
 
 - **`:app` does not build without the Android SDK.** `settings.gradle.kts`
   includes it only when one is present, so on a machine without it
-  `./gradlew test` runs the three pure-Kotlin modules and silently skips the app.
+  `./gradlew test` runs the four pure-Kotlin modules and silently skips the app.
   CI is the only place `:app` is compiled, linted or Robolectric-tested — which
   is why `:presentation` carries tests that read `:app`'s resources as files.
   Run `./gradlew test` before pushing; expect CI to be the first thing that

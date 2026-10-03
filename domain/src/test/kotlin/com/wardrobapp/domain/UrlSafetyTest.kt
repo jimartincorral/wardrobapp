@@ -214,4 +214,82 @@ class UrlSafetyTest {
         assertTrue(messages.all { it.isNotBlank() }, "a reason has no sentence")
         assertEquals(messages.size, messages.toSet().size, "two reasons read the same")
     }
+
+    /*
+     * Resolved addresses: what DNS answered, as bytes, rather than what the URL
+     * said. Written as tables of edges for the same reason as the host checks
+     * above, and built by hand rather than through `InetAddress`, which quietly
+     * turns `::ffff:a.b.c.d` into a four-byte address -- the sixteen-byte form
+     * would then never be tested, and it is the one a resolver can return.
+     */
+
+    @Test
+    fun `a resolved public address is public`() {
+        for ((label, address) in listOf(
+            "8.8.8.8" to v4("8.8.8.8"),
+            "the address after 10/8" to v4("11.0.0.0"),
+            "the address before 172.16/12" to v4("172.15.255.255"),
+            "the address after 172.16/12" to v4("172.32.0.0"),
+            "the address before 192.168/16" to v4("192.167.255.255"),
+            "the address before carrier NAT" to v4("100.63.255.255"),
+            "the address after carrier NAT" to v4("100.128.0.0"),
+            "a public IPv6 address" to v6(0x2606, 0x4700, 0, 0, 0, 0, 0, 0x1111),
+            "the documentation prefix, as the literal check allows it" to v6(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1),
+            "a public IPv4 address, mapped" to v6(0, 0, 0, 0, 0, 0xffff, 0x0808, 0x0808),
+            "a public IPv4 address through NAT64" to v6(0x64, 0xff9b, 0, 0, 0, 0, 0x0808, 0x0808),
+            "a public IPv4 address through 6to4" to v6(0x2002, 0x0808, 0x0808, 0, 0, 0, 0, 1),
+            "just below fc00::/7" to v6(0xfbff, 0xffff, 0, 0, 0, 0, 0, 1),
+            "just below fe80::/10" to v6(0xfe7f, 0xffff, 0, 0, 0, 0, 0, 1),
+        )) {
+            assertTrue(isPublicAddress(address), "$label should be public")
+        }
+    }
+
+    @Test
+    fun `a resolved private address is not, however it is carried`() {
+        for ((label, address) in listOf(
+            "loopback" to v4("127.0.0.1"),
+            "the far end of loopback" to v4("127.255.255.255"),
+            "this network" to v4("0.0.0.0"),
+            "10/8" to v4("10.0.0.1"),
+            "172.16/12, first" to v4("172.16.0.0"),
+            "172.16/12, last" to v4("172.31.255.255"),
+            "192.168/16" to v4("192.168.1.1"),
+            "link-local and cloud metadata" to v4("169.254.169.254"),
+            "carrier NAT" to v4("100.64.0.1"),
+            "the Home Assistant Supervisor's network" to v4("172.30.32.2"),
+            "multicast" to v4("224.0.0.1"),
+            "broadcast" to v4("255.255.255.255"),
+            "IPv6 loopback" to v6(0, 0, 0, 0, 0, 0, 0, 1),
+            "IPv6 unspecified" to v6(0, 0, 0, 0, 0, 0, 0, 0),
+            "unique-local, fc00::/7 first" to v6(0xfc00, 0, 0, 0, 0, 0, 0, 1),
+            "unique-local, fc00::/7 last" to v6(0xfdff, 0xffff, 0, 0, 0, 0, 0, 1),
+            "link-local" to v6(0xfe80, 0, 0, 0, 0, 0, 0, 1),
+            "the far end of link-local" to v6(0xfebf, 0xffff, 0, 0, 0, 0, 0, 1),
+            "site-local" to v6(0xfec0, 0, 0, 0, 0, 0, 0, 1),
+            "multicast" to v6(0xff02, 0, 0, 0, 0, 0, 0, 1),
+            "a router, mapped into IPv6" to v6(0, 0, 0, 0, 0, 0xffff, 0xc0a8, 0x0101),
+            "loopback, IPv4-compatible" to v6(0, 0, 0, 0, 0, 0, 0x7f00, 0x0001),
+            "a router through NAT64" to v6(0x64, 0xff9b, 0, 0, 0, 0, 0xc0a8, 0x0101),
+            "an operator's own NAT64 prefix" to v6(0x64, 0xff9b, 1, 0, 0, 0, 0x0808, 0x0808),
+            "a router through 6to4" to v6(0x2002, 0xc0a8, 0x0101, 0, 0, 0, 0, 1),
+        )) {
+            assertFalse(isPublicAddress(address), "$label should be refused")
+        }
+    }
+
+    @Test
+    fun `an address of neither length is refused rather than guessed at`() {
+        assertFalse(isPublicAddress(ByteArray(0)))
+        assertFalse(isPublicAddress(ByteArray(5) { 8 }))
+        assertFalse(isPublicAddress(ByteArray(15) { 8 }))
+    }
+
+    private fun v4(dotted: String): ByteArray =
+        dotted.split('.').map { it.toInt().toByte() }.toByteArray()
+
+    private fun v6(vararg groups: Int): ByteArray {
+        require(groups.size == 8)
+        return groups.flatMap { listOf((it shr 8).toByte(), it.toByte()) }.toByteArray()
+    }
 }

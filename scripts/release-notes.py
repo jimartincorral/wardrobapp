@@ -3,9 +3,15 @@
 What to tell somebody about a build, as opposed to what changed in it.
 
     python3 scripts/release-notes.py <previous-commit> <this-commit>
+    python3 scripts/release-notes.py <previous-commit> <this-commit> --history <build> [<previous-document>]
 
 Prints a JSON array of lines for the update dialog, and says on stderr which
 merges had nothing to contribute and did not say so.
+
+With --history it prints the same notes tagged with the build they arrive in,
+followed by the notes the previous published document carried, so a phone
+several builds behind can be told everything since its own build rather than
+since the last one published. See `history_for` below.
 
 The changelog used to be the list of pull request titles in the range, which is
 how it ended up telling people about "Build each branch once, in one pass, and
@@ -90,12 +96,65 @@ def notes_in(commits: list[str]) -> tuple[list[str], bool]:
     return notes, spoken
 
 
-def main() -> int:
-    if len(sys.argv) != 3:
-        print(__doc__.strip().splitlines()[2].strip(), file=sys.stderr)
-        return 2
-    previous, head = sys.argv[1], sys.argv[2]
+def carried_history(document: dict) -> list[dict]:
+    """
+    The notes a previously published document carries forward, each with its build.
 
+    A document written since builds carried their notes has them under `history`.
+    One written before has only `changes`, which are exactly the notes of the build
+    it described -- so that build is the one they are given. Its placeholder line
+    is not a note and stays behind.
+
+    Anything malformed is dropped rather than fatal: a changelog line fewer is not
+    worth a release run that fails.
+    """
+    if not isinstance(document, dict):
+        return []
+
+    entries = document.get('history')
+    if isinstance(entries, list):
+        kept = []
+        for entry in entries:
+            if not isinstance(entry, dict) or not isinstance(entry.get('text'), str):
+                continue
+            try:
+                kept.append({'build': int(entry['build']), 'text': entry['text']})
+            except (KeyError, TypeError, ValueError):
+                continue
+        return kept
+
+    try:
+        build = int(document.get('version_code'))
+    except (TypeError, ValueError):
+        return []
+    return [
+        {'build': build, 'text': text}
+        for text in document.get('changes', [])
+        if isinstance(text, str) and text != NOTHING
+    ]
+
+
+def history_for(build: int, notes: list[str], previous: dict) -> list[dict]:
+    """
+    This build's notes, then the ones carried from before it, newest first.
+
+    Every merge publishes a build that replaces the last, so each document's own
+    notes describe one build's worth of change -- and a phone that skipped a few
+    launches was told about the newest build and nothing before it. Carrying the
+    earlier notes forward, each with the build it arrived in, lets the phone keep
+    those newer than what it runs. The app does that cut; this only records.
+
+    A carried note claiming this build or a later one is dropped: the previous
+    document describes something older by definition, and a build number that
+    says otherwise is a mistake that would put a note in the wrong place.
+    """
+    own = [{'build': build, 'text': note} for note in notes]
+    older = [entry for entry in carried_history(previous) if entry['build'] < build]
+    return (own + older)[:LIMIT]
+
+
+def collect(previous: str, head: str) -> tuple[list[str], list[str]]:
+    """This build's notes, deduplicated in order, and the merges that said nothing."""
     changes: list[str] = []
     silent: list[str] = []
 
@@ -121,6 +180,37 @@ def main() -> int:
     # merge is one line, not two.
     seen = set()
     unique = [note for note in changes if not (note in seen or seen.add(note))]
+    return unique, silent
+
+
+def main() -> int:
+    arguments = sys.argv[1:]
+    usage = '\n'.join(line.strip() for line in __doc__.strip().splitlines()[2:4])
+
+    if len(arguments) == 2:
+        mode = 'changes'
+    elif len(arguments) in (4, 5) and arguments[2] == '--history':
+        mode = 'history'
+    else:
+        print(usage, file=sys.stderr)
+        return 2
+
+    unique, silent = collect(arguments[0], arguments[1])
+
+    if mode == 'history':
+        try:
+            build = int(arguments[3])
+        except ValueError:
+            print(usage, file=sys.stderr)
+            return 2
+        previous = {}
+        if len(arguments) == 5:
+            with open(arguments[4], encoding='utf-8') as document:
+                previous = json.load(document)
+        # No warning here: the same run prints the changes too, and that is the
+        # one place a missing trailer should be named.
+        print(json.dumps(history_for(build, unique, previous), indent=2))
+        return 0
 
     if silent:
         print(

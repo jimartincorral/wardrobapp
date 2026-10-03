@@ -2,6 +2,7 @@ package com.wardrobapp.data
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -33,9 +34,26 @@ data class AppRelease(
     val versionName: String,
     /** Where the APK is. Checked against [TRUSTED_DOWNLOAD_HOSTS] before it is kept. */
     val apkUrl: String,
-    /** What changed since the build the phone is running, newest first. */
+    /**
+     * What to tell somebody about this build, newest first.
+     *
+     * As published, the notes of this build alone -- everything merged since the
+     * build before it. Once [updateWorthOffering] has seen it, everything since the
+     * build the phone is running, which is what a reader deciding whether to
+     * install actually wants and what a phone two builds behind used to miss.
+     */
     val changes: List<String>,
+    /**
+     * Recent notes with the build each arrived in, newest first.
+     *
+     * What lets [changes] be cut to the phone's own build. Empty for a document
+     * published before builds carried it, in which case [changes] is all there is.
+     */
+    val history: List<ReleaseNote> = emptyList(),
 )
+
+/** One changelog line, and the build that brought it. */
+data class ReleaseNote(val build: Long, val text: String)
 
 /**
  * The only hosts an APK may be downloaded from.
@@ -91,7 +109,33 @@ fun parseAppRelease(text: String): AppRelease? {
             ?.map { it.trim() }
             ?.filter { it.isNotEmpty() }
             ?: emptyList(),
+        history = (root["history"] as? JsonArray)?.mapNotNull(::parseReleaseNote) ?: emptyList(),
     )
+}
+
+/**
+ * One entry of `history`, or nothing if it is not one.
+ *
+ * Skipped rather than fatal, like everything else in the document that is not
+ * the version code or the download: a malformed changelog line is a line fewer in
+ * a dialog, not a reason to stop offering updates. The build is read as a number
+ * or a string for the same quoting reason as `version_code`.
+ *
+ * Its own key rather than a new shape for `changes`, because every phone already
+ * installed reads `changes` as a list of strings and drops anything else. An
+ * object there would leave each of them with an empty changelog -- for the very
+ * update that would teach them the new shape.
+ */
+private fun parseReleaseNote(element: JsonElement): ReleaseNote? {
+    val entry = element as? JsonObject ?: return null
+    val build = (entry["build"] as? JsonPrimitive)?.content?.toLongOrNull() ?: return null
+    val text = (entry["text"] as? JsonPrimitive)
+        ?.takeIf { it.isString }
+        ?.content
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+        ?: return null
+    return ReleaseNote(build, text)
 }
 
 /**
@@ -114,10 +158,12 @@ fun isTrustedDownload(url: String): Boolean {
 }
 
 /**
- * The build worth telling somebody about, if any.
+ * The build worth telling somebody about, if any, with what to tell them.
  *
  * Three ways to say nothing: there is no readable document, the published build is
  * not newer than the one running, or it is one the reader has already declined.
+ *
+ * What is said is cut to [installed]: see [changesSince].
  *
  * [skipped] is the version code of the build that was skipped, and skipping is
  * "not this one" rather than "no more of these": a build newer than the skipped one
@@ -129,5 +175,29 @@ fun updateWorthOffering(installed: Long, skipped: Long, release: AppRelease?): A
     if (release.versionCode <= installed) return null
     if (release.versionCode <= skipped) return null
 
-    return release
+    return release.copy(changes = changesSince(installed, release))
 }
+
+/**
+ * Everything [release] would change for a phone running [installed].
+ *
+ * Every published build replaces the one before it, and the published notes are
+ * that build's own -- so a phone that last updated three builds ago would be told
+ * about the third and not the first two. [AppRelease.history] carries each note
+ * with its build, and this keeps the ones the phone has not got.
+ *
+ * Falls back to [AppRelease.changes] when nothing in the history is newer than
+ * the phone, which covers two cases with one rule. A document with no history is
+ * from before it existed, and its own notes are the best there is. And when every
+ * build since the phone's said `Release-Note: none`, the published changes hold
+ * the line that says so, which beats an empty list.
+ *
+ * A note claiming a build newer than the one offered is ignored: it describes
+ * something this download does not contain.
+ */
+fun changesSince(installed: Long, release: AppRelease): List<String> =
+    release.history
+        .filter { it.build > installed && it.build <= release.versionCode }
+        .map { it.text }
+        .distinct()
+        .ifEmpty { release.changes }

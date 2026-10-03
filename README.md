@@ -40,13 +40,14 @@ A local-first wardrobe and outfit planner for **Android**, written in Kotlin and
 - JDK 17
 - The Android SDK, with platform 36 (Android Studio, or `sdkmanager`)
 
-Three of the four modules need neither — see [Architecture](#architecture).
+Four of the five modules need neither — see [Architecture](#architecture).
 
 ```bash
 git clone https://github.com/jimartincorral/wardrobapp.git
 cd wardrobapp
 
-# The pure modules: the algorithms, the data mapping, the view logic.
+# The pure modules: the algorithms, the data mapping, the view logic, and
+# URL import's requests.
 # No Android SDK needed, and finishes in seconds.
 ./gradlew test
 
@@ -196,6 +197,8 @@ presentation/  What a screen shows, as pure functions over records: list
 domain/        The algorithms: outfit suggestion, duplicate detection, pair
                learning, colour comparison, occasions, URL safety, reading a
                product page.
+net/           URL import's requests: a product page and its images, with
+               every redirect checked before it is followed.
 data/          SQLite queries and row mapping, photo references, reading and
                writing backup archives.
 art/           logo.png — the logo, as delivered. Every icon the app ships
@@ -232,13 +235,19 @@ remembered at merge time. A change that carries neither contributes nothing and 
 named in a warning on the release run — silence and "nothing to say" look the same
 in a changelog, and only one of them is deliberate.
 
+Every line is published with the build it arrived in, and the last fifty travel
+forward from one release to the next, so the dialog lists everything since the
+build on the phone rather than only what the newest build added. A phone that
+missed a few launches is told about all of them.
+
 ## Architecture
 
-One Android module and three plain Kotlin/JVM ones. `settings.gradle.kts` includes `:app` only when an Android SDK is present, which is what lets the other three be built and tested on any machine — and proves they need nothing but a JDK, rather than merely claiming it.
+One Android module and four plain Kotlin/JVM ones. `settings.gradle.kts` includes `:app` only when an Android SDK is present, which is what lets the other four be built and tested on any machine — and proves they need nothing but a JDK, rather than merely claiming it.
 
 - **`domain/`** — no database, no filesystem, no clock, no Android. Everything arrives as an argument: the suggestion engine takes its randomness as a parameter, so a run is reproducible and a bug can be reported.
 - **`presentation/`** — the decisions a screen makes, taken out of the screen. Chart widths, what counts as an active filter, which photo the strip has selected. Compose renders the answers; it does not compute them.
 - **`data/`** — reaches SQLite through a small `SqlDriver` interface rather than depending on `androidx.sqlite`. On Android that wraps a `SupportSQLiteDatabase`; in tests it wraps JDBC. Both run the same SQL against the same schema, which is what lets the queries be exercised without an emulator.
+- **`net/`** — the one pure module that does I/O: the requests URL import makes. It holds no decisions — whether an address may be fetched is `:domain`'s — and it is separate from `:app` so that what a request actually reaches can be tested against a real server without an SDK.
 - **`app/`** — layout, navigation, and the platform. Thin on purpose: a ViewModel here loads data, calls a pure function and holds the result.
 
 `WardrobeSchema` is applied on every open — `CREATE TABLE IF NOT EXISTS`, then additive `ALTER`s, then the indexes over them — so there is no migration version to get out of step. Two shapes of database exist on real phones as a result, and both are tested; see Limitations.
@@ -281,7 +290,7 @@ CI runs all of it on every pull request, on pushes to `main`, and on pushes to `
 - **No cloud sync**, by design. Backups are the way to move a wardrobe to another device.
 - **No wear log.** The app records outfit ratings, not what you wore on a given day, so there is no cost-per-wear or wear-trend reporting.
 - **Colour detection is approximate.** It snaps every fourth pixel to the nearest of the 24 palette colours and picks whichever holds the most of them, plus a runner-up covering at least a fifth of the garment. What is left approximate: a print reports its ground and its strongest figure rather than "multi", the third colour of a three-coloured garment is not reported, and on a photo whose background has not been removed that background still votes. It fills the palette in rather than answering it — every colour it picks is one tap to undo.
-- **URL import only fetches public addresses.** A product page reaches the app two ways: a `wardrobapp://…?importUrl=…` deep link, which any web page, message or QR code can open, and the share sheet from a browser. Neither is necessarily an address you chose. Import therefore asks before fetching anything, and refuses addresses on the device or its local network — a phone sits *inside* a home network, and without that the app would be a way to reach a router or a printer that the page could not reach itself. Redirects are checked before they are followed, page reads are capped and given a deadline, and the image URLs a page supplies go through the same check. An `http://` page will not load at all: Android blocks cleartext by default and opting in app-wide to reach the occasional shop still on http would weaken every other request.
+- **URL import only fetches public addresses.** A product page reaches the app two ways: a `wardrobapp://…?importUrl=…` deep link, which any web page, message or QR code can open, and the share sheet from a browser. Neither is necessarily an address you chose. Import therefore asks before fetching anything, and refuses addresses on the device or its local network — a phone sits *inside* a home network, and without that the app would be a way to reach a router or a printer that the page could not reach itself. A name is judged by the address it resolves to as well as by how it is written — `192.168.1.1.nip.io` is a public name for a router — and the connection is made only to the address that was checked, so a resolver cannot answer one way for the check and another for the request. Redirects are checked before they are followed, page reads are capped and given a deadline, and the image URLs a page supplies go through the same checks. Imports ignore any proxy set on the phone, because through a proxy the app could not see which address a request reaches. An `http://` page will not load at all: Android blocks cleartext by default and opting in app-wide to reach the occasional shop still on http would weaken every other request.
 
 ## Contributing
 
