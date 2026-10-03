@@ -12,7 +12,11 @@ import com.wardrobapp.data.SyncStore
 import com.wardrobapp.data.WardrobeSchema
 import com.wardrobapp.presentation.GarmentFormState
 import com.wardrobapp.presentation.SyncFailure
+import io.ktor.server.cio.CIO
+import io.ktor.server.engine.embeddedServer
 import io.ktor.server.testing.testApplication
+import java.net.ServerSocket
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.file.Files
 import kotlin.test.Test
@@ -195,5 +199,40 @@ class PhoneSyncTest {
         assertNull(preferences.code)
         // The switches are the person's, and outlive one pairing.
         assertFalse(phone.status.value.wifiOnly)
+    }
+
+    @Test
+    fun `the phone's own client syncs with a server listening on a real port`() {
+        // Everything above goes through Ktor's in-memory test client. This is the
+        // client the phone builds -- CIO, its timeouts, the code in a header --
+        // over a socket, to the server as Main starts it.
+        val directory = Files.createTempDirectory("phone-sync-socket").toFile()
+        val wardrobe = ServerWardrobe(File(directory, "server"))
+        val port = ServerSocket(0).use { it.localPort }
+        val server = embeddedServer(CIO, port = port) { wardrobeSync(wardrobe, ServerVersion("0.2.0", 9)) }.start(wait = false)
+        val database = JdbcSqlDriver.open(File(directory, "phone.db")).also { WardrobeSchema.applyTo(it) }
+        try {
+            runBlocking {
+                wardrobe.addGarment()
+                val phone = PhoneSync(
+                    preferences = Preferences(),
+                    store = SyncStore(database),
+                    photos = DirectoryPhotoFolder(File(directory, "phone-photos")),
+                    background = Schedule(),
+                )
+
+                assertEquals(SyncFailure.NotPaired, phone.connect("http://127.0.0.1:$port/", "AAAAA-BBBBB-CCCCC-DDDDD"))
+                assertNull(phone.connect("http://127.0.0.1:$port/", wardrobe.syncSecret.current().lowercase()))
+                assertNull(phone.sync())
+
+                assertEquals(1, SyncStore(database).snapshot().garments.size)
+                assertEquals(1, File(directory, "phone-photos").list()?.size)
+            }
+        } finally {
+            server.stop(0, 0)
+            database.close()
+            wardrobe.close()
+            directory.deleteRecursively()
+        }
     }
 }
