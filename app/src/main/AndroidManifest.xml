@@ -12,6 +12,15 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!--
+        Whether the network the phone is on is metered. Syncing with Home
+        Assistant when the app is opened waits for Wi-Fi unless told otherwise,
+        and asking which network this is needs this permission. WorkManager
+        declares it too, for its own network constraints; it is named here
+        because this app now asks the question itself.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
         Handing a downloaded build to Android's installer.
 
         This app is not on an app store: it is published as an APK on a GitHub

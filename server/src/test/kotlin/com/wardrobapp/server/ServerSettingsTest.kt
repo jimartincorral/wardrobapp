@@ -24,6 +24,7 @@ class ServerSettingsTest {
             mapOf(
                 "WARDROBAPP_DATA" to "/srv/wardrobe",
                 "WARDROBAPP_PORT" to "9000",
+                "WARDROBAPP_SYNC_PORT" to "9001",
                 "WARDROBAPP_WEB" to "/opt/web",
                 "WARDROBAPP_ALLOWED_CLIENTS" to " 172.30.32.2 , 127.0.0.1,",
                 "WARDROBAPP_VERSION" to "0.1.0",
@@ -35,12 +36,19 @@ class ServerSettingsTest {
             ServerSettings(
                 dataDirectory = File("/srv/wardrobe"),
                 port = 9000,
+                syncPort = 9001,
                 webDirectory = File("/opt/web"),
                 allowedClients = setOf("172.30.32.2", "127.0.0.1"),
                 version = ServerVersion("0.1.0", 345),
             ),
             settings,
         )
+    }
+
+    @Test
+    fun `sync can be switched off`() {
+        assertNull(ServerSettings.from(mapOf("WARDROBAPP_SYNC_PORT" to "off")).syncPort)
+        assertEquals(ServerSettings.DEFAULT_SYNC_PORT, ServerSettings.from(emptyMap()).syncPort)
     }
 
     @Test

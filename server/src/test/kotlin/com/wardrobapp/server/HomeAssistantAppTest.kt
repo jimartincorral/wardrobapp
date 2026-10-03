@@ -59,12 +59,22 @@ class HomeAssistantAppTest {
     }
 
     @Test
-    fun `nothing but ingress can reach it`() {
-        // No port published on the host...
-        assertTrue(config.none { it.startsWith("ports:") || it.startsWith("host_network:") }, "config.yaml publishes a port")
-        // ...and the server refusing anything that did not come through
-        // ingress, which forwards from this one address.
+    fun `nothing but ingress can reach the app`() {
+        // The server refusing anything that did not come through ingress,
+        // which forwards from this one address...
         assertEquals("172.30.32.2", environment("WARDROBAPP_ALLOWED_CLIENTS"))
+        // ...and nothing on the host network.
+        assertTrue(config.none { it.startsWith("host_network:") }, "config.yaml puts the app on the host network")
+    }
+
+    @Test
+    fun `the one port offered is sync's, and it is closed until somebody opens it`() {
+        // Every other port would be a way past ingress's sign-in. Sync's
+        // answers only sync, and only with the pairing code (see SyncServer),
+        // and Home Assistant leaves a port mapped to null closed.
+        val ports = config.dropWhile { it != "ports:" }.drop(1).takeWhile { it.startsWith("  ") }.map { it.trim() }
+        assertEquals(listOf("${ServerSettings.DEFAULT_SYNC_PORT}/tcp: null"), ports)
+        assertEquals(ServerSettings.DEFAULT_SYNC_PORT.toString(), environment("WARDROBAPP_SYNC_PORT"))
     }
 
     @Test

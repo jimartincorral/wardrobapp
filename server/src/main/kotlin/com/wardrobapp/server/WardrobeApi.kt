@@ -9,11 +9,10 @@ import com.wardrobapp.api.SavedGarment
 import com.wardrobapp.api.SavedPhotos
 import com.wardrobapp.api.StoredPhoto
 import com.wardrobapp.api.SuggestionRating
+import com.wardrobapp.api.SyncPairing
 import com.wardrobapp.api.WireJson
 import com.wardrobapp.data.resolveImageRef
 import com.wardrobapp.domain.DuplicateCandidate
-import com.wardrobapp.domain.GarmentImportException
-import com.wardrobapp.domain.UnsafeUrlException
 import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.presentation.OutfitDraft
 import com.wardrobapp.presentation.OutfitsScreenState.Suggestion
@@ -32,7 +31,6 @@ import io.ktor.server.http.content.LocalFileContent
 import io.ktor.server.http.content.staticFiles
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.receive
 import io.ktor.server.request.receiveChannel
 import io.ktor.server.response.header
@@ -73,32 +71,7 @@ fun Application.wardrobeApi(
 
     install(ContentNegotiation) { json(WireJson) }
 
-    install(StatusPages) {
-        exception<UnsafeUrlException> { call, e ->
-            call.fail(HttpStatusCode.UnprocessableEntity, ApiFailure.UnsafeUrl(e.reason))
-        }
-        exception<GarmentImportException> { call, e ->
-            call.fail(HttpStatusCode.UnprocessableEntity, ApiFailure.ImportFailed(e.reason))
-        }
-        exception<PhotoRejected.TooLarge> { call, e ->
-            call.fail(HttpStatusCode.PayloadTooLarge, ApiFailure.Message(e.message.orEmpty()))
-        }
-        exception<PhotoRejected.NotAPhoto> { call, e ->
-            call.fail(HttpStatusCode.UnsupportedMediaType, ApiFailure.Message(e.message.orEmpty()))
-        }
-        // A body that is not the JSON the route takes. Ktor wraps the
-        // serializer's complaint; the complaint is the useful part.
-        exception<BadRequestException> { call, e ->
-            call.fail(HttpStatusCode.BadRequest, ApiFailure.Message(e.readable()))
-        }
-        // Everything else is what the phone would have shown as the screen's
-        // error: the exception's own message. Logged in full, because the
-        // browser gets one sentence and somebody will want the rest.
-        exception<Throwable> { call, e ->
-            call.application.log.error("${call.request.local.method.value} ${call.request.local.uri} failed", e)
-            call.fail(HttpStatusCode.InternalServerError, ApiFailure.Message(e.readable()))
-        }
-    }
+    answerFailures()
 
     routing {
         get(Routes.HOME_COUNTS) { call.respond(wardrobe.home.counts()) }
@@ -111,6 +84,26 @@ fun Application.wardrobeApi(
         get(Routes.STORAGE) { call.respond(wardrobe.storage()) }
 
         get(Routes.VERSION) { call.respond(settings.version) }
+
+        // What a phone needs to pair, for Settings in the browser to show --
+        // behind ingress, so only somebody signed in to Home Assistant sees it.
+        get(Routes.SYNC_PAIRING) {
+            val port = settings.syncPort
+            if (port == null) {
+                call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
+            } else {
+                call.respond(SyncPairing(code = wardrobe.syncSecret.current(), port = port))
+            }
+        }
+
+        post(Routes.SYNC_PAIRING_RESET) {
+            val port = settings.syncPort
+            if (port == null) {
+                call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
+            } else {
+                call.respond(SyncPairing(code = wardrobe.syncSecret.reset(), port = port))
+            }
+        }
 
         post(Routes.IMPORT) {
             val url = wardrobe.importer.check(call.receive<ImportRequest>().url)
@@ -321,16 +314,4 @@ private fun validRating(rating: Int): Int {
 
 private suspend inline fun <reified T : Any> ApplicationCall.respondOrNotFound(value: T?) {
     if (value == null) fail(HttpStatusCode.NotFound, ApiFailure.NotFound) else respond(value)
-}
-
-/** Answer with [failure], typed as an ApiFailure so it carries the type that says which. */
-private suspend fun ApplicationCall.fail(status: HttpStatusCode, failure: ApiFailure) {
-    respond<ApiFailure>(status, failure)
-}
-
-private fun Throwable.readable(): String {
-    // BadRequestException's own message is Ktor's ("Failed to convert request
-    // body to ..."); the cause says what was wrong with the body.
-    val meaningful = if (this is BadRequestException && cause != null) cause!! else this
-    return meaningful.message ?: meaningful::class.simpleName ?: "Something went wrong."
 }

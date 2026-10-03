@@ -31,12 +31,12 @@ class OutfitWrites(private val driver: SqlDriver) {
     ) {
         driver.execute(
             """
-            INSERT INTO outfits (id, name, garment_ids, occasion, season, created_at, is_suggested, is_pinned)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO outfits (id, name, garment_ids, occasion, season, created_at, is_suggested, is_pinned, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
             listOf(
                 id, name, jsonArray(garmentIds), occasion, season, now,
-                if (isSuggested) 1 else 0, if (isPinned) 1 else 0,
+                if (isSuggested) 1 else 0, if (isPinned) 1 else 0, now,
             ),
         )
     }
@@ -78,12 +78,12 @@ class OutfitWrites(private val driver: SqlDriver) {
     ): Boolean = driver.execute(
         """
         INSERT OR IGNORE INTO outfits
-            (id, name, garment_ids, occasion, season, created_at, is_suggested, is_pinned, is_archived)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, name, garment_ids, occasion, season, created_at, is_suggested, is_pinned, is_archived, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent(),
         listOf(
             id, name, jsonArray(garmentIds), occasion, season, now,
-            if (isSuggested) 1 else 0, if (isPinned) 1 else 0, if (isArchived) 1 else 0,
+            if (isSuggested) 1 else 0, if (isPinned) 1 else 0, if (isArchived) 1 else 0, now,
         ),
     ) > 0
 
@@ -109,21 +109,22 @@ class OutfitWrites(private val driver: SqlDriver) {
         garmentIds: List<String>,
         occasion: String?,
         season: String?,
+        now: String,
     ) {
         driver.execute(
             """
             UPDATE outfits
-            SET name = ?, garment_ids = ?, occasion = ?, season = ?
+            SET name = ?, garment_ids = ?, occasion = ?, season = ?, updated_at = ?
             WHERE id = ?
             """.trimIndent(),
-            listOf(name, jsonArray(garmentIds), occasion, season, id),
+            listOf(name, jsonArray(garmentIds), occasion, season, now, id),
         )
     }
 
-    fun setPinned(id: String, isPinned: Boolean) {
+    fun setPinned(id: String, isPinned: Boolean, now: String) {
         driver.execute(
-            "UPDATE outfits SET is_pinned = ? WHERE id = ?",
-            listOf(if (isPinned) 1 else 0, id),
+            "UPDATE outfits SET is_pinned = ?, updated_at = ? WHERE id = ?",
+            listOf(if (isPinned) 1 else 0, now, id),
         )
     }
 
@@ -135,22 +136,27 @@ class OutfitWrites(private val driver: SqlDriver) {
      * rated outfit somebody decides they do want is one tap from being kept rather
      * than something to build again.
      */
-    fun setArchived(id: String, isArchived: Boolean) {
+    fun setArchived(id: String, isArchived: Boolean, now: String) {
         driver.execute(
-            "UPDATE outfits SET is_archived = ? WHERE id = ?",
-            listOf(if (isArchived) 1 else 0, id),
+            "UPDATE outfits SET is_archived = ?, updated_at = ? WHERE id = ?",
+            listOf(if (isArchived) 1 else 0, now, id),
         )
     }
 
     /**
-     * Delete an outfit and its rating.
+     * Delete an outfit and its rating, and remember that it was deleted.
      *
      * The foreign key cascades the rating, but only while
      * `PRAGMA foreign_keys = ON` holds, so it is deleted explicitly too.
+     *
+     * The deletion is recorded for sync, at [now]: without it, the next sync
+     * with a copy that still has the outfit would read it as one this side has
+     * never seen, and bring it back.
      */
-    fun delete(id: String) = driver.transaction {
+    fun delete(id: String, now: String) = driver.transaction {
         driver.execute("DELETE FROM outfit_ratings WHERE outfit_id = ?", listOf(id))
         driver.execute("DELETE FROM outfits WHERE id = ?", listOf(id))
+        recordDeletion(driver, DeletionKind.OUTFIT, id, now)
     }
 
     /**
@@ -160,7 +166,7 @@ class OutfitWrites(private val driver: SqlDriver) {
      * Outfits left with nothing are deleted; ones that still have garments are
      * kept -- their name may read slightly stale, but the outfit is still usable.
      */
-    fun removeGarment(garmentId: String) = driver.transaction {
+    fun removeGarment(garmentId: String, now: String) = driver.transaction {
         // Archived ones too, explicitly: they are hidden from the screen, not from
         // the database, and one left pointing at a garment that no longer exists
         // is exactly the dangling reference this function exists to prevent -- it
@@ -170,11 +176,11 @@ class OutfitWrites(private val driver: SqlDriver) {
 
             val remaining = outfit.garmentIds.filterNot { it == garmentId }
             if (remaining.isEmpty()) {
-                delete(outfit.id)
+                delete(outfit.id, now)
             } else {
                 driver.execute(
-                    "UPDATE outfits SET garment_ids = ? WHERE id = ?",
-                    listOf(jsonArray(remaining), outfit.id),
+                    "UPDATE outfits SET garment_ids = ?, updated_at = ? WHERE id = ?",
+                    listOf(jsonArray(remaining), now, outfit.id),
                 )
             }
         }

@@ -16,6 +16,29 @@ in the Android app, with a few things that need the phone:
   so a large photo from a camera takes a moment.
 - **Language** follows your browser's.
 
+## Syncing the Android app
+
+The Android app keeps working on its own, and can also keep its wardrobe in
+step with this one:
+
+1. In this app's **Configuration** tab, under **Network**, give the phone sync
+   port (8100) a host port — 8100 is fine unless something else uses it.
+2. Open **Wardrobe** in the sidebar, go to **Settings**, and find the pairing
+   code under **Phone sync**.
+3. In the phone's **Settings → Home Assistant**, enter this Home Assistant's
+   address with that port (for example `http://homeassistant.local:8100`) and
+   the code.
+
+The phone then syncs when it is opened, from **Sync now**, and in the
+background if you let it. When the same garment or outfit was changed in both
+places, the latest change wins; something deleted in one place is deleted in
+both.
+
+The sync port answers nothing but sync, and only to a phone that has the code.
+**Make a new code** in Settings unpairs every phone at once — the way to shut
+out a phone that was lost. The code travels over your home network as plain
+HTTP; if the port is reachable from outside your home, put it behind HTTPS.
+
 ## Your data
 
 The wardrobe — its database and its photos — is kept in this app's own storage,

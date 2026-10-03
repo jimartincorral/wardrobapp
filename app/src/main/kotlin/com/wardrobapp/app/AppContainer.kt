@@ -1,6 +1,8 @@
 package com.wardrobapp.app
 
 import android.content.Context
+import com.wardrobapp.api.DirectoryPhotoFolder
+import com.wardrobapp.api.PhoneSync
 import com.wardrobapp.data.AnalyticsQueries
 import com.wardrobapp.data.ArchiveBackup
 import com.wardrobapp.data.ArchiveRestore
@@ -15,6 +17,7 @@ import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.ReopeningDriver
 import com.wardrobapp.data.Suggestions
+import com.wardrobapp.data.SyncStore
 import com.wardrobapp.data.WardrobeSchema
 import com.wardrobapp.domain.ImageFetcher
 import com.wardrobapp.data.storedImageBytes
@@ -23,6 +26,10 @@ import com.wardrobapp.net.HttpPageFetcher
 import com.wardrobapp.net.ImportHttp
 import java.io.InputStream
 import java.io.OutputStream
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Everything the screens need, built once.
@@ -114,6 +121,41 @@ class AppContainer(context: Context) {
     )
 
     private val backup = ArchiveBackup(files = files, workRoot = context.cacheDir)
+
+    /**
+     * Work that outlives the screen that started it: a sync carries on when
+     * somebody leaves Settings, or rotates the phone while the app is opening.
+     * Never cancelled, like the process it belongs to.
+     */
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /**
+     * Syncing with Home Assistant, if this phone is paired with one.
+     *
+     * One for the process, as the database is, and for a reason of its own:
+     * it is what stops two syncs running at once, and what Settings watches to
+     * show one running, so Settings, opening the app and the background worker
+     * must all reach this same one.
+     *
+     * Over the same connection and the same photo directory as everything
+     * else, so what a sync brings is simply part of the wardrobe -- there is no
+     * second copy to reconcile.
+     */
+    val sync = PhoneSync(
+        preferences = SharedPreferencesSyncSettings(context),
+        store = SyncStore(database),
+        photos = DirectoryPhotoFolder(files.imagesDir),
+        background = WorkManagerBackgroundSync(context),
+    )
+
+    /**
+     * Sync because the app came to the front, unless PhoneSync decides there is
+     * no point -- see [PhoneSync.syncOnOpen]. In [appScope], so it is not
+     * cancelled by the activity going away under it.
+     */
+    fun syncOnOpen(metered: Boolean) {
+        appScope.launch { sync.syncOnOpen(metered) }
+    }
 
     /** How much disk the wardrobe's photos take, for the settings screen. */
     fun photoStorageBytes(): Long = storedImageBytes(files.imagesDir)

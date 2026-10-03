@@ -88,7 +88,7 @@ class DatabaseOutfitDetailSource(
     }
 
     override suspend fun delete(outfitId: String) {
-        withContext(io) { outfitWrites.delete(outfitId) }
+        withContext(io) { outfitWrites.delete(outfitId, nowTimestamp()) }
     }
 }
 
@@ -125,6 +125,7 @@ class DatabaseOutfitEditSource(
                 garmentIds = draft.garmentIds,
                 occasion = draft.occasion?.id,
                 season = draft.season?.tag,
+                now = nowTimestamp(),
             )
         }
     }
@@ -235,7 +236,7 @@ class DatabaseOutfitsSource(
             // suggestion already wrote the row, archived, so the insert above does
             // nothing and without this the outfit would stay hidden while the card
             // said "Saved". Idempotent either way.
-            outfitWrites.setArchived(suggestion.id, false)
+            outfitWrites.setArchived(suggestion.id, false, nowTimestamp())
         }
     }
 
@@ -248,15 +249,15 @@ class DatabaseOutfitsSource(
     }
 
     override suspend fun unarchive(outfitId: String) {
-        withContext(io) { outfitWrites.setArchived(outfitId, false) }
+        withContext(io) { outfitWrites.setArchived(outfitId, false, nowTimestamp()) }
     }
 
     override suspend fun setPinned(outfitId: String, pinned: Boolean) {
-        withContext(io) { outfitWrites.setPinned(outfitId, pinned) }
+        withContext(io) { outfitWrites.setPinned(outfitId, pinned, nowTimestamp()) }
     }
 
     override suspend fun delete(outfitId: String) {
-        withContext(io) { outfitWrites.delete(outfitId) }
+        withContext(io) { outfitWrites.delete(outfitId, nowTimestamp()) }
     }
 
     private fun store(suggestion: Suggestion, archived: Boolean = false) {
@@ -298,7 +299,7 @@ class DatabaseGarmentDetailSource(
 
     override suspend fun delete(id: String) {
         withContext(io) {
-            val photos = garmentWrites.delete(id)
+            val photos = garmentWrites.delete(id, nowTimestamp())
             for (photo in photos) runCatching { deletePhoto(photo) }
         }
     }

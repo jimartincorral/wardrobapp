@@ -282,6 +282,12 @@ class HttpStorageSource(private val http: HttpClient) {
     suspend fun storage(): StorageFigures = http.get(Routes.STORAGE).body()
 
     suspend fun version(): ServerVersion = http.get(Routes.VERSION).body()
+
+    /** What a phone needs to pair, or null when the server has sync switched off. */
+    suspend fun pairing(): SyncPairing? = orNullIfMissing { http.get(Routes.SYNC_PAIRING).body<SyncPairing>() }
+
+    /** A new pairing code, unpairing every phone. */
+    suspend fun resetPairing(): SyncPairing = http.post(Routes.SYNC_PAIRING_RESET).body()
 }
 
 /**

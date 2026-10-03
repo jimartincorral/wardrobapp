@@ -2,6 +2,7 @@ package com.wardrobapp.app
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
@@ -82,6 +83,7 @@ import com.wardrobapp.ui.OnboardingScreen
 import com.wardrobapp.ui.OutfitDetailScreen
 import com.wardrobapp.ui.OutfitEditScreen
 import com.wardrobapp.ui.OutfitsScreen
+import com.wardrobapp.ui.PhoneSyncSection
 import com.wardrobapp.ui.RestoreDialog
 import com.wardrobapp.ui.SETTINGS
 import com.wardrobapp.ui.STATISTICS
@@ -116,6 +118,22 @@ class MainActivity : AppCompatActivity() {
      * may not exist yet when it arrives.
      */
     private val pendingLink = mutableStateOf<String?>(null)
+
+    /**
+     * Sync with Home Assistant, if paired, each time the app comes to the
+     * front: the moment somebody is about to look at their wardrobe is the
+     * moment it should be up to date. PhoneSync skips the times there is no
+     * point -- a second start within a couple of minutes, which is what coming
+     * back from the camera or the crop screen is -- so this can ask every time.
+     *
+     * Metered unless Android says otherwise: not knowing which network this is
+     * should not be read as permission to use somebody's data plan.
+     */
+    override fun onStart() {
+        super.onStart()
+        val metered = getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered ?: true
+        AppContainer.get(applicationContext).syncOnOpen(metered)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -851,6 +869,30 @@ class MainActivity : AppCompatActivity() {
             onTidyDismissed = model::onTidyDismissed,
             onRetry = model::refresh,
             cloudSection = { CloudBackup() },
+            syncSection = { HomeAssistantSync(container) },
+        )
+    }
+
+    /**
+     * The Home Assistant section of Settings, with its own model, for the
+     * reason the cloud section has one: syncing has its own state, and this
+     * screen does not need to know what it is.
+     */
+    @Composable
+    private fun HomeAssistantSync(container: AppContainer) {
+        val sync: PhoneSyncViewModel = viewModel(
+            factory = viewModelFactory { initializer { PhoneSyncViewModel(container) } }
+        )
+        val state by sync.state.collectAsStateWithLifecycle()
+
+        PhoneSyncSection(
+            state = state,
+            onConnect = sync::onConnect,
+            onFormEdited = sync::onFormEdited,
+            onSyncNow = sync::onSyncNow,
+            onDisconnect = sync::onDisconnect,
+            onBackgroundChanged = sync::onBackgroundChanged,
+            onWifiOnlyChanged = sync::onWifiOnlyChanged,
         )
     }
 
@@ -1286,7 +1328,10 @@ class MainActivity : AppCompatActivity() {
      */
     @Composable
     private fun RefreshOnReturn(refresh: () -> Unit) {
-        LifecycleResumeEffect(Unit) {
+        // And whenever a sync changes the wardrobe while the screen is showing
+        // it -- the one change that arrives without anybody leaving the screen.
+        val synced by AppContainer.get(applicationContext).sync.changes.collectAsStateWithLifecycle()
+        LifecycleResumeEffect(synced) {
             refresh()
             onPauseOrDispose { }
         }

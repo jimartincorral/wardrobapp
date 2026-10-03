@@ -49,6 +49,12 @@ kotlin {
             implementation("io.ktor:ktor-client-content-negotiation:3.1.3")
             implementation("io.ktor:ktor-serialization-kotlinx-json:3.1.3")
         }
+        // The phone's sync client, which talks to Home Assistant over its own
+        // sockets -- see syncHttpClient for why that matters on Android. JVM only:
+        // the browser has its own engine, and never syncs.
+        jvmMain.dependencies {
+            implementation("io.ktor:ktor-client-cio:3.1.3")
+        }
         jvmTest.dependencies {
             implementation(kotlin("test"))
             implementation(kotlin("reflect"))

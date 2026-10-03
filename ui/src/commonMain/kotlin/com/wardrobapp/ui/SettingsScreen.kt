@@ -175,6 +175,12 @@ fun SettingsScreen(
      * left out.
      */
     cloudSection: (@Composable () -> Unit)?,
+    /**
+     * Syncing with Home Assistant, supplied for the same reason the cloud
+     * section is: the browser shows the pairing code and the phone asks for it,
+     * and each has its own state for it. Heading included. Null to leave it out.
+     */
+    syncSection: (@Composable () -> Unit)? = null,
 ) {
     state.backup?.let { backup ->
         BackupDialog(backup, onBackupDismissed)
@@ -285,6 +291,15 @@ fun SettingsScreen(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             }
 
+            // Beside the backups, because it answers the question they do --
+            // where else this wardrobe is kept -- and before Drive, which is
+            // the phone's alone.
+            if (syncSection != null) {
+                syncSection()
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            }
+
             // Directly under the backup section, because it answers the same
             // question: where a copy of this wardrobe goes.
             if (cloudSection != null) {
@@ -354,8 +369,9 @@ fun SettingsScreen(
 /** The app's own version, as the installed package reports it. */
 data class AppVersion(val name: String, val code: Long)
 
+/** A section's heading. Internal so the sections Settings is handed (see SyncSections) look like its own. */
 @Composable
-private fun Section(title: String) {
+internal fun Section(title: String) {
     Text(
         title,
         style = MaterialTheme.typography.titleMedium,
