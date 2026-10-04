@@ -37,6 +37,16 @@ internal fun Application.answerFailures() {
         exception<ProfileNotFound> { call, _ ->
             call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
         }
+        // A photo to cut out that is not there: deleted in another tab, or
+        // never this profile's.
+        exception<PhotoNotFound> { call, _ ->
+            call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
+        }
+        // A server with no model, asked anyway -- by a page loaded before an
+        // update took the model away, say. Not Implemented is what it is.
+        exception<BackgroundRemovalUnavailable> { call, e ->
+            call.fail(HttpStatusCode.NotImplemented, ApiFailure.Message(e.message.orEmpty()))
+        }
         // A body that is not the JSON the route takes. Ktor wraps the
         // serializer's complaint; the complaint is the useful part.
         exception<BadRequestException> { call, e ->
@@ -66,3 +76,9 @@ private fun Throwable.readable(): String {
 
 /** A request for a profile there is none of; answered as any other missing thing. */
 internal class ProfileNotFound : RuntimeException("No such profile.")
+
+/** A stored photo there is none of; answered as any other missing thing. */
+internal class PhotoNotFound : RuntimeException("No such photo.")
+
+/** Asked to cut a photo out on a server without the model to do it with. */
+internal class BackgroundRemovalUnavailable : RuntimeException("Removing a background is not available on this server.")

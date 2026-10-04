@@ -38,7 +38,9 @@ import org.w3c.files.get
  * Colours are read the phone's way: the photo drawn as a 64-pixel-wide
  * thumbnail and handed to :presentation's dominantGarmentColors.
  *
- * Removing a background is not here; see PhotoTools.
+ * Removing a background is the server's: it has the model, the browser does
+ * not (see BackgroundRemover in :server), and PhotoTools offers it only where
+ * the server says it can.
  */
 class BrowserPhotoWork(private val photos: HttpPhotos) : PhotoWork<File> {
 
@@ -66,8 +68,7 @@ class BrowserPhotoWork(private val photos: HttpPhotos) : PhotoWork<File> {
         null
     }
 
-    override suspend fun cutOut(photo: String): String =
-        throw UnsupportedOperationException("Removing a background is not available in the browser yet.")
+    override suspend fun cutOut(photo: String): String = photos.cutOut(photo)
 
     private companion object {
         /** The phone's COLOR_SAMPLE_WIDTH, for the reason given there. */

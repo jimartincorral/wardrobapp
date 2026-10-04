@@ -7,6 +7,7 @@ import com.wardrobapp.api.Rating
 import com.wardrobapp.api.Routes
 import com.wardrobapp.api.SavedGarment
 import com.wardrobapp.api.SavedPhotos
+import com.wardrobapp.api.ServerFeatures
 import com.wardrobapp.api.StoredPhoto
 import com.wardrobapp.api.SuggestionRating
 import com.wardrobapp.api.SyncPairing
@@ -101,6 +102,8 @@ fun Application.wardrobeApi(
             get(Routes.STORAGE) { call.respond(wardrobe.storage()) }
 
             get(Routes.VERSION) { call.respond(settings.version) }
+
+            get(Routes.FEATURES) { call.respond(ServerFeatures(removesBackgrounds = wardrobe.removesBackgrounds)) }
 
             // Served as the workflow wrote it: the browser reads it with the same
             // lenient parser the phone reads its own document with, so a server
@@ -285,6 +288,13 @@ private fun Route.photos() {
     delete(Routes.PHOTO) {
         wardrobe.photos.delete(call.parameters["name"].orEmpty())
         call.respond(HttpStatusCode.NoContent)
+    }
+
+    // Through the garment screen's own source, as the phone's cut-out goes
+    // through its: the same naming, the same reference back, and the seconds
+    // of work on its IO dispatcher rather than the threads answering requests.
+    post(Routes.PHOTO_CUT_OUT) {
+        call.respond(HttpStatusCode.Created, StoredPhoto(wardrobe.garmentDetail.cutOut(call.parameters["name"].orEmpty())))
     }
 
     get(Routes.PHOTO_FILE) {

@@ -105,6 +105,9 @@ object Routes {
     /** GET: the server's [ServerVersion]. */
     const val VERSION = "api/version"
 
+    /** GET: what this server can do that another might not; [ServerFeatures]. */
+    const val FEATURES = "api/features"
+
     /**
      * GET: what each version of the Home Assistant app changed for the
      * browser, as scripts/release-notes.py's `--web-history` wrote it into the
@@ -129,6 +132,13 @@ object Routes {
     const val PHOTO = "api/photos/{name}"
 
     /**
+     * POST, no body: cut the stored photo out of its background; answers the
+     * cut-out's [StoredPhoto]. The original stays. Only where [ServerFeatures]
+     * says the server can; elsewhere, 501.
+     */
+    const val PHOTO_CUT_OUT = "api/photos/{name}/cut-out"
+
+    /**
      * GET: the photo itself. Outside `api/` because it is what an image's `src`
      * points at, and the references the garment rows hold become this once the
      * server reads them -- see the server's image directory.
@@ -147,6 +157,7 @@ object Routes {
     fun outfitPinned(id: String) = OUTFIT_PINNED.with("id", id)
     fun outfitUnarchive(id: String) = OUTFIT_UNARCHIVE.with("id", id)
     fun photo(name: String) = PHOTO.with("name", name)
+    fun photoCutOut(name: String) = PHOTO_CUT_OUT.with("name", name)
 
     private fun String.with(parameter: String, value: String) =
         replace("{$parameter}", value.encodeURLPathPart())

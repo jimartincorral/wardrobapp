@@ -222,14 +222,10 @@ class HttpGarmentDetailSource(private val http: HttpClient) : GarmentDetailSourc
     }
 
     /**
-     * Not on the server, yet. The phone cuts a photo out with ML Kit, which is
-     * Android's; the server has nothing to do it with, and choosing something --
-     * a model it would have to ship, run and keep up to date on whatever
-     * hardware Home Assistant runs on -- is its own decision. Until then the
-     * browser does not offer it, and this says why if anything asks.
+     * The server cuts it out, with the model BackgroundRemover runs there: the
+     * phone's ML Kit is Android's, and the browser has nothing of its own.
      */
-    override suspend fun cutOut(photo: String): String =
-        throw UnsupportedOperationException("Removing a background is not available in the browser yet.")
+    override suspend fun cutOut(photo: String): String = HttpPhotos(http).cutOut(photo)
 
     override suspend fun savePhotos(id: String, edit: BackgroundEdit, alsoImages: Boolean) {
         http.putJson(Routes.garmentPhotos(id), SavedPhotos(edit, alsoImages))
@@ -310,4 +306,11 @@ class HttpPhotos(private val http: HttpClient) {
     suspend fun delete(photo: String) {
         http.delete(Routes.photo(toStoredImageRef(photo)))
     }
+
+    /**
+     * Cut a stored photo, by any form of its reference, out of its background;
+     * the cut-out's reference. Takes seconds: the server runs a model.
+     */
+    suspend fun cutOut(photo: String): String =
+        http.post(Routes.photoCutOut(toStoredImageRef(photo))).body<StoredPhoto>().ref
 }

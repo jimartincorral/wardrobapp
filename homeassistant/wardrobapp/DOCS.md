@@ -10,8 +10,14 @@ in to Home Assistant.
 Start the app and open **Wardrobe** in the sidebar. Everything works as it does
 in the Android app, with a few things that need the phone:
 
-- **Removing a photo's background** and **cropping** are not available in the
-  browser. A cut-out made on the phone can still be undone.
+- **Removing a photo's background** is done by this app rather than by your
+  browser, so it works from any device. It takes a few seconds on a Raspberry
+  Pi, less on a faster machine, and needs about 150 MB of memory while it
+  works, which is given back a couple of minutes after the last photo. The
+  result is close to the phone's but not identical: the two use different
+  models.
+- **Cropping** is not available in the browser. A cut-out made on the phone
+  can still be undone.
 - **Photos** are scaled to the size the phone stores before they are uploaded,
   so a large photo from a camera takes a moment.
 - **Language** follows your browser's.
