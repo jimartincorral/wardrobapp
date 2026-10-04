@@ -77,7 +77,7 @@ class SharedPreferencesSyncSettings(context: Context) : SyncPreferences {
      * Assistant, and an ordinary sync after a crash that lost it would undo
      * the restore. It is written off the main thread, by the restore.
      */
-    @SuppressLint("ApplySharedPref")
+    @set:SuppressLint("ApplySharedPref")
     override var restorePending: Boolean
         get() = preferences.getBoolean(KEY_RESTORE_PENDING, false)
         set(value) = preferences.edit(commit = true) { putBoolean(KEY_RESTORE_PENDING, value) }
