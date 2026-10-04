@@ -90,7 +90,7 @@ object Routes {
      */
     const val PROFILES = "api/profiles"
 
-    /** PUT a [ProfileName]: rename the profile. */
+    /** PUT a [ProfileName]: rename the profile. DELETE: delete it, and its wardrobe with it. */
     const val PROFILE = "api/profiles/{id}"
 
     /** POST: make the profile the one the asking Home Assistant user opens by default. */

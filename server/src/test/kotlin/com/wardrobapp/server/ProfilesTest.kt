@@ -26,6 +26,7 @@ import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
@@ -153,6 +154,58 @@ class ProfilesTest {
         // Nobody signed in: there is nobody to make it theirs.
         assertEquals(400, assertFailsWith<ServerException> { anybody.makeYours(ProfileRegistry.FIRST) }.status)
         assertEquals(false, anybody.list().signedIn)
+    }
+
+    @Test
+    fun `a deleted profile is gone, files, code and all, and nobody's any more`() = profilesTest { profiles, data ->
+        val jose = HttpProfiles(browser(user = "jose-id"))
+        val kids = jose.create("Kids", yours = true)
+        val wardrobe = profiles.wardrobe(kids.id)!!
+        wardrobe.photos.store(jpeg())
+        val code = wardrobe.syncSecret.current()
+        assertTrue(File(data, "profiles/${kids.id}").isDirectory)
+
+        jose.delete(kids.id)
+
+        assertEquals(listOf(ProfileRegistry.FIRST), jose.list().profiles.map { it.id })
+        assertNull(jose.list().yours, "still opening a wardrobe there is none of")
+        assertFalse(File(data, "profiles/${kids.id}").exists())
+        assertNull(profiles.pairedWith(code), "a phone with its code still syncs")
+        assertFailsWith<NotFoundException> {
+            HttpHomeSource(browser(base = "http://localhost/${Routes.profileBase(kids.id)}")).counts()
+        }
+        // A request that was holding it fails, rather than making an empty one where it was.
+        assertFailsWith<IllegalStateException> { wardrobe.sync.snapshot() }
+        assertFalse(File(data, "profiles/${kids.id}").exists())
+        // And the list is kept that way.
+        assertEquals(listOf(ProfileRegistry.FIRST), ProfileRegistry(data).list().map { it.id })
+    }
+
+    @Test
+    fun `deleting the first profile deletes its files and nothing else in the data directory`() = profilesTest { profiles, data ->
+        val anybody = HttpProfiles(browser())
+        val first = profiles.wardrobe(ProfileRegistry.FIRST)!!
+        first.photos.store(jpeg())
+        first.syncSecret.current()
+        first.sync.snapshot()
+        val ana = anybody.create("Ana", yours = false)
+        profiles.wardrobe(ana.id)!!.photos.store(jpeg())
+
+        anybody.delete(ProfileRegistry.FIRST)
+
+        assertEquals(listOf(ana.id), anybody.list().profiles.map { it.id })
+        val left = data.walk().filter { it.isFile }.map { it.relativeTo(data).path }.toSet()
+        assertEquals(setOf("profiles.json"), left.filter { !it.startsWith("profiles/") }.toSet(), "the first wardrobe's files stayed: $left")
+        assertTrue(left.any { it.startsWith("profiles/${ana.id}/") }, "another profile's photo went with it: $left")
+    }
+
+    @Test
+    fun `the only profile cannot be deleted, nor one there is none of`() = profilesTest { _, _ ->
+        val anybody = HttpProfiles(browser())
+
+        assertEquals(409, assertFailsWith<ServerException> { anybody.delete(ProfileRegistry.FIRST) }.status)
+        assertFailsWith<NotFoundException> { anybody.delete("nobody") }
+        assertEquals(listOf(ProfileRegistry.FIRST), anybody.list().profiles.map { it.id })
     }
 
     @Test

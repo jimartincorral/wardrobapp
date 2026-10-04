@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- A wardrobe can be deleted, under **Settings → Wardrobe → Delete**. Its
+  clothes, outfits and photos are deleted from Home Assistant. A phone that
+  synced with it keeps its own copy.
+
 ## 0.4.0
 
 - Restoring a backup on a phone that syncs with this app now replaces the

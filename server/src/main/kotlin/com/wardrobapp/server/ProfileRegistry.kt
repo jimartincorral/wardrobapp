@@ -114,6 +114,52 @@ class ProfileRegistry(
         true
     }
 
+    /** What [delete] did. */
+    enum class Deletion { DELETED, NOT_FOUND, LAST }
+
+    /**
+     * Delete profile [id]: its clothes, outfits, photos and pairing code, for
+     * good. Never the last one -- a server with no profiles would have nothing
+     * to open, and the first thing it did on starting again would be to make
+     * an empty one, which is what somebody wanting to start over could do
+     * more plainly by making a new profile before deleting this one.
+     *
+     * In this order, so a crash between any two steps leaves something
+     * nobody can reach rather than something half there:
+     *  1. Out of the list, saved. Nothing can open it from here on; whoever
+     *     had made it theirs is asked again which wardrobe is theirs.
+     *  2. Its database closed for good, if it was open. A request already
+     *     holding it fails, rather than reopening an empty one in its place.
+     *  3. Its files deleted. A crash before this leaves files nothing lists,
+     *     taking space and nothing else.
+     *
+     * A phone paired with it is not told. Its next sync is refused, as with a
+     * code that was replaced, and it keeps its own copy of the wardrobe -- so
+     * deleting a profile somebody still has on their phone is not the end of
+     * it for them, and they can pair that phone with another profile.
+     *
+     * Only `profiles/<id>` is deleted whole. The first profile's directory is
+     * the data directory itself, so for it only its own files go; and a
+     * directory that is anything else -- profiles.json edited by hand, say --
+     * is treated the same, rather than trusted with a recursive delete.
+     */
+    fun delete(id: String): Deletion = synchronized(lock) {
+        val profile = stored.firstOrNull { it.id == id } ?: return Deletion.NOT_FOUND
+        if (stored.size == 1) return Deletion.LAST
+
+        stored = stored - profile
+        save()
+        open.remove(id)?.retire()
+
+        val directory = File(dataDirectory, profile.directory)
+        if (profile.directory == "profiles/${profile.id}") {
+            directory.deleteRecursively()
+        } else {
+            ServerWardrobe.filesIn(directory).forEach { it.deleteRecursively() }
+        }
+        Deletion.DELETED
+    }
+
     override fun close() = synchronized(lock) {
         open.values.forEach { it.close() }
         open.clear()

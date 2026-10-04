@@ -336,6 +336,7 @@ class Screens(
                     onRename = controls.rename,
                     onMakeYours = controls.makeYours,
                     onCreate = controls.create,
+                    onDelete = controls.delete,
                 )
             },
             // Left out until the server has answered, so a slow answer does

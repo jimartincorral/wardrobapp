@@ -377,6 +377,20 @@ private fun Route.profileRoutes(profiles: ProfileRegistry) {
         if (profiles.rename(id(), name)) call.respond(HttpStatusCode.NoContent) else throw ProfileNotFound()
     }
 
+    // Anybody can delete any profile, as anybody can rename or open one: the
+    // profiles are a household's way of keeping wardrobes apart, not a lock
+    // between its members (see Profiles in :api). The browser asks first.
+    delete(Routes.PROFILE) {
+        when (profiles.delete(id())) {
+            ProfileRegistry.Deletion.DELETED -> call.respond(HttpStatusCode.NoContent)
+            ProfileRegistry.Deletion.NOT_FOUND -> throw ProfileNotFound()
+            ProfileRegistry.Deletion.LAST -> call.fail(
+                HttpStatusCode.Conflict,
+                ApiFailure.Message("The only wardrobe there is cannot be deleted. Make another first."),
+            )
+        }
+    }
+
     post(Routes.PROFILE_YOURS) {
         val user = homeAssistantUser()
             ?: throw BadRequestException("Only somebody signed in to Home Assistant can have a profile of their own.")

@@ -23,8 +23,10 @@ class ReopeningDriver(private val openDatabase: () -> CloseableSqlDriver) : SqlD
     private val lock = Any()
     private var current: CloseableSqlDriver? = null
     private var closedForMaintenance = false
+    private var retired = false
 
     private fun driver(): SqlDriver = synchronized(lock) {
+        check(!retired) { "this wardrobe was deleted" }
         check(!closedForMaintenance) { "the wardrobe is being replaced right now" }
         current ?: openDatabase().also { current = it }
     }
@@ -55,5 +57,21 @@ class ReopeningDriver(private val openDatabase: () -> CloseableSqlDriver) : SqlD
         } finally {
             synchronized(lock) { closedForMaintenance = false }
         }
+    }
+
+    /**
+     * Close the database for good: every question from now on fails, and
+     * nothing opens the file again.
+     *
+     * For a wardrobe being deleted, whose files go next. Closing it the way
+     * [whileClosed] does would not be enough: the first request still in
+     * flight would reopen the database it was holding a source of, and the
+     * schema, applied on the way in, would make an empty wardrobe where the
+     * deleted one was.
+     */
+    fun retire() = synchronized(lock) {
+        retired = true
+        current?.close()
+        current = null
     }
 }

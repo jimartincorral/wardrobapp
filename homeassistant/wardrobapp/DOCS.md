@@ -32,6 +32,12 @@ it carry on syncing with it.
 Profiles keep each person's clothes apart in everyday use. They do not keep them
 secret: anyone who can open the app can switch to any wardrobe.
 
+**Settings → Wardrobe → Delete** deletes the wardrobe showing: its clothes,
+outfits, photos and pairing code. It asks first, and is offered only while
+there is another wardrobe to go to. Only a Home Assistant backup made before
+can bring a deleted wardrobe back. A phone that synced with it stops syncing
+and keeps its own copy; pair it with another wardrobe to carry on.
+
 ## Syncing the Android app
 
 The Android app keeps working on its own, and can also keep its wardrobe in

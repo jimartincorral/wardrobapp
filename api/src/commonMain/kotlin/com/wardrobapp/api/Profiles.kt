@@ -2,6 +2,7 @@ package com.wardrobapp.api
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
@@ -91,5 +92,10 @@ class HttpProfiles(private val http: HttpClient) {
 
     suspend fun makeYours(id: String) {
         http.post(Routes.profileYours(id))
+    }
+
+    /** Delete profile [id] and everything in it. Refused, with a ServerException, for the only one there is. */
+    suspend fun delete(id: String) {
+        http.delete(Routes.profile(id))
     }
 }

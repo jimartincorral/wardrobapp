@@ -779,6 +779,8 @@
     <string name="profile_rename">Rename</string>
     <string name="profile_rename_title">Rename wardrobe</string>
     <string name="profile_add">New</string>
+    <string name="profile_delete_title">Delete “%1$s”?</string>
+    <string name="profile_delete_body">Its clothes, outfits and photos will be deleted from Home Assistant, and only a Home Assistant backup can bring them back. A phone syncing with it stops syncing, but keeps its own copy.</string>
     <string name="settings_sync_hint">Keep this wardrobe in step with the Wardrobapp app in Home Assistant. The phone keeps working on its own; syncing only shares changes. The code and the port are in the app's Settings in Home Assistant.</string>
     <string name="settings_sync_address">Address</string>
     <string name="settings_sync_address_example">http://homeassistant.local:8100</string>

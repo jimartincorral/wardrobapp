@@ -211,7 +211,9 @@ Each Home Assistant user opens their own, which ingress tells the server by the
 without a Home Assistant login can still have one. A profile's routes are the
 same routes under `p/<id>/`, and its photos are referenced the same way. The
 wardrobe there was before profiles became the first, in place, under the id
-`main`.
+`main`. Any profile but the last can be deleted, which takes its files with it:
+its whole directory, or for `main`, whose directory is `/data` itself, only the
+wardrobe's own files there.
 
 The Android app can sync with it. That goes through a second port, 8100, which
 answers nothing but sync and only to a phone carrying the pairing code shown in
