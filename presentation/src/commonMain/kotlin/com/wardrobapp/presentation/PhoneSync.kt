@@ -33,6 +33,13 @@ sealed interface SyncFailure {
      */
     data object Unreachable : SyncFailure
 
+    /**
+     * The phone restored a backup, which replaces the wardrobe in Home
+     * Assistant too, and the app there is too old to be asked to. Until it is
+     * updated nothing syncs: an ordinary sync would undo the restore.
+     */
+    data object ServerTooOld : SyncFailure
+
     /** Anything else, in the words of whatever failed. */
     data class Other(val message: String) : SyncFailure
 }
@@ -44,6 +51,7 @@ sealed interface SyncFailure {
 fun storedSyncFailure(failure: SyncFailure): String = when (failure) {
     SyncFailure.NotPaired -> STORED_NOT_PAIRED
     SyncFailure.Unreachable -> STORED_UNREACHABLE
+    SyncFailure.ServerTooOld -> STORED_SERVER_TOO_OLD
     is SyncFailure.Other -> STORED_OTHER + failure.message
 }
 
@@ -52,6 +60,7 @@ fun syncFailureFor(stored: String?): SyncFailure? = when {
     stored == null -> null
     stored == STORED_NOT_PAIRED -> SyncFailure.NotPaired
     stored == STORED_UNREACHABLE -> SyncFailure.Unreachable
+    stored == STORED_SERVER_TOO_OLD -> SyncFailure.ServerTooOld
     stored.startsWith(STORED_OTHER) -> SyncFailure.Other(stored.removePrefix(STORED_OTHER))
     // Written by some later build, in a form this one does not know. Still a
     // failure, rather than read as success because it could not be read.
@@ -60,6 +69,7 @@ fun syncFailureFor(stored: String?): SyncFailure? = when {
 
 private const val STORED_NOT_PAIRED = "not-paired"
 private const val STORED_UNREACHABLE = "unreachable"
+private const val STORED_SERVER_TOO_OLD = "server-too-old"
 private const val STORED_OTHER = "other:"
 
 /** The port the server listens for phones on, unless Home Assistant maps it elsewhere. */
@@ -139,6 +149,11 @@ data class PhoneSyncStatus(
     val background: Boolean = true,
     /** Whether syncing on its own waits for Wi-Fi. */
     val wifiOnly: Boolean = true,
+    /**
+     * A backup was restored here and has not reached Home Assistant yet: the
+     * next sync replaces the wardrobe there rather than merging with it.
+     */
+    val restorePending: Boolean = false,
 ) {
     val paired: Boolean get() = address != null
 }

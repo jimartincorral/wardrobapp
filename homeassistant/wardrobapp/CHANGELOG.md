@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- Restoring a backup on a phone that syncs with this app now replaces the
+  wardrobe here too, and on every other phone that syncs with it, instead of
+  being undone by the next sync. Phones need this version to send a restored
+  wardrobe.
+
 ## 0.3.0
 
 - A wardrobe for each person. The first time you open the app it asks whose

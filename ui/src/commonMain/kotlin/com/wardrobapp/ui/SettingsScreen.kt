@@ -75,6 +75,7 @@ import com.wardrobapp.ui.resources.error_wardrobe_unreadable
 import com.wardrobapp.ui.resources.photo_count
 import com.wardrobapp.ui.resources.restore_confirm_body
 import com.wardrobapp.ui.resources.restore_confirm_title
+import com.wardrobapp.ui.resources.restore_replaces_synced
 import com.wardrobapp.ui.resources.restore_done_body
 import com.wardrobapp.ui.resources.restore_done_garments
 import com.wardrobapp.ui.resources.restore_done_title
@@ -188,12 +189,14 @@ fun SettingsScreen(
      * included; null on the phone, which holds one wardrobe.
      */
     profileSection: (@Composable () -> Unit)? = null,
+    /** Whether a restore here also replaces the wardrobe in Home Assistant; see RestoreDialog. */
+    restoreReplacesSynced: Boolean = false,
 ) {
     state.backup?.let { backup ->
         BackupDialog(backup, onBackupDismissed)
     }
     state.restore?.let { restore ->
-        RestoreDialog(restore, onRestoreConfirmed, onArchiveConfirmed, onRestoreDismissed)
+        RestoreDialog(restore, onRestoreConfirmed, onArchiveConfirmed, onRestoreDismissed, restoreReplacesSynced)
     }
     state.tidy?.let { tidy ->
         TidyDialog(tidy, onTidyDismissed)
@@ -576,14 +579,28 @@ fun RestoreDialog(
     /** Applies the archive already picked and described, with or without its settings. */
     onConfirmRestore: (withSettings: Boolean) -> Unit,
     onDismiss: () -> Unit,
+    /**
+     * Whether this phone syncs with Home Assistant, where a restore replaces
+     * the wardrobe there and on every other phone too (PhoneSync.restoring)
+     * -- which is worth saying before somebody picks a file, not after.
+     */
+    syncsWithHomeAssistant: Boolean = false,
 ) = when (restore) {
     is SettingsScreenState.Restore.Confirming -> AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.restore_confirm_title)) },
         text = {
-            Text(
-                stringResource(Res.string.restore_confirm_body)
-            )
+            Column {
+                Text(
+                    stringResource(Res.string.restore_confirm_body)
+                )
+                if (syncsWithHomeAssistant) {
+                    Text(
+                        stringResource(Res.string.restore_replaces_synced),
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
+            }
         },
         confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(Res.string.restore_pick)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) } },

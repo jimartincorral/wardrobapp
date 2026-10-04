@@ -29,6 +29,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.io.readByteArray
 import io.ktor.util.AttributeKey
+import io.ktor.server.routing.RoutingContext
+import com.wardrobapp.data.isoTimestamp
+import com.wardrobapp.data.MergedWardrobe
 
 /**
  * The sync port: what a paired phone talks to.
@@ -59,14 +62,17 @@ fun Application.wardrobeSync(profiles: ProfileRegistry, version: ServerVersion) 
         post("/${SyncRoutes.EXCHANGE}") {
             val wardrobe = call.attributes[Syncing]
             val theirs = call.receive<WardrobeSnapshot>()
-            val result = withContext(Dispatchers.IO) { wardrobe.sync.mergeWith(theirs) }
-            for (name in result.photosNoLongerUsed) wardrobe.photos.delete(name)
+            answer(wardrobe, withContext(Dispatchers.IO) { wardrobe.sync.mergeWith(theirs) })
+        }
 
-            val missing = result.merged.garments
-                .flatMap { it.photoNames() }
-                .distinct()
-                .filter { wardrobe.photos.file(it) == null }
-            call.respond(SyncAnswer(merged = result.merged, missingPhotos = missing))
+        // A phone that restored a backup: its wardrobe replaces this one, as of
+        // now, so the restore holds here and on every other phone. See
+        // SyncStore.replaceWith.
+        post("/${SyncRoutes.REPLACE}") {
+            val wardrobe = call.attributes[Syncing]
+            val theirs = call.receive<WardrobeSnapshot>()
+            val now = isoTimestamp(System.currentTimeMillis())
+            answer(wardrobe, withContext(Dispatchers.IO) { wardrobe.sync.replaceWith(theirs, now) })
         }
 
         put("/${SyncRoutes.PHOTO}") {
@@ -118,3 +124,14 @@ private fun paired(profiles: ProfileRegistry) = createApplicationPlugin("Paired"
 
 /** The wardrobe the request's pairing code opened, put there by [paired]. */
 private val Syncing = AttributeKey<ServerWardrobe>("syncing")
+
+/** Let go of the photos a merge left unused, and answer with the result and the photos still to come. */
+private suspend fun RoutingContext.answer(wardrobe: ServerWardrobe, result: MergedWardrobe) {
+    for (name in result.photosNoLongerUsed) wardrobe.photos.delete(name)
+
+    val missing = result.merged.garments
+        .flatMap { it.photoNames() }
+        .distinct()
+        .filter { wardrobe.photos.file(it) == null }
+    call.respond(SyncAnswer(merged = result.merged, missingPhotos = missing))
+}

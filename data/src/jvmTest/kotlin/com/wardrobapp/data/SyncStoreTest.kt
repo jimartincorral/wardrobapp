@@ -208,4 +208,50 @@ class SyncStoreTest {
         assertEquals("Still here", GarmentQueries(phone, "").garment("a")?.brand)
         assertEquals(emptyList(), SyncStore(phone).snapshot().deletions)
     }
+
+    @Test
+    fun `a restored wardrobe replaces the other side's, and other phones follow`() {
+        // The server and a second phone both have what was there before the
+        // restore, including an edit made after the backup was taken.
+        val restored = JdbcSqlDriver.fresh()
+        val server = JdbcSqlDriver.fresh()
+        val otherPhone = JdbcSqlDriver.fresh()
+        for (driver in listOf(server, otherPhone)) {
+            GarmentWrites(driver).add("kept", now = t1, brand = "Edited after the backup")
+            GarmentWrites(driver).add("added-after-backup", now = t2)
+        }
+        // The backup: "kept" as it was, and something since deleted.
+        GarmentWrites(restored).add("kept", now = t1, brand = "As in the backup")
+        GarmentWrites(restored).add("deleted-since", now = t1)
+
+        val restoredAt = "2025-03-10T10:00:00.000Z"
+        SyncStore(restored).stampAll(restoredAt)
+        val result = SyncStore(server).replaceWith(SyncStore(restored).snapshot(), restoredAt)
+
+        val onServer = SyncStore(server).snapshot()
+        assertEquals(listOf("deleted-since", "kept"), onServer.garments.map { it.id })
+        assertEquals("As in the backup", onServer.garments.single { it.id == "kept" }.brand)
+        assertEquals(listOf("added-after-backup.jpg"), result.photosNoLongerUsed)
+        assertTrue(Deletion(DeletionKind.GARMENT, "added-after-backup", restoredAt) in onServer.deletions)
+
+        // The other phone's next ordinary sync arrives at the restored wardrobe
+        // rather than bringing its older edits back.
+        sync(otherPhone, server)
+        assertEquals(onServer.garments, SyncStore(otherPhone).snapshot().garments)
+        assertEquals(SyncStore(server).snapshot(), SyncStore(otherPhone).snapshot())
+    }
+
+    @Test
+    fun `an edit made after the restore still wins`() {
+        val restored = JdbcSqlDriver.fresh()
+        val server = JdbcSqlDriver.fresh()
+        GarmentWrites(restored).add("a", now = t1, brand = "Restored")
+        SyncStore(restored).stampAll(t2)
+        SyncStore(server).replaceWith(SyncStore(restored).snapshot(), t2)
+
+        GarmentWrites(server).update("a", GarmentWrites.GarmentEdit(brand = "Edited later"), t3)
+        sync(restored, server)
+
+        assertEquals("Edited later", GarmentQueries(restored, "").garment("a")?.brand)
+    }
 }

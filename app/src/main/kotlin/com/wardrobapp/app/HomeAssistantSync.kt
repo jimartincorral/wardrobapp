@@ -1,5 +1,6 @@
 package com.wardrobapp.app
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.core.content.edit
 import androidx.work.Constraints
@@ -70,6 +71,17 @@ class SharedPreferencesSyncSettings(context: Context) : SyncPreferences {
         get() = preferences.getBoolean(KEY_WIFI_ONLY, true)
         set(value) = preferences.edit { putBoolean(KEY_WIFI_ONLY, value) }
 
+    /**
+     * Written with commit rather than apply, on purpose -- hence the
+     * suppression: it is the record that a restore still has to reach Home
+     * Assistant, and an ordinary sync after a crash that lost it would undo
+     * the restore. It is written off the main thread, by the restore.
+     */
+    @set:SuppressLint("ApplySharedPref")
+    override var restorePending: Boolean
+        get() = preferences.getBoolean(KEY_RESTORE_PENDING, false)
+        set(value) = preferences.edit(commit = true) { putBoolean(KEY_RESTORE_PENDING, value) }
+
     private companion object {
         const val FILE_NAME = "wardrobapp_sync"
         const val KEY_ADDRESS = "address"
@@ -78,6 +90,7 @@ class SharedPreferencesSyncSettings(context: Context) : SyncPreferences {
         const val KEY_LAST_FAILURE = "last_failure"
         const val KEY_BACKGROUND = "background"
         const val KEY_WIFI_ONLY = "wifi_only"
+        const val KEY_RESTORE_PENDING = "restore_pending"
     }
 }
 

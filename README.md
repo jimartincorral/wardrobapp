@@ -222,7 +222,12 @@ and keeps the latest change to each garment and outfit, a deletion included;
 photos move by name, only when one side lacks them. The phone syncs when it is
 opened, from **Sync now**, and every few hours in the background, on Wi-Fi only
 unless told otherwise — and keeps working on its own whether or not it is
-paired. The merge is `WardrobeSync.kt` in `:data`, run by the phone and the
+paired. Restoring a backup on a paired phone replaces the wardrobe everywhere
+rather than merging: the phone stamps what it restored as changed now and sends
+it to `sync/v1/replace`, which deletes what the backup does not have
+(`SyncStore.replaceWith`). Without that, the next sync would merge the backup
+with the wardrobe it was meant to replace, and every edit since the backup would
+win. The merge is `WardrobeSync.kt` in `:data`, run by the phone and the
 server alike; the app's `DOCS.md` says how to pair.
 
 The images are built by `.github/workflows/home-assistant.yml` on every pull

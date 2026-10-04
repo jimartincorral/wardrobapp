@@ -51,6 +51,11 @@ background if you let it. When the same garment or outfit was changed in both
 places, the latest change wins; something deleted in one place is deleted in
 both.
 
+Restoring a backup on a phone that syncs replaces the wardrobe here as well, and
+on every phone that syncs with it: whatever the backup does not have is
+deleted everywhere. To restore on one phone only, stop syncing on it first,
+under the phone's **Settings → Home Assistant**.
+
 The sync port answers nothing but sync, and only to a phone that has the code.
 **Make a new code** in Settings unpairs every phone using that wardrobe's code at once — the way to shut
 out a phone that was lost. The code travels over your home network as plain

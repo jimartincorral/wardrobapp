@@ -55,7 +55,9 @@ import com.wardrobapp.ui.resources.settings_sync_never
 import com.wardrobapp.ui.resources.settings_sync_not_paired
 import com.wardrobapp.ui.resources.settings_sync_now
 import com.wardrobapp.ui.resources.settings_sync_paired_with
+import com.wardrobapp.ui.resources.settings_sync_restore_pending
 import com.wardrobapp.ui.resources.settings_sync_running
+import com.wardrobapp.ui.resources.settings_sync_server_too_old
 import com.wardrobapp.ui.resources.settings_sync_unreachable
 import com.wardrobapp.ui.resources.settings_sync_wifi_only
 import com.wardrobapp.ui.resources.settings_sync_wifi_only_hint
@@ -266,6 +268,14 @@ fun PhoneSyncSection(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
     )
+    if (status.restorePending) {
+        Text(
+            stringResource(Res.string.settings_sync_restore_pending),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
     status.lastFailure?.let { failure ->
         Text(
             stringResource(Res.string.settings_sync_failed, failureText(failure)),
@@ -315,6 +325,7 @@ fun PhoneSyncSection(
 private fun failureText(failure: SyncFailure): String = when (failure) {
     SyncFailure.NotPaired -> stringResource(Res.string.settings_sync_not_paired)
     SyncFailure.Unreachable -> stringResource(Res.string.settings_sync_unreachable)
+    SyncFailure.ServerTooOld -> stringResource(Res.string.settings_sync_server_too_old)
     is SyncFailure.Other -> failure.message
 }
 

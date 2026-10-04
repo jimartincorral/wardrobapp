@@ -67,6 +67,7 @@ import com.wardrobapp.ui.resources.settings_cloud_listing
 import com.wardrobapp.ui.resources.settings_cloud_refresh
 import com.wardrobapp.ui.resources.settings_cloud_restore
 import com.wardrobapp.ui.resources.settings_cloud_restore_body
+import com.wardrobapp.ui.resources.restore_replaces_synced
 import com.wardrobapp.ui.resources.settings_cloud_restore_title
 import com.wardrobapp.ui.resources.settings_cloud_restoring
 import com.wardrobapp.ui.resources.settings_cloud_schedule
@@ -113,6 +114,8 @@ fun CloudBackupSection(
     onRetentionChanged: (BackupRetention) -> Unit,
     onWifiOnlyChanged: (Boolean) -> Unit,
     onBatteryChanged: (Boolean) -> Unit,
+    /** Whether a restore here also replaces the wardrobe in Home Assistant; see RestoreDialog. */
+    syncsWithHomeAssistant: Boolean = false,
 ) {
     var confirming by remember { mutableStateOf<DriveBackup?>(null) }
 
@@ -201,6 +204,13 @@ fun CloudBackupSection(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 12.dp),
                     )
+                    if (syncsWithHomeAssistant) {
+                        Text(
+                            stringResource(Res.string.restore_replaces_synced),
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
                 }
             },
             confirmButton = {
