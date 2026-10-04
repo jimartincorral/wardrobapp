@@ -40,6 +40,8 @@ class ProfileControls(
     val rename: (String) -> Unit,
     val makeYours: () -> Unit,
     val create: (String) -> Unit,
+    /** Delete the profile showing, and open another. */
+    val delete: () -> Unit,
 )
 
 /**
@@ -137,6 +139,24 @@ fun ProfileGate(root: HttpClient) {
         rename = { name -> change { rename(id, name) } },
         makeYours = { change { makeYours(id) } },
         create = { name -> change { show(create(name, yours = false).id) } },
+        delete = {
+            change {
+                delete(id)
+                // Straight to the next, before the list is read again, so the
+                // app keyed on the deleted one is not left asking a server
+                // that no longer has it. Chosen as on opening the page, with
+                // the deleted one out of it: this person's own if they have
+                // another, otherwise the picker (signed in) or the only one
+                // left. Not remembered, the way picking one is; the next
+                // visit chooses for itself again.
+                open = profileToOpen(
+                    ids = read.profiles.map { it.id } - id,
+                    yours = read.yours.takeIf { it != id },
+                    signedIn = read.signedIn,
+                    lastOpened = LastProfile.id.takeIf { it != id },
+                )
+            }
+        },
     )
 
     key(id) {

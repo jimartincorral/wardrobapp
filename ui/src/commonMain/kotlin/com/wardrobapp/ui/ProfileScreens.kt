@@ -2,7 +2,8 @@ package com.wardrobapp.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,18 +24,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_cancel
+import com.wardrobapp.ui.resources.action_delete
+import com.wardrobapp.ui.resources.action_keep
 import com.wardrobapp.ui.resources.action_retry
 import com.wardrobapp.ui.resources.action_save
 import com.wardrobapp.ui.resources.profile_add
 import com.wardrobapp.ui.resources.profile_choose_hint
 import com.wardrobapp.ui.resources.profile_choose_title
 import com.wardrobapp.ui.resources.profile_create
+import com.wardrobapp.ui.resources.profile_delete_body
+import com.wardrobapp.ui.resources.profile_delete_title
 import com.wardrobapp.ui.resources.profile_is_yours
 import com.wardrobapp.ui.resources.profile_load_failed
 import com.wardrobapp.ui.resources.profile_make_yours
@@ -137,12 +141,19 @@ fun ProfilePickerScreen(
 
 /**
  * Settings' Wardrobe section: which profile is showing, whether it is the one
- * Home Assistant opens for this person, and switching, renaming and adding.
+ * Home Assistant opens for this person, and switching, renaming, adding and
+ * deleting.
  *
  * At the top of Settings, because it changes what everything below it is
  * about: the storage figures, the pairing code, all of them are this
  * profile's. Heading included.
+ *
+ * Delete is offered only while there is another profile to go to: the server
+ * refuses to delete the last one, and a button that could only fail is worse
+ * than none. It deletes the profile showing, never one picked from a list,
+ * so what is about to go is what is on the screen.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ProfileSection(
     current: ProfileEntry,
@@ -153,6 +164,7 @@ fun ProfileSection(
     onRename: (String) -> Unit,
     onMakeYours: () -> Unit,
     onCreate: (String) -> Unit,
+    onDelete: () -> Unit,
 ) {
     var dialog by remember { mutableStateOf<ProfileDialog?>(null) }
 
@@ -184,6 +196,22 @@ fun ProfileSection(
             },
             onDismiss = { dialog = null },
         )
+        // Says what goes and what does not: the phones are the question
+        // somebody deleting a wardrobe they share a phone with will have.
+        ProfileDialog.Delete -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text(stringResource(Res.string.profile_delete_title, profileName(current))) },
+            text = { Text(stringResource(Res.string.profile_delete_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    dialog = null
+                    onDelete()
+                }) { Text(stringResource(Res.string.action_delete), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { dialog = null }) { Text(stringResource(Res.string.action_keep)) }
+            },
+        )
         null -> Unit
     }
 
@@ -200,9 +228,11 @@ fun ProfileSection(
         TextButton(onClick = onMakeYours) { Text(stringResource(Res.string.profile_make_yours)) }
     }
 
-    Row(
+    // Wrapping: four buttons do not fit across a phone held upright, which is
+    // how Home Assistant's own app shows this page.
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.padding(top = 8.dp),
     ) {
         if (profiles.size > 1) {
@@ -210,11 +240,17 @@ fun ProfileSection(
         }
         OutlinedButton(onClick = { dialog = ProfileDialog.Name(renaming = true) }) { Text(stringResource(Res.string.profile_rename)) }
         OutlinedButton(onClick = { dialog = ProfileDialog.Name(renaming = false) }) { Text(stringResource(Res.string.profile_add)) }
+        if (profiles.size > 1) {
+            TextButton(onClick = { dialog = ProfileDialog.Delete }) {
+                Text(stringResource(Res.string.action_delete), color = MaterialTheme.colorScheme.error)
+            }
+        }
     }
 }
 
 private sealed interface ProfileDialog {
     data object Switch : ProfileDialog
+    data object Delete : ProfileDialog
     data class Name(val renaming: Boolean) : ProfileDialog
 }
 

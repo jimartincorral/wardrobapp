@@ -111,7 +111,7 @@ class ServerWardrobe(
     val sync = SyncStore(database)
 
     /** The code a phone pairs with, kept beside the wardrobe it opens. */
-    val syncSecret = SyncSecret(File(dataDirectory, "sync-code"))
+    val syncSecret = SyncSecret(File(dataDirectory, SYNC_CODE))
 
     val importer: GarmentImporter = importer ?: run {
         val http = ImportHttp()
@@ -135,6 +135,34 @@ class ServerWardrobe(
      */
     override fun close() {
         database.whileClosed { }
+    }
+
+    /**
+     * Close the database for good, before its files are deleted: a request
+     * still holding this wardrobe gets an error rather than a new, empty
+     * database where the deleted one was. See ProfileRegistry.delete.
+     */
+    fun retire() = database.retire()
+
+    companion object {
+        private const val SYNC_CODE = "sync-code"
+
+        /**
+         * Every file a wardrobe in [dataDirectory] keeps, and nothing else
+         * there: what deleting the first profile deletes, whose directory is
+         * the data directory itself and holds the list of profiles too.
+         * The pairing code's half-written copy included, should a crash have
+         * left one.
+         */
+        fun filesIn(dataDirectory: File): List<File> {
+            val files = wardrobeFilesIn(dataDirectory)
+            return listOf(
+                files.databaseFile.parentFile,
+                files.imagesDir,
+                File(dataDirectory, SYNC_CODE),
+                File(dataDirectory, "$SYNC_CODE.part"),
+            )
+        }
     }
 }
 
