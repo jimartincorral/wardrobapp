@@ -51,6 +51,13 @@ data class ServerSettings(
      * say rather than failing to start.
      */
     val releaseNotes: File? = null,
+    /**
+     * `WARDROBAPP_BACKGROUND_MODEL`: the model BackgroundRemover runs, as the
+     * build downloaded it into the image; null, or a file that is not there,
+     * for a server that cannot remove backgrounds -- which then says so to the
+     * browser, which does not offer it, rather than failing to start.
+     */
+    val backgroundModel: File? = null,
 ) {
     companion object {
         /** The directory Home Assistant keeps for an app across updates and includes in its backups. */
@@ -97,6 +104,7 @@ data class ServerSettings(
                     build = value("WARDROBAPP_BUILD")?.toLongOrNull() ?: ServerVersion.DEVELOPMENT.build,
                 ),
                 releaseNotes = value("WARDROBAPP_RELEASE_NOTES")?.let(::File),
+                backgroundModel = value("WARDROBAPP_BACKGROUND_MODEL")?.let(::File),
             )
         }
     }

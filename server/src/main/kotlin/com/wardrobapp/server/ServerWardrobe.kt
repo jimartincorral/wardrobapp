@@ -13,8 +13,10 @@ import com.wardrobapp.data.ReopeningDriver
 import com.wardrobapp.data.Suggestions
 import com.wardrobapp.data.SyncStore
 import com.wardrobapp.data.WardrobeSchema
+import com.wardrobapp.data.cutoutFilename
 import com.wardrobapp.data.resolveImageRef
 import com.wardrobapp.data.storedImageBytes
+import com.wardrobapp.data.toStoredImageRef
 import com.wardrobapp.data.wardrobeFilesIn
 import com.wardrobapp.domain.ImageFetcher
 import com.wardrobapp.net.ImportHttp
@@ -58,10 +60,13 @@ import kotlinx.coroutines.withContext
  * names the profile its photo belongs to and still resolves against the page.
  *
  * [importer] is for tests, which have no internet to import from.
+ * [backgrounds] cuts photos out, or is null where there is no model to; see
+ * BackgroundRemover.
  */
 class ServerWardrobe(
     dataDirectory: File,
     importer: GarmentImporter? = null,
+    private val backgrounds: BackgroundRemover? = null,
     private val photoPrefix: String = Routes.PHOTO_FILES,
 ) : AutoCloseable {
 
@@ -99,9 +104,7 @@ class ServerWardrobe(
         garmentWrites = garmentWrites,
         imageDirectory = photoPrefix,
         deletePhoto = photos::delete,
-        // See HttpGarmentDetailSource.cutOut: not on the server, yet. Nothing
-        // routes here, so this only says why if something one day does.
-        removeBackground = { _, _ -> throw UnsupportedOperationException("Removing a background is not available on the server yet.") },
+        removeBackground = ::removeBackground,
         io = io,
     )
     val bulkAdd = DatabaseBulkAddSource(garmentWrites, photos::delete, io)
@@ -116,6 +119,23 @@ class ServerWardrobe(
     val importer: GarmentImporter = importer ?: run {
         val http = ImportHttp()
         FetchingGarmentImporter(http::pages, DownloadedPhotos(http, photos, photoPrefix), io)
+    }
+
+    /** Whether this server can cut a photo out at all; the browser offers it only if so. */
+    val removesBackgrounds: Boolean get() = backgrounds != null
+
+    /**
+     * Cut the stored photo [photo] -- any form of its reference -- out of its
+     * background, and store the cut-out under [id] the way the phone names
+     * one; the cut-out's name. The original is not touched here: whether it
+     * is kept beside the cut-out is the screen's to decide, as on the phone.
+     */
+    private fun removeBackground(photo: String, id: String): String {
+        val remover = backgrounds ?: throw BackgroundRemovalUnavailable()
+        val original = photos.file(toStoredImageRef(photo)) ?: throw PhotoNotFound()
+        val name = cutoutFilename(id)
+        photos.storeAs(name, remover.cutOut(original.readBytes()))
+        return name
     }
 
     /** A reference to the stored photo [name], as this wardrobe's screens read references. */

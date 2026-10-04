@@ -121,6 +121,17 @@ class HomeAssistantAppTest {
     }
 
     @Test
+    fun `the background model is where the build puts it`() {
+        // build.gradle.kts copies the downloaded model into the distribution's
+        // models/, the distribution is copied to /opt/wardrobapp, and a server
+        // that looks anywhere else quietly stops offering to remove backgrounds.
+        val build = File(repository, "server/build.gradle.kts").readText()
+        val model = File(System.getProperty("backgroundModel")).name
+        assertTrue("into(\"models\")" in build && "models/$model" in build, "the distribution does not carry models/$model")
+        assertEquals("/opt/wardrobapp/models/$model", environment("WARDROBAPP_BACKGROUND_MODEL"))
+    }
+
+    @Test
     fun `the server knows its version from the build that made it`() {
         assertEquals("\${BUILD_VERSION}", environment("WARDROBAPP_VERSION"))
         assertTrue("BUILD_VERSION=\${{ steps.app.outputs.version }}" in workflow)

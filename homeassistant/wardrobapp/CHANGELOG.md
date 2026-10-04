@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+- Remove a photo's background in the browser, from the garment form, from
+  **Add several photos** and from a saved garment, as on the phone. The app
+  does the work, so it takes a few seconds on a Raspberry Pi.
+
 ## 0.5.0
 
 - A wardrobe can be deleted, under **Settings → Wardrobe → Delete**. Its

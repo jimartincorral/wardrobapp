@@ -14,8 +14,16 @@ import io.ktor.server.engine.embeddedServer
 fun main() {
     val settings = ServerSettings.from(System.getenv())
 
-    val profiles = ProfileRegistry(settings.dataDirectory)
-    Runtime.getRuntime().addShutdownHook(Thread { profiles.close() })
+    val backgrounds = BackgroundRemover.at(settings.backgroundModel)
+    if (backgrounds == null) {
+        println("Removing backgrounds is off: no model at ${settings.backgroundModel ?: "WARDROBAPP_BACKGROUND_MODEL, which is not set"}.")
+    }
+
+    val profiles = ProfileRegistry(settings.dataDirectory, backgrounds = backgrounds)
+    Runtime.getRuntime().addShutdownHook(Thread {
+        profiles.close()
+        backgrounds?.close()
+    })
 
     // The phones' port first, without waiting, then the browser's, which
     // holds the process open. Two servers over the same wardrobes: see

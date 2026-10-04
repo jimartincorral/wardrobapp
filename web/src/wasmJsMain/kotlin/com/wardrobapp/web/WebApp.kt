@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.wardrobapp.api.Routes
+import com.wardrobapp.api.ServerFeatures
 import com.wardrobapp.api.ServerVersion
 import com.wardrobapp.data.ReleaseNote
 import com.wardrobapp.data.parseWebReleases
@@ -96,6 +97,20 @@ fun WebApp(http: HttpClient, profile: ProfileControls) {
         }
     }
 
+    // Whether the server can cut a photo out, asked once per page load. No
+    // until it answers, and no if it cannot be asked: a button missing for a
+    // moment is better than one that is there and fails.
+    var features by remember { mutableStateOf(ServerFeatures()) }
+    LaunchedEffect(http) {
+        try {
+            features = http.get(Routes.FEATURES).body()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // An older server, or none: what it cannot say it can do, it cannot.
+        }
+    }
+
     val screens = remember(sources, navigator) {
         Screens(
             sources = sources,
@@ -113,8 +128,9 @@ fun WebApp(http: HttpClient, profile: ProfileControls) {
     }
 
     WardrobappTheme(theme) {
-        // Nothing removes or crops a photo in the browser yet; see PhotoTools.
-        CompositionLocalProvider(LocalPhotoTools provides PhotoTools(removesBackgrounds = false, crops = false)) {
+        // Backgrounds as the server says; nothing crops a photo in the browser
+        // yet. See PhotoTools.
+        CompositionLocalProvider(LocalPhotoTools provides PhotoTools(removesBackgrounds = features.removesBackgrounds, crops = false)) {
             val entry = navigator.current
             val route = (entry.destination as? Destination.Tab)?.route
 

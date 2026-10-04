@@ -35,6 +35,13 @@ COPY web/build/dist/wasmJs/productionExecutable /opt/wardrobapp/web
 # Serial GC and a quarter of the memory: a household's wardrobe on a machine
 # that is also running Home Assistant, which is a reason to be small rather
 # than fast.
+#
+# The background model is in the server's distribution, which Gradle
+# downloaded it into; see BackgroundRemover. The two MALLOC_ settings are for
+# it too. It is closed when idle, but glibc keeps what was freed for the next
+# allocation rather than handing it back, so a closed model held most of its
+# memory anyway: about 300 MB, measured, against 150 MB with these, which put
+# the model's large buffers in memory of their own that freeing returns.
 ENV WARDROBAPP_DATA=/data \
     WARDROBAPP_PORT=8099 \
     WARDROBAPP_SYNC_PORT=8100 \
@@ -43,6 +50,10 @@ ENV WARDROBAPP_DATA=/data \
     WARDROBAPP_VERSION=${BUILD_VERSION} \
     WARDROBAPP_BUILD=${BUILD_NUMBER} \
     WARDROBAPP_RELEASE_NOTES=/opt/wardrobapp/release-notes.json \
+    WARDROBAPP_BACKGROUND_MODEL=/opt/wardrobapp/models/silueta.onnx \
+    MALLOC_ARENA_MAX=2 \
+    MALLOC_MMAP_THRESHOLD_=131072 \
+    MALLOC_TRIM_THRESHOLD_=131072 \
     JAVA_OPTS="-XX:+UseSerialGC -XX:MaxRAMPercentage=25"
 
 LABEL io.hass.type="addon" \

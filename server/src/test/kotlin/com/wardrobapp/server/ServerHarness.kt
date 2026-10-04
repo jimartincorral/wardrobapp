@@ -93,10 +93,11 @@ class ServerUnderTest(val http: HttpClient, val wardrobe: ServerWardrobe, val da
 fun serverTest(
     importer: GarmentImporter? = null,
     settings: ServerSettings = ServerSettings(),
+    backgrounds: BackgroundRemover? = null,
     block: suspend ServerUnderTest.() -> Unit,
 ) {
     val directory = Files.createTempDirectory("wardrobe-server").toFile()
-    val profiles = ProfileRegistry(directory, importer)
+    val profiles = ProfileRegistry(directory, importer, backgrounds)
     try {
         testApplication {
             application { wardrobeApi(profiles, settings) }

@@ -32,6 +32,8 @@ import kotlinx.serialization.Serializable
 class ProfileRegistry(
     private val dataDirectory: File,
     private val importer: GarmentImporter? = null,
+    /** One for every profile, since there is one model and it is cut-outs it costs, not profiles; null for none. */
+    val backgrounds: BackgroundRemover? = null,
 ) : AutoCloseable {
 
     @Serializable
@@ -66,6 +68,7 @@ class ProfileRegistry(
             ServerWardrobe(
                 dataDirectory = File(dataDirectory, profile.directory),
                 importer = importer,
+                backgrounds = backgrounds,
                 photoPrefix = Routes.profileBase(profile.id) + Routes.PHOTO_FILES,
             ).also { open[id] = it }
         }

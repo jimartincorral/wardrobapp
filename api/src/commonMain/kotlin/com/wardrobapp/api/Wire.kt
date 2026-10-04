@@ -70,6 +70,18 @@ data class ServerVersion(val name: String, val build: Long) {
     }
 }
 
+/**
+ * What this server can do that another might not, so the browser offers only
+ * that. Every field defaults to what a server without it would say, so an
+ * older browser reading a newer server's answer, and the other way round,
+ * reads what it knows and nothing else.
+ */
+@Serializable
+data class ServerFeatures(
+    /** Whether it has the model to cut a garment out of its background; see Routes.PHOTO_CUT_OUT. */
+    val removesBackgrounds: Boolean = false,
+)
+
 /** Where an uploaded photo was stored, in the form a garment row refers to it by. */
 @Serializable
 data class StoredPhoto(val ref: String)
