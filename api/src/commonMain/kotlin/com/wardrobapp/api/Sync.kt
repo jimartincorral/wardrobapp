@@ -40,6 +40,14 @@ object SyncRoutes {
     /** POST a [WardrobeSnapshot]; answers [SyncAnswer]. */
     const val EXCHANGE = "sync/v1/exchange"
 
+    /**
+     * POST a [WardrobeSnapshot] that replaces the server's wardrobe rather
+     * than merging into it, after the phone restored a backup; answers
+     * [SyncAnswer]. A server from before this answers 404, which the phone
+     * reads as "update the Home Assistant app" (see PhoneSync).
+     */
+    const val REPLACE = "sync/v1/replace"
+
     /** GET a photo by name, or PUT one under the name the phone stored it as. */
     const val PHOTO = "sync/v1/photos/{name}"
 
@@ -117,10 +125,14 @@ class WardrobeSyncClient(
      * a sync that dies partway leaves both sides with every photo their own
      * garments refer to -- at worst some that nothing does yet.
      */
-    suspend fun sync(): SyncReport {
+    suspend fun sync(replace: Boolean = false): SyncReport {
         val ours = withContext(io) { store.snapshot() }
 
-        val answer = http.post(SyncRoutes.EXCHANGE) {
+        // Replacing is the same exchange to a different route: the server
+        // deletes what this side does not have instead of keeping it, and
+        // answers with the result. Merging that answer here is then a no-op
+        // for every row this side sent, so nothing else changes below.
+        val answer = http.post(if (replace) SyncRoutes.REPLACE else SyncRoutes.EXCHANGE) {
             contentType(ContentType.Application.Json)
             setBody(ours)
         }.body<SyncAnswer>()

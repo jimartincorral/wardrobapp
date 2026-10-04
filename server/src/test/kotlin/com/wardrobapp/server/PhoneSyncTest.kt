@@ -15,6 +15,9 @@ import com.wardrobapp.presentation.SyncFailure
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.testing.testApplication
+import io.ktor.server.routing.routing
+import io.ktor.server.routing.post
+import io.ktor.server.response.respond
 import java.net.ServerSocket
 import kotlinx.coroutines.runBlocking
 import java.io.File
@@ -39,6 +42,7 @@ class PhoneSyncTest {
         override var lastFailure: String? = null
         override var background: Boolean = true
         override var wifiOnly: Boolean = true
+        override var restorePending: Boolean = false
     }
 
     /** What WorkManager would have been told. */
@@ -54,7 +58,14 @@ class PhoneSyncTest {
         }
     }
 
-    private class Setup(val server: ServerWardrobe, val phone: PhoneSync, val preferences: Preferences, val schedule: Schedule, val clock: Clock)
+    private class Setup(
+        val server: ServerWardrobe,
+        val phone: PhoneSync,
+        val preferences: Preferences,
+        val schedule: Schedule,
+        val clock: Clock,
+        val phoneStore: SyncStore,
+    )
 
     private class Clock(var millis: Long = 1_790_000_000_000L)
 
@@ -80,7 +91,7 @@ class PhoneSyncTest {
                     clientFor = { address, code -> createClient { speakSync(address, code) } },
                     now = { clock.millis },
                 )
-                Setup(server, phone, preferences, schedule, clock).block()
+                Setup(server, phone, preferences, schedule, clock, SyncStore(database)).block()
             }
         } finally {
             database.close()
@@ -234,6 +245,81 @@ class PhoneSyncTest {
             server.stop(0, 0)
             database.close()
             profiles.close()
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `a restore on a paired phone replaces the wardrobe in Home Assistant`() = phoneTest {
+        phone.connect(address, server.syncSecret.current())
+        server.addGarment()
+        phone.sync()
+        assertEquals(1, server.sync.snapshot().garments.size)
+
+        // The restore: a backup from before that garment existed, with one of
+        // its own. A restore swaps the database file; here its contents are
+        // swapped instead, "as of" a time later than anything in it so nothing
+        // survives the swap -- restoring then forgets those deletions, as it
+        // forgets a backup's.
+        val backup = server.sync.snapshot().copy(
+            garments = listOf(server.sync.snapshot().garments.single().copy(id = "from-the-backup", brand = "Restored")),
+            deletions = emptyList(),
+        )
+        phone.restoring { phoneStore.replaceWith(backup, "2999-01-01T00:00:00.000Z") }
+        assertEquals(listOf("from-the-backup"), phoneStore.snapshot().garments.map { it.id })
+        assertTrue(phone.status.value.restorePending)
+
+        assertNull(phone.sync())
+
+        assertEquals(listOf("from-the-backup"), server.sync.snapshot().garments.map { it.id })
+        assertFalse(phone.status.value.restorePending, "the restore was sent; the next sync is an ordinary one")
+        assertFalse(preferences.restorePending)
+    }
+
+    @Test
+    fun `a restore on a phone that does not sync is its own business`() = phoneTest {
+        phone.restoring { }
+        assertFalse(phone.status.value.restorePending)
+    }
+
+    @Test
+    fun `stopping syncing lets go of a restore that had nowhere to go`() = phoneTest {
+        phone.connect(address, server.syncSecret.current())
+        phone.restoring { }
+        phone.disconnect()
+        assertFalse(phone.status.value.restorePending)
+    }
+
+    @Test
+    fun `a Home Assistant too old to take a restore says so, and keeps it waiting`() {
+        val directory = Files.createTempDirectory("phone-sync-old").toFile()
+        val database = JdbcSqlDriver.open(File(directory, "phone.db")).also { WardrobeSchema.applyTo(it) }
+        try {
+            testApplication {
+                // A server from before restores could be sent: it knows the
+                // ordinary routes and no other, so the replace is a bare 404.
+                application {
+                    routing { post("/${com.wardrobapp.api.SyncRoutes.EXCHANGE}") { call.respond(io.ktor.http.HttpStatusCode.OK) } }
+                }
+                val preferences = Preferences().apply {
+                    this.address = "http://localhost/"
+                    code = "AAAAA-BBBBB-CCCCC-DDDDD"
+                    restorePending = true
+                }
+                val phone = PhoneSync(
+                    preferences = preferences,
+                    store = SyncStore(database),
+                    photos = DirectoryPhotoFolder(File(directory, "phone-photos")),
+                    background = Schedule(),
+                    clientFor = { address, code -> createClient { speakSync(address, code) } },
+                )
+
+                assertEquals(SyncFailure.ServerTooOld, phone.sync())
+                assertTrue(preferences.restorePending, "a restore that was not sent was forgotten")
+                assertEquals(SyncFailure.ServerTooOld, phone.status.value.lastFailure)
+            }
+        } finally {
+            database.close()
             directory.deleteRecursively()
         }
     }

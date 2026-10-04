@@ -82,6 +82,56 @@ class SyncStore(private val driver: SqlDriver) {
     }
 
     /**
+     * Make [theirs] this wardrobe, rather than merge it in: what the server
+     * does when a phone restores a backup and sends what it restored.
+     *
+     * Everything here that [theirs] does not have is deleted, as of [now], and
+     * the deletions are kept so other phones delete it too when they next
+     * sync; everything [theirs] has is taken as it comes. The phone stamps
+     * every restored row with the time of the restore before sending it (see
+     * [stampAll]), so a later sync from another phone does not bring back the
+     * edits the restore was meant to replace -- an edit made after the restore
+     * still wins, as it should.
+     *
+     * A merge in every other respect: the same rules, the same application,
+     * the same transaction, so a restore and a sync from somebody else cannot
+     * interleave.
+     */
+    fun replaceWith(theirs: WardrobeSnapshot, now: String): MergedWardrobe = driver.transaction {
+        val ours = snapshot()
+        val keptGarments = theirs.garments.map { it.id }.toSet()
+        val keptOutfits = theirs.outfits.map { it.id }.toSet()
+        val gone = ours.garments.filter { it.id !in keptGarments }.map { Deletion(DeletionKind.GARMENT, it.id, now) } +
+            ours.outfits.filter { it.id !in keptOutfits }.map { Deletion(DeletionKind.OUTFIT, it.id, now) }
+        val merged = merge(ours, theirs.copy(deletions = theirs.deletions + gone))
+        val changes = changesTo(ours, merged)
+        MergedWardrobe(
+            merged = merged,
+            photosNoLongerUsed = apply(changes),
+            changedAnything = !changes.isEmpty,
+        )
+    }
+
+    /**
+     * Mark every garment and outfit here as changed at [now], and forget what
+     * was deleted: what a restore on a phone that syncs does to the wardrobe
+     * it has just put back.
+     *
+     * Without it the restored rows keep the times they had when the backup was
+     * made, every edit made anywhere since is newer, and the next sync quietly
+     * undoes the restore. With it, the restored wardrobe is the newest thing
+     * anyone did. The deletions go because they are the backup's, not this
+     * phone's: the server works out what to delete itself (see [replaceWith]).
+     */
+    fun stampAll(now: String) {
+        driver.transaction {
+            driver.execute("UPDATE garments SET updated_at = ?", listOf(now))
+            driver.execute("UPDATE outfits SET updated_at = ?", listOf(now))
+            driver.execute("DELETE FROM deletions")
+        }
+    }
+
+    /**
      * Make this side's wardrobe the merged one, in one transaction, so a sync
      * that fails partway leaves the wardrobe as it was rather than half-merged.
      *

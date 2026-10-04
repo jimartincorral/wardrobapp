@@ -53,7 +53,7 @@ class PhoneSyncTest {
 
     @Test
     fun `a failure survives being written down`() {
-        val failures = listOf(SyncFailure.NotPaired, SyncFailure.Unreachable, SyncFailure.Other("Disk full: photo.jpg"))
+        val failures = listOf(SyncFailure.NotPaired, SyncFailure.Unreachable, SyncFailure.ServerTooOld, SyncFailure.Other("Disk full: photo.jpg"))
         for (failure in failures) assertEquals(failure, syncFailureFor(storedSyncFailure(failure)))
         assertNull(syncFailureFor(null))
         // Something a later build wrote is still a failure, not a success.

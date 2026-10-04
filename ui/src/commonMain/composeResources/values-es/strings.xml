@@ -732,6 +732,9 @@
     <string name="settings_sync_unreachable">No se ha podido conectar con Home Assistant en esa dirección.</string>
     <string name="settings_sync_background">Sincronizar en segundo plano</string>
     <string name="settings_sync_wifi_only">Solo con Wi-Fi</string>
+    <string name="restore_replaces_synced">Este teléfono se sincroniza con Home Assistant, así que el armario restaurado sustituirá también al de allí y al de cada teléfono que se sincronice con él. Para restaurarlo solo en este teléfono, deja de sincronizar antes en Ajustes → Home Assistant.</string>
+    <string name="settings_sync_server_too_old">Actualiza la aplicación Wardrobapp en Home Assistant para enviarle el armario que has restaurado. Hasta entonces este teléfono no se sincronizará, para no deshacer la restauración.</string>
+    <string name="settings_sync_restore_pending">El armario que has restaurado sustituirá al de Home Assistant en la próxima sincronización.</string>
     <string name="settings_sync_wifi_only_hint">Para las sincronizaciones que el teléfono hace por su cuenta, al abrir la aplicación y en segundo plano. Sincronizar ahora siempre sincroniza.</string>
     <string name="settings_sync_address_invalid">Eso no es una dirección. Escríbela como abres Home Assistant, con el puerto de sincronización: homeassistant.local:8100, o su dirección IP.</string>
     <string name="settings_sync_paired_with">Sincronizando con %1$s</string>

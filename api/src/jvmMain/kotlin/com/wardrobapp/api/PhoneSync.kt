@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 
 /*
@@ -51,6 +52,14 @@ interface SyncPreferences {
     var lastFailure: String?
     var background: Boolean
     var wifiOnly: Boolean
+
+    /**
+     * A restored backup is waiting to replace the wardrobe in Home Assistant.
+     * Kept rather than held in memory, because the restore is the one thing
+     * a sync must not forget across a restart: an ordinary sync in its place
+     * would merge the restored wardrobe with the one it was meant to replace.
+     */
+    var restorePending: Boolean
 }
 
 /** Running a sync while nobody has the app open. WorkManager, on the phone. */
@@ -177,6 +186,37 @@ class PhoneSync(
         return null
     }
 
+    /**
+     * Restore a backup with [restore], and make what it restored the wardrobe
+     * in Home Assistant too, on the next sync.
+     *
+     * The restore runs holding the same lock a sync does, so no sync touches
+     * the database while it is being replaced, and none merges the restored
+     * one before it is marked. Then every restored row is stamped as changed
+     * now, so it beats the edits made anywhere since the backup was taken, and
+     * the next sync replaces the server's wardrobe instead of merging with it:
+     * what the backup does not have is deleted there, and from every other
+     * phone when they next sync. On a phone that is not paired only the
+     * restore happens -- its restore is its own business.
+     *
+     * If the restore fails, nothing is stamped or marked: the wardrobe is the
+     * one there was, and so is what the next sync does.
+     */
+    suspend fun <T> restoring(restore: () -> T): T {
+        running.lock()
+        try {
+            val restored = withContext(io) { restore() }
+            if (_status.value.paired) {
+                withContext(io) { store.stampAll(isoTimestamp(now())) }
+                preferences.restorePending = true
+            }
+            return restored
+        } finally {
+            running.unlock()
+            publish()
+        }
+    }
+
     /** Sync now, because somebody asked: waits for one already running, then runs. */
     override suspend fun sync(): SyncFailure? {
         running.lock()
@@ -220,10 +260,23 @@ class PhoneSync(
             if (address == null || code == null) return null
 
             publish(syncing = true)
-            val failure = attempt {
-                val report = clientFor(address, code).use { WardrobeSyncClient(it, store, photos, io).sync() }
+            val replacing = preferences.restorePending
+            val failure = try {
+                val report = clientFor(address, code).use {
+                    WardrobeSyncClient(it, store, photos, io).sync(replace = replacing)
+                }
                 if (report.changed) _changes.update { it + 1 }
+                null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // A server from before replacing existed has no route for it,
+                // and answers the paired request with a bare 404. Said as what
+                // it is, since "unreachable" would send somebody checking an
+                // address that works.
+                if (replacing && e.isMissingRoute()) SyncFailure.ServerTooOld else syncFailureOf(e)
             }
+            if (replacing && failure == null) preferences.restorePending = false
 
             // Unpaired, or paired elsewhere, while this ran: there is nothing to
             // say about a pairing that is gone. The wardrobe it brought stays.
@@ -242,6 +295,9 @@ class PhoneSync(
     override fun disconnect() {
         preferences.address = null
         preferences.code = null
+        // A restore waiting to replace the wardrobe of a Home Assistant this
+        // phone no longer syncs with has nowhere to go.
+        preferences.restorePending = false
         preferences.lastSyncedAt = null
         preferences.lastFailure = null
         background.cancel()
@@ -275,6 +331,7 @@ class PhoneSync(
         syncing = syncing,
         background = preferences.background,
         wifiOnly = preferences.wifiOnly,
+        restorePending = preferences.restorePending,
     )
 
     /** Null if [block] went through, or what its failure means. Cancellation is not a failure. */
@@ -286,6 +343,9 @@ class PhoneSync(
     } catch (e: Exception) {
         syncFailureOf(e)
     }
+
+    /** A 404 from a server that knows no such route -- not "nothing by that id", which comes as [NotFoundException]. */
+    private fun Exception.isMissingRoute() = this is ServerException && status == 404
 
     private companion object {
         const val OPEN_AGAIN_MS = 2 * 60 * 1000L

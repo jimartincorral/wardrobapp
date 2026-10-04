@@ -30,6 +30,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 /**
  * Everything the screens need, built once.
@@ -195,13 +196,25 @@ class AppContainer(context: Context) {
      * and in that case nothing has changed.
      */
     fun restoreFrom(archive: InputStream, applySettings: Boolean = false) {
-        val settings = database.whileClosed { restore.restoreFromZip(archive) }
+        // Under the sync's lock: see PhoneSync.restoring, which also marks the
+        // restored wardrobe to replace the one in Home Assistant on a phone
+        // that syncs. Blocking, as the rest of this does: it is called on IO.
+        val settings = runBlocking {
+            sync.restoring { database.whileClosed { restore.restoreFromZip(archive) } }
+        }
 
         // Outside `whileClosed`, and after it: preferences have nothing to do with
         // the database connection, and applying the language restarts activities.
         // Doing that while the connection is closed would have the app come back
         // up and read a database that is not open yet.
         if (applySettings && settings != null) appSettings.apply(settings)
+
+        // On a phone that syncs, the restored wardrobe replaces the one in Home
+        // Assistant too -- otherwise the next sync would merge it with the
+        // wardrobe it was meant to replace, and every edit since the backup
+        // would win. Sent at once, from the app's scope so leaving the screen
+        // does not cancel it.
+        if (sync.status.value.paired) appScope.launch { sync.sync() }
     }
 
     /**

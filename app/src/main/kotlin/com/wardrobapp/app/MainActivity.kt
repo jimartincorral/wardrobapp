@@ -785,6 +785,9 @@ class MainActivity : AppCompatActivity() {
         val model: SettingsViewModel = viewModel(
             factory = viewModelFactory { initializer { SettingsViewModel(container) } }
         )
+        // Whether a restore here replaces the wardrobe in Home Assistant too,
+        // which the restore dialog says before a file is picked.
+        val syncStatus by container.sync.status.collectAsStateWithLifecycle()
         val state by model.state.collectAsStateWithLifecycle()
 
         // The system document picker, so a backup can come from anywhere the
@@ -868,8 +871,9 @@ class MainActivity : AppCompatActivity() {
             onTidyRequested = model::onTidyRequested,
             onTidyDismissed = model::onTidyDismissed,
             onRetry = model::refresh,
-            cloudSection = { CloudBackup() },
+            cloudSection = { CloudBackup(container) },
             syncSection = { HomeAssistantSync(container) },
+            restoreReplacesSynced = syncStatus.paired,
         )
     }
 
@@ -904,9 +908,10 @@ class MainActivity : AppCompatActivity() {
      * result, which needs somewhere with a launcher to live.
      */
     @Composable
-    private fun CloudBackup() {
+    private fun CloudBackup(container: AppContainer) {
         val cloud: CloudBackupViewModel = viewModel()
         val state by cloud.state.collectAsStateWithLifecycle()
+        val syncStatus by container.sync.status.collectAsStateWithLifecycle()
 
         // A cancelled sign-in comes back with no data, which the model reads as
         // "nothing happened" -- there is no failure to report when somebody
@@ -931,6 +936,7 @@ class MainActivity : AppCompatActivity() {
             onRetentionChanged = cloud::onRetentionChanged,
             onWifiOnlyChanged = cloud::onWifiOnlyChanged,
             onBatteryChanged = cloud::onBatteryChanged,
+            syncsWithHomeAssistant = syncStatus.paired,
         )
     }
 
