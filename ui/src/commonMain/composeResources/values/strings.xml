@@ -105,6 +105,8 @@
     <string name="home_open_wardrobe">Open the wardrobe</string>
     <string name="home_open_archived">Open the wardrobe showing archived garments</string>
     <string name="home_add_garment">Add a garment</string>
+    <string name="home_recent_title">Recently added</string>
+    <string name="home_open_wardrobe_action">Open the wardrobe</string>
     <string name="home_outfits_title">Outfit ideas</string>
     <string name="home_outfits_detail">Put together from what you own</string>
     <string name="home_statistics_title">Statistics</string>

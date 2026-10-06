@@ -47,6 +47,10 @@ import com.wardrobapp.presentation.WardrobeQuery
 import com.wardrobapp.presentation.WardrobeScreenModel
 import com.wardrobapp.presentation.firstStepsFor
 import com.wardrobapp.ui.AppVersion
+import com.wardrobapp.ui.isExpanded
+import com.wardrobapp.ui.OutfitIdeas
+import com.wardrobapp.ui.GarmentDetailPane
+import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.ui.BulkAddScreen
 import com.wardrobapp.ui.GarmentDetailScreen
 import com.wardrobapp.ui.GarmentFormScreen
@@ -114,7 +118,8 @@ class Screens(
     private val navigator: Navigator,
     /** The open profile, read when Settings is drawn, so a rename shows without rebuilding every screen. */
     private val profile: () -> ProfileControls,
-    private val openWardrobe: (WardrobeQuery?) -> Unit,
+    /** Open the wardrobe showing a query, and -- on a desktop -- with a garment open beside the grid. */
+    private val openWardrobe: (WardrobeQuery?, String?) -> Unit,
     private val buildOutfitAround: (String) -> Unit,
 ) {
     @Composable
@@ -123,13 +128,14 @@ class Screens(
         theme: ThemeChoice,
         onThemeSelected: (ThemeChoice) -> Unit,
         arrival: WardrobeQuery?,
+        arrivingGarment: String?,
         onArrivalApplied: () -> Unit,
         outfitSeed: String?,
         onSeedApplied: () -> Unit,
     ) {
         when (val destination = entry.destination) {
             Destination.Home -> Home(entry)
-            Destination.Wardrobe -> Wardrobe(entry, arrival, onArrivalApplied)
+            Destination.Wardrobe -> Wardrobe(entry, arrival, arrivingGarment, onArrivalApplied)
             Destination.Outfits -> Outfits(entry, outfitSeed, onSeedApplied)
             Destination.Statistics -> Statistics(entry)
             Destination.Settings -> Settings(entry, theme, onThemeSelected)
@@ -171,6 +177,29 @@ class Screens(
             }
         }
 
+        // What the desktop's Home shows besides the counts: the newest garments,
+        // and a couple of outfit ideas. Asked for only once the window is wide
+        // enough to show them, so a phone-width browser makes the one request
+        // for the counts it always made; and kept on the entry, so the window
+        // narrowing and widening again does not ask the engine twice.
+        val expanded = isExpanded()
+        var recent by remember { mutableStateOf(emptyList<GarmentRecord>()) }
+        val caption = remember { BrowserWardrobeView().caption }
+        val ideas = if (expanded) {
+            entry.keep("ideas") { OutfitsScreenModel(entry.scope, sources.outfits).also { it.generate() } }
+        } else {
+            null
+        }
+
+        // Read again each time the counts finish loading, which is every return
+        // to Home: a garment added from the rail, or one edited from here, is
+        // in the row the next time it is seen.
+        LaunchedEffect(expanded, state.loading) {
+            if (!expanded || state.loading) return@LaunchedEffect
+            runCatching { sources.wardrobe.garments(WardrobeQuery()) }
+                .onSuccess { recent = it.take(RECENT_GARMENTS) }
+        }
+
         HomeScreen(
             state = state,
             firstSteps = steps.takeIf { it.isVisible },
@@ -186,34 +215,74 @@ class Screens(
                 }
             },
             onAddRequested = { navigator.open(Destination.GarmentAdd()) },
-            onWardrobeRequested = { openWardrobe(WardrobeQuery.showing(null)) },
-            onArchivedRequested = { openWardrobe(WardrobeQuery.showing(WardrobeLink.Retired)) },
+            onWardrobeRequested = { openWardrobe(WardrobeQuery.showing(null), null) },
+            onArchivedRequested = { openWardrobe(WardrobeQuery.showing(WardrobeLink.Retired), null) },
             onOutfitsRequested = { navigator.switchTo(Destination.Outfits) },
             onStatisticsRequested = { navigator.switchTo(Destination.Statistics) },
             onSettingsRequested = { navigator.switchTo(Destination.Settings) },
             onRetry = model::refresh,
+            recent = recent,
+            caption = caption,
+            onRecentOpened = { openWardrobe(WardrobeQuery.showing(null), it) },
+            outfitIdeas = if (ideas == null) null else { {
+                val ideasState by ideas.state.collectAsState()
+
+                OutfitIdeas(
+                    state = ideasState,
+                    onSave = ideas::onSaveRequested,
+                    onRate = ideas::onRated,
+                    onKeep = ideas::onKeepRequested,
+                    onKeepDismissed = ideas::onKeepDismissed,
+                    onGarmentOpened = { openWardrobe(WardrobeQuery.showing(null), it) },
+                )
+            } },
         )
     }
 
     @Composable
-    private fun Wardrobe(entry: Entry, arrival: WardrobeQuery?, onArrivalApplied: () -> Unit) {
+    private fun Wardrobe(
+        entry: Entry,
+        arrival: WardrobeQuery?,
+        arrivingGarment: String?,
+        onArrivalApplied: () -> Unit,
+    ) {
         val model = entry.model { WardrobeScreenModel(it, sources.wardrobe, BrowserWardrobeView()) }
         val state by model.state.collectAsState()
-        entry.onReturn = model::refresh
 
-        LaunchedEffect(arrival) {
+        // The desktop's: the garment open beside the grid, and its model. On the
+        // entry rather than remembered, so neither a tab switch nor the window
+        // dropping below the breakpoint and back closes it. A phone-width
+        // window keeps it and ignores it.
+        val expanded = isExpanded()
+        val selection = entry.keep("selection") { mutableStateOf<String?>(null) }
+        val pane = entry.keep("pane") { PaneModel<GarmentDetailScreenModel>(entry.scope) }
+        var panelOpen by remember { mutableStateOf(FilterPanelPreference.open) }
+
+        entry.onReturn = {
+            model.refresh()
+            // Back from editing the garment in the pane: it may have changed.
+            pane.current?.refresh()
+        }
+
+        LaunchedEffect(arrival, arrivingGarment) {
             if (arrival != null) {
                 model.onQueryRequested(arrival)
+                if (arrivingGarment != null) selection.value = arrivingGarment
                 onArrivalApplied()
             }
         }
+
+        val selected = selection.value.takeIf { expanded }
 
         WardrobeScreen(
             state = state,
             onSearchChanged = model::onSearchChanged,
             onSortToggled = model::onSortToggled,
             onRetry = model::refresh,
-            onGarmentOpened = { navigator.open(Destination.Garment(it)) },
+            // Beside the grid on a desktop, as a screen of its own on a phone.
+            onGarmentOpened = { id ->
+                if (expanded) selection.value = id else navigator.open(Destination.Garment(id))
+            },
             onAddRequested = { navigator.open(Destination.GarmentAdd()) },
             onBulkAddRequested = { navigator.open(Destination.BulkAdd) },
             onFiltersToggled = model::onFiltersToggled,
@@ -228,6 +297,74 @@ class Screens(
             onRetiredToggled = model::onRetiredToggled,
             onViewSelected = model::onViewSelected,
             onCaptionSelected = model::onCaptionSelected,
+            selectedGarmentId = selected,
+            // Kept showing while it is open even if it drops out of the list --
+            // retired, or filtered away -- so what somebody was looking at does
+            // not vanish from under them; closing it is theirs to do.
+            detailPane = if (selected == null) null else { {
+                GarmentPane(
+                    garmentId = selected,
+                    pane = pane,
+                    onClosed = { selection.value = null },
+                    onWardrobeChanged = model::refresh,
+                )
+            } },
+            filterPanelOpen = panelOpen,
+            onFilterPanelToggled = {
+                panelOpen = !panelOpen
+                FilterPanelPreference.open = panelOpen
+            },
+        )
+    }
+
+    /**
+     * One garment, in the pane beside the desktop wardrobe: [GarmentDetail]'s
+     * wiring, with closing the pane where that has going back.
+     */
+    @Composable
+    private fun GarmentPane(
+        garmentId: String,
+        pane: PaneModel<GarmentDetailScreenModel>,
+        onClosed: () -> Unit,
+        onWardrobeChanged: () -> Unit,
+    ) {
+        val model = pane.modelFor(garmentId) { GarmentDetailScreenModel(it, sources.garmentDetail, garmentId) }
+        val state by model.state.collectAsState()
+
+        // A delete closes the pane, as it closes the screen on a phone; the grid
+        // beside it is read again either way, since it showed the garment.
+        LaunchedEffect(state.deleted) {
+            if (state.deleted) {
+                onClosed()
+                onWardrobeChanged()
+            }
+        }
+
+        // Retiring and returning a garment change which list it belongs in, so
+        // the grid beside it is read again when that answer changes -- not when
+        // it is first known, which is only the pane loading.
+        val available = state.view?.isAvailable
+        var lastAvailable by remember(garmentId) { mutableStateOf(available) }
+        LaunchedEffect(available) {
+            if (available != null && lastAvailable != null && available != lastAvailable) onWardrobeChanged()
+            if (available != null) lastAvailable = available
+        }
+
+        GarmentDetailPane(
+            state = state,
+            onClose = onClosed,
+            onPhotoSelected = model::onPhotoSelected,
+            onEdit = { navigator.open(Destination.GarmentEdit(garmentId)) },
+            onRetry = model::refresh,
+            onRemoveBackground = model::onRemoveBackground,
+            onUndoBackground = model::onUndoBackground,
+            onBuildOutfit = { buildOutfitAround(garmentId) },
+            onRetire = model::onRetireRequested,
+            onReturnToWardrobe = model::onReturnedToWardrobe,
+            onDelete = model::onDeleteRequested,
+            onConfirmed = model::onConfirmed,
+            onConfirmationDismissed = model::onConfirmationDismissed,
+            onActionErrorDismissed = model::onActionErrorDismissed,
         )
     }
 
@@ -242,6 +379,21 @@ class Screens(
                 model.onSeedRequested(seedGarmentId)
                 onSeedApplied()
             }
+        }
+
+        // The photos the desktop's saved list draws its thumbnails from, which a
+        // saved outfit does not carry: every garment, retired ones included,
+        // since an outfit saved last year may hold something no longer worn.
+        // Read again whenever the saved list changes, so an outfit kept from a
+        // suggestion a moment ago has its pictures.
+        val expanded = isExpanded()
+        var photos by remember { mutableStateOf(emptyMap<String, String>()) }
+        LaunchedEffect(expanded, state.saved) {
+            if (!expanded) return@LaunchedEffect
+            val wanted = state.saved.flatMap { it.garmentIds }.toSet()
+            if (wanted.isEmpty() || wanted.all { it in photos }) return@LaunchedEffect
+            runCatching { sources.wardrobe.garments(WardrobeQuery(includeRetired = true)) }
+                .onSuccess { garments -> photos = garments.associate { it.id to it.displayImage } }
         }
 
         OutfitsScreen(
@@ -262,6 +414,7 @@ class Screens(
             onGarmentOpened = { navigator.open(Destination.Garment(it)) },
             onOutfitOpened = { navigator.open(Destination.Outfit(it)) },
             onBuildRequested = { navigator.open(Destination.OutfitBuild) },
+            garmentPhotos = photos,
         )
     }
 
@@ -274,7 +427,7 @@ class Screens(
         StatisticsScreen(
             state = state,
             onCategoryTapped = model::onCategoryTapped,
-            onLinkRequested = { openWardrobe(WardrobeQuery.showing(it)) },
+            onLinkRequested = { openWardrobe(WardrobeQuery.showing(it), null) },
             onGarmentOpened = { navigator.open(Destination.Garment(it)) },
             onBrandSortChanged = model::onBrandSortChanged,
             onSectionTapped = model::onSectionTapped,
@@ -509,3 +662,6 @@ class Screens(
 }
 
 private fun ServerVersion.asAppVersion() = AppVersion(name = name, code = build)
+
+/** How many of the newest garments the desktop's Home shows; see HomeScreen. */
+private const val RECENT_GARMENTS = 6

@@ -1,5 +1,10 @@
 package com.wardrobapp.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,6 +13,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -42,6 +49,7 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -52,6 +60,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -70,6 +79,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.wardrobapp.presentation.WindowWidth
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
@@ -96,6 +116,7 @@ import com.wardrobapp.presentation.WardrobeLayout
 import com.wardrobapp.presentation.WardrobeQuery
 import com.wardrobapp.presentation.WardrobeScreenState
 import com.wardrobapp.presentation.WardrobeView
+import com.wardrobapp.presentation.cellsAcross
 import com.wardrobapp.presentation.captionField
 import com.wardrobapp.presentation.paletteColorFor
 import com.wardrobapp.ui.resources.Res
@@ -218,7 +239,49 @@ fun WardrobeScreen(
     onRetiredToggled: () -> Unit,
     onViewSelected: (WardrobeView) -> Unit,
     onCaptionSelected: (GarmentCaption) -> Unit,
+    /**
+     * The garment open beside the grid, on a desktop-width window. The phone opens
+     * a garment as a screen of its own and never sets this.
+     */
+    selectedGarmentId: String? = null,
+    /**
+     * That garment, drawn: a slot for the same reason Settings takes its sync
+     * section as one -- the garment has its own model, its own dialogs and its
+     * own failures, and threading them through here would make this screen about
+     * one garment rather than the wardrobe. Null closes the pane.
+     */
+    detailPane: (@Composable () -> Unit)? = null,
+    /** Whether the desktop's filter panel is showing. The phone's sheet is [WardrobeScreenState.filtersExpanded]. */
+    filterPanelOpen: Boolean = true,
+    onFilterPanelToggled: () -> Unit = {},
 ) {
+    if (isExpanded()) {
+        ExpandedWardrobe(
+            state = state,
+            selectedGarmentId = selectedGarmentId,
+            detailPane = detailPane,
+            filterPanelOpen = filterPanelOpen,
+            onFilterPanelToggled = onFilterPanelToggled,
+            onSearchChanged = onSearchChanged,
+            onSortToggled = onSortToggled,
+            onRetry = onRetry,
+            onGarmentOpened = onGarmentOpened,
+            onBulkAddRequested = onBulkAddRequested,
+            onFiltersCleared = onFiltersCleared,
+            onBrandTapped = onBrandTapped,
+            onSizeTapped = onSizeTapped,
+            onCategoryTapped = onCategoryTapped,
+            onSubcategoryTapped = onSubcategoryTapped,
+            onSeasonTapped = onSeasonTapped,
+            onOccasionTapped = onOccasionTapped,
+            onColorTapped = onColorTapped,
+            onRetiredToggled = onRetiredToggled,
+            onViewSelected = onViewSelected,
+            onCaptionSelected = onCaptionSelected,
+        )
+        return
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -296,6 +359,7 @@ fun WardrobeScreen(
                 SearchField(
                     value = state.query.search,
                     onValueChange = onSearchChanged,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
                 )
             }
 
@@ -320,60 +384,8 @@ fun WardrobeScreen(
                 }
             }
 
-            // Read once into a local, as HomeScreen does: the state lives in
-            // :presentation now, and Kotlin will not smart-cast another module's
-            // property.
-            val error = state.error
-            when {
-                state.loading && state.garments.isEmpty() -> fullWidth {
-                    Message { CircularProgressIndicator() }
-                }
-
-                // Reported, not swallowed. A read that failed must not look like
-                // a wardrobe with nothing in it.
-                error != null -> fullWidth {
-                    Message {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                stringResource(Res.string.error_wardrobe_unreadable),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                error,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(top = 4.dp, start = 24.dp, end = 24.dp),
-                            )
-                            TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
-                        }
-                    }
-                }
-
-                // Three different things, because they call for three different
-                // next moves: wait, widen, or add something.
-                state.isFilteredEmpty -> fullWidth {
-                    Message {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                state.query.searchTerm?.let {
-                                    stringResource(Res.string.wardrobe_no_match_search, it)
-                                } ?: stringResource(Res.string.wardrobe_no_match_filters),
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                            TextButton(onClick = onFiltersCleared) {
-                                Text(stringResource(Res.string.action_clear_filters))
-                            }
-                        }
-                    }
-                }
-
-                state.isEmpty -> fullWidth {
-                    Message {
-                        Text(stringResource(Res.string.wardrobe_empty), style = MaterialTheme.typography.bodyLarge)
-                    }
-                }
-
-                else -> items(state.garments, key = { it.id }) { garment ->
+            if (!statusMessage(state, onRetry, onFiltersCleared)) {
+                items(state.garments, key = { it.id }) { garment ->
                     if (state.view.layout == WardrobeLayout.GRID) {
                         GarmentCell(
                             garment,
@@ -429,7 +441,7 @@ private fun LazyGridScope.fullWidth(content: @Composable () -> Unit) =
  * wardrobe", and the search box narrows the list exactly as much as a category does.
  */
 @Composable
-private fun FilterAction(count: Int, onTap: () -> Unit) {
+private fun FilterAction(count: Int, onTap: () -> Unit, active: Boolean = false) {
     BadgedBox(
         badge = {
             if (count > 0) {
@@ -442,7 +454,21 @@ private fun FilterAction(count: Int, onTap: () -> Unit) {
             }
         },
     ) {
-        IconButton(onClick = onTap, modifier = Modifier.testTag(WARDROBE_FILTER_ACTION)) {
+        IconButton(
+            onClick = onTap,
+            // Filled while the desktop's panel is open, so the button says it is a
+            // switch and which way it is set. The phone's sheet covers the bar
+            // while it is up, so there it is never seen pressed.
+            colors = if (active) {
+                IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            } else {
+                IconButtonDefaults.iconButtonColors()
+            },
+            modifier = Modifier.testTag(WARDROBE_FILTER_ACTION),
+        ) {
             Icon(Glyph.Tune, contentDescription = stringResource(Res.string.filters_show))
         }
     }
@@ -479,7 +505,11 @@ private fun SortAction(sort: GarmentSort, onTap: () -> Unit) {
  * label slot.
  */
 @Composable
-private fun SearchField(value: String, onValueChange: (String) -> Unit) {
+private fun SearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     // Read out here: a `semantics` block is not a composition, so a resource
     // fetched inside it would not compile.
     val label = stringResource(Res.string.wardrobe_search)
@@ -487,7 +517,7 @@ private fun SearchField(value: String, onValueChange: (String) -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = CircleShape,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+        modifier = modifier,
     ) {
         Row(
             modifier = Modifier.height(48.dp).padding(horizontal = 12.dp),
@@ -595,8 +625,6 @@ private fun appliedFilters(
  */
 @Composable
 private fun AppliedFilters(filters: List<AppliedFilter>, onCleared: () -> Unit) {
-    val remove = stringResource(Res.string.filter_remove)
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -604,30 +632,54 @@ private fun AppliedFilters(filters: List<AppliedFilter>, onCleared: () -> Unit) 
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
-    ) {
-        for (filter in filters) {
-            InputChip(
-                selected = true,
-                onClick = filter.onRemove,
-                label = { Text(filter.label) },
-                trailingIcon = {
-                    Icon(
-                        Icons.Filled.Close,
-                        contentDescription = remove,
-                        modifier = Modifier.size(18.dp),
-                    )
-                },
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.testTag(appliedFilterTag(filter.label)),
-            )
-        }
+    ) { AppliedFilterChips(filters, onCleared) }
+}
 
-        // At the end of the row rather than above it: with the chips scrolled to
-        // the right it is where a thumb already is, and with two chips it is on
-        // screen anyway.
-        if (filters.size > 1) {
-            TextButton(onClick = onCleared) { Text(stringResource(Res.string.action_clear_filters)) }
-        }
+/**
+ * The applied filters, wrapping: the desktop's version of the row above.
+ *
+ * The reason the phone keeps them on one line -- a row that grows pushes the
+ * garments off the screen -- does not hold on a monitor, where two lines of chips
+ * cost two lines out of a grid several screens' worth tall, and a sideways scroll
+ * is the one gesture a mouse wheel does not make.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WrappingAppliedFilters(filters: List<AppliedFilter>, onCleared: () -> Unit, modifier: Modifier = Modifier) {
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) { AppliedFilterChips(filters, onCleared) }
+}
+
+/** The chips themselves, for whichever of the two rows above holds them. */
+@Composable
+private fun AppliedFilterChips(filters: List<AppliedFilter>, onCleared: () -> Unit) {
+    val remove = stringResource(Res.string.filter_remove)
+
+    for (filter in filters) {
+        InputChip(
+            selected = true,
+            onClick = filter.onRemove,
+            label = { Text(filter.label) },
+            trailingIcon = {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = remove,
+                    modifier = Modifier.size(18.dp),
+                )
+            },
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.testTag(appliedFilterTag(filter.label)),
+        )
+    }
+
+    // At the end of the row rather than above it: with the chips scrolled to
+    // the right it is where a thumb already is, and with two chips it is on
+    // screen anyway.
+    if (filters.size > 1) {
+        TextButton(onClick = onCleared) { Text(stringResource(Res.string.action_clear_filters)) }
     }
 }
 
@@ -808,7 +860,10 @@ private fun SizeRow(choice: WardrobeView, selected: Boolean, onTap: () -> Unit) 
             WardrobeLayout.GRID -> stringResource(
                 Res.string.wardrobe_size_per_row,
                 stringResource(choice.sizeNameRes()),
-                choice.columns,
+                // The count this window would show, so the desktop's menu says
+                // "4 per row" for the size the phone calls "2 per row"; see
+                // EXPANDED_EXTRA_COLUMNS.
+                choice.cellsAcross(LocalWindowWidth.current),
             )
         },
     )
@@ -933,17 +988,21 @@ private fun AddMenu(onBulkAddRequested: () -> Unit) {
  * the field asked for.
  */
 @Composable
-private fun GarmentCell(
+internal fun GarmentCell(
     garment: GarmentRecord,
     caption: GarmentCaption,
     modifier: Modifier = Modifier,
+    /** The one open in the desktop's detail pane: outlined, so the grid says which. */
+    selected: Boolean = false,
     onClick: () -> Unit,
 ) {
     val press = remember { MutableInteractionSource() }
+    val outline = MaterialTheme.colorScheme.primary
 
     Column(
         modifier = modifier
             .pressScale(press, pressedScale = 0.96f)
+            .clickCursor()
             .clickable(interactionSource = press, indication = null, onClick = onClick),
     ) {
         AsyncImage(
@@ -954,6 +1013,10 @@ private fun GarmentCell(
                 .fillMaxWidth()
                 .aspectRatio(3f / 4f)
                 .garmentSharedElement(garment.id)
+                // Two dp of primary, two dp clear of the photo. Drawn rather than a
+                // border, which would sit on the photo and eat into the garment, and
+                // drawn before the clip so the clip does not take it away again.
+                .then(if (selected) Modifier.selectionOutline(outline, corner = 8.dp) else Modifier)
                 .clip(RoundedCornerShape(8.dp))
                 .background(photoSurface()),
         )
@@ -1071,120 +1134,19 @@ private fun FilterSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
         ) {
-            // A row is left out entirely when the wardrobe has nothing to put in it
-            // -- a heading over an empty line is worse than no heading.
-            if (facets.categories.isNotEmpty()) {
-                FilterSection(stringResource(Res.string.filter_section_category)) {
-                    for (category in facets.categories) {
-                        FilterPill(categoryLabel(category), category, query.category == category) {
-                            onCategoryTapped(category)
-                        }
-                    }
-                }
-            }
-
-            if (facets.subcategories.isNotEmpty()) {
-                FilterSection(stringResource(Res.string.filter_section_type)) {
-                    for (subcategory in facets.subcategories) {
-                        FilterPill(
-                            garmentTypeLabel(subcategory),
-                            subcategory,
-                            query.subcategory == subcategory,
-                        ) {
-                            onSubcategoryTapped(subcategory)
-                        }
-                    }
-                }
-            }
-
-            if (facets.seasons.isNotEmpty()) {
-                FilterSection(stringResource(Res.string.filter_section_season)) {
-                    for (season in facets.seasons) {
-                        FilterPill(stringResource(season.labelRes), season.name, query.season == season) {
-                            onSeasonTapped(season)
-                        }
-                    }
-                }
-            }
-
-            if (facets.occasions.isNotEmpty()) {
-                FilterSection(stringResource(Res.string.filter_section_occasion)) {
-                    for (occasion in facets.occasions) {
-                        FilterPill(
-                            stringResource(occasion.labelRes),
-                            occasion.name,
-                            query.occasion == occasion,
-                        ) {
-                            onOccasionTapped(occasion)
-                        }
-                    }
-                }
-            }
-
-            if (facets.colors.isNotEmpty()) {
-                FilterSection(stringResource(Res.string.filter_section_colour)) {
-                    for (hex in facets.colors) {
-                        // A colour that will not parse is the multi-colour sentinel
-                        // rather than a colour, and is left out here as it is on the
-                        // form: drawn as a plain circle it would be a second grey
-                        // swatch that meant something else.
-                        val swatch = hex.toComposeColor() ?: continue
-                        val selected = query.color.equals(hex, ignoreCase = true)
-
-                        // A chip like every other filter, not a bare circle: brand,
-                        // size, season and the rest all carry their name as text, and
-                        // a colour told apart only by a small disc of it is unreadable
-                        // for anyone who cannot tell the shades apart by eye alone.
-                        FilterChip(
-                            selected = selected,
-                            onClick = { onColorTapped(hex) },
-                            label = { Text(colorLabel(hex)) },
-                            leadingIcon = { ColorSwatch(swatch) },
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.testTag(colorSwatchTag(hex)),
-                        )
-                    }
-                }
-            }
-
-            // Brands and sizes, from the wardrobe rather than from a text box. They
-            // used to be two boxes you typed into from memory, spelled right, which is
-            // the worst way to ask for a value the app already knows.
-            if (facets.brands.isNotEmpty()) {
-                FilterSection(stringResource(Res.string.filter_brand)) {
-                    for (brand in facets.brands) {
-                        // As typed by whoever entered it: a brand is not a word this
-                        // app gets to capitalize.
-                        FilterPill(brand, brand, query.brand.equals(brand, ignoreCase = true)) {
-                            onBrandTapped(brand)
-                        }
-                    }
-                }
-            }
-
-            if (facets.sizes.isNotEmpty()) {
-                FilterSection(stringResource(Res.string.filter_size)) {
-                    for (size in facets.sizes) {
-                        FilterPill(size, size, query.size.equals(size, ignoreCase = true)) {
-                            onSizeTapped(size)
-                        }
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(checked = query.includeRetired, onCheckedChange = { onRetiredToggled() })
-                Text(
-                    // The reason this exists: without it a retired garment cannot be
-                    // found again, so it cannot be un-retired either.
-                    stringResource(Res.string.filter_include_retired),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(start = 4.dp),
-                )
-            }
+            FilterChoices(
+                query = query,
+                facets = facets,
+                wrap = false,
+                onBrandTapped = onBrandTapped,
+                onSizeTapped = onSizeTapped,
+                onCategoryTapped = onCategoryTapped,
+                onSubcategoryTapped = onSubcategoryTapped,
+                onSeasonTapped = onSeasonTapped,
+                onOccasionTapped = onOccasionTapped,
+                onColorTapped = onColorTapped,
+                onRetiredToggled = onRetiredToggled,
+            )
         }
 
         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
@@ -1228,6 +1190,144 @@ private fun FilterSheet(
 }
 
 /**
+ * Every dimension the wardrobe can be narrowed by, and the retired switch.
+ *
+ * Out of [FilterSheet] so the desktop's filter panel draws the same sections in the
+ * same order from the same facets: two copies of this list is how one of them ends
+ * up offering a filter the other has forgotten. [wrap] is the one difference --
+ * see [FilterSection].
+ */
+@Composable
+private fun FilterChoices(
+    query: WardrobeQuery,
+    facets: WardrobeFacets,
+    wrap: Boolean,
+    onBrandTapped: (String) -> Unit,
+    onSizeTapped: (String) -> Unit,
+    onCategoryTapped: (String) -> Unit,
+    onSubcategoryTapped: (String) -> Unit,
+    onSeasonTapped: (Season) -> Unit,
+    onOccasionTapped: (Occasion) -> Unit,
+    onColorTapped: (String) -> Unit,
+    onRetiredToggled: () -> Unit,
+) {
+        // A row is left out entirely when the wardrobe has nothing to put in it
+        // -- a heading over an empty line is worse than no heading.
+        if (facets.categories.isNotEmpty()) {
+            FilterSection(stringResource(Res.string.filter_section_category), wrap) {
+                for (category in facets.categories) {
+                    FilterPill(categoryLabel(category), category, query.category == category) {
+                        onCategoryTapped(category)
+                    }
+                }
+            }
+        }
+
+        if (facets.subcategories.isNotEmpty()) {
+            FilterSection(stringResource(Res.string.filter_section_type), wrap) {
+                for (subcategory in facets.subcategories) {
+                    FilterPill(
+                        garmentTypeLabel(subcategory),
+                        subcategory,
+                        query.subcategory == subcategory,
+                    ) {
+                        onSubcategoryTapped(subcategory)
+                    }
+                }
+            }
+        }
+
+        if (facets.seasons.isNotEmpty()) {
+            FilterSection(stringResource(Res.string.filter_section_season), wrap) {
+                for (season in facets.seasons) {
+                    FilterPill(stringResource(season.labelRes), season.name, query.season == season) {
+                        onSeasonTapped(season)
+                    }
+                }
+            }
+        }
+
+        if (facets.occasions.isNotEmpty()) {
+            FilterSection(stringResource(Res.string.filter_section_occasion), wrap) {
+                for (occasion in facets.occasions) {
+                    FilterPill(
+                        stringResource(occasion.labelRes),
+                        occasion.name,
+                        query.occasion == occasion,
+                    ) {
+                        onOccasionTapped(occasion)
+                    }
+                }
+            }
+        }
+
+        if (facets.colors.isNotEmpty()) {
+            FilterSection(stringResource(Res.string.filter_section_colour), wrap) {
+                for (hex in facets.colors) {
+                    // A colour that will not parse is the multi-colour sentinel
+                    // rather than a colour, and is left out here as it is on the
+                    // form: drawn as a plain circle it would be a second grey
+                    // swatch that meant something else.
+                    val swatch = hex.toComposeColor() ?: continue
+                    val selected = query.color.equals(hex, ignoreCase = true)
+
+                    // A chip like every other filter, not a bare circle: brand,
+                    // size, season and the rest all carry their name as text, and
+                    // a colour told apart only by a small disc of it is unreadable
+                    // for anyone who cannot tell the shades apart by eye alone.
+                    FilterChip(
+                        selected = selected,
+                        onClick = { onColorTapped(hex) },
+                        label = { Text(colorLabel(hex)) },
+                        leadingIcon = { ColorSwatch(swatch) },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag(colorSwatchTag(hex)),
+                    )
+                }
+            }
+        }
+
+        // Brands and sizes, from the wardrobe rather than from a text box. They
+        // used to be two boxes you typed into from memory, spelled right, which is
+        // the worst way to ask for a value the app already knows.
+        if (facets.brands.isNotEmpty()) {
+            FilterSection(stringResource(Res.string.filter_brand), wrap) {
+                for (brand in facets.brands) {
+                    // As typed by whoever entered it: a brand is not a word this
+                    // app gets to capitalize.
+                    FilterPill(brand, brand, query.brand.equals(brand, ignoreCase = true)) {
+                        onBrandTapped(brand)
+                    }
+                }
+            }
+        }
+
+        if (facets.sizes.isNotEmpty()) {
+            FilterSection(stringResource(Res.string.filter_size), wrap) {
+                for (size in facets.sizes) {
+                    FilterPill(size, size, query.size.equals(size, ignoreCase = true)) {
+                        onSizeTapped(size)
+                    }
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(checked = query.includeRetired, onCheckedChange = { onRetiredToggled() })
+            Text(
+                // The reason this exists: without it a retired garment cannot be
+                // found again, so it cannot be un-retired either.
+                stringResource(Res.string.filter_include_retired),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 4.dp),
+            )
+        }
+}
+
+/**
  * One row of choices: a heading, then a single line you scroll sideways.
  *
  * A wrapping row was the obvious thing and the wrong one. Six categories and a
@@ -1236,21 +1336,35 @@ private fun FilterSheet(
  * line per dimension keeps every heading visible at once, and a row that is too
  * long for the screen says so by being scrollable rather than by growing.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FilterSection(title: String, content: @Composable RowScope.() -> Unit) {
+private fun FilterSection(title: String, wrap: Boolean, content: @Composable RowScope.() -> Unit) {
     Text(
         title,
         style = MaterialTheme.typography.titleSmall,
         modifier = Modifier.padding(top = 20.dp, bottom = 8.dp),
     )
-    Row(
-        // Its own scroll state per row, remembered on the heading, so scrolling the
-        // colours does not drag the brands along with them.
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        content = content,
-    )
+    if (wrap) {
+        // The desktop panel's answer to the same problem, the other way round:
+        // the panel is a column of its own with its own scroll and a whole
+        // window's height, so a dimension that takes three lines costs nothing,
+        // and a sideways scroll there would hide chips behind a gesture a mouse
+        // does badly.
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) { content() }
+    } else {
+        Row(
+            // Its own scroll state per row, remembered on the heading, so scrolling the
+            // colours does not drag the brands along with them.
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content,
+        )
+    }
 }
 
 /**
@@ -1303,13 +1417,24 @@ private fun Message(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun GarmentRow(garment: GarmentRecord, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun GarmentRow(
+    garment: GarmentRecord,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    onClick: () -> Unit,
+) {
     val press = remember { MutableInteractionSource() }
 
     Card(
+        colors = if (selected) {
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        } else {
+            CardDefaults.cardColors()
+        },
         modifier = modifier
             .fillMaxWidth()
             .pressNudge(press)
+            .clickCursor()
             .clickable(interactionSource = press, indication = null, onClick = onClick),
     ) {
         Row(
@@ -1381,6 +1506,379 @@ private fun GarmentRow(garment: GarmentRecord, modifier: Modifier = Modifier, on
                     size,
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Something to say in place of the garments, if there is anything: still loading,
+ * unreadable, nothing matching, or nothing in the wardrobe at all. True when it
+ * said something, and the garments are then not drawn.
+ *
+ * Shared by both layouts so the four answers, and the order they are checked in,
+ * cannot drift apart: a desktop saying "nothing matches" where the phone says the
+ * wardrobe could not be read would be one of them lying.
+ */
+private fun LazyGridScope.statusMessage(
+    state: WardrobeScreenState,
+    onRetry: () -> Unit,
+    onFiltersCleared: () -> Unit,
+): Boolean {
+    // Read once into a local, as HomeScreen does: the state lives in
+    // :presentation now, and Kotlin will not smart-cast another module's
+    // property.
+    val error = state.error
+
+    when {
+        state.loading && state.garments.isEmpty() -> fullWidth {
+            Message { CircularProgressIndicator() }
+        }
+
+        // Reported, not swallowed. A read that failed must not look like a
+        // wardrobe with nothing in it.
+        error != null -> fullWidth {
+            Message {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        stringResource(Res.string.error_wardrobe_unreadable),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp, start = 24.dp, end = 24.dp),
+                    )
+                    TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
+                }
+            }
+        }
+
+        // Three different things, because they call for three different next
+        // moves: wait, widen, or add something.
+        state.isFilteredEmpty -> fullWidth {
+            Message {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        state.query.searchTerm?.let {
+                            stringResource(Res.string.wardrobe_no_match_search, it)
+                        } ?: stringResource(Res.string.wardrobe_no_match_filters),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    TextButton(onClick = onFiltersCleared) {
+                        Text(stringResource(Res.string.action_clear_filters))
+                    }
+                }
+            }
+        }
+
+        state.isEmpty -> fullWidth {
+            Message {
+                Text(stringResource(Res.string.wardrobe_empty), style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+
+        else -> return false
+    }
+    return true
+}
+
+/**
+ * A ring around the selected garment, two dp clear of its photo.
+ *
+ * Drawn outside the bounds rather than as a border: a border sits on the photo and
+ * covers the edge of the garment, which on a grid of cut-outs is exactly where the
+ * garment is. Whatever holds the cell needs four dp of room around it for the ring
+ * not to be clipped -- the desktop grid's content padding is that room.
+ */
+internal fun Modifier.selectionOutline(color: Color, corner: Dp): Modifier = drawBehind {
+    val gap = 2.dp.toPx()
+    val stroke = 2.dp.toPx()
+    val inset = gap + stroke / 2
+
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(-inset, -inset),
+        size = Size(size.width + inset * 2, size.height + inset * 2),
+        cornerRadius = CornerRadius(corner.toPx() + inset),
+        style = Stroke(width = stroke),
+    )
+}
+
+/**
+ * The wardrobe on a desktop-width window: filters, garments and one garment, side
+ * by side.
+ *
+ * Three panes rather than the phone's one, because on a monitor the phone's
+ * answers are each the wrong one. A modal sheet for the filters covers the list
+ * it is narrowing, which on a phone is the price of the room and on a monitor is
+ * only a price; a garment opened as a screen of its own throws away the grid you
+ * were comparing it against. So the filters are a panel that stays open and
+ * applies as you tap (there is no "show N garments" to press: the garments are
+ * already beside it, changing), and a garment opens beside the grid that it came
+ * from.
+ *
+ * Each pane scrolls on its own. A page that scrolled as one would take the
+ * filters and the garment off the top of the screen as soon as you scrolled the
+ * grid, which is the whole of what the panes are for.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExpandedWardrobe(
+    state: WardrobeScreenState,
+    selectedGarmentId: String?,
+    detailPane: (@Composable () -> Unit)?,
+    filterPanelOpen: Boolean,
+    onFilterPanelToggled: () -> Unit,
+    onSearchChanged: (String) -> Unit,
+    onSortToggled: () -> Unit,
+    onRetry: () -> Unit,
+    onGarmentOpened: (String) -> Unit,
+    onBulkAddRequested: () -> Unit,
+    onFiltersCleared: () -> Unit,
+    onBrandTapped: (String) -> Unit,
+    onSizeTapped: (String) -> Unit,
+    onCategoryTapped: (String) -> Unit,
+    onSubcategoryTapped: (String) -> Unit,
+    onSeasonTapped: (Season) -> Unit,
+    onOccasionTapped: (Occasion) -> Unit,
+    onColorTapped: (String) -> Unit,
+    onRetiredToggled: () -> Unit,
+    onViewSelected: (WardrobeView) -> Unit,
+    onCaptionSelected: (GarmentCaption) -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(Res.string.wardrobe_title)) },
+                // The phone's four, with the first one now a switch for the panel.
+                // No floating add button: the rail's heads every screen here.
+                actions = {
+                    FilterAction(
+                        count = state.query.activeFilterCount,
+                        onTap = onFilterPanelToggled,
+                        active = filterPanelOpen,
+                    )
+                    SortAction(sort = state.query.sort, onTap = onSortToggled)
+                    ViewMenu(
+                        current = state.view,
+                        caption = state.caption,
+                        onSelected = onViewSelected,
+                        onCaptionSelected = onCaptionSelected,
+                    )
+                    AddMenu(onBulkAddRequested)
+                    Spacer(modifier = Modifier.width(12.dp))
+                },
+            )
+        },
+    ) { insets ->
+        // Out here for the reason the phone's is: a lazy container's content
+        // block is not a composition, so a label cannot be read in it.
+        val applied = appliedFilters(
+            query = state.query,
+            onCategoryTapped = onCategoryTapped,
+            onSubcategoryTapped = onSubcategoryTapped,
+            onSeasonTapped = onSeasonTapped,
+            onOccasionTapped = onOccasionTapped,
+            onColorTapped = onColorTapped,
+            onBrandTapped = onBrandTapped,
+            onSizeTapped = onSizeTapped,
+            onRetiredToggled = onRetiredToggled,
+            onSortToggled = onSortToggled,
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(insets)
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+        ) {
+            // Slid in and out from the rail's side, so closing it reads as the panel
+            // going away rather than the grid jumping left.
+            AnimatedVisibility(
+                visible = filterPanelOpen,
+                enter = expandHorizontally(springGentle(), expandFrom = Alignment.Start) + fadeIn(springGentle()),
+                exit = shrinkHorizontally(springGentle(), shrinkTowards = Alignment.Start) + fadeOut(springGentle()),
+            ) {
+                Row {
+                    FilterPanel(
+                        query = state.query,
+                        facets = state.facets,
+                        onCleared = onFiltersCleared,
+                        onBrandTapped = onBrandTapped,
+                        onSizeTapped = onSizeTapped,
+                        onCategoryTapped = onCategoryTapped,
+                        onSubcategoryTapped = onSubcategoryTapped,
+                        onSeasonTapped = onSeasonTapped,
+                        onOccasionTapped = onOccasionTapped,
+                        onColorTapped = onColorTapped,
+                        onRetiredToggled = onRetiredToggled,
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                }
+            }
+
+            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 8.dp),
+                ) {
+                    SearchField(
+                        value = state.query.search,
+                        onValueChange = onSearchChanged,
+                        // As wide as there is room for, up to a line length somebody
+                        // reads as a search box rather than as a banner.
+                        modifier = Modifier.weight(1f, fill = false).widthIn(max = 560.dp).fillMaxWidth(),
+                    )
+
+                    if (state.garments.isNotEmpty()) {
+                        Text(
+                            pluralStringResource(Res.plurals.garment_count, state.garments.size, state.garments.size),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 16.dp),
+                        )
+                    }
+                }
+
+                if (applied.isNotEmpty()) {
+                    WrappingAppliedFilters(
+                        applied,
+                        onFiltersCleared,
+                        modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp),
+                    )
+                }
+
+                val grid = state.view.layout == WardrobeLayout.GRID
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(state.view.cellsAcross(WindowWidth.EXPANDED)),
+                    modifier = Modifier.testTag(WARDROBE_LIST).weight(1f).fillMaxWidth(),
+                    // Four all round: the room the selected cell's ring is drawn in.
+                    contentPadding = PaddingValues(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (grid) 16.dp else 8.dp),
+                ) {
+                    if (!statusMessage(state, onRetry, onFiltersCleared)) {
+                        items(state.garments, key = { it.id }) { garment ->
+                            val selected = garment.id == selectedGarmentId
+
+                            if (grid) {
+                                GarmentCell(
+                                    garment,
+                                    caption = state.caption,
+                                    selected = selected,
+                                    // Faded, so a grid showing retired garments
+                                    // alongside the rest still says which are which
+                                    // without opening each one.
+                                    modifier = Modifier.alpha(if (garment.isAvailable) 1f else 0.6f),
+                                ) { onGarmentOpened(garment.id) }
+                            } else {
+                                GarmentRow(
+                                    garment,
+                                    selected = selected,
+                                    modifier = Modifier.alpha(if (garment.isAvailable) 1f else 0.6f),
+                                ) { onGarmentOpened(garment.id) }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (detailPane != null) {
+                Spacer(modifier = Modifier.width(16.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.width(DETAIL_PANE_WIDTH).fillMaxHeight(),
+                ) { detailPane() }
+            }
+        }
+    }
+}
+
+/**
+ * How wide the garment pane is.
+ *
+ * The design's middle choice of three it tried: at 360 the photo is too small to
+ * be the reason to open the pane, and at 520 the grid beside it loses a column on
+ * the narrowest desktop window.
+ */
+private val DETAIL_PANE_WIDTH = 420.dp
+
+/**
+ * The filters as a panel beside the garments: the desktop's [FilterSheet].
+ *
+ * The same sections from the same [FilterChoices]. What it leaves out is the
+ * sheet's footer: there is no "show N garments" because nothing is hidden behind
+ * the panel -- each tap narrows the grid beside it at once -- and the count the
+ * button carried is above the grid already.
+ */
+@Composable
+private fun FilterPanel(
+    query: WardrobeQuery,
+    facets: WardrobeFacets,
+    onCleared: () -> Unit,
+    onBrandTapped: (String) -> Unit,
+    onSizeTapped: (String) -> Unit,
+    onCategoryTapped: (String) -> Unit,
+    onSubcategoryTapped: (String) -> Unit,
+    onSeasonTapped: (Season) -> Unit,
+    onOccasionTapped: (Occasion) -> Unit,
+    onColorTapped: (String) -> Unit,
+    onRetiredToggled: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.width(288.dp).fillMaxHeight(),
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 52.dp)
+                    .padding(start = 20.dp, top = 12.dp, end = 8.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(Res.string.filters_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f),
+                )
+
+                if (query.isNarrowed) {
+                    TextButton(onClick = onCleared) {
+                        Icon(Glyph.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(
+                            stringResource(Res.string.action_clear_filters),
+                            modifier = Modifier.padding(start = 6.dp),
+                        )
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .testTag(WARDROBE_FILTER_SHEET)
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
+            ) {
+                FilterChoices(
+                    query = query,
+                    facets = facets,
+                    wrap = true,
+                    onBrandTapped = onBrandTapped,
+                    onSizeTapped = onSizeTapped,
+                    onCategoryTapped = onCategoryTapped,
+                    onSubcategoryTapped = onSubcategoryTapped,
+                    onSeasonTapped = onSeasonTapped,
+                    onOccasionTapped = onOccasionTapped,
+                    onColorTapped = onColorTapped,
+                    onRetiredToggled = onRetiredToggled,
                 )
             }
         }

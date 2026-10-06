@@ -46,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -213,6 +214,20 @@ fun StatisticsScreen(
                 TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
             }
 
+            isExpanded() -> ExpandedBody(
+                view = view,
+                duplicates = state.duplicates,
+                gaps = state.gaps,
+                expanded = state.expanded,
+                brandSort = state.brandSort,
+                insets = insets,
+                onCategoryTapped = onCategoryTapped,
+                onLinkRequested = onLinkRequested,
+                onGarmentOpened = onGarmentOpened,
+                onBrandSortChanged = onBrandSortChanged,
+                onGapAddRequested = onGapAddRequested,
+            )
+
             else -> Body(
                 view = view,
                 duplicates = state.duplicates,
@@ -266,71 +281,17 @@ private fun Body(
         // it are the split, and a tile that repeated one of them would be a number
         // with nothing to say.
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                // All three count garments, so all three lead to them. Retired
-                // asks for retired garments, since the plain wardrobe shows none.
-                Tile(
-                    label = stringResource(Res.string.statistics_items),
-                    value = view.items,
-                    onClick = { onLinkRequested(WardrobeLink.Retired) },
-                    modifier = Modifier.weight(1f),
-                )
-                Tile(
-                    label = stringResource(Res.string.statistics_in_use),
-                    value = view.inUse,
-                    onClick = { onLinkRequested(null) },
-                    modifier = Modifier.weight(1f),
-                )
-                Tile(
-                    label = stringResource(Res.string.statistics_retired),
-                    value = view.retired,
-                    onClick = { onLinkRequested(WardrobeLink.Retired) },
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { CountTiles(view, onLinkRequested) }
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                // These three count labels rather than garments -- there is no
-                // list of colours to open -- so they are numbers and nothing more.
-                Tile(
-                    label = stringResource(Res.string.statistics_categories),
-                    value = view.distinctCategories.toLong(),
-                    modifier = Modifier.weight(1f),
-                )
-                Tile(
-                    label = stringResource(Res.string.statistics_colours),
-                    value = view.distinctColors.toLong(),
-                    modifier = Modifier.weight(1f),
-                )
-                Tile(
-                    label = stringResource(Res.string.statistics_brands),
-                    value = view.distinctBrands.toLong(),
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { VarietyTiles(view) }
         }
 
         if (view.isEmpty) {
             // Every section below would be empty, so on an empty wardrobe the tiles
             // and one explanation are the whole page.
-            item {
-                Card {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            stringResource(Res.string.statistics_empty_title),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            stringResource(Res.string.statistics_empty_body),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                }
-            }
+            item { EmptyWardrobe() }
 
             return@LazyColumn
         }
@@ -353,47 +314,7 @@ private fun Body(
 
             if (open) {
                 item {
-                    Chart {
-                        for ((index, bar) in view.categories.withIndex()) {
-                            val isOpen = bar.key in expanded
-
-                            BarRow(
-                                label = categoryLabel(bar.key),
-                                fraction = bar.fraction,
-                                index = index,
-                                value = "${bar.count}",
-                                chevronTurn = if (isOpen) 180f else 0f,
-                                onClick = { onCategoryTapped(bar.key) },
-                                // What tapping does, for a screen reader, which the
-                                // chevron only says visually.
-                                clickLabel = stringResource(
-                                    if (isOpen) Res.string.statistics_collapse else Res.string.statistics_expand
-                                ),
-                                // Beside the row rather than being the row: tapping
-                                // the row opens the types underneath, which is worth
-                                // keeping, so leaving the chart needs its own target.
-                                action = {
-                                    ShowInWardrobe(
-                                        label = categoryLabel(bar.key),
-                                        tag = statFilterTag(bar.key),
-                                        onClick = { onLinkRequested(WardrobeLink.Category(bar.key)) },
-                                    )
-                                },
-                            )
-
-                            if (isOpen) {
-                                Subcategories(
-                                    category = bar.key,
-                                    onLinkRequested = onLinkRequested,
-                                    // Absent rather than empty for a category whose
-                                    // garments all predate subcategories: the query
-                                    // returns no group at all, and the dash below is
-                                    // what that looks like.
-                                    bars = view.subcategories[bar.key].orEmpty(),
-                                )
-                            }
-                        }
-                    }
+                    CategoryChart(view, expanded, onCategoryTapped, onLinkRequested)
                 }
             }
         }
@@ -411,30 +332,7 @@ private fun Body(
 
             if (open) {
                 item {
-                    Chart {
-                        for ((index, bar) in view.colors.withIndex()) {
-                            val label = bar.colorLabel()
-
-                            BarRow(
-                                label = label,
-                                fraction = bar.fraction,
-                                index = index,
-                                value = "${bar.count}",
-                                swatch = { Swatch(bar.swatch) },
-                                action = {
-                                    ShowInWardrobe(
-                                        label = label,
-                                        tag = statFilterTag(bar.key),
-                                        // The value a garment stores, which is what
-                                        // the filter compares -- not the palette's
-                                        // name for it, and not the swatch, which is
-                                        // a hex chosen for drawing.
-                                        onClick = { onLinkRequested(WardrobeLink.Colour(bar.key)) },
-                                    )
-                                },
-                            )
-                        }
-                    }
+                    ColourChart(view, onLinkRequested)
                 }
             }
         }
@@ -453,42 +351,10 @@ private fun Body(
             if (open) {
                 // Inside the section rather than beside its title: the title is a
                 // button now, and a chip inside a button is two taps in one place.
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = brandSort == BrandSort.COUNT,
-                            onClick = { onBrandSortChanged(BrandSort.COUNT) },
-                            label = { Text(stringResource(Res.string.statistics_sort_count)) },
-                        )
-                        FilterChip(
-                            selected = brandSort == BrandSort.ALPHA,
-                            onClick = { onBrandSortChanged(BrandSort.ALPHA) },
-                            label = { Text(stringResource(Res.string.statistics_sort_name)) },
-                        )
-                    }
-                }
+                item { BrandSortChips(brandSort, onBrandSortChanged) }
 
                 item {
-                    Chart {
-                        for ((index, bar) in view.brands.withIndex()) {
-                            // A brand is what the wearer typed, so it is shown as
-                            // typed rather than capitalized -- and filtered by the
-                            // same string.
-                            BarRow(
-                                label = bar.key,
-                                fraction = bar.fraction,
-                                index = index,
-                                value = "${bar.count}",
-                                action = {
-                                    ShowInWardrobe(
-                                        label = bar.key,
-                                        tag = statFilterTag(bar.key),
-                                        onClick = { onLinkRequested(WardrobeLink.Brand(bar.key)) },
-                                    )
-                                },
-                            )
-                        }
-                    }
+                    BrandChart(view, onLinkRequested)
                 }
             }
         }
@@ -510,41 +376,7 @@ private fun Body(
 
             if (open) {
                 item {
-                    Chart {
-                        if (view.lifespans.isEmpty()) {
-                            Text(
-                                stringResource(Res.string.statistics_no_lifespan),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(8.dp),
-                            )
-                        } else {
-                            for ((index, bar) in view.lifespans.withIndex()) {
-                                val label = bar.label()
-
-                                BarRow(
-                                    label = label,
-                                    fraction = bar.fraction,
-                                    index = index,
-                                    value = stringResource(Res.string.statistics_days, bar.days),
-                                    // Wider than a count: "365d" does not fit where
-                                    // a two-digit tally does.
-                                    valueWidth = 44.dp,
-                                    // A lifespan bar is one particular garment, not
-                                    // a group, so this opens that garment rather
-                                    // than a list filtered to one thing.
-                                    action = {
-                                        OpenGarment(
-                                            label = label,
-                                            tag = statFilterTag(bar.entry.garmentId),
-                                            onClick = { onGarmentOpened(bar.entry.garmentId) },
-                                        )
-                                    },
-                                )
-                            }
-                        }
-                    }
+                    LifespanChart(view, onGarmentOpened)
                 }
             }
         }
@@ -567,43 +399,7 @@ private fun Body(
 
             if (open) {
                 item {
-                    Chart {
-                        when {
-                            // "Still looking", and it has to read as that: this is
-                            // the slowest thing the app computes, and "nothing is
-                            // missing" shown while it runs would be a claim made
-                            // before anything had checked.
-                            gaps == null -> Box(
-                                modifier = Modifier.fillMaxWidth().padding(8.dp),
-                                contentAlignment = Alignment.Center,
-                            ) { CircularProgressIndicator(modifier = Modifier.size(24.dp)) }
-
-                            // Two different silences, told apart. A wardrobe too
-                            // small to reason about gets no advice by design, and
-                            // saying "nothing is missing" to somebody with six
-                            // garments would be the app declining to answer while
-                            // sounding like it had.
-                            gaps.isEmpty() && view.inUse < MIN_WARDROBE_FOR_GAPS -> Text(
-                                stringResource(Res.string.statistics_gaps_too_few),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(8.dp),
-                            )
-
-                            gaps.isEmpty() -> Text(
-                                stringResource(Res.string.statistics_no_gaps),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(8.dp),
-                            )
-
-                            else -> for (gap in gaps) {
-                                GapRow(gap = gap, onAdd = onGapAddRequested)
-                            }
-                        }
-                    }
+                    GapsChart(view, gaps, onGapAddRequested)
                 }
             }
         }
@@ -622,36 +418,452 @@ private fun Body(
 
             if (open) {
                 item {
-                    Chart {
-                        when {
-                            // Null is "still looking", and it has to read as that:
-                            // the sweep is the one thing on this page that takes
-                            // long enough to notice, and showing "nothing looks
-                            // like anything else" while it runs would tell somebody
-                            // their wardrobe is clean before anything had checked.
-                            duplicates == null -> Box(
-                                modifier = Modifier.fillMaxWidth().padding(8.dp),
-                                contentAlignment = Alignment.Center,
-                            ) { CircularProgressIndicator(modifier = Modifier.size(24.dp)) }
+                    DuplicatesChart(duplicates, onGarmentOpened)
+                }
+            }
+        }
+    }
+}
 
-                            // Offered even when it finds nothing, for the reason
-                            // the lifespan section is: "nothing looks like anything
-                            // else" is the answer to the question, where a missing
-                            // section reads as the app never having looked.
-                            duplicates.isEmpty() -> Text(
-                                stringResource(Res.string.statistics_no_duplicates),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(8.dp),
-                            )
+/** The three tiles that count garments, and so lead to them. */
+@Composable
+private fun RowScope.CountTiles(view: StatisticsView, onLinkRequested: (WardrobeLink?) -> Unit) {
+    // All three count garments, so all three lead to them. Retired asks for
+    // retired garments, since the plain wardrobe shows none.
+    Tile(
+        label = stringResource(Res.string.statistics_items),
+        value = view.items,
+        onClick = { onLinkRequested(WardrobeLink.Retired) },
+        modifier = Modifier.weight(1f),
+    )
+    Tile(
+        label = stringResource(Res.string.statistics_in_use),
+        value = view.inUse,
+        onClick = { onLinkRequested(null) },
+        modifier = Modifier.weight(1f),
+    )
+    Tile(
+        label = stringResource(Res.string.statistics_retired),
+        value = view.retired,
+        onClick = { onLinkRequested(WardrobeLink.Retired) },
+        modifier = Modifier.weight(1f),
+    )
+}
 
-                            else -> for (group in duplicates) {
-                                DuplicateRow(group = group, onGarmentOpened = onGarmentOpened)
+/** The three tiles that count labels -- how varied the wardrobe is. */
+@Composable
+private fun RowScope.VarietyTiles(view: StatisticsView) {
+    // These three count labels rather than garments -- there is no list of
+    // colours to open -- so they are numbers and nothing more.
+    Tile(
+        label = stringResource(Res.string.statistics_categories),
+        value = view.distinctCategories.toLong(),
+        modifier = Modifier.weight(1f),
+    )
+    Tile(
+        label = stringResource(Res.string.statistics_colours),
+        value = view.distinctColors.toLong(),
+        modifier = Modifier.weight(1f),
+    )
+    Tile(
+        label = stringResource(Res.string.statistics_brands),
+        value = view.distinctBrands.toLong(),
+        modifier = Modifier.weight(1f),
+    )
+}
+
+@Composable
+private fun EmptyWardrobe() {
+    Card {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(Res.string.statistics_empty_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                stringResource(Res.string.statistics_empty_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The statistics on a desktop-width window: every breakdown open at once.
+ *
+ * The phone shuts its sections because six charts unrolled down one column is a
+ * page nobody reaches the bottom of. Two columns across a monitor are two or
+ * three screens of the phone's at a glance, so there is nothing left to hide them
+ * from, and a section that has to be clicked open on a screen with room for it
+ * is a click for nothing. The tiles go in one row of six for the same reason.
+ *
+ * Which sections exist, and the order, are the phone's; only their arrangement
+ * differs. The open sections the model remembers are ignored here and kept, so
+ * going back to the phone's width finds them as they were left.
+ */
+@Composable
+private fun ExpandedBody(
+    view: StatisticsView,
+    duplicates: List<DuplicateGarmentGroup>?,
+    gaps: List<GapWithPhotos>?,
+    expanded: Set<String>,
+    brandSort: BrandSort,
+    insets: PaddingValues,
+    onCategoryTapped: (String) -> Unit,
+    onLinkRequested: (WardrobeLink?) -> Unit,
+    onGarmentOpened: (String) -> Unit,
+    onBrandSortChanged: (BrandSort) -> Unit,
+    onGapAddRequested: (PhantomGarment) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .testTag(STATISTICS_PAGE)
+            .fillMaxSize()
+            .padding(insets)
+            .verticalScroll(rememberScrollState())
+            .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
+    ) {
+        MaxWidth(1320.dp) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    stringResource(Res.string.statistics_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CountTiles(view, onLinkRequested)
+                    VarietyTiles(view)
+                }
+
+                if (view.isEmpty) {
+                    EmptyWardrobe()
+                    return@Column
+                }
+
+                // Built as a list and then laid out in pairs, so a breakdown left
+                // out for having nothing in it closes the gap rather than leaving a
+                // hole in the grid.
+                val sections = buildList<@Composable () -> Unit> {
+                    if (view.categories.isNotEmpty()) add {
+                        OpenSection(
+                            title = stringResource(Res.string.statistics_by_category),
+                            hint = stringResource(Res.string.statistics_expand_hint),
+                        ) { CategoryChart(view, expanded, onCategoryTapped, onLinkRequested) }
+                    }
+                    if (view.colors.isNotEmpty()) add {
+                        OpenSection(stringResource(Res.string.statistics_by_colour)) {
+                            ColourChart(view, onLinkRequested)
+                        }
+                    }
+                    if (view.brands.isNotEmpty()) add {
+                        OpenSection(
+                            title = stringResource(Res.string.statistics_by_brand),
+                            // Beside the title here, where the phone puts them
+                            // under it: the title is not a button on a desktop, so
+                            // there is no tap for the chips to be inside of.
+                            trailing = { BrandSortChips(brandSort, onBrandSortChanged) },
+                        ) { BrandChart(view, onLinkRequested) }
+                    }
+                    add {
+                        OpenSection(stringResource(Res.string.statistics_lifespan)) {
+                            LifespanChart(view, onGarmentOpened)
+                        }
+                    }
+                    add {
+                        OpenSection(
+                            title = stringResource(Res.string.statistics_gaps),
+                            hint = stringResource(Res.string.statistics_gaps_hint),
+                        ) { GapsChart(view, gaps, onGapAddRequested) }
+                    }
+                    add {
+                        OpenSection(
+                            title = stringResource(Res.string.statistics_duplicates),
+                            hint = stringResource(Res.string.statistics_duplicates_hint),
+                        ) { DuplicatesChart(duplicates, onGarmentOpened) }
+                    }
+                }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                    modifier = Modifier.padding(top = 12.dp),
+                ) {
+                    for (pair in sections.chunked(2)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.Top) {
+                            for (section in pair) {
+                                Box(modifier = Modifier.weight(1f)) { section() }
                             }
+                            if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * A section's title over its chart, with nothing to open: the desktop's
+ * [SectionHeader]. Not clickable and no chevron, since there is no shut state to
+ * leave.
+ */
+@Composable
+private fun OpenSection(
+    title: String,
+    hint: String? = null,
+    trailing: (@Composable () -> Unit)? = null,
+    chart: @Composable () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                if (hint != null) {
+                    Text(
+                        hint,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            trailing?.invoke()
+        }
+        chart()
+    }
+}
+
+/** Most first, or A to Z: how the brand bars are sorted. */
+@Composable
+private fun BrandSortChips(brandSort: BrandSort, onBrandSortChanged: (BrandSort) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = brandSort == BrandSort.COUNT,
+            onClick = { onBrandSortChanged(BrandSort.COUNT) },
+            label = { Text(stringResource(Res.string.statistics_sort_count)) },
+        )
+        FilterChip(
+            selected = brandSort == BrandSort.ALPHA,
+            onClick = { onBrandSortChanged(BrandSort.ALPHA) },
+            label = { Text(stringResource(Res.string.statistics_sort_name)) },
+        )
+    }
+}
+
+// Each section's chart, on its own so both layouts draw the same one: the phone
+// inside a section that opens, the desktop in a grid where every one is open.
+
+@Composable
+private fun CategoryChart(
+    view: StatisticsView,
+    expanded: Set<String>,
+    onCategoryTapped: (String) -> Unit,
+    onLinkRequested: (WardrobeLink?) -> Unit,
+) {
+    Chart {
+        for ((index, bar) in view.categories.withIndex()) {
+            val isOpen = bar.key in expanded
+
+            BarRow(
+                label = categoryLabel(bar.key),
+                fraction = bar.fraction,
+                index = index,
+                value = "${bar.count}",
+                chevronTurn = if (isOpen) 180f else 0f,
+                onClick = { onCategoryTapped(bar.key) },
+                // What tapping does, for a screen reader, which the
+                // chevron only says visually.
+                clickLabel = stringResource(
+                    if (isOpen) Res.string.statistics_collapse else Res.string.statistics_expand
+                ),
+                // Beside the row rather than being the row: tapping
+                // the row opens the types underneath, which is worth
+                // keeping, so leaving the chart needs its own target.
+                action = {
+                    ShowInWardrobe(
+                        label = categoryLabel(bar.key),
+                        tag = statFilterTag(bar.key),
+                        onClick = { onLinkRequested(WardrobeLink.Category(bar.key)) },
+                    )
+                },
+            )
+
+            if (isOpen) {
+                Subcategories(
+                    category = bar.key,
+                    onLinkRequested = onLinkRequested,
+                    // Absent rather than empty for a category whose
+                    // garments all predate subcategories: the query
+                    // returns no group at all, and the dash below is
+                    // what that looks like.
+                    bars = view.subcategories[bar.key].orEmpty(),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColourChart(view: StatisticsView, onLinkRequested: (WardrobeLink?) -> Unit) {
+    Chart {
+        for ((index, bar) in view.colors.withIndex()) {
+            val label = bar.colorLabel()
+
+            BarRow(
+                label = label,
+                fraction = bar.fraction,
+                index = index,
+                value = "${bar.count}",
+                swatch = { Swatch(bar.swatch) },
+                action = {
+                    ShowInWardrobe(
+                        label = label,
+                        tag = statFilterTag(bar.key),
+                        // The value a garment stores, which is what
+                        // the filter compares -- not the palette's
+                        // name for it, and not the swatch, which is
+                        // a hex chosen for drawing.
+                        onClick = { onLinkRequested(WardrobeLink.Colour(bar.key)) },
+                    )
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun BrandChart(view: StatisticsView, onLinkRequested: (WardrobeLink?) -> Unit) {
+    Chart {
+        for ((index, bar) in view.brands.withIndex()) {
+            // A brand is what the wearer typed, so it is shown as
+            // typed rather than capitalized -- and filtered by the
+            // same string.
+            BarRow(
+                label = bar.key,
+                fraction = bar.fraction,
+                index = index,
+                value = "${bar.count}",
+                action = {
+                    ShowInWardrobe(
+                        label = bar.key,
+                        tag = statFilterTag(bar.key),
+                        onClick = { onLinkRequested(WardrobeLink.Brand(bar.key)) },
+                    )
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun LifespanChart(view: StatisticsView, onGarmentOpened: (String) -> Unit) {
+    Chart {
+        if (view.lifespans.isEmpty()) {
+            Text(
+                stringResource(Res.string.statistics_no_lifespan),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+            )
+        } else {
+            for ((index, bar) in view.lifespans.withIndex()) {
+                val label = bar.label()
+
+                BarRow(
+                    label = label,
+                    fraction = bar.fraction,
+                    index = index,
+                    value = stringResource(Res.string.statistics_days, bar.days),
+                    // Wider than a count: "365d" does not fit where
+                    // a two-digit tally does.
+                    valueWidth = 44.dp,
+                    // A lifespan bar is one particular garment, not
+                    // a group, so this opens that garment rather
+                    // than a list filtered to one thing.
+                    action = {
+                        OpenGarment(
+                            label = label,
+                            tag = statFilterTag(bar.entry.garmentId),
+                            onClick = { onGarmentOpened(bar.entry.garmentId) },
+                        )
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GapsChart(view: StatisticsView, gaps: List<GapWithPhotos>?, onGapAddRequested: (PhantomGarment) -> Unit) {
+    Chart {
+        when {
+            // "Still looking", and it has to read as that: this is
+            // the slowest thing the app computes, and "nothing is
+            // missing" shown while it runs would be a claim made
+            // before anything had checked.
+            gaps == null -> Box(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                contentAlignment = Alignment.Center,
+            ) { CircularProgressIndicator(modifier = Modifier.size(24.dp)) }
+
+            // Two different silences, told apart. A wardrobe too
+            // small to reason about gets no advice by design, and
+            // saying "nothing is missing" to somebody with six
+            // garments would be the app declining to answer while
+            // sounding like it had.
+            gaps.isEmpty() && view.inUse < MIN_WARDROBE_FOR_GAPS -> Text(
+                stringResource(Res.string.statistics_gaps_too_few),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+            )
+
+            gaps.isEmpty() -> Text(
+                stringResource(Res.string.statistics_no_gaps),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+            )
+
+            else -> for (gap in gaps) {
+                GapRow(gap = gap, onAdd = onGapAddRequested)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DuplicatesChart(duplicates: List<DuplicateGarmentGroup>?, onGarmentOpened: (String) -> Unit) {
+    Chart {
+        when {
+            // Null is "still looking", and it has to read as that:
+            // the sweep is the one thing on this page that takes
+            // long enough to notice, and showing "nothing looks
+            // like anything else" while it runs would tell somebody
+            // their wardrobe is clean before anything had checked.
+            duplicates == null -> Box(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                contentAlignment = Alignment.Center,
+            ) { CircularProgressIndicator(modifier = Modifier.size(24.dp)) }
+
+            // Offered even when it finds nothing, for the reason
+            // the lifespan section is: "nothing looks like anything
+            // else" is the answer to the question, where a missing
+            // section reads as the app never having looked.
+            duplicates.isEmpty() -> Text(
+                stringResource(Res.string.statistics_no_duplicates),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+            )
+
+            else -> for (group in duplicates) {
+                DuplicateRow(group = group, onGarmentOpened = onGarmentOpened)
             }
         }
     }
@@ -1104,8 +1316,10 @@ private fun BarRow(
     action: (@Composable () -> Unit)? = null,
     /** Where in its chart this row sits, which is how far behind the first it grows. */
     index: Int = 0,
-    labelWidth: Dp = 96.dp,
-    valueWidth: Dp = 32.dp,
+    // Wider on a desktop, where a chart is half a monitor across: at 96dp a long
+    // brand or a Spanish category was cut short beside a bar with room to spare.
+    labelWidth: Dp = if (isExpanded()) 140.dp else 96.dp,
+    valueWidth: Dp = if (isExpanded()) 44.dp else 32.dp,
     fill: Color = MaterialTheme.colorScheme.primary,
     height: Dp = 20.dp,
 ) {

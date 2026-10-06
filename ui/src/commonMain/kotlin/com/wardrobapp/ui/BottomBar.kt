@@ -1,16 +1,32 @@
 package com.wardrobapp.ui
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,7 +38,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wardrobapp.ui.resources.home_add_garment
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.tab_home
 import com.wardrobapp.ui.resources.tab_outfits
@@ -80,6 +98,92 @@ fun WardrobeBottomBar(route: String?, onTabSelected: (String) -> Unit) {
 }
 
 /**
+ * The same five tabs, down the side: what the bottom bar becomes on a desktop.
+ *
+ * A rail rather than a bar along the bottom of a monitor, where it would sit a
+ * long way from everything it controls, and rather than a drawer: five
+ * destinations with one-word names do not need 256dp of the screen's width to
+ * say so, and the wardrobe's three panes want every dp of it. The design tried
+ * all three and chose this.
+ *
+ * The add button heads it, because on a desktop there is no floating button over
+ * the wardrobe -- the grid there is one pane of three, and a button floating
+ * over its corner would sit on top of the detail pane's own buttons. Adding a
+ * garment is the one thing worth doing from anywhere, so it lives with the
+ * things you can reach from anywhere.
+ *
+ * [route] is the tab the screen on top belongs to, so the rail still says where
+ * you are while a form is open over the wardrobe.
+ */
+@Composable
+fun WardrobeNavigationRail(
+    route: String?,
+    onTabSelected: (String) -> Unit,
+    onAddRequested: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier = modifier.fillMaxHeight()) {
+        NavigationRail(
+            containerColor = MaterialTheme.colorScheme.surface,
+            header = {
+                val press = remember { MutableInteractionSource() }
+
+                FloatingActionButton(
+                    onClick = onAddRequested,
+                    shape = RoundedCornerShape(16.dp),
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    // Lighter than Material's resting FAB: on a rail it is one
+                    // control among six rather than the screen's one action, and a
+                    // deep shadow made it read as floating over the content.
+                    elevation = FloatingActionButtonDefaults.loweredElevation(),
+                    interactionSource = press,
+                    modifier = Modifier.padding(top = 12.dp).size(56.dp).pressScale(press).clickCursor(),
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = stringResource(Res.string.home_add_garment))
+                }
+                Spacer(modifier = Modifier.height(28.dp))
+            },
+            modifier = Modifier.width(80.dp),
+        ) {
+            for ((index, tab) in TABS.withIndex()) {
+                val selected = route == tab.route
+
+                if (index > 0) Spacer(modifier = Modifier.height(12.dp))
+                NavigationRailItem(
+                    selected = selected,
+                    onClick = { onTabSelected(tab.route) },
+                    icon = { TabIcon(tab.icon, selected) },
+                    label = {
+                        // Material's own size here, unlike the bar's: a rail item
+                        // is the rail's whole width, so "Estadisticas" fits without
+                        // the bar's shrinking. One line still, for the reason the
+                        // bar gives.
+                        Text(
+                            stringResource(tab.labelRes),
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    colors = NavigationRailItemDefaults.colors(
+                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                    modifier = Modifier.clickCursor(),
+                )
+            }
+        }
+
+        // The rail's edge, drawn: the rail and the content are the same surface
+        // colour, and without a line the tab labels read as the first column of
+        // whatever screen is open.
+        VerticalDivider(color = MaterialTheme.colorScheme.surfaceContainerHigh)
+    }
+}
+
+/**
  * A tab's icon, which pops when the tab becomes the one you are on.
  *
  * The pill behind it already slides across, and Material animates that for free.
@@ -89,7 +193,7 @@ fun WardrobeBottomBar(route: String?, onTabSelected: (String) -> Unit) {
  * composition, so returning to a tab you were already on does nothing.
  */
 @Composable
-private fun TabIcon(icon: ImageVector, selected: Boolean) {
+internal fun TabIcon(icon: ImageVector, selected: Boolean) {
     var popping by remember { mutableStateOf(false) }
     // What it was last time, so this fires on *becoming* selected. Keyed on
     // selection alone it would also fire on the frame the bar is first composed,

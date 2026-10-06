@@ -35,6 +35,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -214,18 +217,11 @@ fun SettingsScreen(
         // how the other screens read it too.
         val view = state.view
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(insets)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-        ) {
-            if (profileSection != null) {
-                profileSection()
-                HorizontalDivider(modifier = Modifier.padding(top = 16.dp))
-            }
-
+        // Each section on its own, so the two layouts below arrange the same
+        // sections rather than each keeping a copy: the phone stacks them with
+        // rules between, the desktop puts each on a card. Null where the section
+        // is left out on this platform, as before.
+        val storage: @Composable () -> Unit = {
             Section(stringResource(Res.string.settings_section_storage))
             when {
                 view != null -> {
@@ -261,27 +257,27 @@ fun SettingsScreen(
                     }
                     TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
                 }
+        }
+
+        if (onTidyRequested != null) {
+            Text(
+                stringResource(Res.string.settings_tidy_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            OutlinedButton(
+                onClick = onTidyRequested,
+                enabled = state.tidy !is SettingsScreenState.Tidy.Running,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            ) {
+                Text(stringResource(Res.string.settings_tidy))
             }
+        }
+        }
 
-            if (onTidyRequested != null) {
-                Text(
-                    stringResource(Res.string.settings_tidy_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                OutlinedButton(
-                    onClick = onTidyRequested,
-                    enabled = state.tidy !is SettingsScreenState.Tidy.Running,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                ) {
-                    Text(stringResource(Res.string.settings_tidy))
-                }
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            if (onBackupRequested != null) {
+        val backup: (@Composable () -> Unit)? = if (onBackupRequested == null) null else {
+            {
                 Section(stringResource(Res.string.settings_section_backup))
                 Text(
                     stringResource(Res.string.settings_backup_hint),
@@ -302,29 +298,20 @@ fun SettingsScreen(
                 ) {
                     Text(stringResource(Res.string.settings_backup_restore))
                 }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             }
+        }
 
-            // Beside the backups, because it answers the question they do --
-            // where else this wardrobe is kept -- and before Drive, which is
-            // the phone's alone.
-            if (syncSection != null) {
-                syncSection()
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            }
-
-            // Directly under the backup section, because it answers the same
-            // question: where a copy of this wardrobe goes.
-            if (cloudSection != null) {
+        // Directly under the backup section, because it answers the same
+        // question: where a copy of this wardrobe goes.
+        val cloud: (@Composable () -> Unit)? = if (cloudSection == null) null else {
+            {
                 Section(stringResource(Res.string.settings_section_cloud))
                 cloudSection()
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             }
+        }
 
-            if (onLanguageSelected != null) {
+        val languages: (@Composable () -> Unit)? = if (onLanguageSelected == null) null else {
+            {
                 Section(stringResource(Res.string.settings_language))
                 Text(
                     stringResource(Res.string.settings_language_hint),
@@ -343,10 +330,10 @@ fun SettingsScreen(
                         )
                     }
                 }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             }
+        }
 
+        val themes: @Composable () -> Unit = {
             Section(stringResource(Res.string.settings_theme))
             Text(
                 stringResource(Res.string.settings_theme_hint),
@@ -364,20 +351,127 @@ fun SettingsScreen(
                         label = { Text(stringResource(choice.labelRes)) },
                     )
                 }
-            }
+        }
+        }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
+        val about: @Composable () -> Unit = {
             Section(stringResource(Res.string.settings_section_about))
             // Read from the installed package rather than written here. The
             // React Native app hardcodes its version string, which means it has
             // been reporting 1.0.0 for every build it ever shipped.
             Figure(stringResource(Res.string.settings_version), version.name)
             Figure(stringResource(Res.string.settings_build), version.code.toString())
+        }
+
+        if (isExpanded()) {
+            ExpandedSettings(
+                insets = insets,
+                left = listOfNotNull(profileSection, syncSection, backup, cloud),
+                right = listOfNotNull(storage, languages, themes, about),
+            )
+            return@Scaffold
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(insets)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+        ) {
+            if (profileSection != null) {
+                profileSection()
+                HorizontalDivider(modifier = Modifier.padding(top = 16.dp))
+            }
+
+            storage()
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            if (backup != null) {
+                backup()
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            }
+
+            // Beside the backups, because it answers the question they do --
+            // where else this wardrobe is kept -- and before Drive, which is
+            // the phone's alone.
+            if (syncSection != null) {
+                syncSection()
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            }
+
+            if (cloud != null) {
+                cloud()
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            }
+
+            if (languages != null) {
+                languages()
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            }
+
+            themes()
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            about()
 
             // Room to scroll clear of the gesture area at the bottom.
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+}
+
+/**
+ * Settings on a desktop-width window: every section on a card, in two columns.
+ *
+ * One page still, with no tabs and no list of sections to pick from -- there are
+ * at most seven, and on a monitor they all fit. The left column is about which
+ * wardrobe this is and where else it lives; the right is about this browser and
+ * this build. The rules between sections on the phone are dropped, since the
+ * cards already separate them.
+ */
+@Composable
+private fun ExpandedSettings(
+    insets: PaddingValues,
+    left: List<@Composable () -> Unit>,
+    right: List<@Composable () -> Unit>,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(insets)
+            .verticalScroll(rememberScrollState())
+            .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
+    ) {
+        MaxWidth(1120.dp) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Top) {
+                for (column in listOf(left, right)) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        for (section in column) SettingsCard(section)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsCard(content: @Composable () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(start = 24.dp, top = 8.dp, end = 24.dp, bottom = 24.dp)) { content() }
     }
 }
 

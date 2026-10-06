@@ -67,6 +67,8 @@
     <string name="home_open_wardrobe">Abrir el armario</string>
     <string name="home_open_archived">Abrir el armario mostrando las prendas archivadas</string>
     <string name="home_add_garment">Agregar una prenda</string>
+    <string name="home_recent_title">Agregadas recientemente</string>
+    <string name="home_open_wardrobe_action">Abrir el armario</string>
     <string name="home_outfits_title">Ideas de atuendos</string>
     <string name="home_outfits_detail">Combinaciones con lo que ya tienes</string>
     <string name="home_statistics_title">Estadísticas</string>

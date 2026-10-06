@@ -52,6 +52,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
@@ -135,20 +140,25 @@ fun BulkAddScreen(
         )
     }
 
+    if (isExpanded()) {
+        ExpandedBulkAdd(
+            state = state,
+            onBack = onBack,
+            onChoosePhotos = onChoosePhotos,
+            onCategorySelected = onCategorySelected,
+            onSubcategoryToggled = onSubcategoryToggled,
+            onBrandChanged = onBrandChanged,
+            onCrop = onCrop,
+            onRemoveBackground = onRemoveBackground,
+            onUndoBackground = onUndoBackground,
+            onSave = onSave,
+            onSkip = onSkip,
+        )
+        return
+    }
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.bulk_add_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.action_back),
-                        )
-                    }
-                },
-            )
-        },
+        topBar = { BulkTopBar(onBack) },
     ) { insets ->
         val queue = state.queue
         val draft = queue.current
@@ -257,61 +267,14 @@ private fun LazyListScope.draftItems(
     }
 
     item {
-        // Keyed on the photo, so advancing the queue slides the finished garment
-        // out to the left and lands the next one from the right. Without it the
-        // photo simply becomes a different photo, and the one thing this screen
-        // has to make obvious -- that a garment was written and the queue moved --
-        // is invisible.
-        AnimatedContent(
-            targetState = draft.displayUri,
-            transitionSpec = {
-                (slideInHorizontally(springGentle()) { it / 3 } + fadeIn(springGentle()))
-                    .togetherWith(
-                        slideOutHorizontally(springGentle()) { -(it * 7) / 10 } +
-                            scaleOut(springGentle(), targetScale = 0.8f) +
-                            fadeOut(springGentle())
-                    )
-            },
-            label = "bulk-advance",
-        ) { uri ->
-            Box(modifier = Modifier.fillMaxWidth()) {
-                AsyncImage(
-                    model = uri,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(3f / 4f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(photoSurface()),
-                )
-
-                // On the photo rather than under it. These two act on the picture,
-                // and the picture is the biggest thing on the screen: a row of
-                // words below it read as belonging to the category chips.
-                PhotoActions(
-                    hasCutout = draft.cutoutUri.isNotEmpty(),
-                    busy = saving,
-                    removingBackground = removingBackground,
-                    onCrop = onCrop,
-                    onRemoveBackground = onRemoveBackground,
-                    onUndoBackground = onUndoBackground,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
-                )
-
-                // What was read off the photo, shown rather than asked about: a
-                // palette worth arguing with is worth the garment's own form, and
-                // stopping to argue is what this screen exists to avoid.
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
-                ) {
-                    for (hex in draft.colorPalette) {
-                        hex.toComposeColor()?.let { ColorSwatch(it, size = 24.dp) }
-                    }
-                }
-            }
-        }
+        DraftPhoto(
+            draft = draft,
+            saving = saving,
+            removingBackground = removingBackground,
+            onCrop = onCrop,
+            onRemoveBackground = onRemoveBackground,
+            onUndoBackground = onUndoBackground,
+        )
     }
 
     item {
@@ -390,6 +353,77 @@ private fun LazyListScope.draftItems(
 }
 
 /**
+ * The photo being described, large, with what can be done to it on top.
+ *
+ * Shared by both layouts: the phone's column and the desktop's photo column.
+ */
+@Composable
+private fun DraftPhoto(
+    draft: BulkAddState.Draft,
+    saving: Boolean,
+    removingBackground: Boolean,
+    onCrop: () -> Unit,
+    onRemoveBackground: () -> Unit,
+    onUndoBackground: () -> Unit,
+) {
+    // Keyed on the photo, so advancing the queue slides the finished garment
+    // out to the left and lands the next one from the right. Without it the
+    // photo simply becomes a different photo, and the one thing this screen
+    // has to make obvious -- that a garment was written and the queue moved --
+    // is invisible.
+    AnimatedContent(
+        targetState = draft.displayUri,
+        transitionSpec = {
+            (slideInHorizontally(springGentle()) { it / 3 } + fadeIn(springGentle()))
+                .togetherWith(
+                    slideOutHorizontally(springGentle()) { -(it * 7) / 10 } +
+                        scaleOut(springGentle(), targetScale = 0.8f) +
+                        fadeOut(springGentle())
+                )
+        },
+        label = "bulk-advance",
+    ) { uri ->
+        Box(modifier = Modifier.fillMaxWidth()) {
+            AsyncImage(
+                model = uri,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(3f / 4f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(photoSurface()),
+            )
+
+            // On the photo rather than under it. These two act on the picture,
+            // and the picture is the biggest thing on the screen: a row of
+            // words below it read as belonging to the category chips.
+            PhotoActions(
+                hasCutout = draft.cutoutUri.isNotEmpty(),
+                busy = saving,
+                removingBackground = removingBackground,
+                onCrop = onCrop,
+                onRemoveBackground = onRemoveBackground,
+                onUndoBackground = onUndoBackground,
+                modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+            )
+
+            // What was read off the photo, shown rather than asked about: a
+            // palette worth arguing with is worth the garment's own form, and
+            // stopping to argue is what this screen exists to avoid.
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+            ) {
+                for (hex in draft.colorPalette) {
+                    hex.toComposeColor()?.let { ColorSwatch(it, size = 24.dp) }
+                }
+            }
+        }
+    }
+}
+
+/**
  * The queue, as a strip of frames.
  *
  * The point is that a drawerful has an end. "4 of 12" says so in words; twelve
@@ -402,41 +436,58 @@ private fun LazyListScope.draftItems(
  * every photo alive to grey it out afterwards would mean holding a drawerful of
  * bitmaps to decorate a progress bar.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Filmstrip(queue: BulkAddState) {
+private fun Filmstrip(queue: BulkAddState, wrap: Boolean = false) {
+    val frames: @Composable () -> Unit = { Frames(queue) }
+
+    if (wrap) {
+        // Wrapping on a desktop, where a column 440dp wide holds a dozen frames
+        // a line and the whole drawerful is in view without a scroll.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(4.dp),
+        ) { frames() }
+    } else {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        ) { frames() }
+    }
+}
+
+/** The strip's frames, for whichever row holds them. */
+@Composable
+private fun Frames(queue: BulkAddState) {
     val done = queue.position - 1
 
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-    ) {
-        repeat(queue.total) { index ->
-            val current = index == done
-            val frame = Modifier
-                .width(30.dp)
-                .aspectRatio(3f / 4f)
-                .clip(RoundedCornerShape(4.dp))
+    repeat(queue.total) { index ->
+        val current = index == done
+        val frame = Modifier
+            .width(30.dp)
+            .aspectRatio(3f / 4f)
+            .clip(RoundedCornerShape(4.dp))
 
-            Box(
-                modifier = if (current) {
-                    // The one on screen, a fifth again as large and outlined, so
-                    // the strip has a position in it and not just a length.
-                    frame
-                        .graphicsLayer { scaleX = 1.22f; scaleY = 1.22f }
-                        .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
-                } else {
-                    frame.alpha(if (index < done) 0.32f else 1f)
-                }.background(photoSurface()),
-            ) {
-                queue.drafts.getOrNull(index - done)?.let { draft ->
-                    AsyncImage(
-                        model = draft.displayUri,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
+        Box(
+            modifier = if (current) {
+                // The one on screen, a fifth again as large and outlined, so
+                // the strip has a position in it and not just a length.
+                frame
+                    .graphicsLayer { scaleX = 1.22f; scaleY = 1.22f }
+                    .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+            } else {
+                frame.alpha(if (index < done) 0.32f else 1f)
+            }.background(photoSurface()),
+        ) {
+            queue.drafts.getOrNull(index - done)?.let { draft ->
+                AsyncImage(
+                    model = draft.displayUri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
     }
@@ -583,3 +634,198 @@ private fun LazyListScope.finishedItems(
 @Composable
 private fun BulkAddScreenState.errorText(): String? =
     error ?: errorFallback?.let { stringResource(it.messageRes) }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BulkTopBar(onBack: () -> Unit) {
+    TopAppBar(
+        title = { Text(stringResource(Res.string.bulk_add_title)) },
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(
+                    Icons.Filled.ArrowBack,
+                    contentDescription = stringResource(Res.string.action_back),
+                )
+            }
+        },
+    )
+}
+
+/**
+ * The queue on a desktop-width window: the photo on the left, what it is on the
+ * right.
+ *
+ * Side by side for the reason the garment form is: the photo is what every
+ * choice on the right is a choice about, and the phone's column scrolls it away
+ * as soon as you reach the type chips. The start and the finish have no photo to
+ * show and use the right-hand column alone, so the words stay where the
+ * category chips were and the eye does not have to go looking for them.
+ */
+@Composable
+private fun ExpandedBulkAdd(
+    state: BulkAddScreenState,
+    onBack: () -> Unit,
+    onChoosePhotos: () -> Unit,
+    onCategorySelected: (String) -> Unit,
+    onSubcategoryToggled: (String) -> Unit,
+    onBrandChanged: (String) -> Unit,
+    onCrop: () -> Unit,
+    onRemoveBackground: () -> Unit,
+    onUndoBackground: () -> Unit,
+    onSave: () -> Unit,
+    onSkip: () -> Unit,
+) {
+    Scaffold(topBar = { BulkTopBar(onBack) }) { insets ->
+        val queue = state.queue
+        val draft = queue.current
+
+        Box(modifier = Modifier.fillMaxSize().padding(insets), contentAlignment = Alignment.TopCenter) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(40.dp),
+                modifier = Modifier
+                    .widthIn(max = 1160.dp)
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp),
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier
+                        .width(440.dp)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
+                        .padding(vertical = 16.dp),
+                ) {
+                    if (draft != null) {
+                        Filmstrip(queue, wrap = true)
+                        DraftPhoto(
+                            draft = draft,
+                            saving = state.saving,
+                            removingBackground = state.removingBackground,
+                            onCrop = onCrop,
+                            onRemoveBackground = onRemoveBackground,
+                            onUndoBackground = onUndoBackground,
+                        )
+                    }
+                }
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentPadding = PaddingValues(vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    when {
+                        draft != null -> expandedDraftItems(
+                            queue = queue,
+                            draft = draft,
+                            saving = state.saving,
+                            onCategorySelected = onCategorySelected,
+                            onSubcategoryToggled = onSubcategoryToggled,
+                            onBrandChanged = onBrandChanged,
+                            onSave = onSave,
+                            onSkip = onSkip,
+                        )
+
+                        queue.isFinished -> finishedItems(queue, state.importing, onChoosePhotos, onBack)
+
+                        else -> startItems(state.importing, onChoosePhotos)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The right-hand column while a photo waits: the phone's choices, without the photo. */
+private fun LazyListScope.expandedDraftItems(
+    queue: BulkAddState,
+    draft: BulkAddState.Draft,
+    saving: Boolean,
+    onCategorySelected: (String) -> Unit,
+    onSubcategoryToggled: (String) -> Unit,
+    onBrandChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onSkip: () -> Unit,
+) {
+    item {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                stringResource(Res.string.bulk_add_intro, BulkAddState.MAX_PHOTOS),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                stringResource(Res.string.bulk_add_progress, queue.position, queue.total),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(BULK_ADD_PROGRESS),
+            )
+        }
+    }
+
+    item {
+        Section(stringResource(Res.string.filter_section_category)) {
+            Chips(GARMENT_CATEGORIES.map { it.id }, setOf(draft.category), { categoryLabel(it) }) {
+                onCategorySelected(it)
+            }
+        }
+    }
+
+    garmentCategory(draft.category)?.let { category ->
+        item {
+            Section(stringResource(Res.string.filter_section_type)) {
+                Chips(category.subcategories, draft.subcategories.toSet(), { garmentTypeLabel(it) }) {
+                    onSubcategoryToggled(it)
+                }
+            }
+        }
+    }
+
+    item {
+        OutlinedTextField(
+            value = draft.brand,
+            onValueChange = onBrandChanged,
+            label = { Text(stringResource(Res.string.bulk_add_brand)) },
+            singleLine = true,
+            modifier = Modifier.widthIn(max = 420.dp).fillMaxWidth(),
+        )
+    }
+
+    item {
+        // Throwing a photo away as a text button, beside a filled save: on the
+        // phone the two share the width and the skip needs an outline to read as a
+        // button at all; here each is its own size and the weight says which is
+        // which.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(
+                onClick = onSkip,
+                enabled = !saving,
+                modifier = Modifier.height(44.dp),
+            ) {
+                Icon(Glyph.SkipNext, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(stringResource(Res.string.bulk_add_skip), modifier = Modifier.padding(start = 6.dp))
+            }
+
+            val press = remember { MutableInteractionSource() }
+
+            Button(
+                onClick = onSave,
+                enabled = !saving,
+                interactionSource = press,
+                modifier = Modifier
+                    .widthIn(min = 240.dp)
+                    .height(CTA_HEIGHT)
+                    .pressScale(press)
+                    .testTag(BULK_ADD_SAVE),
+            ) {
+                Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                Text(
+                    stringResource(Res.string.bulk_add_save),
+                    style = ctaLabel(),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
+    }
+}
