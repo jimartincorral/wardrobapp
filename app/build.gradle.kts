@@ -370,9 +370,9 @@ dependencies {
     // activity to a manifest, and no release build should carry one. The
     // consequence is that `:app:test` fails: it runs the unit tests against both
     // variants, and in release there is no activity for these to launch. So the
-    // test task is named by variant in CI and in the README. Disabling the release
-    // unit-test variant outright (`androidComponents { beforeVariants ... }`) would
-    // say it once instead of twice, and is worth doing by whoever next has an SDK
+    // test task is named by variant in CI and in CONTRIBUTING.md. Disabling the
+    // release unit-test variant outright (`androidComponents { beforeVariants ... }`)
+    // would say it once instead of twice, and is worth doing by whoever next has an SDK
     // in front of them to verify it against.
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

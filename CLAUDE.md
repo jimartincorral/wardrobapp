@@ -41,7 +41,8 @@ optional, and a note with no brackets is an improvement to both apps.
 Several trailers become several lines, and they may be on any commit the merge
 brings in, so the line can be written while the work is fresh. A change carrying
 neither is named in a warning on the release run. See `scripts/release-notes.py`,
-which explains the rest, and the README section it points at.
+which explains the rest, and the "Writing the changelog" section of
+`CONTRIBUTING.md`.
 
 ## Things that are easy to get wrong here
 
