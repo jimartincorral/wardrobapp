@@ -58,6 +58,14 @@ data class ServerSettings(
      * browser, which does not offer it, rather than failing to start.
      */
     val backgroundModel: File? = null,
+    /**
+     * `SUPERVISOR_TOKEN`: what Home Assistant gives an app to ask its
+     * Supervisor about itself, when config.yaml asks for `hassio_api`; null
+     * anywhere else. Used for one question -- which host port the sync port
+     * is published on, see HostPorts -- and set by Home Assistant rather than
+     * by the Dockerfile, which is why it alone has no `WARDROBAPP_` prefix.
+     */
+    val supervisorToken: String? = null,
 ) {
     companion object {
         /** The directory Home Assistant keeps for an app across updates and includes in its backups. */
@@ -105,6 +113,7 @@ data class ServerSettings(
                 ),
                 releaseNotes = value("WARDROBAPP_RELEASE_NOTES")?.let(::File),
                 backgroundModel = value("WARDROBAPP_BACKGROUND_MODEL")?.let(::File),
+                supervisorToken = value("SUPERVISOR_TOKEN"),
             )
         }
     }

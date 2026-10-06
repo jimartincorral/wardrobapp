@@ -30,6 +30,7 @@ class ServerSettingsTest {
                 "WARDROBAPP_VERSION" to "0.1.0",
                 "WARDROBAPP_BUILD" to "345",
                 "WARDROBAPP_RELEASE_NOTES" to "/opt/notes.json",
+                "SUPERVISOR_TOKEN" to "abc123",
             ),
         )
 
@@ -42,6 +43,7 @@ class ServerSettingsTest {
                 allowedClients = setOf("172.30.32.2", "127.0.0.1"),
                 version = ServerVersion("0.1.0", 345),
                 releaseNotes = File("/opt/notes.json"),
+                supervisorToken = "abc123",
             ),
             settings,
         )

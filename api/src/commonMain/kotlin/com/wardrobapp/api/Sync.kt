@@ -59,12 +59,27 @@ object SyncRoutes {
 data class SyncAnswer(val merged: WardrobeSnapshot, val missingPhotos: List<String>)
 
 /**
- * What a phone needs to pair: the code, and the port the server listens for
- * sync on inside its container. The host port it is reached on is whatever it
- * is mapped to in Home Assistant, which the server cannot know.
+ * What a phone needs to pair: the code, the port the server listens for sync
+ * on inside its container, and the port Home Assistant publishes that one on.
+ *
+ * [hostPort] is what makes a QR code possible: without it the browser can say
+ * only "the port you chose", and the person has to remember which. Home
+ * Assistant tells the server (see HostPorts in :server), when it is asked from
+ * inside Home Assistant; [hostPortKnown] is false where nothing could be asked
+ * -- a server run on its own, or a Supervisor that did not answer -- and then
+ * a null [hostPort] means "cannot tell" rather than "closed", and the browser
+ * falls back to the instructions it has always shown.
+ *
+ * Both default, so a browser reading an older server's answer reads "cannot
+ * tell", which is true.
  */
 @Serializable
-data class SyncPairing(val code: String, val port: Int)
+data class SyncPairing(
+    val code: String,
+    val port: Int,
+    val hostPortKnown: Boolean = false,
+    val hostPort: Int? = null,
+)
 
 /**
  * Set a client up to sync: as [speakWardrobe] does, plus the pairing code on

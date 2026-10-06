@@ -43,5 +43,10 @@ ports:
   8100/tcp: null
 ports_description:
   8100/tcp: Phone sync (only needed to sync the Android app)
+# So the server can ask Home Assistant which host port the line above was
+# given, and Settings can show a phone one QR code to scan rather than a
+# paragraph about where to find it. Only that: the default role, which reads
+# an app's own information and changes nothing. See HostPorts in :server.
+hassio_api: true
 panel_icon: mdi:hanger
 panel_title: Wardrobe

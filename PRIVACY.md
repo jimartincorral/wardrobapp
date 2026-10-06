@@ -57,6 +57,11 @@ device, using a model that Google Play services provides. The photo itself is no
 uploaded; Play services may fetch the model itself over the network, which is
 Google's process rather than this app's.
 
+**Scanning a pairing code.** **Scan pairing code**, in Settings under Home
+Assistant, opens Google Play services' code scanner. It reads the code on your
+device; the app asks for no camera permission and receives only the text in the
+code. Play services may fetch the scanner itself over the network, as above.
+
 ## Google Drive
 
 Connecting Google Drive is optional. The app never does it on its own.

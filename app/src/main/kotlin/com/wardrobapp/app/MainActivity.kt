@@ -53,6 +53,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.canhub.cropper.CropImageContract
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.wardrobapp.data.backupFilename
 import com.wardrobapp.domain.PhantomGarment
 import com.wardrobapp.presentation.AppDestination
@@ -120,6 +123,15 @@ class MainActivity : AppCompatActivity() {
     private val pendingLink = mutableStateOf<String?>(null)
 
     /**
+     * A pairing link the app was opened with -- the browser's QR code, read
+     * by the phone's camera app rather than by Settings -- waiting for the
+     * Home Assistant section to fill its form in with. Held here for the
+     * reason [pendingLink] is: it arrives as an intent, before the section it
+     * is for exists. Only filled in, never connected; see PairingLink.kt.
+     */
+    private val pendingPairing = mutableStateOf<String?>(null)
+
+    /**
      * Sync with Home Assistant, if paired, each time the app comes to the
      * front: the moment somebody is about to look at their wardrobe is the
      * moment it should be up to date. PhoneSync skips the times there is no
@@ -160,6 +172,10 @@ class MainActivity : AppCompatActivity() {
         // shared from a browser. A field rather than a local, because a second
         // link can arrive through onNewIntent while the app is already open.
         pendingLink.value = importUrlFrom(intent)
+        // Only on a fresh start. A rotation creates the activity again with
+        // the same intent, and offering the link again would fill the form
+        // back in over whatever was typed since.
+        if (savedInstanceState == null) pendingPairing.value = pairingLinkFrom(intent)
 
         setContent {
             // The one piece of app state held here rather than in a ViewModel.
@@ -279,6 +295,12 @@ class MainActivity : AppCompatActivity() {
                         if (pendingLink.value != null) {
                             navigator.navigate(GARMENT_ADD) { launchSingleTop = true }
                         }
+                    }
+
+                    // And a pairing link to Settings, where the Home Assistant
+                    // section takes it. As a tab, the way the bottom bar goes there.
+                    LaunchedEffect(pendingPairing.value) {
+                        if (pendingPairing.value != null) navigator.switchTo(SETTINGS)
                     }
 
                     @OptIn(ExperimentalSharedTransitionApi::class)
@@ -889,6 +911,13 @@ class MainActivity : AppCompatActivity() {
         )
         val state by sync.state.collectAsStateWithLifecycle()
 
+        // A link the app was opened with, handed over once and forgotten.
+        LaunchedEffect(pendingPairing.value) {
+            val link = pendingPairing.value ?: return@LaunchedEffect
+            pendingPairing.value = null
+            sync.onPairingLinkReceived(link)
+        }
+
         PhoneSyncSection(
             state = state,
             onConnect = sync::onConnect,
@@ -897,7 +926,37 @@ class MainActivity : AppCompatActivity() {
             onDisconnect = sync::onDisconnect,
             onBackgroundChanged = sync::onBackgroundChanged,
             onWifiOnlyChanged = sync::onWifiOnlyChanged,
+            onScanRequested = { scanPairingCode(sync) },
+            onOfferTaken = sync::onOfferTaken,
         )
+    }
+
+    /**
+     * Read the QR code Settings in the browser shows, with Google's code
+     * scanner.
+     *
+     * That scanner rather than a camera screen of this app's own: it is Play
+     * services' activity, so this app asks for no camera permission and draws
+     * no viewfinder, and it is the same component ML Kit's background removal
+     * already depends on being there. Where it is not -- a phone without Play
+     * services -- the failure says so and points at the camera app, which
+     * opens the same link through the manifest's `wardrobapp://` filter, and
+     * at typing, which always works.
+     *
+     * A scan somebody backs out of is cancelled, which is neither listener's:
+     * there is nothing to say about it.
+     */
+    private fun scanPairingCode(sync: PhoneSyncViewModel) {
+        val options = GmsBarcodeScannerOptions.Builder()
+            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+            .build()
+        try {
+            GmsBarcodeScanning.getClient(this, options).startScan()
+                .addOnSuccessListener { barcode -> sync.onPairingLinkReceived(barcode.rawValue) }
+                .addOnFailureListener { sync.onScannerUnavailable() }
+        } catch (_: RuntimeException) {
+            sync.onScannerUnavailable()
+        }
     }
 
     /**
@@ -1412,7 +1471,17 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         importUrlFrom(intent)?.let { pendingLink.value = it }
+        pairingLinkFrom(intent)?.let { pendingPairing.value = it }
     }
+
+    /**
+     * The pairing link an intent carries, if it is one: `wardrobapp://pair?...`,
+     * as the browser's QR code holds it. Read whole and handed on as text, for
+     * pairingOfferOf to decide what it says; that is common code, and tested
+     * there.
+     */
+    private fun pairingLinkFrom(intent: Intent?): String? =
+        intent?.data?.takeIf { it.scheme == APP_SCHEME && it.host == PAIR_HOST }?.toString()
 
     /**
      * The address an intent is asking to import, if any.
@@ -1568,5 +1637,7 @@ class MainActivity : AppCompatActivity() {
          */
         const val APP_SCHEME = "wardrobapp"
         const val IMPORT_URL = "importUrl"
+        // The host of a pairing link; PairingLink.kt writes it.
+        const val PAIR_HOST = "pair"
     }
 }

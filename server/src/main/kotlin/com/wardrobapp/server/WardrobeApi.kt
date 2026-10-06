@@ -74,6 +74,7 @@ import com.wardrobapp.api.NewProfile
 fun Application.wardrobeApi(
     profiles: ProfileRegistry,
     settings: ServerSettings = ServerSettings(),
+    hostPorts: HostPorts = HostPorts.from(settings),
 ) {
     settings.allowedClients?.let { allowed -> install(onlyFrom(allowed)) }
 
@@ -120,12 +121,16 @@ fun Application.wardrobeApi(
             // browser to show -- behind ingress, so only somebody signed in to
             // Home Assistant sees it. Each profile has its own code, and a phone
             // syncs with whichever profile's code it was given.
+            //
+            // With the host port the sync port is published on, when Home
+            // Assistant says: that is what lets the browser show one QR code
+            // instead of a paragraph about Network settings.
             get(Routes.SYNC_PAIRING) {
                 val port = settings.syncPort
                 if (port == null) {
                     call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
                 } else {
-                    call.respond(SyncPairing(code = wardrobe.syncSecret.current(), port = port))
+                    call.respond(syncPairing(wardrobe.syncSecret.current(), port, hostPorts.of(port)))
                 }
             }
 
@@ -134,7 +139,7 @@ fun Application.wardrobeApi(
                 if (port == null) {
                     call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
                 } else {
-                    call.respond(SyncPairing(code = wardrobe.syncSecret.reset(), port = port))
+                    call.respond(syncPairing(wardrobe.syncSecret.reset(), port, hostPorts.of(port)))
                 }
             }
 
@@ -417,3 +422,11 @@ private fun validRating(rating: Int): Int {
 private suspend inline fun <reified T : Any> ApplicationCall.respondOrNotFound(value: T?) {
     if (value == null) fail(HttpStatusCode.NotFound, ApiFailure.NotFound) else respond(value)
 }
+
+/** The pairing Settings shows, with what Home Assistant said about [port]'s mapping; see [SyncPairing]. */
+private fun syncPairing(code: String, port: Int, hostPort: HostPort) = SyncPairing(
+    code = code,
+    port = port,
+    hostPortKnown = hostPort != HostPort.Unknown,
+    hostPort = (hostPort as? HostPort.Open)?.port,
+)
