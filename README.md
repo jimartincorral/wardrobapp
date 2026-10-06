@@ -1,438 +1,220 @@
 # Wardrobapp
 
-A local-first wardrobe and outfit planner for **Android**, written in Kotlin and Compose. Catalog the clothes you own, rate outfit suggestions, and let the app learn what you like — all stored on-device, with no account and no server.
+**Your wardrobe, on your phone.** Photograph the clothes you own and Wardrobapp
+keeps a catalogue of them. It suggests outfits from what is actually in your
+wardrobe, and learns your taste from how you rate them.
 
-The same app also runs in **Home Assistant**, opened from its sidebar in any browser signed in to it, with the wardrobe kept in Home Assistant's own storage and backups. See [Home Assistant](#home-assistant).
+There is no account to create and no subscription. Nothing about you goes to a
+server: your wardrobe stays on your phone, or in your own Home Assistant if you
+use it there.
 
-> Status: pre-1.0, actively developed. The roadmap lives in [TODO.md](TODO.md).
+Wardrobapp comes as an **Android app**, and as a **Home Assistant app** that
+opens in any browser signed in to your Home Assistant. The two can keep one
+wardrobe in step. It is available in **English and Spanish**.
 
-## Features
+> Wardrobapp is still before version 1.0 and changes often. What is planned is
+> in [TODO.md](TODO.md).
 
-- **A first launch that says what this is** — three screens before Home, once: what the app is (and the theme and language, offered before anything has been read in them), what adding a garment involves, and what a rating buys, shown on a still copy of the card that will ask for one. Skippable from the first screen, and that screen is also where somebody arriving from another phone restores their backup — straight into the document picker, and a wardrobe that arrives whole skips the rest. What the flow deliberately does *not* do is carried by a **First steps** card at the top of Home: add a garment, add several at once, rate an outfit idea. Each row ticks itself off when the wardrobe says so, the card goes for good once all three are done, and Dismiss sends it away sooner.
-- **Garment catalog** — photos, category and type, colour palette, tags, brand, size. The colours fill themselves in from the photo as it is added, and again if you remove its background. A photo is cropped to 3:4 as it is added, from the gallery or the camera, which is the shape every screen shows a garment in; it is then resized to 800px and re-encoded at 70% JPEG to keep the database and backups small.
-- **Cataloguing a drawerful** — Add several photos, from the wardrobe's menu, queues them up and asks each one for a category, which is the one thing a photo cannot say. Each garment can be cropped and have its background removed there in the queue, since those are what decide how it looks in every list it will appear in; neither is required and both are one tap. Colours are read from each photo as it arrives — and again from a cut-out, which is a better photo of the same garment — types imply their seasons, and a garment is written as each is confirmed rather than all of them on a final tap. The photos are not put through the crop screen on the way in: thirty crop screens in a row is the tedium this exists to remove.
-- **The numbers are links** — every count of garments leads to the garments. The home screen's two counts, the statistics tiles, and every bar in the category, type, colour and brand charts each open the wardrobe filtered to exactly what was counted; a lifespan bar opens that garment instead, since it is one garment rather than a group. A link clears whatever was filtered before, so the list is always as long as the number that was tapped.
-- **A wardrobe you can look at your way** — the list, or a grid two, three or four garments across, chosen from the top bar and remembered between launches. A cell is the photo with one line under it, and that line is the brand, the type or the category, whichever you find a wardrobe by. A garment that hasn't got the field asked for falls back rather than showing a blank line.
-- **Background removal** — strips the background from a garment photo, from the add/edit form, from a drawerful in the queue or from a garment already saved. On the phone with ML Kit subject segmentation, on the device; in the browser by the Home Assistant server, with a model of its own (see below). The cut-out replaces the original rather than sitting beside it, so removing a background costs storage instead of doubling it.
-- **Duplicate detection** — when you add a garment, likely duplicates in the same category are flagged by a weighted average of tag overlap (Jaccard, 0.6), colour similarity (0.3) and size match (0.1). Signals with nothing to compare abstain rather than scoring zero, so an untagged garment can still be recognised as a duplicate.
-- **Rate an outfit without keeping it** — rating a suggestion teaches the app which garments go together, and used to save the outfit as a side effect, so the only way to teach it was to file away outfits you had just called two stars. A rating now archives instead: kept for what it taught, out of the saved list, and behind a toggle that says how many are there. The prompt that follows offers to keep it properly.
-- **It learns what you like, not what I like** — a rating teaches three things, not one. Which garments go together, as before; how each garment does on its own, so one you keep rating badly is reached for less whatever it is paired with; and which *kinds* of colour pairing you actually wear, so the app stops telling a monochrome dresser that two shades of one colour read as unconsidered. Each learned value is trusted in proportion to the ratings behind it — eight is the crossover — so one five-star outfit tilts a judgement rather than rewriting it, and the built-in aesthetics are never entirely discarded. On a wardrobe nobody has rated, the engine is exactly the engine it was.
-- **Outfit suggestions** — from the whole wardrobe, or built around one garment you picked ("what goes with this?", from its own screen). An epsilon-greedy engine combining category templates weighted towards complete outfits, colour harmony judged by hue, a cap on how many colours one outfit may shout in, season and occasion fit, whether the garments agree with each other about the occasion, and pair scores learned from your ratings. Each suggestion says why it came up, the search widens with the size of your wardrobe, and a second tap does not hand back the batch you just saw.
-- **Outfits you put together yourself** — build one by hand from the outfits tab, or change one you already saved: its name, what is in it, and what it is for. The wardrobe to pick from is grouped by category and can be searched — a type, a brand, a size, a tag, or a category — retired garments are left out, and an outfit left untitled is named after what is in it, the way a suggestion is. Editing an outfit leaves its rating alone, and leaves it counted as the engine's idea if that is what it was.
-- **Import from a link** — paste or share a product page and the garment is filled in from it: photos, title, brand. Only public addresses are fetched, and the app asks before going anywhere a link it did not choose points at.
-- **Filters that know your wardrobe** — every filter offers the values you actually own: your brands, your sizes, the colours your garments come in. Each row is one line you scroll sideways, and the choices narrow as you pick, so a combination that would show nothing is never offered.
-- **Statistics** — one page: six counts at a glance, then breakdowns by category (with subcategories), colour and brand, and how long the garments you retire lasted. Each breakdown is a section you open, so the page starts with the numbers rather than six charts.
-- **Storage that tidies itself** — Optimize storage in Settings shrinks cut-outs an older build wrote at full resolution and deletes photos no garment points at any more. Anything written in the last hour is left alone, so a garment you are still filling in is never touched.
-- **Backup and restore** — a single `.zip` containing the SQLite database and every photo, written to a folder you pick. Restore stages and verifies the archive before replacing anything, and rolls back if it can't finish.
-- **Updates itself** — the app is not on an app store, so at every launch it reads a small document published beside the APK on the rolling release and says so when a newer build exists, with the changelog since the build on the phone. Install, skip that build, or later. The download address is fixed and every redirect is checked against this project's own release hosts before it is followed.
-- **English and Spanish** — full UI localization, following the per-app language setting or overridden in Settings.
+## What it does
 
-## Tech stack
+**Catalogue your clothes.** Each garment is a photo, plus a category, type,
+colours, brand, size and tags. The colours are filled in from the photo for
+you. If you have a lot to add, choose **Add several at once**: pick a batch of
+photos, then give each one a category.
 
-- **UI:** Compose Multiplatform 1.7 — Jetpack Compose itself on Android — Material 3, single activity, Navigation Compose
-- **Language:** Kotlin 2.1, JVM target 17, `minSdk` 24 / `targetSdk` 36
-- **Storage:** SQLite through a small `SqlDriver` interface — `SupportSQLiteDatabase` on a device, JDBC in tests and on the Home Assistant server; photos as files under `<documents>/garment-images/`, referenced from the database by filename
-- **Build:** Gradle with AGP 8.9, nine modules; the only generated code is Compose Multiplatform's accessors for the screens' resources
-- **Dependencies:** AndroidX, ML Kit, Coil 3 for loading photos, and the same crop screen Expo's image picker used. No dependency injection framework, no ORM.
+**Clean photos.** **Remove background** cuts the garment out of its photo, so
+your wardrobe looks like a catalogue and not a pile of bedroom floors. This
+runs on your phone and never uploads anything.
 
-## Getting started
+**Add from a shop's website.** Share a product page to Wardrobapp from your
+browser, or paste its link, and the photos, name and brand are filled in from
+the page.
 
-### Prerequisites
+**Get outfit ideas.** **Suggest outfits** builds outfits from your whole
+wardrobe, or around one garment you are not sure how to wear ("what goes with
+this?"). It takes colours, seasons and occasions into account, and each idea
+says why it was suggested.
 
-- JDK 17
-- The Android SDK, with platform 36 (Android Studio, or `sdkmanager`)
+**Teach it your taste.** Rate the ideas, and the app learns which garments go
+together for you, which ones you never reach for, and which colour combinations
+you really wear. You don't have to set anything up: suggestions get better the
+more you rate. Rating an idea doesn't save it as an outfit. You choose whether
+to keep it.
 
-Everything but the app needs neither — see [Architecture](#architecture).
+**Make your own outfits.** Put one together by hand on the **Outfits** tab, or
+change one you have saved.
 
-```bash
-git clone https://github.com/jimartincorral/wardrobapp.git
-cd wardrobapp
+**Avoid buying the same thing twice.** When you add a garment, the app tells you
+if it looks like something you already own.
 
-# The pure modules: the algorithms, the data mapping, the view logic, and
-# URL import's requests -- and every screen, compiled for the browser.
-# No Android SDK needed, and finishes in seconds.
-./gradlew test
+**See what you own.** **Statistics** shows how many garments you have, broken
+down by category, colour and brand. It also shows how long the things you
+stopped wearing lasted, and which garments would complete outfits you can't put
+together yet. Tap any number to see the garments behind it.
 
-# One class. In the multiplatform modules the JVM tests are `jvmTest`, which
-# is the task that takes --tests; `test` runs them and compiles for the browser.
-./gradlew :domain:jvmTest --tests '*UrlSafetyTest*'
+**Find things quickly.** Filter the wardrobe by any brand, size or colour you
+own. View it as a list, or as a grid of two, three or four photos across.
 
-# The app, on a connected device or emulator.
-./gradlew installDebug
+**Retire clothes without losing them.** Mark a garment **No longer wearing
+this** and it stops appearing in the wardrobe and in outfit ideas, but stays in
+your history and statistics.
+
+## Getting the Android app
+
+Wardrobapp is not in the Play Store. You install it from this project's
+releases page:
+
+1. On your phone, download
+   [**wardrobapp.apk**](https://github.com/jimartincorral/wardrobapp/releases/download/nightly/wardrobapp.apk)
+   from the [latest release](https://github.com/jimartincorral/wardrobapp/releases/tag/nightly).
+2. Open the downloaded file. Android will ask whether to allow installs from
+   your browser or file manager: allow it, then tap **Install**.
+3. Open **Wardrobapp**. A few welcome screens explain the basics. You can skip
+   them, and they are also where you restore a backup if you are moving from
+   another phone.
+
+You need Android 7.0 or newer.
+
+### Updates
+
+The app checks for a newer version each time you open it. If there is one, it
+lists what has changed and offers **Install**, **Skip this build** or **Later**.
+Updating keeps your wardrobe. The first time, Android asks you to allow
+Wardrobapp to install apps. This lets it *offer* the update: Android still asks
+you before anything is installed.
+
+After an update, **What's new** lists the changes. Some of them have a
+**Show me** button that takes you straight to them.
+
+### Checking a download is genuine (optional)
+
+Every official build is signed with the same key. To check an APK you were sent,
+run `apksigner verify --print-certs wardrobapp.apk` on a computer. Its SHA-256
+fingerprint should be:
+
+```
+f35c02f1d70160524b637859898085c852ca98180a14852d0137eba6b1738197
 ```
 
-A debug build installs as `com.anonymous.wardrobapp.debug`, alongside the real app rather than over it. The first launch creates the SQLite schema.
+> **Installed before 28 August 2026?** Builds from before that date were signed
+> with a different key, and Android won't update one to the other in place. If
+> an update fails to install, make a backup, uninstall the app, install the new
+> version and restore the backup. You only have to do this once.
 
-### Build a release APK
+## Keeping your wardrobe safe
 
-```bash
-./gradlew assembleRelease
-# app/build/outputs/apk/release/app-release.apk
-```
+Your wardrobe is stored only on your phone, and uninstalling the app deletes
+it. Back it up.
 
-CI builds one on every push and publishes it from `main` to the rolling [`nightly` release](https://github.com/jimartincorral/wardrobapp/releases/tag/nightly), which installs over whatever version is on the phone and keeps the wardrobe.
-
-`versionCode` is a fixed offset plus the CI run number, so each published build is a later version than the last. Locally it is the offset alone, which is fine: a local build is not upgrading anything.
-
-### Signing
-
-Published builds are signed with a **private release key**, held by the maintainer and
-given to CI as four repository secrets. Its certificate is
-
-```
-CN=jimartincorral, C=ES
-SHA-256  f35c02f1d70160524b637859898085c852ca98180a14852d0137eba6b1738197
-SHA-1    c9c04a682b973e52b93edc82d5a39facfea438bf
-```
-
-so a build claiming to be an update of this app can now be checked against something,
-rather than taken on trust:
-
-```bash
-apksigner verify --print-certs wardrobapp.apk
-```
-
-`keytool` prints the same fingerprint colon-separated and uppercase; it is the same
-number. CI asserts it on every release: with a keystore configured the signing check
-inverts, and an APK still carrying the public debug key fails the build.
-
-Every build published before 28 August 2026 — including all of them from before this
-was a Kotlin app — carried the **public Android debug key** from Expo’s project
-template instead. `app/debug.keystore` is that key, still committed, and still the
-fallback when no keystore is configured: a fork or a contributor without the secrets
-must be able to build, and `app/build.gradle.kts` explains at length beside the config
-why it is in the repository at all. It signs nothing published from here any more.
-
-Moving between the two was a one-time break, and it is done. Android replaces an
-installed app only with a build signed by the same key, so the first signed build could
-not upgrade anything: it needed a backup, an uninstall, an install and a restore, once
-per device. Every build since upgrades in place as before.
-
-**Setting this up on a fork.** Create a keystore — needs a desktop, and both passwords
-want keeping somewhere you will still have them in five years, because losing them
-means never being able to upgrade an installed app again:
-
-```bash
-keytool -genkeypair -v -keystore wardrobapp-release.keystore -alias wardrobapp -keyalg RSA -keysize 2048 -validity 10000
-```
-
-Then add four repository secrets (Settings → Secrets and variables → Actions):
-
-| Secret | Value |
-| --- | --- |
-| `ANDROID_KEYSTORE_BASE64` | the keystore, base64-encoded (`base64 -w0 wardrobapp-release.keystore`) |
-| `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
-| `ANDROID_KEY_ALIAS` | the key alias (`wardrobapp` above) |
-| `ANDROID_KEY_PASSWORD` | the key password |
-
-CI decodes the keystore and passes the rest to Gradle as
-`ORG_GRADLE_PROJECT_WARDROBAPP_*` properties. The same four work locally, either as
-`-PWARDROBAPP_STORE_FILE=…` or in `GRADLE_USER_HOME/gradle.properties`, which keeps the
-passwords out of your shell history and out of the repository. Use forward slashes in
-that path: a `.properties` file reads a backslash as an escape.
-
-### Google Drive sign-in
-
-Backing up to Drive needs an OAuth client, and there are three settings that are
-easy to get wrong and give errors that do not name themselves. All three are in the
-Google Cloud console under **APIs & Services → Credentials**; none of them are in
-this repository.
-
-**One client per build type, because Google keys an Android client on the
-application id *and* the signing certificate.** A debug build differs in both, so
-one client cannot cover both. The ids are committed in `app/build.gradle.kts`
-rather than kept as secrets: an Android client has no secret, the id ships inside
-the APK, and what stops somebody else using it is the pair Google checks it
-against.
-
-| | application id | certificate |
-|---|---|---|
-| release | `com.anonymous.wardrobapp` | the release key, SHA-1 `c9c04a682b973e52b93edc82d5a39facfea438bf` |
-| debug | `com.anonymous.wardrobapp.debug` | the committed debug key |
-
-**Custom URI schemes must be switched on, per client.** Google disables them by
-default on Android clients created since 2022. Without it the browser opens, the
-sign-in page loads, and Google refuses with *"Custom URI scheme is not enabled for
-your Android client"* — which reads like a bug in the app and is not. The toggle is
-under **Advanced settings** on the client itself, and takes a few minutes to take
-effect.
-
-**A new keystore means updating the release client's fingerprint.** Sign-in then
-breaks in release only, while debug keeps working and hides it.
-
-**The automatic backup is configurable, and its settings are this phone's.** How
-often (daily, weekly, monthly), how many archives the folder keeps (1, 3, 5, 10 or
-all), and whether to wait for Wi-Fi and for charge, all live in SharedPreferences
-rather than in the wardrobe -- so a restore from another device does not bring
-somebody else's data-plan decisions with it.
-
-**The consent screen has to be published, not left in testing.** A project in
-Testing admits only the accounts on its test-user list, and refuses the rest with
-*"Error 403: access_denied"* after the sign-in page has already loaded. Adding
-yourself as a test user clears that, and should not be the fix: Google expires a
-test user's refresh token after **seven days**, so everything works and then stops
-a week later for no visible reason -- and an unattended backup is exactly the case
-where nobody is watching to sign in again. Publishing avoids that, and needs no
-verification review, which is one of the reasons `drive.file` was chosen over
-`appDataFolder`: Google classes it non-sensitive.
-
-Publishing does require four things filled in on the Branding page: an app name, a
-support email, a homepage and a privacy policy. The last two are in this
-repository -- the repository itself is the homepage, and [PRIVACY.md](PRIVACY.md)
-is the policy, which GitHub serves at a URL Google accepts. It is written from what
-the code does rather than from a template, so it names all four occasions on which
-this app touches the network; if that ever stops being true, it is the file to
-change.
-
-The redirect URI is not registered anywhere: Google derives it from the package
-name, and the app builds the matching one from `BuildConfig.APPLICATION_ID`
-(`com.anonymous.wardrobapp:/oauth2redirect`). `appAuthRedirectScheme` in
-`app/build.gradle.kts` has to match that per build type, or the browser will not
-find its way back.
+- **Create a backup** (in **Settings**) saves the whole wardrobe, photos and
+  all, as one `.zip` file wherever you choose. **Restore from a backup** brings
+  it back, on this phone or a new one. The backup is checked before anything is
+  replaced, so a damaged file can't wipe your wardrobe.
+- **Google Drive.** Connect your Drive under **Settings → Google Drive**, and
+  the app can back up automatically: daily, weekly or monthly, keeping as many
+  past backups as you choose. You can also limit it to Wi-Fi, and to when your
+  battery isn't low. The app can only see the files it creates in your Drive,
+  nothing else.
+- **Optimize storage** frees space by shrinking oversized photos and deleting
+  photos that no garment uses any more.
 
 ## Home Assistant
 
-The browser version is a Home Assistant app — an add-on, as older versions of
-Home Assistant call them. To install it, open the app (or add-on) store under
-**Settings**, choose **⋮ → Repositories**, and add this repository's URL; then
-install **Wardrobapp** and open **Wardrobe** in the sidebar. Home Assistant
-2024.1 or newer, on amd64 or 64-bit ARM.
+If you run [Home Assistant](https://www.home-assistant.io/), you can use
+Wardrobapp in it too. It opens from the sidebar on any phone, tablet or
+computer signed in to Home Assistant, and on a large screen it uses the extra
+space.
 
-It is one container: `:server`, which holds the wardrobe in the same SQLite
-schema and photo layout as the phone and answers with the same code, and
-`:web`, the browser app it serves. Home Assistant's ingress is the only way in
-for a browser, and the server refuses any request on that port that does not
-come from ingress's address.
+**To install it:**
 
-The server removes backgrounds for the browser, which has nothing to do it
-with. It runs silueta, a 44 MB U²-Net, through ONNX Runtime's Java binding,
-which carries native code for both of the image's architectures; Gradle
-downloads the model when it builds the server and checks it against a pinned
-digest, so it is not in the repository. The model is loaded when a photo is
-first cut out and closed two minutes after the last, so the add-on does not
-hold the memory between uses. `BackgroundRemover` explains why this model and
-not the others tried.
+1. In Home Assistant, go to **Settings → Add-ons** (called **Apps** in newer
+   versions) and open the store.
+2. Choose **⋮ → Repositories** and add
+   `https://github.com/jimartincorral/wardrobapp`.
+3. Install **Wardrobapp**, start it, and open **Wardrobe** in the sidebar.
 
-It holds a wardrobe per person: named profiles, each with its own database,
-photos and pairing code, in its own directory under `/data` (`ProfileRegistry`).
-Each Home Assistant user opens their own, which ingress tells the server by the
-`X-Remote-User-Id` header it sets. Anyone can switch to another, so somebody
-without a Home Assistant login can still have one. A profile's routes are the
-same routes under `p/<id>/`, and its photos are referenced the same way. The
-wardrobe there was before profiles became the first, in place, under the id
-`main`. Any profile but the last can be deleted, which takes its files with it:
-its whole directory, or for `main`, whose directory is `/data` itself, only the
-wardrobe's own files there.
+You need Home Assistant 2024.1 or newer, on a 64-bit Intel/AMD or ARM machine
+(such as a Raspberry Pi 4 or 5).
 
-The Android app can sync with it. That goes through a second port, 8100, which
-answers nothing but sync and only to a phone carrying the pairing code shown in
-the browser's Settings; Home Assistant keeps it closed until it is given a host
-port in the app's **Network** settings. A phone syncs with the profile whose
-code it holds. Each sync exchanges the whole wardrobe
-and keeps the latest change to each garment and outfit, a deletion included;
-photos move by name, only when one side lacks them. The phone syncs when it is
-opened, from **Sync now**, and every few hours in the background, on Wi-Fi only
-unless told otherwise — and keeps working on its own whether or not it is
-paired. Restoring a backup on a paired phone replaces the wardrobe everywhere
-rather than merging: the phone stamps what it restored as changed now and sends
-it to `sync/v1/replace`, which deletes what the backup does not have
-(`SyncStore.replaceWith`). Without that, the next sync would merge the backup
-with the wardrobe it was meant to replace, and every edit since the backup would
-win. The merge is `WardrobeSync.kt` in `:data`, run by the phone and the
-server alike; the app's `DOCS.md` says how to pair.
+**Everyone at home can have their own wardrobe.** The first time someone opens
+it, they choose their own wardrobe or start a new one, and after that Home
+Assistant opens theirs for them. Separate wardrobes keep everyone's clothes
+apart, but they are not private: anybody who can open the app can switch
+between them.
 
-The images are built by `.github/workflows/home-assistant.yml` on every pull
-request, and published to GitHub's container registry from `main` when
-`homeassistant/wardrobapp/config.yaml` names a version that is not published
-yet. **Bumping that version, with an entry in the app's `CHANGELOG.md`, is what
-releases it**; a version is never republished. The entry's first draft is the
-browser's release notes since the last bump — see [Writing the
-changelog](#writing-the-changelog). `HomeAssistantAppTest` holds the
-config, the Dockerfile, the workflow and the server's defaults to each other.
+**Your wardrobe is part of Home Assistant's backups.** It is stored in Home
+Assistant, so backing up Home Assistant backs up your wardrobe.
 
-To run the same thing locally:
+**A few things only the phone can do.** Cropping photos, backups to a file or to
+Drive, and updates belong to the Android app. Removing backgrounds works in the
+browser too: your Home Assistant machine does it, which takes a few seconds on a
+Raspberry Pi.
 
-```bash
-./gradlew :server:installDist :web:wasmJsBrowserDevelopmentExecutableDistribution
-WARDROBAPP_DATA=/tmp/wardrobe \
-WARDROBAPP_WEB=web/build/dist/wasmJs/developmentExecutable \
-  server/build/install/wardrobapp-server/bin/wardrobapp-server
-# then open http://localhost:8099/
-```
+### Syncing your phone with Home Assistant
 
-The development bundle builds in about a minute; `wasmJsBrowserDistribution`,
-the optimised one the image ships, takes several.
+The Android app works fine on its own. If you also use Home Assistant, the two
+can share one wardrobe:
 
-## Project structure
+1. In the Wardrobapp add-on's **Configuration** tab, under **Network**, give
+   port 8100 a host port (8100 is fine).
+2. Open **Wardrobe** in the sidebar, go to **Settings**, and copy the pairing
+   code under **Phone sync**.
+3. On your phone, go to **Settings → Home Assistant** and enter your Home
+   Assistant's address with that port, such as
+   `http://homeassistant.local:8100`, along with the code.
 
-```
-app/           The Android app: Compose screens, ViewModels, and the platform
-               plumbing that genuinely needs Android — the camera, the document
-               picker, SQLite, ML Kit, the share target. 30 files, and the only
-               module that needs the SDK.
-presentation/  What a screen shows, as pure functions over records: list
-               filtering and ordering, form state, the detail view, the chart
-               arithmetic, the colour a photo suggests.
-domain/        The algorithms: outfit suggestion, duplicate detection, pair
-               learning, colour comparison, occasions, URL safety, reading a
-               product page.
-net/           URL import's requests: a product page and its images, with
-               every redirect checked before it is followed.
-data/          SQLite queries and row mapping, photo references, reading and
-               writing backup archives.
-ui/            The screens, in Compose Multiplatform, for the phone and the
-               browser alike.
-api/           The wardrobe over HTTP: routes, and every screen's source as
-               requests to the server.
-server/        The Home Assistant app's server, answering those requests.
-web/           The browser app the server hands out.
-homeassistant/ The Home Assistant app: its config.yaml, Dockerfile and docs.
-art/           logo.png — the logo, as delivered. Every launcher icon the app
-               ships is cut from this file.
-               glyphs/ — the Material glyphs the app vendors, as SVG, each
-               naming the upstream file it came from.
-scripts/       generate-launcher-icons.py — cuts them, with no dependencies.
-               generate-glyphs.py — turns the glyphs into Compose vectors.
-               release-notes.py — the changelog the update dialog and What's
-               new show; test_release_notes.py tests it.
-```
+After that the phone syncs when you open the app, when you tap **Sync now**,
+and every few hours in the background. If a garment was changed in both places,
+the most recent change wins. Something deleted in one place is deleted in both.
 
-### Writing the changelog
+Some things to know:
 
-The update dialog's list is not the pull request titles. It is written by hand, one
-line at a time, as a trailer on the commit that does the work:
+- **Restoring a backup on a synced phone replaces the wardrobe everywhere,**
+  including Home Assistant and every other synced phone. To restore on one
+  phone only, tap **Stop syncing** on it first.
+- **Lost a phone?** **Make a new code** in the browser's Settings disconnects
+  every phone using the old one.
+- Sync is meant for your home network. If you make the port reachable from
+  outside your home, put HTTPS in front of it.
 
-```
-Release-Note: An outfit you have rated keeps its rating when you edit it.
-```
+The add-on's [own documentation](homeassistant/wardrobapp/DOCS.md) goes into
+more detail.
 
-A pull request title names the change, for somebody about to read the diff. A
-changelog line names what is different, for somebody deciding whether to spend a
-download on it. They are different sentences, and a change that has only the first
-one says so:
+## Privacy
 
-```
-Release-Note: none
-```
+Wardrobapp has no analytics, no ads, no tracking and no account. The developer
+runs no server, so there is nowhere for your data to be sent. The app goes
+online only for things you ask it to do, and to check for an update when you
+open it.
+[PRIVACY.md](PRIVACY.md) lists every one of them.
 
-It belongs in the trailer block at the end of the message, beside `Co-Authored-By`
-and the rest — git's own definition of a trailer, which is what stops a commit that
-merely discusses the convention from being read as carrying one.
+## Good to know
 
-Several trailers in one branch become several lines; the trailer may be on any
-commit the merge brings in, so it can be written when the work is done rather than
-remembered at merge time. A change that carries neither contributes nothing and is
-named in a warning on the release run — silence and "nothing to say" look the same
-in a changelog, and only one of them is deliberate.
+- **No iPhone version.** Wardrobapp is for Android, and for browsers through
+  Home Assistant.
+- **It records ratings, not what you wore.** There is no wear diary, so it
+  can't tell you cost per wear.
+- **Colour detection is a best guess.** It picks a garment's main colour, and a
+  second one if there is a lot of it. Patterns, and photos whose background
+  hasn't been removed, can confuse it. Undoing a colour it picked takes one tap.
+- **Imports only fetch public websites.** The app asks before it fetches a link,
+  and refuses addresses on your home network. Shops that still use plain
+  `http://` addresses can't be imported from.
+- **Old backups are managed in your Files app.** The app doesn't list or delete
+  the backups you have saved; delete old ones in your Files app.
+- **Sync is with Home Assistant only.** No cloud sync service is involved. To
+  move your wardrobe to a new phone without Home Assistant, use a backup.
 
-A note can also say what kind of change it is, which app it is about and where
-it can be seen, and carry its Spanish:
+## Help and feedback
 
-```
-Release-Note: [new android -> settings] Your wardrobe can sync with Home Assistant.
-Release-Note-es: Tu armario puede sincronizarse con Home Assistant.
-```
+Found a bug or have an idea? [Open an issue](https://github.com/jimartincorral/wardrobapp/issues).
 
-- **Kind:** `new`, `improved` or `fixed`.
-- **App:** `android` or `web`, the browser in Home Assistant.
-- **Destination:** one of the screens listed in `release-notes.py`, which
-  `ReleaseNoteDestinationsTest` holds equal to the app's.
-
-Every part is optional. A note with no brackets is an improvement to both apps,
-which is how every note written before the brackets reads. The Spanish pairs with
-the English by position within the commit. A note without Spanish shows its
-English to somebody reading in Spanish. A word in the brackets that the script
-does not know costs a warning on the release run, not the note.
-
-Every note is published with the build it arrived in, and the last fifty travel
-forward from one release to the next. So the update dialog lists everything since
-the build on the phone rather than only what the newest build added, and a phone
-that missed a few launches is told about all of them. The dialog shows only notes
-about the phone, in the app's language.
-
-Once the update is installed, the new build shows **What's new**: the same notes
-since the last build it was shown for, under New, Improved and Fixed. A note with
-a destination gets a **Show me** button, which only the new build can offer.
-Nothing is shown on a fresh install.
-
-The browser has What's new too, after Home Assistant updates the app. Its notes
-are the ones tagged `web`, or not tagged at all. Each note belongs to the version
-whose bump first shipped it: the release workflow walks every merge since the
-app existed, reads `config.yaml` at each, and writes the result into the image
-(`release-notes.py --web-history`). The browser remembers the last version it
-showed notes for. A browser that has never shown them shows nothing, since it
-cannot tell a new visitor from somebody who used a version from before this
-existed.
-
-The Home Assistant app's `CHANGELOG.md` is written by hand when its version is
-bumped. `python3 scripts/release-notes.py <last-bump> HEAD --home-assistant`
-prints the browser's notes since then as a first draft. The script's own tests
-are `python3 -m unittest discover -s scripts`.
-
-## Architecture
-
-One module that builds only where there is an Android SDK, `:app`; six that need nothing but a JDK — `:domain`, `:data`, `:presentation` and `:api`, which are Kotlin Multiplatform, and `:net` and `:server`, which are plain Kotlin/JVM; `:ui`, the screens, which builds for Android, the desktop JVM and the browser where there is an SDK and for the browser alone where there is not; and `:web`, the browser app, which is Wasm alone. `settings.gradle.kts` includes `:app` only when an SDK is present, and picks `:ui`'s browser-only build file when one is not, which is what lets everything but the app be built and checked on any machine — and proves it needs nothing but a JDK, rather than merely claiming it.
-
-- **`domain/`** — no database, no filesystem, no clock, no Android. Everything arrives as an argument: the suggestion engine takes its randomness as a parameter, so a run is reproducible and a bug can be reported. Common code that also compiles for the browser, apart from URL import, which only runs where a page is fetched and stays on the JVM. `./gradlew test` compiles the Wasm target as well as running the tests, so code that only builds on the JVM fails there rather than in the browser build.
-- **`presentation/`** — the decisions a screen makes, taken out of the screen. Chart widths, what counts as an active filter, which photo the strip has selected. Compose renders the answers; it does not compute them. Common code, so the browser's screens make the same decisions; sorting by name uses each platform's own collator.
-- **`data/`** — reaches SQLite through a small `SqlDriver` interface rather than depending on `androidx.sqlite`. On Android that wraps a `SupportSQLiteDatabase`; in tests and on the Home Assistant server it wraps JDBC, through `JdbcSqlDriver`, which compiles against `java.sql` alone so the phone never carries a JDBC driver. Both run the same SQL against the same schema, which is what lets the queries be exercised without an emulator. The records, queries, writes and schema are common code; the backup archive, file locations, Drive requests and write timestamps stay on the JVM, where the phone and the Home Assistant server run them.
-- **`net/`** — the one pure module that does I/O: the requests URL import makes. It holds no decisions — whether an address may be fetched is `:domain`'s — and it is separate from `:app` so that what a request actually reaches can be tested against a real server without an SDK.
-- **`api/`** — the wardrobe over HTTP, both halves of it: the routes, the way a failure travels so a screen can still tell an unsafe address from a page with no garment on it, and an implementation of every screen's source that asks the server instead of a database. The browser's screens are handed these; `:server`'s tests drive them against a real server, so the client and the server are tested against each other. Also the phone's half of syncing with Home Assistant — `PhoneSync`, which decides when a sync runs and what Settings is told, and the client it runs — kept here rather than in `:app` so it is tested against a real server the same way.
-- **`server/`** — what the Home Assistant app runs: a Ktor server holding a wardrobe in the same SQLite schema and photo layout as the phone, answering `:api`'s routes with the same Database sources the phone's screens use. It decides nothing about a wardrobe itself, which is why a browser asking it gets the answer the phone would have given. It checks every uploaded photo by its bytes and every photo name it is asked for, and trusts Home Assistant's ingress to say who is asking.
-- **`ui/`** — the screens, in Compose Multiplatform: every layout, the strings in both languages, the glyphs and the brand mark. Common code, for the phone and the browser alike; where the platforms genuinely differ — Android 12's dynamic colour, how tall the window is — it is an `expect` with each platform's answer. Its Android and desktop builds need the SDK, because the Android library plugin and the androidx artifacts behind Compose Multiplatform's Android and desktop builds are on Google's Maven; its browser build needs only Maven Central, so `./gradlew test` compiles every screen for the browser everywhere. The two build files that makes are held equal by `UiBuildFilesTest`. The Robolectric tests in `:app` exercise these screens, and `:app`'s lint checks them.
-- **`web/`** — the browser app the Home Assistant server hands out: the browser's `MainActivity`, and nothing more. A back stack shaped like the phone's, kept in step with the browser's own back button; each screen given its model from `:presentation` and its source from `:api`; preferences in the browser's local storage; and photos picked, scaled and encoded by the browser to the size and quality the phone stores, then uploaded. What the phone does with Android alone — the crop screen, Drive, backups, updates — is left off the screens here rather than offered and failed. Removing a background is asked of the server, and offered only when the server says it has the model to. On a window 1200dp wide or more — a desktop browser, with Home Assistant's sidebar taken off — the same screens are laid out for the room: a navigation rail instead of the bottom bar, and panes side by side where the phone stacks them, so the wardrobe's filters, its grid and the garment open in it are on screen together. Where the line falls is `WindowWidth` in `:presentation`; `:ui` reads it from a composition local that only the browser sets, so the phone draws exactly what it always has.
-- **`app/`** — navigation and the platform: `MainActivity`, the ViewModels that fill each screen's state, the photo pipeline, Drive, and updates. Thin on purpose: a ViewModel here loads data, calls a pure function and holds the result.
-
-`WardrobeSchema` is applied on every open — `CREATE TABLE IF NOT EXISTS`, then additive `ALTER`s, then the indexes over them — so there is no migration version to get out of step. Two shapes of database exist on real phones as a result, and both are tested; see Limitations.
-
-### Before this was a Kotlin app
-
-Until [`0ca397a`](https://github.com/jimartincorral/wardrobapp/commit/0ca397a) this repository held a React Native app, and this one is a port of it rather than a rewrite: the same schema, the same photo layout, the same archive format, the same algorithms down to the arithmetic. That app is deleted, and its last version is one commit away if it is ever needed.
-
-Two things it left behind, both deliberate. Comments across this codebase explain a decision by referring to "the React Native app" — that is the app above, and those explanations are still why the code looks as it does: the database lives in `files/SQLite/` because that app put it there, and it is still there on every phone that has ever run this one. And the port was verified against it by recording 3341 of its answers and replaying them in Kotlin; that corpus went when its oracle did, replaced by tests that state what has to be true rather than that two implementations agree.
-
-## Testing
-
-```bash
-./gradlew test                    # 959 tests, no Android SDK, seconds
-./gradlew :app:testDebugUnitTest  # 192 more, needs the SDK — no emulator
-```
-
-The 959 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, each screen's logic against a fake source, every type a source hands over going to JSON and back, the server's routes driven by the browser's own sources, and both languages' string resources against each other.
-
-The 192 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
-
-```bash
-./gradlew :app:testDebugUnitTest
-```
-
-The debug variant by name, not `:app:test`: `ui-test-manifest` supplies the activity the Compose tests compose into, and it is a debug-only artifact by design, so running them against release fails every one of them.
-
-Lint runs every check it has, with warnings failing the build and no baseline file — the backlog was cleared rather than frozen. The two version-nag checks are informational, since a new AndroidX release is not a defect in any commit.
-
-Algorithms are checked by mutation: each behaviour the tests claim to protect is removed in turn, and the intended test must fail. A test that passes without the code it covers is not a test.
-
-CI runs all of it on every pull request, on pushes to `main`, and on pushes to `claude/**` branches — the Android job is the only place `:app` compiles or lints at all, so a branch needs to be able to run it without opening a pull request first.
-
-## Limitations
-
-- **Android only.** iOS was never finished and web was removed; the storage layer it used could silently lose data.
-- **Old backups cannot be listed or deleted from inside the app.** Deliberately: it would mean holding a persistent directory grant the app does without — archives go in and out through the document picker with no storage permission at all, and the Files app already deletes a zip.
-- **`garments` is not one schema.** `created_at` and `updated_at` are `NOT NULL` on a fresh install and nullable on one upgraded through the `ALTER` path, because SQLite cannot add a `NOT NULL` column without a default. Both populations exist on phones, so readers tolerate both — and it is why this layer uses plain SQL rather than Room, whose schema validation would reject one of them.
-- **Updating means installing an APK.** There is no store to go through, so the app asks Android to install the build it downloaded, which needs `REQUEST_INSTALL_PACKAGES` and a one-time "allow from this source" grant. The permission is the ability to *offer* an install: the system asks, names this app as the source, and declining leaves the phone as it was. The check itself is one request per launch to a fixed address, and it is silent when it fails — no network, a captive portal, GitHub down.
-- **Sync is with Home Assistant, and nothing else.** There is no cloud service in between: a phone syncs with the Wardrobapp app in somebody's own Home Assistant, over their own network, and phones reach each other's changes through it. Backups are still the way to move a wardrobe to a phone without one. The sync port speaks plain http, as Home Assistant usually does at home; that is the one exception to Android's cleartext rule (below), made in the sync client alone, and reaching it from outside the home calls for HTTPS in front of it. When the same garment was edited on two devices between syncs the later edit wins whole — the two edits are not combined.
-- **No wear log.** The app records outfit ratings, not what you wore on a given day, so there is no cost-per-wear or wear-trend reporting.
-- **Colour detection is approximate.** It snaps every fourth pixel to the nearest of the 24 palette colours and picks whichever holds the most of them, plus a runner-up covering at least a fifth of the garment. What is left approximate: a print reports its ground and its strongest figure rather than "multi", the third colour of a three-coloured garment is not reported, and on a photo whose background has not been removed that background still votes. It fills the palette in rather than answering it — every colour it picks is one tap to undo.
-- **URL import only fetches public addresses.** A product page reaches the app two ways: a `wardrobapp://…?importUrl=…` deep link, which any web page, message or QR code can open, and the share sheet from a browser. Neither is necessarily an address you chose. Import therefore asks before fetching anything, and refuses addresses on the device or its local network — a phone sits *inside* a home network, and without that the app would be a way to reach a router or a printer that the page could not reach itself. A name is judged by the address it resolves to as well as by how it is written — `192.168.1.1.nip.io` is a public name for a router — and the connection is made only to the address that was checked, so a resolver cannot answer one way for the check and another for the request. Redirects are checked before they are followed, page reads are capped and given a deadline, and the image URLs a page supplies go through the same checks. Imports ignore any proxy set on the phone, because through a proxy the app could not see which address a request reaches. An `http://` page will not load at all: Android blocks cleartext by default and opting in app-wide to reach the occasional shop still on http would weaken every other request. (Syncing with Home Assistant is the exception, and only that client; see `syncHttpClient`.)
-
-## Contributing
-
-This is a personal project, but issues and PRs are welcome. For anything non-trivial, open an issue first so we can talk through scope. Pull requests must pass `./gradlew test` and the Android job.
-
-By contributing, you agree that your contributions are licensed under the project's AGPL-3.0 license.
+Want to build the app yourself or contribute? Start with
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-[AGPL-3.0](LICENSE) — GNU Affero General Public License v3.0.
-
-In plain English: you can use, modify, and redistribute Wardrobapp freely, including running it as a hosted service, **provided that** you publish the full source of your modified version under the same AGPL-3.0 license. For closed-source or proprietary commercial use, contact the author to discuss a commercial license.
+Wardrobapp is free software under the [AGPL-3.0](LICENSE). You can use, change
+and share it freely, including running it as a service, as long as you publish
+the full source of your changed version under the same license. For
+closed-source or commercial use, contact the author about a commercial license.

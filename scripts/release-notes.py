@@ -327,7 +327,7 @@ def scope_of(commit: str) -> list[str]:
 
 
 # Where the Home Assistant app's version is written; bumping it is what releases
-# the app (see the README), so it is also what says which release a note
+# the app (see CONTRIBUTING.md), so it is also what says which release a note
 # arrived in.
 HOME_ASSISTANT_CONFIG = 'homeassistant/wardrobapp/config.yaml'
 VERSION_LINE = re.compile(r'^version:\s*"?([^"\s]+)"?\s*$', re.M)
