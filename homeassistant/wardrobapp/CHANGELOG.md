@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0
+
+- A layout for wide screens. On a computer, the app uses the whole window:
+  a rail down the side instead of the bar along the bottom, and the wardrobe
+  shows its filters, your clothes and the garment you pick side by side. Home,
+  Outfits, Statistics, Settings and adding clothes are laid out for the room
+  too. On a phone, or a narrow window, nothing changes.
+
 ## 0.6.0
 
 - Remove a photo's background in the browser, from the garment form, from
