@@ -10,6 +10,7 @@ import com.wardrobapp.ui.WARDROBE
 import kotlinx.browser.window
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 
@@ -53,8 +54,23 @@ class Entry(val destination: Destination) {
 
     private var model: Any? = null
 
+    /** Whatever else the screen keeps for as long as the entry lives; see [keep]. */
+    private val kept = mutableMapOf<String, Any>()
+
     @Suppress("UNCHECKED_CAST")
     fun <M : Any> model(create: (CoroutineScope) -> M): M = (model ?: create(scope).also { model = it }) as M
+
+    /**
+     * Something besides the model that has to outlive the composition -- the
+     * garment open in the desktop's pane, and that garment's own model.
+     *
+     * Here rather than in `remember`, because the composition does not live as
+     * long as the entry: switching tabs disposes it, and so does the window
+     * crossing the desktop breakpoint, and neither should close the garment
+     * somebody was looking at.
+     */
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Any> keep(key: String, create: () -> T): T = kept.getOrPut(key, create) as T
 
     fun close() = scope.cancel()
 }
@@ -86,6 +102,13 @@ class Navigator {
     private var unwinding = false
 
     val current: Entry get() = stack.last()
+
+    /**
+     * The tab the screen on top was opened from: the desktop rail's selection,
+     * which goes on saying "Wardrobe" while a garment's form is open over it.
+     * There is always one, since Home is never taken off the bottom.
+     */
+    val tab: Destination.Tab get() = stack.last { it.destination is Destination.Tab }.destination as Destination.Tab
 
     init {
         window.addEventListener("popstate") {
@@ -132,6 +155,37 @@ class Navigator {
         }
         if (tab != Destination.Home) {
             stack.add(savedTabs.remove(tab) ?: Entry(tab))
+        }
+    }
+}
+
+/**
+ * A model for whichever one thing a pane is showing, replaced when that changes.
+ *
+ * The desktop wardrobe shows one garment at a time beside its grid, and picking
+ * another means a different [com.wardrobapp.presentation.GarmentDetailScreenModel]:
+ * they are made for one garment each. Each gets a scope of its own under the
+ * entry's, cancelled when the next one replaces it, so a slow read of the garment
+ * that was open cannot land after somebody has moved on to the next one; and the
+ * entry's own scope still ends them all when the wardrobe leaves the stack.
+ */
+class PaneModel<M : Any>(private val parent: CoroutineScope) {
+    private var key: Any? = null
+    private var scope: CoroutineScope? = null
+
+    /** The model showing now, if any: refreshed with the screen when it is returned to. */
+    var current: M? = null
+        private set
+
+    fun modelFor(key: Any, create: (CoroutineScope) -> M): M {
+        current?.takeIf { this.key == key }?.let { return it }
+
+        scope?.cancel()
+        val child = CoroutineScope(parent.coroutineContext + SupervisorJob(parent.coroutineContext[Job]))
+        return create(child).also {
+            this.key = key
+            scope = child
+            current = it
         }
     }
 }

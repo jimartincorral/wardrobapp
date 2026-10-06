@@ -45,6 +45,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -180,6 +193,13 @@ fun OutfitsScreen(
     onGarmentOpened: (String) -> Unit,
     onOutfitOpened: (String) -> Unit,
     onBuildRequested: () -> Unit,
+    /**
+     * Photos of the garments in saved outfits, by garment id, for the desktop's
+     * saved list. A saved outfit is stored as the ids of what is in it, and the
+     * phone's row is words only; on a desktop there is room for the garments, and
+     * whoever has them hands them over. Missing ones are simply not drawn.
+     */
+    garmentPhotos: Map<String, String> = emptyMap(),
 ) {
     state.deleting?.let { outfit ->
         AlertDialog(
@@ -201,16 +221,26 @@ fun OutfitsScreen(
     // The rating is already recorded and already learned from by the time this is
     // on screen, so there is no destructive answer here and no way to lose it: both
     // buttons and a dismiss all leave the rating exactly where it is.
-    state.keeping?.let { rated ->
-        AlertDialog(
-            onDismissRequest = onKeepDismissed,
-            title = { Text(stringResource(Res.string.outfit_keep_title)) },
-            text = { Text(stringResource(Res.string.outfit_keep_body, rated.outfit.name)) },
-            confirmButton = { TextButton(onClick = onKeep) { Text(stringResource(Res.string.outfit_keep)) } },
-            dismissButton = {
-                TextButton(onClick = onKeepDismissed) { Text(stringResource(Res.string.outfit_just_learn)) }
-            },
+    state.keeping?.let { rated -> KeepDialog(rated, onKeep, onKeepDismissed) }
+
+    if (isExpanded()) {
+        ExpandedOutfits(
+            state = state,
+            garmentPhotos = garmentPhotos,
+            onSeasonTapped = onSeasonTapped,
+            onOccasionTapped = onOccasionTapped,
+            onGenerate = onGenerate,
+            onSeedCleared = onSeedCleared,
+            onArchivedToggled = onArchivedToggled,
+            onSave = onSave,
+            onRate = onRate,
+            onPinToggled = onPinToggled,
+            onDeleteRequested = onDeleteRequested,
+            onGarmentOpened = onGarmentOpened,
+            onOutfitOpened = onOutfitOpened,
+            onBuildRequested = onBuildRequested,
         )
+        return
     }
 
     Scaffold(
@@ -266,7 +296,7 @@ fun OutfitsScreen(
                 item { BuildingAround(seed, onSeedCleared) }
             }
 
-            item { SuggestButton(state, onGenerate) }
+            item { SuggestButton(state, onGenerate, Modifier.fillMaxWidth()) }
 
             state.error?.let { error ->
                 item {
@@ -382,20 +412,17 @@ private data class Chip(val label: String, val active: Boolean, val onTap: () ->
  * narrow was off the bottom of the screen before anything had been suggested.
  * One line each keeps both headings and the button in view at once.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun ChipRow(label: String, chips: List<Chip>) {
-    Column {
+private fun ChipRow(label: String, chips: List<Chip>, modifier: Modifier = Modifier, wrap: Boolean = false) {
+    Column(modifier = modifier) {
         Text(
             label,
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier.padding(bottom = 8.dp),
         )
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+
+        val drawChips: @Composable () -> Unit = {
             for (chip in chips) {
                 FilterChip(
                     selected = chip.active,
@@ -404,6 +431,22 @@ private fun ChipRow(label: String, chips: List<Chip>) {
                     shape = RoundedCornerShape(8.dp),
                 )
             }
+        }
+
+        // Wrapping on a desktop, where the two rows sit side by side over a button
+        // that is in view however many lines they take; see the comment above for
+        // why the phone keeps them to one.
+        if (wrap) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) { drawChips() }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) { drawChips() }
         }
     }
 }
@@ -459,7 +502,11 @@ private const val ARRIVAL_STAGGER_MILLIS = 120L
  * cards are still arriving.
  */
 @Composable
-private fun SuggestButton(state: OutfitsScreenState, onGenerate: () -> Unit) {
+private fun SuggestButton(
+    state: OutfitsScreenState,
+    onGenerate: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var spins by remember { mutableStateOf(0) }
     val press = remember { MutableInteractionSource() }
 
@@ -476,7 +523,7 @@ private fun SuggestButton(state: OutfitsScreenState, onGenerate: () -> Unit) {
         },
         enabled = !state.generating,
         interactionSource = press,
-        modifier = Modifier.fillMaxWidth().height(CTA_HEIGHT).pressScale(press),
+        modifier = modifier.height(CTA_HEIGHT).pressScale(press),
     ) {
         Icon(
             Glyph.AutoAwesome,
@@ -498,7 +545,7 @@ private fun SuggestButton(state: OutfitsScreenState, onGenerate: () -> Unit) {
 }
 
 @Composable
-private fun SuggestionCard(
+internal fun SuggestionCard(
     suggestion: OutfitsScreenState.Suggestion,
     onSave: () -> Unit,
     onRate: (Int) -> Unit,
@@ -606,16 +653,43 @@ private fun SavedOutfitRow(
     onOpened: () -> Unit,
     onPinToggled: () -> Unit,
     onDelete: () -> Unit,
+    /** The desktop's thumbnails, in outfit order; null on the phone, whose row is words only. */
+    photos: List<String>? = null,
 ) {
     // The card opens the outfit; the two buttons on it do their own thing. The
     // clickable goes on the card rather than the row inside it so the whole
     // surface is the target, which is what a list of cards behaves like
     // everywhere else.
-    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onOpened)) {
+    Card(
+        shape = if (photos == null) CardDefaults.shape else RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth().clickCursor().clickable(onClick = onOpened),
+    ) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // What is in it, small: a saved list of names reads as a list of names,
+            // and the garments are what somebody scanning it remembers the outfit by.
+            if (!photos.isNullOrEmpty()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.padding(end = 12.dp),
+                ) {
+                    for (uri in photos.take(THUMBNAILS_ACROSS)) {
+                        AsyncImage(
+                            model = uri,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .width(30.dp)
+                                .aspectRatio(3f / 4f)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(photoSurface()),
+                        )
+                    }
+                }
+            }
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     outfit.name,
@@ -680,4 +754,278 @@ private fun SavedOutfitRow(
     }
 }
 
+/**
+ * "Keep this one to wear?", after a rating.
+ *
+ * Shared by the outfits screen and the desktop's Home, which rates suggestions
+ * from the same model and has to ask the same question afterwards.
+ */
+@Composable
+private fun KeepDialog(
+    rated: OutfitsScreenState.Suggestion,
+    onKeep: () -> Unit,
+    onKeepDismissed: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onKeepDismissed,
+        title = { Text(stringResource(Res.string.outfit_keep_title)) },
+        text = { Text(stringResource(Res.string.outfit_keep_body, rated.outfit.name)) },
+        confirmButton = { TextButton(onClick = onKeep) { Text(stringResource(Res.string.outfit_keep)) } },
+        dismissButton = {
+            TextButton(onClick = onKeepDismissed) { Text(stringResource(Res.string.outfit_just_learn)) }
+        },
+    )
+}
 
+/**
+ * The first two suggestions, side by side: the desktop Home's "Outfit ideas".
+ *
+ * The same cards as the outfits screen, with the same bookmark and the same
+ * stars, driven by an outfits model of Home's own -- so saving or rating one here
+ * is the same request it is there, and the question after a rating is asked here
+ * too rather than left waiting on a screen nobody is looking at.
+ */
+@Composable
+fun OutfitIdeas(
+    state: OutfitsScreenState,
+    onSave: (OutfitsScreenState.Suggestion) -> Unit,
+    onRate: (OutfitsScreenState.Suggestion, Int) -> Unit,
+    onKeep: () -> Unit,
+    onKeepDismissed: () -> Unit,
+    onGarmentOpened: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    state.keeping?.let { rated -> KeepDialog(rated, onKeep, onKeepDismissed) }
+
+    val shown = state.suggestions.take(HOME_IDEAS)
+
+    when {
+        shown.isNotEmpty() -> Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = modifier.fillMaxWidth(),
+        ) {
+            for ((index, suggestion) in shown.withIndex()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    Arriving(index = index, key = suggestion.id) {
+                        SuggestionCard(
+                            suggestion = suggestion,
+                            onSave = { onSave(suggestion) },
+                            onRate = { rating -> onRate(suggestion, rating) },
+                            onGarmentOpened = onGarmentOpened,
+                        )
+                    }
+                }
+            }
+            // Half the width still, when only one came back, so it is the same card
+            // it would have been beside a second.
+            repeat(HOME_IDEAS - shown.size) { Spacer(modifier = Modifier.weight(1f)) }
+        }
+
+        state.generating -> Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(modifier = Modifier.padding(24.dp))
+        }
+
+        else -> Text(
+            stringResource(if (state.hasGenerated) Res.string.outfits_none_possible else Res.string.outfits_prompt),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = modifier,
+        )
+    }
+}
+
+/** How many ideas Home shows: one row of two, which is what fits beside the column of shortcuts. */
+private const val HOME_IDEAS = 2
+
+/**
+ * Suggestions and saved outfits side by side, on a desktop-width window.
+ *
+ * Two columns rather than the phone's one list, because they are two different
+ * things to do: the left asks the engine for something new, the right is what was
+ * already kept. In one list the saved outfits were below every suggestion, so
+ * the more suggestions there were, the further away the outfits you had already
+ * chosen went. Each column scrolls on its own for the same reason.
+ *
+ * The suggestions are an auto-filling grid of the phone's cards rather than a
+ * stretched column of them: a card wider than about 340dp makes the four photos
+ * on it larger without showing anything more.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExpandedOutfits(
+    state: OutfitsScreenState,
+    garmentPhotos: Map<String, String>,
+    onSeasonTapped: (Season?) -> Unit,
+    onOccasionTapped: (Occasion?) -> Unit,
+    onGenerate: () -> Unit,
+    onSeedCleared: () -> Unit,
+    onArchivedToggled: () -> Unit,
+    onSave: (OutfitsScreenState.Suggestion) -> Unit,
+    onRate: (OutfitsScreenState.Suggestion, Int) -> Unit,
+    onPinToggled: (OutfitRecord) -> Unit,
+    onDeleteRequested: (OutfitRecord) -> Unit,
+    onGarmentOpened: (String) -> Unit,
+    onOutfitOpened: (String) -> Unit,
+    onBuildRequested: () -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(Res.string.outfits_title)) },
+                actions = {
+                    // Spelled out: the phone's bare plus has the bar to itself, and
+                    // here it would sit at the far end of a monitor-wide bar with
+                    // nothing near it to say what it adds.
+                    TextButton(onClick = onBuildRequested, modifier = Modifier.testTag(OUTFIT_BUILD_ACTION)) {
+                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(stringResource(Res.string.outfit_build), modifier = Modifier.padding(start = 8.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                },
+            )
+        },
+    ) { insets ->
+        // Read out here: the grid's content block is not a composition.
+        val seasons = state.filters.seasonChips().map { chip ->
+            Chip(
+                chip.value?.let { stringResource(it.labelRes) } ?: stringResource(Res.string.outfits_filter_any),
+                chip.active,
+            ) { onSeasonTapped(chip.value) }
+        }
+        val occasions = state.filters.occasionChips().map { chip ->
+            Chip(
+                chip.value?.let { stringResource(it.labelRes) } ?: stringResource(Res.string.outfits_filter_any),
+                chip.active,
+            ) { onOccasionTapped(chip.value) }
+        }
+        val seasonLabel = stringResource(Res.string.filter_section_season)
+        val occasionLabel = stringResource(Res.string.filter_section_occasion)
+
+        Row(
+            modifier = Modifier.fillMaxSize().padding(insets).padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 340.dp),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                contentPadding = PaddingValues(bottom = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                across {
+                    Text(
+                        stringResource(Res.string.outfits_subtitle),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                across {
+                    Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                        ChipRow(seasonLabel, seasons, modifier = Modifier.weight(1f), wrap = true)
+                        ChipRow(occasionLabel, occasions, modifier = Modifier.weight(1f), wrap = true)
+                    }
+                }
+
+                state.seed?.let { seed -> across { BuildingAround(seed, onSeedCleared) } }
+
+                across {
+                    // Let go of the grid's width first: a full-span item is handed
+                    // exactly the grid's width as its minimum, and a cap below
+                    // that minimum is ignored rather than obeyed.
+                    SuggestButton(
+                        state,
+                        onGenerate,
+                        modifier = Modifier.wrapContentWidth(Alignment.Start).widthIn(max = 360.dp).fillMaxWidth(),
+                    )
+                }
+
+                state.error?.let { error ->
+                    across {
+                        Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+
+                if (state.generating) {
+                    across {
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(modifier = Modifier.padding(24.dp))
+                        }
+                    }
+                }
+
+                itemsIndexed(state.suggestions, key = { _, it -> "suggestion-${it.id}" }) { index, suggestion ->
+                    Arriving(index = index, key = suggestion.id) {
+                        SuggestionCard(
+                            suggestion = suggestion,
+                            onSave = { onSave(suggestion) },
+                            onRate = { rating -> onRate(suggestion, rating) },
+                            onGarmentOpened = onGarmentOpened,
+                        )
+                    }
+                }
+
+                if (!state.generating && state.suggestions.isEmpty()) {
+                    across {
+                        Text(
+                            stringResource(
+                                if (state.hasGenerated) Res.string.outfits_none_possible else Res.string.outfits_prompt
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+            }
+
+            Column(modifier = Modifier.width(400.dp).fillMaxHeight()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                ) {
+                    Text(
+                        stringResource(Res.string.outfits_saved_section),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+
+                    // As on the phone: offered only once there is something behind it.
+                    if (state.archivedCount > 0) {
+                        TextButton(onClick = onArchivedToggled, modifier = Modifier.testTag(OUTFIT_ARCHIVE_TOGGLE)) {
+                            Text(
+                                if (state.showingArchived) {
+                                    stringResource(Res.string.outfits_hide_rated)
+                                } else {
+                                    pluralStringResource(
+                                        Res.plurals.outfits_show_rated,
+                                        state.archivedCount.toInt(),
+                                        state.archivedCount.toInt(),
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(state.saved, key = { "saved-${it.id}" }) { outfit ->
+                        SavedOutfitRow(
+                            outfit = outfit,
+                            onOpened = { onOutfitOpened(outfit.id) },
+                            onPinToggled = { onPinToggled(outfit) },
+                            onDelete = { onDeleteRequested(outfit) },
+                            photos = outfit.garmentIds.mapNotNull { garmentPhotos[it] },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** One item across the whole grid, as the wardrobe's headers are. */
+private fun LazyGridScope.across(content: @Composable () -> Unit) =
+    item(span = { GridItemSpan(maxLineSpan) }) { content() }

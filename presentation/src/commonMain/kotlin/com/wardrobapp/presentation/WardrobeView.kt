@@ -61,6 +61,35 @@ val WARDROBE_VIEW_CHOICES: List<WardrobeView> =
         GRID_COLUMN_CHOICES.map { WardrobeView(WardrobeLayout.GRID, it) }
 
 /**
+ * How many more cells a desktop-width window puts across than a phone does.
+ *
+ * The desktop layout offers four, five and six where the phone offers two, three
+ * and four -- the same three sizes, Large, Medium and Small, each two cells wider
+ * because the pane holding them is three or four times as wide.
+ *
+ * Offset rather than a second stored setting, on purpose. The browser keeps one
+ * preference for the whole wardrobe, and the same browser is a phone-width window
+ * one minute and a desktop one the next (Home Assistant's sidebar opening and
+ * closing is enough). Stored as "Medium", the choice means Medium at either width;
+ * stored as a raw count it would have to be clamped into the other width's range,
+ * and a desktop "6" would come back to the phone as its smallest size with nobody
+ * having asked for that.
+ */
+const val EXPANDED_EXTRA_COLUMNS: Int = 2
+
+/**
+ * How many garments go across at the given window width.
+ *
+ * [cellsAcross] for a phone-width window; the desktop count for a wide one. A
+ * list is one either way -- a row is a row.
+ */
+fun WardrobeView.cellsAcross(width: WindowWidth): Int = when {
+    layout == WardrobeLayout.LIST -> 1
+    width == WindowWidth.EXPANDED -> columns + EXPANDED_EXTRA_COLUMNS
+    else -> columns
+}
+
+/**
  * The view a stored pair stands for.
  *
  * Anything unrecognised is the list at the default width, which is what the app

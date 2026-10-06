@@ -32,6 +32,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.wardrobapp.ui.resources.outfits_suggest
+import com.wardrobapp.ui.resources.home_recent_title
+import com.wardrobapp.ui.resources.home_open_wardrobe_action
+import com.wardrobapp.presentation.garmentCaptionFor
+import com.wardrobapp.presentation.GarmentCaption
+import com.wardrobapp.data.GarmentRecord
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.font.FontWeight
@@ -84,8 +99,43 @@ fun HomeScreen(
     onStatisticsRequested: () -> Unit,
     onSettingsRequested: () -> Unit,
     onRetry: () -> Unit,
+    /**
+     * The newest garments still in use, for the desktop's "Recently added" row.
+     * The phone's Home has no room for it and is never given any.
+     */
+    recent: List<GarmentRecord> = emptyList(),
+    /** What a recent garment's cell says under its photo: the wardrobe's own choice. */
+    caption: GarmentCaption = garmentCaptionFor(null),
+    onRecentOpened: (String) -> Unit = {},
+    /**
+     * A couple of outfit suggestions, for the desktop's "Outfit ideas": a slot,
+     * because they come with an outfits model of their own (see OutfitIdeas).
+     * Null on the phone, whose Home links to the outfits tab instead.
+     */
+    outfitIdeas: (@Composable () -> Unit)? = null,
 ) {
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(Res.string.home_title)) }) }) { insets ->
+    if (isExpanded()) {
+        ExpandedHome(
+            state = state,
+            firstSteps = firstSteps,
+            onFirstStepsDismissed = onFirstStepsDismissed,
+            onFirstStep = onFirstStep,
+            onAddRequested = onAddRequested,
+            onWardrobeRequested = onWardrobeRequested,
+            onArchivedRequested = onArchivedRequested,
+            onOutfitsRequested = onOutfitsRequested,
+            onStatisticsRequested = onStatisticsRequested,
+            onSettingsRequested = onSettingsRequested,
+            onRetry = onRetry,
+            recent = recent,
+            caption = caption,
+            onRecentOpened = onRecentOpened,
+            outfitIdeas = outfitIdeas,
+        )
+        return
+    }
+
+    Scaffold(topBar = { HomeTopBar() }) { insets ->
         LazyColumn(
             modifier = Modifier.padding(insets),
             contentPadding = PaddingValues(16.dp),
@@ -114,29 +164,7 @@ fun HomeScreen(
 
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // A dash rather than a zero while the counts are unknown: a
-                    // zero here is a real answer, and "your wardrobe is empty" is
-                    // the wrong thing to say about a read that has not finished
-                    // or has failed.
-                    // Both open the wardrobe, because a number you are looking at
-                    // is the obvious way in to the things it counts. Archived opens
-                    // it showing retired garments: the plain wardrobe hides every
-                    // one of them, so a link that did not ask for them would answer
-                    // a tap on "12 archived" with a list containing none of them.
-                    Count(
-                        label = stringResource(Res.string.home_items),
-                        value = state.countText(state.items),
-                        onClick = onWardrobeRequested,
-                        clickLabel = stringResource(Res.string.home_open_wardrobe),
-                        modifier = Modifier.weight(1f),
-                    )
-                    Count(
-                        label = stringResource(Res.string.home_archived),
-                        value = state.countText(state.archived),
-                        onClick = onArchivedRequested,
-                        clickLabel = stringResource(Res.string.home_open_archived),
-                        modifier = Modifier.weight(1f),
-                    )
+                    Counts(state, onWardrobeRequested, onArchivedRequested)
                 }
             }
 
@@ -145,44 +173,11 @@ fun HomeScreen(
             // could in principle answer differently the second time it is asked.
             val error = state.error
             if (error != null) {
-                item {
-                    Card {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                stringResource(Res.string.error_wardrobe_unreadable),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                error,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(top = 4.dp),
-                            )
-                            TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
-                        }
-                    }
-                }
+                item { Unreadable(error, onRetry) }
             }
 
             item {
-                val press = remember { MutableInteractionSource() }
-
-                Button(
-                    onClick = onAddRequested,
-                    interactionSource = press,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                        .height(CTA_HEIGHT)
-                        .pressScale(press),
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Text(
-                        stringResource(Res.string.home_add_garment),
-                        style = ctaLabel(),
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
+                AddGarmentButton(onAddRequested, Modifier.fillMaxWidth().padding(vertical = 4.dp))
             }
 
             item {
@@ -219,6 +214,251 @@ fun HomeScreen(
             }
         }
     }
+}
+
+/**
+ * The two counts, side by side, for whichever row holds them.
+ *
+ * The phone's row is these two alone; the desktop's adds the add button after
+ * them, which is why this is the cards and not the row.
+ */
+@Composable
+private fun RowScope.Counts(state: HomeScreenState, onWardrobeRequested: () -> Unit, onArchivedRequested: () -> Unit) {
+    // A dash rather than a zero while the counts are unknown: a
+    // zero here is a real answer, and "your wardrobe is empty" is
+    // the wrong thing to say about a read that has not finished
+    // or has failed.
+    // Both open the wardrobe, because a number you are looking at
+    // is the obvious way in to the things it counts. Archived opens
+    // it showing retired garments: the plain wardrobe hides every
+    // one of them, so a link that did not ask for them would answer
+    // a tap on "12 archived" with a list containing none of them.
+    Count(
+        label = stringResource(Res.string.home_items),
+        value = state.countText(state.items),
+        onClick = onWardrobeRequested,
+        clickLabel = stringResource(Res.string.home_open_wardrobe),
+        modifier = Modifier.weight(1f),
+    )
+    Count(
+        label = stringResource(Res.string.home_archived),
+        value = state.countText(state.archived),
+        onClick = onArchivedRequested,
+        clickLabel = stringResource(Res.string.home_open_archived),
+        modifier = Modifier.weight(1f),
+    )
+}
+
+/** "Could not read the wardrobe", with the error and a retry. */
+@Composable
+private fun Unreadable(error: String, onRetry: () -> Unit) {
+    Card {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(Res.string.error_wardrobe_unreadable),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                error,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
+        }
+    }
+}
+
+/** The filled "Add a garment": the one call to action Home has, at either width. */
+@Composable
+private fun AddGarmentButton(onAddRequested: () -> Unit, modifier: Modifier = Modifier) {
+    val press = remember { MutableInteractionSource() }
+
+    Button(
+        onClick = onAddRequested,
+        interactionSource = press,
+        modifier = modifier.height(CTA_HEIGHT).pressScale(press).clickCursor(),
+    ) {
+        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+        Text(
+            stringResource(Res.string.home_add_garment),
+            style = ctaLabel(),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 8.dp),
+        )
+    }
+}
+
+/**
+ * Home on a desktop-width window: a dashboard rather than a column of links.
+ *
+ * The phone's Home is a way to everywhere else, which on a monitor the rail
+ * already is. So the left two thirds show the wardrobe itself -- what was added
+ * last, and a couple of outfits made from it -- and the right third keeps the
+ * shortcuts the rail does not have words for. The outfits shortcut is the one
+ * dropped: the ideas beside it are the outfits tab, already open.
+ */
+@Composable
+private fun ExpandedHome(
+    state: HomeScreenState,
+    firstSteps: FirstSteps?,
+    onFirstStepsDismissed: () -> Unit,
+    onFirstStep: (FirstStep) -> Unit,
+    onAddRequested: () -> Unit,
+    onWardrobeRequested: () -> Unit,
+    onArchivedRequested: () -> Unit,
+    onOutfitsRequested: () -> Unit,
+    onStatisticsRequested: () -> Unit,
+    onSettingsRequested: () -> Unit,
+    onRetry: () -> Unit,
+    recent: List<GarmentRecord>,
+    caption: GarmentCaption,
+    onRecentOpened: (String) -> Unit,
+    outfitIdeas: (@Composable () -> Unit)?,
+) {
+    Scaffold(topBar = { HomeTopBar() }) { insets ->
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(insets)
+                .verticalScroll(rememberScrollState())
+                .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
+        ) {
+            // Two to one, with the shortcuts never narrower than 320dp: below
+            // that their one-line descriptions wrap to three.
+            val content = minOf(maxWidth, 1320.dp)
+            val side = maxOf(320.dp, (content - 24.dp) / 3)
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.Top,
+                modifier = Modifier.width(content),
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        stringResource(Res.string.home_subtitle),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Counts(state, onWardrobeRequested, onArchivedRequested)
+                        AddGarmentButton(onAddRequested, Modifier.weight(1.3f))
+                    }
+
+                    state.error?.let { Unreadable(it, onRetry) }
+
+                    // Left out until there is something in it. An empty wardrobe
+                    // already says so in the count above, and in the first-steps
+                    // card beside it.
+                    if (recent.isNotEmpty()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 20.dp),
+                        ) {
+                            Text(
+                                stringResource(Res.string.home_recent_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(onClick = onWardrobeRequested) {
+                                Text(stringResource(Res.string.home_open_wardrobe_action))
+                            }
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            for (garment in recent.take(RECENT_ACROSS)) {
+                                GarmentCell(
+                                    garment,
+                                    caption = caption,
+                                    modifier = Modifier.weight(1f),
+                                ) { onRecentOpened(garment.id) }
+                            }
+                            // Six columns whatever the count, so three new garments
+                            // are drawn the size six would be.
+                            repeat(RECENT_ACROSS - recent.size.coerceAtMost(RECENT_ACROSS)) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+
+                    if (outfitIdeas != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(top = 20.dp),
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    stringResource(Res.string.home_outfits_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Text(
+                                    stringResource(Res.string.home_outfits_detail),
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+
+                            OutlinedButton(
+                                onClick = onOutfitsRequested,
+                                contentPadding = PaddingValues(start = 16.dp, end = 24.dp),
+                                modifier = Modifier.height(40.dp).clickCursor(),
+                            ) {
+                                Icon(Glyph.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Text(
+                                    stringResource(Res.string.outfits_suggest),
+                                    modifier = Modifier.padding(start = 8.dp),
+                                )
+                            }
+                        }
+
+                        outfitIdeas()
+                    }
+                }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    // Down by the subtitle's height, so the first card lines up with
+                    // the counts rather than with a line of grey text.
+                    modifier = Modifier.width(side).padding(top = 32.dp),
+                ) {
+                    if (firstSteps != null) {
+                        FirstStepsCard(steps = firstSteps, onDismiss = onFirstStepsDismissed, onStep = onFirstStep)
+                    }
+
+                    Action(
+                        title = stringResource(Res.string.home_statistics_title),
+                        detail = stringResource(Res.string.home_statistics_detail),
+                        glyph = Glyph.Insights,
+                        onClick = onStatisticsRequested,
+                    )
+                    Action(
+                        title = stringResource(Res.string.home_settings_title),
+                        detail = stringResource(Res.string.home_settings_detail),
+                        glyph = null,
+                        onClick = onSettingsRequested,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** How many recently added garments the desktop's Home shows: one row of the wardrobe's smallest size. */
+private const val RECENT_ACROSS = 6
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeTopBar() {
+    TopAppBar(title = { Text(stringResource(Res.string.home_title)) })
 }
 
 /**
@@ -260,6 +500,7 @@ private fun Count(
         // rather than as the card being pressed.
         modifier = modifier
             .pressLift(press)
+            .clickCursor()
             .clickable(
                 interactionSource = press,
                 indication = null,
@@ -315,6 +556,7 @@ private fun Action(title: String, detail: String, glyph: Painter?, onClick: () -
         modifier = Modifier
             .fillMaxWidth()
             .pressNudge(press)
+            .clickCursor()
             .clickable(interactionSource = press, indication = null, onClick = onClick),
     ) {
         Row(

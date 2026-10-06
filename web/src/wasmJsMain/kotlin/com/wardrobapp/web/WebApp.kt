@@ -1,6 +1,10 @@
 package com.wardrobapp.web
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -21,12 +25,16 @@ import com.wardrobapp.data.parseWebReleases
 import com.wardrobapp.presentation.AppDestination
 import com.wardrobapp.presentation.WardrobeQuery
 import com.wardrobapp.presentation.WhatsNewDecision
+import com.wardrobapp.presentation.WindowWidth
+import com.wardrobapp.presentation.windowWidthFor
 import com.wardrobapp.presentation.webWhatsNewDecision
 import com.wardrobapp.ui.LocalPhotoTools
+import com.wardrobapp.ui.LocalWindowWidth
 import com.wardrobapp.ui.PhotoTools
 import com.wardrobapp.ui.TABS
 import com.wardrobapp.ui.WardrobappTheme
 import com.wardrobapp.ui.WardrobeBottomBar
+import com.wardrobapp.ui.WardrobeNavigationRail
 import com.wardrobapp.ui.WhatsNewDialog
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -35,8 +43,8 @@ import io.ktor.client.statement.bodyAsText
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * The whole browser app: the theme, the bottom bar, and whichever screen is on
- * top of the stack.
+ * The whole browser app: the theme, the bottom bar -- or on a desktop-width
+ * window the rail down the side -- and whichever screen is on top of the stack.
  *
  * Shaped after MainActivity's composition, deliberately, so the two can be read
  * side by side: the same tabs, the same hand-offs between screens -- a category
@@ -69,6 +77,9 @@ fun WebApp(http: HttpClient, profile: ProfileControls) {
     // navigator.
     var arrival by remember { mutableStateOf<WardrobeQuery?>(null) }
     var outfitSeed by remember { mutableStateOf<String?>(null) }
+    // The garment to open beside the desktop wardrobe's grid when it arrives --
+    // one of Home's recently added -- consumed with the query that comes with it.
+    var arrivingGarment by remember { mutableStateOf<String?>(null) }
 
     // What Home Assistant's last update of the app changed, once per browser
     // per version; see webWhatsNewDecision. Asked once per page load, like the
@@ -116,8 +127,9 @@ fun WebApp(http: HttpClient, profile: ProfileControls) {
             sources = sources,
             navigator = navigator,
             profile = { currentProfile },
-            openWardrobe = { query ->
+            openWardrobe = { query, garmentId ->
                 arrival = query
+                arrivingGarment = garmentId
                 navigator.switchTo(Destination.Wardrobe)
             },
             buildOutfitAround = { garmentId ->
@@ -131,59 +143,93 @@ fun WebApp(http: HttpClient, profile: ProfileControls) {
         // Backgrounds as the server says; nothing crops a photo in the browser
         // yet. See PhotoTools.
         CompositionLocalProvider(LocalPhotoTools provides PhotoTools(removesBackgrounds = features.removesBackgrounds, crops = false)) {
-            val entry = navigator.current
-            val route = (entry.destination as? Destination.Tab)?.route
+            // Measured here, on the space the app is given, rather than asked of
+            // the window: under Home Assistant the app is a panel beside Home
+            // Assistant's own sidebar, and it is the panel that has to fit the
+            // desktop's panes. Opening or folding that sidebar crosses the line
+            // at some widths, and only the layout changes when it does -- every
+            // screen keeps its model, so nothing open is lost.
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val width = windowWidthFor(maxWidth.value)
+                val expanded = width == WindowWidth.EXPANDED
 
-            Scaffold(
-                bottomBar = {
-                    if (TABS.any { it.route == route }) {
-                        WardrobeBottomBar(route) { selected ->
-                            navigator.switchTo(TAB_DESTINATIONS.getValue(selected))
+                CompositionLocalProvider(LocalWindowWidth provides width) {
+                    val entry = navigator.current
+                    val route = (entry.destination as? Destination.Tab)?.route
+
+                    Scaffold(
+                        bottomBar = {
+                            if (!expanded && TABS.any { it.route == route }) {
+                                WardrobeBottomBar(route) { selected ->
+                                    navigator.switchTo(TAB_DESTINATIONS.getValue(selected))
+                                }
+                            }
+                        },
+                    ) { insets ->
+                        Row(modifier = Modifier.fillMaxSize().padding(insets)) {
+                            // On every screen, not only the tabs, as the desktop
+                            // design has it: with a whole monitor there is no reason
+                            // for a form to hide the way to the rest of the app, the
+                            // way a phone has to.
+                            if (expanded) {
+                                WardrobeNavigationRail(
+                                    route = navigator.tab.route,
+                                    onTabSelected = { selected ->
+                                        navigator.switchTo(TAB_DESTINATIONS.getValue(selected))
+                                    },
+                                    onAddRequested = { navigator.open(Destination.GarmentAdd()) },
+                                )
+                            }
+
+                            // Keyed on the entry, so every visit composes its own
+                            // screen and nothing from the last one -- a dialog's
+                            // remembered state, a scroll position -- leaks into the
+                            // next.
+                            key(entry) {
+                                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                                    screens.Show(
+                                        entry = entry,
+                                        theme = theme,
+                                        onThemeSelected = { choice ->
+                                            ThemePreference.choice = choice
+                                            theme = choice
+                                        },
+                                        arrival = arrival,
+                                        arrivingGarment = arrivingGarment,
+                                        onArrivalApplied = {
+                                            arrival = null
+                                            arrivingGarment = null
+                                        },
+                                        outfitSeed = outfitSeed,
+                                        onSeedApplied = { outfitSeed = null },
+                                    )
+                                }
+                            }
+                        }
+
+                        whatsNew?.let { (version, notes) ->
+                            fun seen() {
+                                WhatsNewSeen.version = version
+                                whatsNew = null
+                            }
+                            WhatsNewDialog(
+                                notes = notes,
+                                onShow = { destination ->
+                                    seen()
+                                    navigator.openFromNote(destination)
+                                },
+                                onDismiss = ::seen,
+                            )
+                        }
+
+                        // A screen returned to is read again, as RefreshOnReturn
+                        // does on the phone: whatever was done on the screen above
+                        // may have changed what this one shows.
+                        LaunchedEffect(entry) {
+                            if (entry.shown) entry.onReturn?.invoke()
+                            entry.shown = true
                         }
                     }
-                },
-            ) { insets ->
-                // Keyed on the entry, so every visit composes its own screen and
-                // nothing from the last one -- a dialog's remembered state, a
-                // scroll position -- leaks into the next.
-                key(entry) {
-                    Box(Modifier.padding(insets)) {
-                        screens.Show(
-                            entry = entry,
-                            theme = theme,
-                            onThemeSelected = { choice ->
-                                ThemePreference.choice = choice
-                                theme = choice
-                            },
-                            arrival = arrival,
-                            onArrivalApplied = { arrival = null },
-                            outfitSeed = outfitSeed,
-                            onSeedApplied = { outfitSeed = null },
-                        )
-                    }
-                }
-
-                whatsNew?.let { (version, notes) ->
-                    fun seen() {
-                        WhatsNewSeen.version = version
-                        whatsNew = null
-                    }
-                    WhatsNewDialog(
-                        notes = notes,
-                        onShow = { destination ->
-                            seen()
-                            navigator.openFromNote(destination)
-                        },
-                        onDismiss = ::seen,
-                    )
-                }
-
-                // A screen returned to is read again, as RefreshOnReturn does on
-                // the phone: whatever was done on the screen above may have
-                // changed what this one shows.
-                LaunchedEffect(entry) {
-                    if (entry.shown) entry.onReturn?.invoke()
-                    entry.shown = true
                 }
             }
         }

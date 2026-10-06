@@ -79,4 +79,23 @@ class WardrobeViewTest {
         assertTrue(WardrobeView(WardrobeLayout.GRID, 3).isCurrent(inGrid))
         assertFalse(WardrobeView(WardrobeLayout.GRID, 2).isCurrent(inGrid))
     }
+
+    @Test
+    fun `a desktop window offers the same three sizes, each two cells wider`() {
+        // Four, five and six: what the desktop design asks for, and the reason the
+        // offset is two rather than a second stored setting -- "Medium" is Medium
+        // at either width.
+        assertEquals(
+            listOf(4, 5, 6),
+            GRID_COLUMN_CHOICES.map { WardrobeView(WardrobeLayout.GRID, it).cellsAcross(WindowWidth.EXPANDED) },
+        )
+        assertEquals(3, WardrobeView(WardrobeLayout.GRID, 3).cellsAcross(WindowWidth.COMPACT))
+    }
+
+    @Test
+    fun `a list is one across at any width`() {
+        val list = WardrobeView(WardrobeLayout.LIST, columns = 4)
+        assertEquals(1, list.cellsAcross(WindowWidth.EXPANDED))
+        assertEquals(1, list.cellsAcross(WindowWidth.COMPACT))
+    }
 }

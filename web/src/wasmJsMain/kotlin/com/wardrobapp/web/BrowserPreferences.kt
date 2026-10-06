@@ -58,6 +58,20 @@ class BrowserWardrobeView : WardrobeViewSettings {
 }
 
 /**
+ * Whether the desktop wardrobe's filter panel is open: open unless it was closed.
+ *
+ * Remembered because it is a statement about the screen rather than about a
+ * visit -- somebody who closes it to give the grid a sixth column wants the
+ * sixth column the next time too. Stored as the closing rather than the opening,
+ * so a browser that has never been asked has the panel the design starts with.
+ */
+object FilterPanelPreference {
+    var open: Boolean
+        get() = read("wardrobapp.filterPanelClosed") != "true"
+        set(value) = write("wardrobapp.filterPanelClosed", if (value) null else "true")
+}
+
+/**
  * The version of the Home Assistant app this browser last showed What's new
  * for, or decided there was nothing to show for: WhatsNewRecord's counterpart.
  * Per browser, like everything here, so each person sees it once wherever

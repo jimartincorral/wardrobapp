@@ -54,6 +54,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.wardrobapp.ui.resources.action_cancel
+import androidx.compose.ui.unit.Dp
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -183,23 +191,33 @@ fun GarmentFormScreen(
         )
     }
 
+    if (isExpanded()) {
+        ExpandedGarmentForm(
+            state = state,
+            isEditing = isEditing,
+            brandSuggestions = brandSuggestions,
+            onBack = onBack,
+            onAddPhoto = onAddPhoto,
+            onPhotoSelected = onPhotoSelected,
+            onPhotoRemoved = onPhotoRemoved,
+            onRemoveBackground = onRemoveBackground,
+            onUndoBackground = onUndoBackground,
+            onCategorySelected = onCategorySelected,
+            onSubcategoryToggled = onSubcategoryToggled,
+            onSeasonToggled = onSeasonToggled,
+            onColorToggled = onColorToggled,
+            onBrandChanged = onBrandChanged,
+            onSizeChanged = onSizeChanged,
+            onTagsChanged = onTagsChanged,
+            onSave = onSave,
+            onImportUrlChanged = onImportUrlChanged,
+            onImportRequested = onImportRequested,
+        )
+        return
+    }
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        stringResource(
-                            if (isEditing) Res.string.form_title_edit else Res.string.form_title_add
-                        )
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
-                    }
-                },
-            )
-        },
+        topBar = { FormTopBar(isEditing, onBack) },
     ) { insets ->
         if (state.missing) {
             Box(
@@ -327,41 +345,358 @@ fun GarmentFormScreen(
 
             item {
                 Section(stringResource(Res.string.filter_size)) {
-                    Column {
-                        Chips(
-                            COMMON_SIZES.take(SIZE_CHIPS),
-                            setOf(form.size),
-                            { it },
-                        ) { onSizeChanged(if (form.size == it) "" else it) }
-
-                        OutlinedTextField(
-                            value = form.size,
-                            onValueChange = onSizeChanged,
-                            label = { Text(stringResource(Res.string.form_size_custom)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        )
-                    }
+                    Size(form.size, onSizeChanged)
                 }
             }
 
             item {
-                val press = remember { MutableInteractionSource() }
+                SaveButton(state, isEditing, onSave, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
 
-                Button(
-                    onClick = onSave,
-                    enabled = !state.saving && !state.loading,
-                    interactionSource = press,
-                    modifier = Modifier.fillMaxWidth().height(CTA_HEIGHT).pressScale(press),
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FormTopBar(isEditing: Boolean, onBack: () -> Unit) {
+    TopAppBar(
+        title = {
+            Text(
+                stringResource(
+                    if (isEditing) Res.string.form_title_edit else Res.string.form_title_add
+                )
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
+            }
+        },
+    )
+}
+
+/** The common sizes as chips, and a box for any other. */
+@Composable
+private fun Size(size: String, onSizeChanged: (String) -> Unit) {
+    Column {
+        Chips(
+            COMMON_SIZES.take(SIZE_CHIPS),
+            setOf(size),
+            { it },
+        ) { onSizeChanged(if (size == it) "" else it) }
+
+        OutlinedTextField(
+            value = size,
+            onValueChange = onSizeChanged,
+            label = { Text(stringResource(Res.string.form_size_custom)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        )
+    }
+}
+
+@Composable
+private fun SaveButton(
+    state: GarmentFormScreenState,
+    isEditing: Boolean,
+    onSave: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val press = remember { MutableInteractionSource() }
+
+    Button(
+        onClick = onSave,
+        enabled = !state.saving && !state.loading,
+        interactionSource = press,
+        modifier = modifier.height(CTA_HEIGHT).pressScale(press),
+    ) {
+        Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+        Text(
+            when {
+                state.saving -> stringResource(Res.string.form_saving)
+                isEditing -> stringResource(Res.string.form_save_edit)
+                else -> stringResource(Res.string.form_save_add)
+            },
+            style = ctaLabel(),
+            modifier = Modifier.padding(start = 8.dp),
+        )
+    }
+}
+
+/**
+ * The form on a desktop-width window: the photos on the left, everything else on
+ * the right, and the save at the bottom whatever is scrolled.
+ *
+ * The phone's single column puts the photos at the top and the save button at
+ * the very end, which on a phone is a thumb's flick and on a monitor is the
+ * length of a page with the photo you are describing scrolled out of sight. So
+ * the photo column stays where it is while the choices scroll beside it -- the
+ * garment is in view for every one of them -- and the footer keeps the save, and
+ * a way out, on screen throughout.
+ *
+ * No camera button: in a desktop browser the "take a photo" picker is the same
+ * file dialog as adding one, so it would be a second button doing the first's
+ * job. A phone-width browser, which can reach a camera, gets the phone's layout
+ * and keeps it.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExpandedGarmentForm(
+    state: GarmentFormScreenState,
+    isEditing: Boolean,
+    brandSuggestions: (String) -> List<String>,
+    onBack: () -> Unit,
+    onAddPhoto: () -> Unit,
+    onPhotoSelected: (Int) -> Unit,
+    onPhotoRemoved: (Int) -> Unit,
+    onRemoveBackground: () -> Unit,
+    onUndoBackground: () -> Unit,
+    onCategorySelected: (String) -> Unit,
+    onSubcategoryToggled: (String) -> Unit,
+    onSeasonToggled: (Season) -> Unit,
+    onColorToggled: (String) -> Unit,
+    onBrandChanged: (String) -> Unit,
+    onSizeChanged: (String) -> Unit,
+    onTagsChanged: (List<String>) -> Unit,
+    onSave: () -> Unit,
+    onImportUrlChanged: (String) -> Unit,
+    onImportRequested: () -> Unit,
+) {
+    val form = state.form
+
+    Scaffold(
+        topBar = { FormTopBar(isEditing, onBack) },
+        bottomBar = {
+            if (!state.missing) {
+                Surface(color = MaterialTheme.colorScheme.surface) {
+                    Column {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            TextButton(onClick = onBack) { Text(stringResource(Res.string.action_cancel)) }
+                            SaveButton(state, isEditing, onSave, Modifier.widthIn(min = 240.dp))
+                        }
+                    }
+                }
+            }
+        },
+    ) { insets ->
+        if (state.missing) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(insets),
+                contentAlignment = Alignment.Center,
+            ) { Text(stringResource(Res.string.garment_missing)) }
+            return@Scaffold
+        }
+
+        Box(modifier = Modifier.fillMaxSize().padding(insets), contentAlignment = Alignment.TopCenter) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(40.dp),
+                modifier = Modifier
+                    .widthIn(max = 1160.dp)
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp),
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                    modifier = Modifier
+                        .width(400.dp)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
+                        .padding(vertical = 16.dp),
                 ) {
-                    Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Section(stringResource(Res.string.form_section_photos)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            val uris = form.galleryItems().map { it.uri }
+
+                            SelectedPhoto(
+                                uri = uris.getOrNull(form.selectedImageIndex),
+                                busy = state.saving,
+                                action = backgroundActionFor(
+                                    form.imageUris.getOrNull(form.selectedImageIndex),
+                                    form.bgRemovedUris.getOrNull(form.selectedImageIndex),
+                                ),
+                                running = state.removingBackground,
+                                onAdd = onAddPhoto,
+                                onRemove = onRemoveBackground,
+                                onUndo = onUndoBackground,
+                            )
+
+                            Photos(
+                                uris = uris,
+                                selected = form.selectedImageIndex,
+                                busy = state.saving,
+                                onAdd = onAddPhoto,
+                                onSelect = onPhotoSelected,
+                                onRemove = onPhotoRemoved,
+                                thumbWidth = 72.dp,
+                            )
+
+                            if (state.detectingColor) DetectingColors()
+                        }
+                    }
+
+                    // Under the photos rather than first, as the phone has it: the
+                    // photos are already in view on the left, and an import is what
+                    // fills them.
+                    if (!isEditing) {
+                        Section(stringResource(Res.string.import_section)) {
+                            ImportFromLink(
+                                state = state.urlImport,
+                                onUrlChanged = onImportUrlChanged,
+                                onImport = onImportRequested,
+                            )
+                        }
+                    }
+                }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
+                        .padding(vertical = 16.dp),
+                ) {
+                    Section(stringResource(Res.string.filter_section_category)) {
+                        Chips(GARMENT_CATEGORIES.map { it.id }, setOf(form.category), { categoryLabel(it) }) {
+                            onCategorySelected(it)
+                        }
+                    }
+
+                    garmentCategory(form.category)?.let { category ->
+                        Section(stringResource(Res.string.filter_section_type)) {
+                            Chips(category.subcategories, form.subcategories.toSet(), { garmentTypeLabel(it) }) {
+                                onSubcategoryToggled(it)
+                            }
+                        }
+                    }
+
+                    Section(stringResource(Res.string.filter_section_season)) {
+                        Chips(Season.entries.toList(), form.seasons.toSet(), { stringResource(it.labelRes) }) {
+                            onSeasonToggled(it)
+                        }
+                    }
+
+                    Section(stringResource(Res.string.property_colours)) {
+                        Colors(form.colorPalette.toSet(), onColorToggled)
+                    }
+
+                    Section(stringResource(Res.string.form_section_tags)) {
+                        Tags(form.tags, onTagsChanged)
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.Top) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            Section(stringResource(Res.string.filter_brand)) {
+                                Brand(form.brand, brandSuggestions(form.brand), onBrandChanged)
+                            }
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
+                            Section(stringResource(Res.string.filter_size)) {
+                                Size(form.size, onSizeChanged)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The selected photo, large, with its cut-out offer on it: the desktop form's.
+ *
+ * On the photo rather than under the row of them, as the bulk-add queue does it,
+ * because here the photo is big enough to hold a control without the control
+ * covering the garment. Before there is any photo it is the way to add one --
+ * an empty frame that does nothing would be the largest thing on the screen
+ * saying nothing.
+ */
+@Composable
+private fun SelectedPhoto(
+    uri: String?,
+    busy: Boolean,
+    action: BackgroundAction?,
+    running: Boolean,
+    onAdd: () -> Unit,
+    onRemove: () -> Unit,
+    onUndo: () -> Unit,
+) {
+    val frame = Modifier.fillMaxWidth().aspectRatio(3f / 4f).clip(RoundedCornerShape(16.dp))
+
+    if (uri == null) {
+        Box(
+            modifier = frame
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                .clickCursor()
+                .clickable(enabled = !busy, onClick = onAdd),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Filled.Add,
+                contentDescription = stringResource(Res.string.form_add_photo),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(32.dp),
+            )
+        }
+        return
+    }
+
+    Box(modifier = frame.background(photoSurface())) {
+        AsyncImage(
+            model = uri,
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        // The same rules as the phone's control under the row; see
+        // BackgroundControl.
+        val tools = LocalPhotoTools.current
+        val offered = running || action == BackgroundAction.UNDO ||
+            (action == BackgroundAction.REMOVE && tools.removesBackgrounds)
+
+        if (offered) {
+            Surface(
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(12.dp)
+                    .then(
+                        if (running) {
+                            Modifier
+                        } else {
+                            Modifier
+                                .clickCursor()
+                                .clickable(onClick = if (action == BackgroundAction.UNDO) onUndo else onRemove)
+                        }
+                    ),
+            ) {
+                Row(
+                    modifier = Modifier.height(32.dp).padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (running) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Glyph.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
                     Text(
-                        when {
-                            state.saving -> stringResource(Res.string.form_saving)
-                            isEditing -> stringResource(Res.string.form_save_edit)
-                            else -> stringResource(Res.string.form_save_add)
-                        },
-                        style = ctaLabel(),
+                        stringResource(
+                            when {
+                                running -> Res.string.background_cutting
+                                action == BackgroundAction.UNDO -> Res.string.background_undo
+                                else -> Res.string.background_remove
+                            }
+                        ),
+                        style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(start = 8.dp),
                     )
                 }
@@ -486,6 +821,7 @@ private fun Photos(
     onAdd: () -> Unit,
     onSelect: (Int) -> Unit,
     onRemove: (Int) -> Unit,
+    thumbWidth: Dp = 96.dp,
 ) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         itemsIndexed(uris) { index, uri ->
@@ -495,7 +831,7 @@ private fun Photos(
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .width(96.dp)
+                        .width(thumbWidth)
                         .aspectRatio(0.75f)
                         .clip(RoundedCornerShape(8.dp))
                         .border(
@@ -535,7 +871,7 @@ private fun Photos(
             // that failed to load. A border says the tile is a slot.
             Box(
                 modifier = Modifier
-                    .width(96.dp)
+                    .width(thumbWidth)
                     .aspectRatio(0.75f)
                     .clip(RoundedCornerShape(8.dp))
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))

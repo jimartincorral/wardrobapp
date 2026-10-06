@@ -47,6 +47,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -201,6 +205,112 @@ fun GarmentDetailScreen(
     }
 }
 
+/**
+ * One garment, as the pane beside the desktop's wardrobe grid.
+ *
+ * The same state and the same callbacks as [GarmentDetailScreen], and the same
+ * body: only the frame differs. A 64dp header where the screen has a top bar,
+ * with a close button where the screen has a back arrow -- closing the pane is
+ * not going back anywhere, the grid never went away -- and the edit button
+ * beside it, which opens the full-page form as it does from the screen.
+ */
+@Composable
+fun GarmentDetailPane(
+    state: GarmentDetailScreenState,
+    onClose: () -> Unit,
+    onPhotoSelected: (Int) -> Unit,
+    onEdit: () -> Unit,
+    onRetry: () -> Unit,
+    onRemoveBackground: () -> Unit,
+    onUndoBackground: () -> Unit,
+    onBuildOutfit: () -> Unit,
+    onRetire: () -> Unit,
+    onReturnToWardrobe: () -> Unit,
+    onDelete: () -> Unit,
+    onConfirmed: () -> Unit,
+    onConfirmationDismissed: () -> Unit,
+    onActionErrorDismissed: () -> Unit,
+) {
+    state.confirming?.let { confirming ->
+        ConfirmationDialog(confirming, onConfirmed, onConfirmationDismissed)
+    }
+    state.actionErrorText()?.let { message ->
+        AlertDialog(
+            onDismissRequest = onActionErrorDismissed,
+            title = { Text(stringResource(Res.string.error_action_failed)) },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = onActionErrorDismissed) { Text(stringResource(Res.string.action_close)) }
+            },
+        )
+    }
+
+    val view = state.view
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(64.dp).padding(start = 20.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                view?.let { titleOf(it) } ?: stringResource(Res.string.garment_untitled),
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (view != null) {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = stringResource(Res.string.action_edit))
+                }
+            }
+            IconButton(onClick = onClose) {
+                Icon(Icons.Filled.Close, contentDescription = stringResource(Res.string.action_close))
+            }
+        }
+
+        val none = PaddingValues(0.dp)
+
+        when {
+            state.loading && view == null -> Centered(none) { CircularProgressIndicator() }
+
+            state.missing -> Centered(none) {
+                Text(stringResource(Res.string.garment_missing), modifier = Modifier.padding(20.dp))
+            }
+
+            view == null -> Centered(none) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(20.dp)) {
+                    Text(stringResource(Res.string.garment_unreadable), style = MaterialTheme.typography.titleMedium)
+                    state.error?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                    TextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
+                }
+            }
+
+            else -> GarmentBody(
+                garmentId = state.garmentId,
+                view = view,
+                insets = none,
+                working = state.working,
+                pane = true,
+                onPhotoSelected = onPhotoSelected,
+                onRemoveBackground = onRemoveBackground,
+                onUndoBackground = onUndoBackground,
+                onBuildOutfit = onBuildOutfit,
+                onRetire = onRetire,
+                onReturnToWardrobe = onReturnToWardrobe,
+                onDelete = onDelete,
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GarmentBody(
@@ -208,6 +318,14 @@ private fun GarmentBody(
     view: GarmentDetailView,
     insets: PaddingValues,
     working: Boolean,
+    /**
+     * Drawn in the desktop's detail pane rather than as a screen: inset from the
+     * pane's edges, the photo rounded and capped in height, smaller thumbnails.
+     * Everything else -- what is shown, in what order, and what the buttons do --
+     * is the same body, so the pane cannot become a second, slightly different
+     * garment screen.
+     */
+    pane: Boolean = false,
     onPhotoSelected: (Int) -> Unit,
     onRemoveBackground: () -> Unit,
     onUndoBackground: () -> Unit,
@@ -216,21 +334,23 @@ private fun GarmentBody(
     onReturnToWardrobe: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val edge = if (pane) 20.dp else 16.dp
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(insets)
             .verticalScroll(rememberScrollState()),
     ) {
-        Photo(garmentId, view.displayedImage)
+        if (pane) PanePhoto(view.displayedImage) else Photo(garmentId, view.displayedImage)
 
         if (view.showsGallery) {
             LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(horizontal = edge, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 itemsIndexed(view.gallery) { index, entry ->
-                    Thumbnail(entry) { onPhotoSelected(index) }
+                    Thumbnail(entry, width = if (pane) 56.dp else 72.dp) { onPhotoSelected(index) }
                 }
             }
         }
@@ -240,13 +360,21 @@ private fun GarmentBody(
             working = working,
             onRemove = onRemoveBackground,
             onUndo = onUndoBackground,
+            edge = edge,
         )
 
         if (!view.isAvailable) {
-            UnavailableBanner(view.unavailableDate)
+            UnavailableBanner(
+                view.unavailableDate,
+                modifier = if (pane) {
+                    Modifier.padding(horizontal = edge, vertical = 4.dp).clip(RoundedCornerShape(12.dp))
+                } else {
+                    Modifier
+                },
+            )
         }
 
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(edge)) {
             Text(headingOf(view), style = MaterialTheme.typography.headlineSmall)
 
             view.brand?.let {
@@ -316,12 +444,13 @@ private fun BackgroundControl(
     working: Boolean,
     onRemove: () -> Unit,
     onUndo: () -> Unit,
+    edge: Dp = 16.dp,
 ) {
     if (action == null) return
     if (action == BackgroundAction.REMOVE && !LocalPhotoTools.current.removesBackgrounds) return
 
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = edge),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (working) {
@@ -506,8 +635,45 @@ private fun Photo(garmentId: String, uri: String?) {
     }
 }
 
+/**
+ * The garment, large, in the desktop's detail pane.
+ *
+ * The same 3:4 frame and the same Fit as [Photo], for the same reasons, but inset
+ * and rounded like everything else in the pane, and no taller than 440dp: at the
+ * pane's full width a 3:4 frame is over five hundred tall, which on a laptop
+ * screen pushes the garment's name below the fold of the pane it is the subject
+ * of. Narrower rather than cropped, so the whole garment still shows.
+ *
+ * No shared-element key: the pane opens beside the cell rather than in place of
+ * it, so there is no transition for the photo to fly through.
+ */
 @Composable
-private fun Thumbnail(entry: GalleryEntry, onClick: () -> Unit) {
+private fun PanePhoto(uri: String?) {
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .heightIn(max = 440.dp)
+                .aspectRatio(3f / 4f, matchHeightConstraintsFirst = true)
+                .clip(RoundedCornerShape(12.dp))
+                .background(photoSurface()),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (uri == null) {
+                Text(stringResource(Res.string.garment_no_photo), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                AsyncImage(
+                    model = uri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun Thumbnail(entry: GalleryEntry, width: Dp = 72.dp, onClick: () -> Unit) {
     val border = if (entry.selected) {
         MaterialTheme.colorScheme.primary
     } else {
@@ -519,7 +685,7 @@ private fun Thumbnail(entry: GalleryEntry, onClick: () -> Unit) {
         contentDescription = null,
         contentScale = ContentScale.Crop,
         modifier = Modifier
-            .width(72.dp)
+            .width(width)
             .aspectRatio(0.75f)
             .clip(RoundedCornerShape(8.dp))
             .border(2.dp, border, RoundedCornerShape(8.dp))
@@ -529,10 +695,10 @@ private fun Thumbnail(entry: GalleryEntry, onClick: () -> Unit) {
 }
 
 @Composable
-private fun UnavailableBanner(since: String?) {
+private fun UnavailableBanner(since: String?, modifier: Modifier = Modifier) {
     Surface(
         color = MaterialTheme.colorScheme.errorContainer,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         Text(
             if (since == null) {
