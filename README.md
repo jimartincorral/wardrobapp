@@ -12,8 +12,9 @@ Wardrobapp comes as an **Android app**, and as a **Home Assistant app** that
 opens in any browser signed in to your Home Assistant. The two can keep one
 wardrobe in step. It is available in **English and Spanish**.
 
-> Wardrobapp is still before version 1.0 and changes often. What is planned is
-> in [TODO.md](TODO.md).
+> Wardrobapp changes often: every build of `main` is published, and the app
+> offers it with its changelog. Design notes and what is planned are in
+> [TODO.md](TODO.md).
 
 ## What it does
 
@@ -215,7 +216,13 @@ Want to build the app yourself or contribute? Start with
 
 ## License
 
+Copyright © 2026 the Wardrobapp authors; the git history names them.
+
 Wardrobapp is free software under the [AGPL-3.0](LICENSE). You can use, change
 and share it freely, including running it as a service, as long as you publish
 the full source of your changed version under the same license. For
 closed-source or commercial use, contact the author about a commercial license.
+
+It builds on other people's work, which [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
+credits: the icons, the background-removal model, and the QR code algorithm
+among them.

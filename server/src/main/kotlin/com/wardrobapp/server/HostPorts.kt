@@ -66,8 +66,12 @@ fun interface HostPorts {
  * unknown shows the instructions there were before any of this.
  *
  * The token is the one Home Assistant gives every app that asks for the API in
- * config.yaml, `hassio_api: true`, and the default role it comes with is what
- * reading an app's own information needs. Nothing here asks for more.
+ * config.yaml, `hassio_api: true`, with the default role, the least an app can
+ * ask for. That role still lets an app do a few things to itself -- change its
+ * own options, restart -- so the honest claim is not that the token can do
+ * nothing else but that this server does nothing else with it: one GET, from
+ * this class, and the token is never logged, never sent on and never put in
+ * a response.
  */
 class SupervisorHostPorts(
     private val token: String,

@@ -38,6 +38,8 @@ dependencies {
     implementation("io.ktor:ktor-server-cio:3.1.3")
     implementation("io.ktor:ktor-server-content-negotiation:3.1.3")
     implementation("io.ktor:ktor-server-status-pages:3.1.3")
+    // A ceiling on what a request may carry; see bodyLimit in WardrobeApi.
+    implementation("io.ktor:ktor-server-body-limit:3.1.3")
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.1.3")
 
     // What JdbcSqlDriver opens a database with. Here and nowhere else in

@@ -64,7 +64,10 @@ class UpdateViewModel(
 
     init {
         viewModelScope.launch {
-            val latest = withContext(Dispatchers.IO) { updates.latestRelease() }
+            val latest = withContext(Dispatchers.IO) {
+                updates.discardInstalled(installedVersionCode)
+                updates.latestRelease()
+            }
 
             val whatsNew = when (
                 val decision = whatsNewDecision(

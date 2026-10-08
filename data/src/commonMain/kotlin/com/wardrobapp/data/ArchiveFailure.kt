@@ -66,6 +66,14 @@ sealed interface UnrestorableReason {
     /** A zip entry whose path climbs out of the archive. */
     data class EntryOutsideArchive(val entry: String) : UnrestorableReason
 
+    /**
+     * Unpacking it would fill the storage it is unpacked on. Refused before
+     * it does: a phone with no room left is a phone that cannot save a
+     * garment, and the archive -- corrupt, hostile, or just too big for this
+     * phone -- was not worth that.
+     */
+    data object NotEnoughSpace : UnrestorableReason
+
     // -- The staged database --------------------------------------------------
 
     /** A fragment: the caller folds it into [InvalidBackup]. */
@@ -154,6 +162,9 @@ fun UnrestorableReason.englishMessage(): String = when (this) {
     is UnrestorableReason.EntryOutsideArchive ->
         "Invalid backup: the archive contains an entry outside itself " +
             "($entry). Nothing was changed."
+
+    UnrestorableReason.NotEnoughSpace ->
+        "Not enough space: unpacking the backup would fill the storage on this device. Nothing was changed."
 
     is UnrestorableReason.IntegrityCheckFailed ->
         "it failed SQLite's integrity check ($result)"

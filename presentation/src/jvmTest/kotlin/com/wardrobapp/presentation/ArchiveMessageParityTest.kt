@@ -52,6 +52,7 @@ class ArchiveMessageParityTest {
         UnrestorableReason.ArchiveTruncated(expected = 12, present = 5),
         UnrestorableReason.NotBase64,
         UnrestorableReason.EntryOutsideArchive("../../etc/passwd"),
+        UnrestorableReason.NotEnoughSpace,
         UnrestorableReason.IntegrityCheckFailed("malformed"),
         UnrestorableReason.InvalidBackup(ArchiveDetail.Foreign("disk full")),
         UnrestorableReason.RestoreFailed(ArchiveDetail.Foreign("disk full")),
@@ -136,6 +137,7 @@ class ArchiveMessageParityTest {
         is UnrestorableReason.ArchiveTruncated -> arrayOf(expected, present)
         UnrestorableReason.NotBase64 -> emptyArray()
         is UnrestorableReason.EntryOutsideArchive -> arrayOf(entry)
+        UnrestorableReason.NotEnoughSpace -> emptyArray()
         is UnrestorableReason.IntegrityCheckFailed -> arrayOf(result)
         is UnrestorableReason.InvalidBackup -> arrayOf(detail.text())
         is UnrestorableReason.RestoreFailed -> arrayOf(detail.text())
