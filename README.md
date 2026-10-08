@@ -157,11 +157,12 @@ can share one wardrobe:
 
 1. In the Wardrobapp add-on's **Configuration** tab, under **Network**, give
    port 8100 a host port (8100 is fine).
-2. Open **Wardrobe** in the sidebar, go to **Settings**, and copy the pairing
-   code under **Phone sync**.
-3. On your phone, go to **Settings → Home Assistant** and enter your Home
-   Assistant's address with that port, such as
-   `http://homeassistant.local:8100`, along with the code.
+2. Open **Wardrobe** in the sidebar, go to **Settings**, and find the QR code
+   under **Phone sync**.
+3. On your phone, go to **Settings → Home Assistant**, tap **Scan pairing
+   code**, point it at the QR code and tap **Connect**. You can also point
+   your phone's camera app at it. If your phone can't scan, type the address
+   and code shown under the QR code.
 
 After that the phone syncs when you open the app, when you tap **Sync now**,
 and every few hours in the background. If a garment was changed in both places,

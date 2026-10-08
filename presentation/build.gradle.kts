@@ -61,6 +61,10 @@ kotlin {
             // its sealed subclasses to prove it has a sample of every one. Nothing
             // ships it.
             implementation(kotlin("reflect"))
+            // Only for QrCodeTest, which reads every code QrCode draws back
+            // with the decoder phones' scanners are built on. An encoder
+            // checked against itself would agree with its own mistakes.
+            implementation("com.google.zxing:core:3.5.3")
         }
     }
 }

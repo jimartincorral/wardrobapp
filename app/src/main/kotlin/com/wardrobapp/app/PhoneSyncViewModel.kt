@@ -35,4 +35,7 @@ class PhoneSyncViewModel(container: AppContainer) : ViewModel() {
     fun onDisconnect() = model.onDisconnect()
     fun onBackgroundChanged(enabled: Boolean) = model.onBackgroundChanged(enabled)
     fun onWifiOnlyChanged(enabled: Boolean) = model.onWifiOnlyChanged(enabled)
+    fun onPairingLinkReceived(text: String?) = model.onPairingLinkReceived(text)
+    fun onOfferTaken() = model.onOfferTaken()
+    fun onScannerUnavailable() = model.onScannerUnavailable()
 }

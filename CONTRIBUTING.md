@@ -248,7 +248,12 @@ wardrobe's own files there.
 The Android app can sync with it. That goes through a second port, 8100, which
 answers nothing but sync and only to a phone carrying the pairing code shown in
 the browser's Settings; Home Assistant keeps it closed until it is given a host
-port in the app's **Network** settings. A phone syncs with the profile whose
+port in the app's **Network** settings. The server asks the Supervisor which host
+port that is (`HostPorts`, through `hassio_api`), and Settings in the browser
+turns it and the host in the address bar into a `wardrobapp://pair` link shown as
+a QR code (`PairingLink.kt`, `QrCode.kt`), which the phone scans or its camera
+app opens. Either way it only fills in the form: pairing is still a tap on
+Connect. A phone syncs with the profile whose
 code it holds. Each sync exchanges the whole wardrobe
 and keeps the latest change to each garment and outfit, a deletion included;
 photos move by name, only when one side lacks them. The phone syncs when it is

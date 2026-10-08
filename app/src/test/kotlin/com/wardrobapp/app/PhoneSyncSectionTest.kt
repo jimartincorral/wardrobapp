@@ -11,13 +11,16 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import com.wardrobapp.presentation.PairingOffer
 import com.wardrobapp.presentation.PhoneSyncState
 import com.wardrobapp.presentation.PhoneSyncStatus
+import com.wardrobapp.presentation.ScanProblem
 import com.wardrobapp.presentation.SyncFailure
 import com.wardrobapp.ui.PhoneSyncSection
 import com.wardrobapp.ui.SYNC_ADDRESS
 import com.wardrobapp.ui.SYNC_BACKGROUND
 import com.wardrobapp.ui.SYNC_CODE
+import com.wardrobapp.ui.SYNC_SCAN
 import com.wardrobapp.ui.SYNC_WIFI_ONLY
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -43,7 +46,10 @@ class PhoneSyncSectionTest {
     private var backgroundWanted: Boolean? = null
     private var wifiOnlyWanted: Boolean? = null
 
-    private fun show(state: PhoneSyncState) {
+    private var scans = 0
+    private var offersTaken = 0
+
+    private fun show(state: PhoneSyncState, canScan: Boolean = false) {
         compose.setContent {
             // In Settings the section is part of the screen's column.
             Column {
@@ -55,9 +61,47 @@ class PhoneSyncSectionTest {
                     onDisconnect = {},
                     onBackgroundChanged = { backgroundWanted = it },
                     onWifiOnlyChanged = { wifiOnlyWanted = it },
+                    onScanRequested = if (canScan) ({ scans++ }) else null,
+                    onOfferTaken = { offersTaken++ },
                 )
             }
         }
+    }
+
+    @Test
+    fun `a phone that can scan offers to, and one that cannot does not`() {
+        show(PhoneSyncState(), canScan = true)
+        compose.onNodeWithTag(SYNC_SCAN).assertIsDisplayed().performClick()
+        assertEquals(1, scans)
+    }
+
+    @Test
+    fun `without a scanner the form is as it was`() {
+        show(PhoneSyncState())
+        compose.onNodeWithTag(SYNC_SCAN).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a scanned code fills the form in and waits for Connect`() {
+        show(
+            PhoneSyncState(offer = PairingOffer("http://homeassistant.local:8100/", "ABCDE-FGHIJ-KMNPQ-RSTVW")),
+            canScan = true,
+        )
+
+        compose.waitForIdle()
+        assertEquals(1, offersTaken)
+        compose.onNodeWithText("Check that homeassistant.local is your Home Assistant", substring = true).assertIsDisplayed()
+        // Nothing connected until it is pressed.
+        assertEquals(null, connected)
+
+        compose.onNodeWithText("Connect").assertIsEnabled().performClick()
+        assertEquals("http://homeassistant.local:8100" to "ABCDE-FGHIJ-KMNPQ-RSTVW", connected)
+    }
+
+    @Test
+    fun `a QR code that is not a pairing code says so`() {
+        show(PhoneSyncState(scanProblem = ScanProblem.NOT_A_PAIRING_CODE), canScan = true)
+        compose.onNodeWithText("That isn't a Wardrobapp pairing code", substring = true).assertIsDisplayed()
     }
 
     @Test

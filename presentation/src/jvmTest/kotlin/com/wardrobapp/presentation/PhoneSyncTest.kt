@@ -103,6 +103,59 @@ class PhoneSyncTest {
     }
 
     @Test
+    fun `a scanned pairing code fills the form in, and pairs nothing by itself`() = runTest {
+        val source = FakeSource()
+        val model = PhoneSyncModel(backgroundScope, source)
+
+        model.onPairingLinkReceived(pairingLinkFor("http://homeassistant.local:8100/", "ABCDE-FGHIJ-KMNPQ-RSTVW"))
+        runCurrent()
+
+        assertEquals(
+            PairingOffer("http://homeassistant.local:8100/", "ABCDE-FGHIJ-KMNPQ-RSTVW"),
+            model.state.value.offer,
+        )
+        // A link can come from any web page; the person presses Connect.
+        assertNull(source.connectedWith)
+
+        model.onOfferTaken()
+        runCurrent()
+        assertNull(model.state.value.offer)
+    }
+
+    @Test
+    fun `a QR code that is something else says so, until the next try`() = runTest {
+        val model = PhoneSyncModel(backgroundScope, FakeSource())
+
+        model.onPairingLinkReceived("WIFI:S:home;T:WPA;P:secret;;")
+        runCurrent()
+        assertEquals(ScanProblem.NOT_A_PAIRING_CODE, model.state.value.scanProblem)
+        assertNull(model.state.value.offer)
+
+        model.onPairingLinkReceived(pairingLinkFor("http://ha.lan:8100/", "ABCDE-FGHIJ"))
+        runCurrent()
+        assertNull(model.state.value.scanProblem)
+
+        model.onScannerUnavailable()
+        runCurrent()
+        assertEquals(ScanProblem.SCANNER_UNAVAILABLE, model.state.value.scanProblem)
+        model.onFormEdited()
+        runCurrent()
+        assertNull(model.state.value.scanProblem)
+    }
+
+    @Test
+    fun `a phone already paired is not re-pointed by a link`() = runTest {
+        val source = FakeSource().apply { status.value = PhoneSyncStatus(address = "http://ha:8100/") }
+        val model = PhoneSyncModel(backgroundScope, source)
+
+        model.onPairingLinkReceived(pairingLinkFor("http://elsewhere.example:8100/", "ABCDE-FGHIJ"))
+        runCurrent()
+
+        assertNull(model.state.value.offer)
+        assertNull(model.state.value.scanProblem)
+    }
+
+    @Test
     fun `an address that is not one is said so, and nothing is asked`() = runTest {
         val source = FakeSource()
         val model = PhoneSyncModel(backgroundScope, source)

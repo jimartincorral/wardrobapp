@@ -196,4 +196,21 @@ class SyncServerTest {
             assertTrue(reset.code != pairing.code)
             assertEquals(wardrobe.syncSecret.current(), reset.code)
         }
+
+    @Test
+    fun `Settings in the browser says which host port phones reach, when Home Assistant says`() {
+        serverTest(hostPorts = { port -> if (port == ServerSettings.DEFAULT_SYNC_PORT) HostPort.Open(18100) else HostPort.Unknown }) {
+            val pairing = http.get(com.wardrobapp.api.Routes.SYNC_PAIRING).body<SyncPairing>()
+            assertEquals(SyncPairing(wardrobe.syncSecret.current(), ServerSettings.DEFAULT_SYNC_PORT, true, 18100), pairing)
+            // And a new code comes with it, so the QR code that replaces the
+            // old one is as complete.
+            val reset = http.post(com.wardrobapp.api.Routes.SYNC_PAIRING_RESET).body<SyncPairing>()
+            assertEquals(18100, reset.hostPort)
+        }
+        serverTest(hostPorts = { HostPort.Closed }) {
+            val pairing = http.get(com.wardrobapp.api.Routes.SYNC_PAIRING).body<SyncPairing>()
+            assertTrue(pairing.hostPortKnown)
+            assertEquals(null, pairing.hostPort)
+        }
+    }
 }

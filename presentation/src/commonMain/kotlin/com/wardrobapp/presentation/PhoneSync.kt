@@ -192,7 +192,24 @@ data class PhoneSyncState(
     val addressInvalid: Boolean = false,
     /** Why the last attempt to pair did not, until the next attempt. */
     val connectFailure: SyncFailure? = null,
+    /**
+     * An address and a code from a pairing link -- scanned in Settings, or
+     * opened from the camera app -- for the form to fill itself in with, once.
+     * The form holds what is typed; see PhoneSyncSection.
+     */
+    val offer: PairingOffer? = null,
+    /** Why the last scan filled nothing in, until the next scan or the next keystroke. */
+    val scanProblem: ScanProblem? = null,
 )
+
+/** Why scanning for a pairing code came to nothing. A scan somebody cancelled is neither. */
+enum class ScanProblem {
+    /** It read a QR code, and the code was something else: a shop's, a Wi-Fi network's, an import link. */
+    NOT_A_PAIRING_CODE,
+
+    /** The phone has no scanner to offer -- no Google Play services, or it could not start. */
+    SCANNER_UNAVAILABLE,
+}
 
 /** Settings' sync section, in common code. See ScreenModels.kt. */
 class PhoneSyncModel(
@@ -241,5 +258,36 @@ class PhoneSyncModel(
     fun onWifiOnlyChanged(enabled: Boolean) = source.setWifiOnly(enabled)
 
     /** Typing again takes back what was said about the last attempt. */
-    fun onFormEdited() = form.update { it.copy(addressInvalid = false, connectFailure = null) }
+    fun onFormEdited() = form.update { it.copy(addressInvalid = false, connectFailure = null, scanProblem = null) }
+
+    /**
+     * What a scan read, or the link the app was opened with: offered to the
+     * form if it is a pairing link, said to be something else if it is not.
+     *
+     * Never a connection. The address is put in front of the person and they
+     * press Connect, because a link can come from any web page and pairing
+     * sends the wardrobe wherever it points; see [pairingOfferOf].
+     *
+     * Ignored by a phone that is already paired, where there is no form to
+     * fill in: changing where a phone syncs is stopping and pairing again, as
+     * it is when typed, and Settings already shows which Home Assistant this
+     * one syncs with.
+     */
+    fun onPairingLinkReceived(text: String?) {
+        if (state.value.status.paired) return
+        val offer = pairingOfferOf(text)
+        form.update {
+            if (offer == null) {
+                it.copy(offer = null, scanProblem = ScanProblem.NOT_A_PAIRING_CODE)
+            } else {
+                it.copy(offer = offer, scanProblem = null, addressInvalid = false, connectFailure = null)
+            }
+        }
+    }
+
+    /** The form has filled itself in with [PhoneSyncState.offer]; it is not offered again. */
+    fun onOfferTaken() = form.update { it.copy(offer = null) }
+
+    /** There was no scanner to open; the person is pointed back at typing. */
+    fun onScannerUnavailable() = form.update { it.copy(scanProblem = ScanProblem.SCANNER_UNAVAILABLE) }
 }

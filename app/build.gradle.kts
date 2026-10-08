@@ -319,6 +319,12 @@ dependencies {
     // the defensible choice.
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
 
+    // Scanning the pairing code Settings in Home Assistant shows. Google's code
+    // scanner: Play services' own activity, so no camera permission and no
+    // viewfinder to write, and the same Play services the line above already
+    // needs. A phone without it pairs by typing, or through its camera app.
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+
     // OAuth for Drive backups: the authorization request, PKCE, the token
     // exchange and the refresh. Not hand-rolled, unlike the rest of this app's
     // networking -- the update check fetches a public document, where the worst

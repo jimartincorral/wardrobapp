@@ -701,6 +701,10 @@
     <string name="sync_pairing_reset_title">¿Crear un código nuevo?</string>
     <string name="sync_pairing_reset_body">Los teléfonos emparejados con el código actual dejarán de sincronizar hasta que les des el nuevo.</string>
     <string name="sync_pairing_off">La sincronización del teléfono está desactivada en este servidor.</string>
+    <string name="sync_pairing_scan">Empareja la aplicación de Android escaneando este código: en los ajustes del teléfono, en Home Assistant, elige Escanear código de emparejamiento. También puede abrirlo la cámara del teléfono.</string>
+    <string name="sync_pairing_qr_description">Código QR para emparejar un teléfono</string>
+    <string name="sync_pairing_closed">Los teléfonos aún no pueden conectar con esta aplicación. En Home Assistant, abre la pestaña Configuración de esta aplicación y, en Red, asigna un puerto del equipo al puerto %1$d (%1$d vale). Guarda y vuelve aquí para ver un código que escanear.</string>
+    <string name="sync_pairing_elsewhere">Para ver un código que el teléfono pueda escanear, abre Home Assistant en la dirección que usas en casa, como homeassistant.local:8123. O, en los ajustes del teléfono, escribe esa dirección con el puerto %1$d y el código de abajo.</string>
     <string name="settings_section_home_assistant">Home Assistant</string>
     <string name="profile_choose_title">¿De quién es este armario?</string>
     <string name="profile_choose_hint">Cada persona de casa puede tener su propio armario. Elige el tuyo o empieza uno nuevo. Puedes cambiar entre ellos en Ajustes.</string>
@@ -720,7 +724,7 @@
     <string name="profile_add">Nuevo</string>
     <string name="profile_delete_title">¿Eliminar «%1$s»?</string>
     <string name="profile_delete_body">Sus prendas, conjuntos y fotos se eliminarán de Home Assistant, y solo una copia de seguridad de Home Assistant podrá recuperarlos. Un teléfono que se sincronice con él dejará de sincronizarse, pero conservará su propia copia.</string>
-    <string name="settings_sync_hint">Mantén este armario al día con la aplicación Wardrobapp de Home Assistant. El teléfono sigue funcionando por su cuenta; sincronizar solo comparte los cambios. El código y el puerto están en los ajustes de la aplicación en Home Assistant.</string>
+    <string name="settings_sync_hint">Mantén este armario al día con la aplicación Wardrobapp de Home Assistant. El teléfono sigue funcionando por su cuenta; sincronizar solo comparte los cambios. Escanea el código de los ajustes de esa aplicación, o escribe la dirección y el código que muestra.</string>
     <string name="settings_sync_address">Dirección</string>
     <string name="settings_sync_address_example">http://homeassistant.local:8100</string>
     <string name="settings_sync_code">Código de emparejamiento</string>
@@ -742,4 +746,8 @@
     <string name="settings_sync_wifi_only_hint">Para las sincronizaciones que el teléfono hace por su cuenta, al abrir la aplicación y en segundo plano. Sincronizar ahora siempre sincroniza.</string>
     <string name="settings_sync_address_invalid">Eso no es una dirección. Escríbela como abres Home Assistant, con el puerto de sincronización: homeassistant.local:8100, o su dirección IP.</string>
     <string name="settings_sync_paired_with">Sincronizando con %1$s</string>
+    <string name="settings_sync_scan">Escanear código de emparejamiento</string>
+    <string name="settings_sync_scan_not_pairing">Ese no es un código de emparejamiento de Wardrobapp. Escanea el de los ajustes de la aplicación en Home Assistant.</string>
+    <string name="settings_sync_scan_unavailable">Este teléfono no puede escanear códigos desde aquí. Apunta la aplicación de cámara al código, o escribe la dirección y el código.</string>
+    <string name="settings_sync_scanned">Rellenado con el código. Comprueba que %1$s es tu Home Assistant y toca Conectar.</string>
 </resources>

@@ -63,6 +63,7 @@ import com.wardrobapp.ui.StatisticsScreen
 import com.wardrobapp.ui.SyncPairingSection
 import com.wardrobapp.ui.WardrobeScreen
 import io.ktor.client.HttpClient
+import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import com.wardrobapp.ui.ProfileSection
 
@@ -498,6 +499,13 @@ class Screens(
                 SyncPairingSection(
                     code = pairing?.code,
                     port = pairing?.port,
+                    hostPortKnown = pairing?.hostPortKnown ?: false,
+                    hostPort = pairing?.hostPort,
+                    // The page is in ingress's frame, on Home Assistant's own
+                    // origin, so this is the host in the reader's address bar:
+                    // the one name for Home Assistant known to work from
+                    // wherever they are. See phoneSyncAddressFor.
+                    browserHost = window.location.hostname,
                     onResetConfirmed = {
                         entry.scope.launch {
                             runCatching { sources.server.resetPairing() }.onSuccess { pairing = it }

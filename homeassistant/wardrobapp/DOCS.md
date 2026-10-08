@@ -51,12 +51,23 @@ step with this one:
 
 1. In this app's **Configuration** tab, under **Network**, give the phone sync
    port (8100) a host port — 8100 is fine unless something else uses it.
-2. Open **Wardrobe** in the sidebar, go to **Settings**, and find the pairing
-   code under **Phone sync**. Each wardrobe has its own code, and a phone syncs
-   with the wardrobe whose code it was given, so open your own first.
-3. In the phone's **Settings → Home Assistant**, enter this Home Assistant's
-   address with that port (for example `http://homeassistant.local:8100`) and
-   the code.
+2. Open **Wardrobe** in the sidebar and go to **Settings**. Under **Phone
+   sync** is a QR code. Each wardrobe has its own code, and a phone syncs with
+   the wardrobe whose code it was given, so open your own first.
+3. On the phone, go to **Settings → Home Assistant**, tap **Scan pairing
+   code** and point it at the QR code, then tap **Connect**. Pointing the
+   phone's camera app at it works too.
+
+The QR code holds the address you opened Home Assistant at, with the host port
+from step 1, and the code. Both are written under it, to type into a phone that
+can't scan. If Settings says phones can't reach the app yet, step 1 hasn't been
+done. If you opened Home Assistant through Nabu Casa's remote address, there is
+no QR code: that address only reaches Home Assistant itself, so open Home
+Assistant at the address you use at home to get one.
+
+The app asks Home Assistant which host port you gave it, which is why it asks
+for access to Home Assistant's Supervisor API. It reads only this app's own
+information.
 
 The phone then syncs when it is opened, from **Sync now**, and in the
 background if you let it. When the same garment or outfit was changed in both

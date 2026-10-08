@@ -98,10 +98,15 @@
             time rather than on first use. The React Native app declares nothing
             like this and its on-demand download works, so this is an improvement
             rather than a prerequisite: it moves the wait off the first tap.
+
+            And the code scanner that reads Home Assistant's pairing code, for the
+            same reason: its module is otherwise fetched the first time somebody
+            taps Scan pairing code, which is the moment they are holding a phone
+            up to a screen.
         -->
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
-            android:value="subject_segment" />
+            android:value="subject_segment,barcode_ui" />
 
         <!--
             How the language choice survives a restart on Android 12 and lower.
@@ -180,6 +185,12 @@
                 and waits for a tap, because a link can be opened by any web page,
                 message or code — so it is not necessarily one the user chose, and
                 a phone sits inside a home network.
+
+                Also pairing with Home Assistant: `wardrobapp://pair?address=…&code=…`,
+                the link the QR code in Settings there holds, for a camera app to
+                open. The same rule, for a stronger reason: it fills in the Home
+                Assistant form and waits for Connect, because pairing sends the
+                whole wardrobe wherever the link points.
             -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

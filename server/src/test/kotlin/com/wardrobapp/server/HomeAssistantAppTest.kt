@@ -78,6 +78,17 @@ class HomeAssistantAppTest {
     }
 
     @Test
+    fun `the server may ask how sync's port is published, and nothing more`() {
+        // Without it there is no SUPERVISOR_TOKEN, HostPorts asks nobody, and
+        // the browser shows instructions instead of a QR code.
+        assertEquals("true", setting("hassio_api"))
+        // The default role reads the app's own information. Anything above it
+        // could change Home Assistant, and a wardrobe has no business doing so.
+        assertEquals(null, setting("hassio_role"))
+        assertTrue(config.none { it.startsWith("homeassistant_api:") }, "config.yaml asks for Home Assistant's own API")
+    }
+
+    @Test
     fun `the wardrobe is kept where Home Assistant keeps an app's data`() {
         assertEquals("/data", environment("WARDROBAPP_DATA"))
         assertEquals(ServerSettings.DEFAULT_DATA, environment("WARDROBAPP_DATA"))
