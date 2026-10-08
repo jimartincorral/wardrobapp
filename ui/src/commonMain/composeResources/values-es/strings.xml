@@ -27,6 +27,8 @@
     <string name="w_start">Empezar de cero</string>
     <string name="w_restore">Restaurar una copia</string>
     <string name="w_restore_hint">¿Vienes de otro teléfono? Elige tu copia de seguridad y tráete el armario entero.</string>
+    <string name="w_pair">Emparejar con Home Assistant</string>
+    <string name="w_pair_hint">¿Ya tienes tu armario en Home Assistant? Escanea el código de emparejamiento de sus ajustes y este teléfono se une a él.</string>
     <string name="w_skip">Ahora no</string>
     <string name="a_title">Agregar una prenda es una foto</string>
     <string name="a_body">Apunta la cámara o elige una foto que ya tengas. La app rellena lo que puede y te pregunta el resto.</string>

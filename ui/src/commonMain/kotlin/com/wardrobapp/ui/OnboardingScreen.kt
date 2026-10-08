@@ -68,6 +68,8 @@ import com.wardrobapp.ui.resources.outfit_rate
 import com.wardrobapp.ui.resources.settings_language
 import com.wardrobapp.ui.resources.settings_theme
 import com.wardrobapp.ui.resources.w_body
+import com.wardrobapp.ui.resources.w_pair
+import com.wardrobapp.ui.resources.w_pair_hint
 import com.wardrobapp.ui.resources.w_restore
 import com.wardrobapp.ui.resources.w_restore_hint
 import com.wardrobapp.ui.resources.w_skip
@@ -108,6 +110,15 @@ fun OnboardingScreen(
     onSkip: () -> Unit,
     /** Opens the document picker directly. No screen of ours in between. */
     onRestoreRequested: () -> Unit,
+    /**
+     * Opens the code scanner, for a phone joining a wardrobe already in Home
+     * Assistant; null where there is no scanner to open, and the way in is
+     * not offered. The scan ends the flow the way a restore does: what it
+     * read is handed to Settings' Home Assistant section, filled in, for the
+     * person to check the address and press Connect -- never connected from
+     * here, for the reason PairingLink gives.
+     */
+    onPairRequested: (() -> Unit)? = null,
 ) {
     when (step) {
         OnboardingStep.WELCOME -> Welcome(
@@ -118,6 +129,7 @@ fun OnboardingScreen(
             onStart = onContinue,
             onSkip = onSkip,
             onRestoreRequested = onRestoreRequested,
+            onPairRequested = onPairRequested,
         )
 
         OnboardingStep.ADDING -> AddingAGarment(onNext = onContinue)
@@ -164,6 +176,7 @@ private fun Welcome(
     onStart: () -> Unit,
     onSkip: () -> Unit,
     onRestoreRequested: () -> Unit,
+    onPairRequested: (() -> Unit)?,
 ) {
     OnboardingShell {
         // The logo, on the one screen that is an introduction rather than a place
@@ -252,7 +265,7 @@ private fun Welcome(
 
         ForwardButton(label = stringResource(Res.string.w_start), onClick = onStart)
 
-        // The way in for somebody arriving from another phone, offered here
+        // The ways in for somebody arriving from another phone, offered here
         // rather than left in Settings: a restored wardrobe replaces everything,
         // and the one moment when there is nothing to lose is before anything has
         // been added.
@@ -271,6 +284,28 @@ private fun Welcome(
             // one line from running the full width and reading as body text.
             modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 12.dp),
         )
+
+        // And the other: a wardrobe that is already in Home Assistant, which a
+        // phone joins by scanning the code there. The same shape as the restore
+        // above it, since it is the same offer -- bring the wardrobe you have --
+        // by the other road. Nothing is lost here either: pairing merges, and a
+        // phone with nothing on it merges nothing. Where there is no scanner
+        // the button is not drawn; Settings still takes an address typed in.
+        if (onPairRequested != null) {
+            OutlinedButton(
+                onClick = onPairRequested,
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(CTA_HEIGHT),
+            ) {
+                Text(stringResource(Res.string.w_pair), style = ctaLabel())
+            }
+            Text(
+                stringResource(Res.string.w_pair_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 12.dp),
+            )
+        }
 
         // Skipping is offered on this screen only. The two after it are one button
         // each, and a second way past a single button is a second thing to read.
