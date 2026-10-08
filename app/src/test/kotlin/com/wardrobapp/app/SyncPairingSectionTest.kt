@@ -30,7 +30,7 @@ class SyncPairingSectionTest {
 
     private val code = "ABCDE-FGHIJ-KMNPQ-RSTVW"
 
-    private fun show(hostPortKnown: Boolean, hostPort: Int?, browserHost: String = "homeassistant.local") {
+    private fun show(hostPortKnown: Boolean, hostPort: Int?, browserHost: String = "homeassistant.local", homeHost: String? = null) {
         compose.setContent {
             Column {
                 SyncPairingSection(
@@ -40,6 +40,7 @@ class SyncPairingSectionTest {
                     hostPort = hostPort,
                     browserHost = browserHost,
                     onResetConfirmed = {},
+                    homeHost = homeHost,
                 )
             }
         }
@@ -70,6 +71,23 @@ class SyncPairingSectionTest {
         compose.onNodeWithText("open Home Assistant at the address you use at home", substring = true).assertIsDisplayed()
         compose.onNodeWithTag(SYNC_PAIRING_QR).assertDoesNotExist()
         compose.onNodeWithText(code).assertIsDisplayed()
+    }
+
+    @Test
+    fun `through Nabu Casa with the home address known, the code holds that address and says so`() {
+        show(hostPortKnown = true, hostPort = 8100, browserHost = "abc123.ui.nabu.casa", homeHost = "192.168.1.10")
+
+        compose.onNodeWithTag(SYNC_PAIRING_QR).assertIsDisplayed()
+        compose.onNodeWithText("its address on your home network", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("http://192.168.1.10:8100").assertIsDisplayed()
+    }
+
+    @Test
+    fun `at home, the browser's own host wins over the machine's address`() {
+        show(hostPortKnown = true, hostPort = 18100, homeHost = "192.168.1.10")
+
+        compose.onNodeWithText("http://homeassistant.local:18100").assertIsDisplayed()
+        compose.onNodeWithText("its address on your home network", substring = true).assertDoesNotExist()
     }
 
     @Test

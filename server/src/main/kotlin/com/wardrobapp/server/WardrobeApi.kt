@@ -75,6 +75,7 @@ fun Application.wardrobeApi(
     profiles: ProfileRegistry,
     settings: ServerSettings = ServerSettings(),
     hostPorts: HostPorts = HostPorts.from(settings),
+    homeAddress: HomeAddress = HomeAddress.from(settings),
 ) {
     settings.allowedClients?.let { allowed -> install(onlyFrom(allowed)) }
 
@@ -131,7 +132,7 @@ fun Application.wardrobeApi(
                 if (port == null) {
                     call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
                 } else {
-                    call.respond(syncPairing(wardrobe.syncSecret.current(), port, hostPorts.of(port)))
+                    call.respond(syncPairing(wardrobe.syncSecret.current(), port, hostPorts.of(port), homeAddress))
                 }
             }
 
@@ -140,7 +141,7 @@ fun Application.wardrobeApi(
                 if (port == null) {
                     call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
                 } else {
-                    call.respond(syncPairing(wardrobe.syncSecret.reset(), port, hostPorts.of(port)))
+                    call.respond(syncPairing(wardrobe.syncSecret.reset(), port, hostPorts.of(port), homeAddress))
                 }
             }
 
@@ -425,9 +426,12 @@ private suspend inline fun <reified T : Any> ApplicationCall.respondOrNotFound(v
 }
 
 /** The pairing Settings shows, with what Home Assistant said about [port]'s mapping; see [SyncPairing]. */
-private fun syncPairing(code: String, port: Int, hostPort: HostPort) = SyncPairing(
+private suspend fun syncPairing(code: String, port: Int, hostPort: HostPort, homeAddress: HomeAddress) = SyncPairing(
     code = code,
     port = port,
     hostPortKnown = hostPort != HostPort.Unknown,
     hostPort = (hostPort as? HostPort.Open)?.port,
+    // Asked only once there is an open port for it to go with: a home
+    // address for a closed port is an address to nothing.
+    homeHost = if (hostPort is HostPort.Open) homeAddress.home() else null,
 )

@@ -95,13 +95,14 @@ fun serverTest(
     settings: ServerSettings = ServerSettings(),
     backgrounds: BackgroundRemover? = null,
     hostPorts: HostPorts = HostPorts.NONE,
+    homeAddress: HomeAddress = HomeAddress.NONE,
     block: suspend ServerUnderTest.() -> Unit,
 ) {
     val directory = Files.createTempDirectory("wardrobe-server").toFile()
     val profiles = ProfileRegistry(directory, importer, backgrounds)
     try {
         testApplication {
-            application { wardrobeApi(profiles, settings, hostPorts) }
+            application { wardrobeApi(profiles, settings, hostPorts, homeAddress) }
             // The base the browser will have once it has opened the first
             // profile -- the one an upgraded server's wardrobe became -- so the
             // routes are resolved the way they will be there: relative to it.

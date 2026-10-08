@@ -770,6 +770,7 @@
     <string name="sync_pairing_scan">Pair the Android app by scanning this code: in the phone's Settings, under Home Assistant, choose Scan pairing code. The phone's camera can open it too.</string>
     <string name="sync_pairing_qr_description">QR code for pairing a phone</string>
     <string name="sync_pairing_closed">Phones can't reach this app yet. In Home Assistant, open this app's Configuration tab and, under Network, give port %1$d a host port (%1$d is fine). Save, and come back here for a code to scan.</string>
+    <string name="sync_pairing_at_home">You opened Home Assistant from outside your home, so this code holds its address on your home network. Scan it as below; the phone syncs when it is on your Wi-Fi.</string>
     <string name="sync_pairing_elsewhere">To show a code your phone can scan, open Home Assistant at the address you use at home, such as homeassistant.local:8123. Or, in the phone's Settings, enter that address with port %1$d, and the code below.</string>
     <string name="settings_section_home_assistant">Home Assistant</string>
     <string name="profile_choose_title">Whose wardrobe is this?</string>

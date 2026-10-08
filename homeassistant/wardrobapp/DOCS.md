@@ -61,9 +61,11 @@ step with this one:
 The QR code holds the address you opened Home Assistant at, with the host port
 from step 1, and the code. Both are written under it, to type into a phone that
 can't scan. If Settings says phones can't reach the app yet, step 1 hasn't been
-done. If you opened Home Assistant through Nabu Casa's remote address, there is
-no QR code: that address only reaches Home Assistant itself, so open Home
-Assistant at the address you use at home to get one.
+done. If you opened Home Assistant through Nabu Casa's remote address, that
+address only reaches Home Assistant itself, so the QR code holds your Home
+Assistant's address on your home network instead, and the phone syncs when it
+is on your Wi-Fi. If the app could not find that address, open Home Assistant
+at the address you use at home to get a code.
 
 The app asks Home Assistant which host port you gave it, which is why it asks
 for access to Home Assistant's Supervisor API. It is the default, narrowest
