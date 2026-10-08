@@ -1,8 +1,10 @@
 package com.wardrobapp.app
 
+import com.wardrobapp.presentation.UndoHost
 import android.content.Context
 import com.wardrobapp.api.DirectoryPhotoFolder
 import com.wardrobapp.api.PhoneSync
+import com.wardrobapp.data.RecentlyDeleted
 import com.wardrobapp.data.AnalyticsQueries
 import com.wardrobapp.data.ArchiveBackup
 import com.wardrobapp.data.ArchiveRestore
@@ -129,6 +131,16 @@ class AppContainer(context: Context) {
      * Never cancelled, like the process it belongs to.
      */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /**
+     * The deletes that can still be undone, and the line that offers them.
+     * One of each for the process, as the database is: the screen that
+     * deleted a garment is gone by the time Undo is tapped, and the line is
+     * drawn by the activity's shell over whatever screen is up. See
+     * RecentlyDeleted and UndoHost.
+     */
+    val recentlyDeleted = RecentlyDeleted()
+    val undo = UndoHost(appScope)
 
     /**
      * Syncing with Home Assistant, if this phone is paired with one.

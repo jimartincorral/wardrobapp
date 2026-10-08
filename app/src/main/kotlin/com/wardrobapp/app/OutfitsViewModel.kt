@@ -34,7 +34,9 @@ class OutfitsViewModel(container: AppContainer) : ViewModel() {
             outfitWrites = container.outfitWrites,
             suggestions = container.suggestions,
             io = Dispatchers.IO,
+            recentlyDeleted = container.recentlyDeleted,
         ),
+        undo = container.undo,
     )
 
     val state: StateFlow<OutfitsScreenState> = model.state

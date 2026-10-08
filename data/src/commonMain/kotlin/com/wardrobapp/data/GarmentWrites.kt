@@ -155,32 +155,60 @@ class GarmentWrites(private val driver: SqlDriver) {
      * The deletion is remembered at [now], for sync, as an outfit's is; see
      * OutfitWrites.delete.
      */
-    fun delete(id: String, now: String): List<String> = driver.transaction {
-        val photos = driver.query(
-            "SELECT image_uri, image_uri_nobg, image_uris, image_uris_nobg FROM garments WHERE id = ?",
-            listOf(id),
-        ).firstOrNull()?.let { row ->
-            buildList {
-                addAll(parseStringArray(row["image_uris"]))
-                addAll(parseStringArray(row["image_uris_nobg"]))
-                (row["image_uri"] as? String)?.let { add(it) }
-                (row["image_uri_nobg"] as? String)?.let { add(it) }
-            }.filter { it.isNotEmpty() }.distinct()
-        } ?: emptyList()
+    fun delete(id: String, now: String): List<String> = remove(id, now)?.photos ?: emptyList()
+
+    /**
+     * Delete the garment, keeping what went so [restore] can put it back;
+     * null when there is no such garment. See RecentlyDeleted for the shape
+     * of this, and why the rows are kept raw.
+     *
+     * The learned scores go with it: its pair scores, and its own. A row
+     * keyed on a garment that no longer exists is one nothing will ever ask
+     * about again, and a backup should not carry it forever. They come back
+     * with an undo, so a garment put back has not forgotten what it goes with.
+     */
+    fun remove(id: String, now: String): DeletedGarment? = driver.transaction {
+        val garment = driver.row("garments", id) ?: return@transaction null
+        val photos = buildList {
+            addAll(parseStringArray(garment["image_uris"]))
+            addAll(parseStringArray(garment["image_uris_nobg"]))
+            (garment["image_uri"] as? String)?.let { add(it) }
+            (garment["image_uri_nobg"] as? String)?.let { add(it) }
+        }.filter { it.isNotEmpty() }.distinct()
+        val pairScores = driver.query(
+            "SELECT * FROM garment_pair_scores WHERE garment_id_a = ? OR garment_id_b = ?",
+            listOf(id, id),
+        )
+        val scores = driver.query("SELECT * FROM garment_scores WHERE garment_id = ?", listOf(id))
 
         driver.execute("DELETE FROM garments WHERE id = ?", listOf(id))
         driver.execute(
             "DELETE FROM garment_pair_scores WHERE garment_id_a = ? OR garment_id_b = ?",
             listOf(id, id),
         )
-        // Its own learned score goes the same way its pair scores do: a row
-        // keyed on a garment that no longer exists is one nothing will ever ask
-        // about again, and a backup should not carry it forever.
         driver.execute("DELETE FROM garment_scores WHERE garment_id = ?", listOf(id))
-        OutfitWrites(driver).removeGarment(id, now)
+        val outfits = OutfitWrites(driver).removeGarment(id, now)
         recordDeletion(driver, DeletionKind.GARMENT, id, now)
 
-        photos
+        DeletedGarment(id, photos, garment, pairScores, scores, outfits)
+    }
+
+    /**
+     * Put a deleted garment back, as of [now].
+     *
+     * As of now rather than as of its old update time, so the delete recorded
+     * for the other side of a sync -- which may already have reached it --
+     * loses to this by the ordinary rule: a change after the deletion brings
+     * the row back everywhere. The outfits it is put back into are stamped
+     * for the same reason, and the deletion records are dropped here. The
+     * learned scores are put back as they were; they carry no time.
+     */
+    fun restore(deleted: DeletedGarment, now: String) = driver.transaction {
+        driver.putRow("garments", deleted.garment, "updated_at" to now)
+        for (row in deleted.pairScores) driver.putRow("garment_pair_scores", row)
+        for (row in deleted.scores) driver.putRow("garment_scores", row)
+        driver.execute("DELETE FROM deletions WHERE kind = ? AND id = ?", listOf(DeletionKind.GARMENT.storedName, deleted.id))
+        OutfitWrites(driver).restoreAfterGarment(deleted.outfits, now)
     }
 }
 

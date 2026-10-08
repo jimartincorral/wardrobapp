@@ -97,7 +97,29 @@ class GarmentRoutesTest {
 
         garmentDetail.delete(garment.id)
         assertNull(garmentDetail.garment(garment.id))
+        // The photo waits for the chance to undo to pass; then it goes.
+        garmentDetail.discardDeleted(garment.id)
         assertFalse(File(photoDirectory, toStoredImageRef(garment.imageUri)).exists())
+    }
+
+    @Test
+    fun `a deleted garment can be put back for a while, photo and all, and then not`() = serverTest {
+        val garment = addGarment()
+        val photo = File(photoDirectory, toStoredImageRef(garment.imageUri))
+
+        garmentDetail.delete(garment.id)
+        assertNull(garmentDetail.garment(garment.id))
+        assertTrue(photo.exists(), "the photo waits for the chance to undo to pass")
+
+        assertTrue(garmentDetail.undoDelete(garment.id))
+        assertEquals(garment.id, garmentDetail.garment(garment.id)?.id)
+        assertTrue(photo.exists())
+        assertFalse(garmentDetail.undoDelete(garment.id), "undone once")
+
+        garmentDetail.delete(garment.id)
+        garmentDetail.discardDeleted(garment.id)
+        assertFalse(photo.exists(), "the chance passed, and the photo went")
+        assertFalse(garmentDetail.undoDelete(garment.id))
     }
 
     @Test

@@ -210,6 +210,18 @@ private fun Route.garments() {
         call.respond(HttpStatusCode.NoContent)
     }
 
+    // A delete's undo, and the end of the chance to: the browser's screen
+    // model offers the one and times the other, as the phone's does, and the
+    // server holds what was deleted meanwhile (see RecentlyDeleted).
+    post(Routes.GARMENT_UNDELETE) {
+        call.respond(Flag(wardrobe.garmentDetail.undoDelete(id())))
+    }
+
+    post(Routes.GARMENT_DISCARD) {
+        wardrobe.garmentDetail.discardDeleted(id())
+        call.respond(HttpStatusCode.NoContent)
+    }
+
     put(Routes.GARMENT_IN_USE) {
         wardrobe.garmentDetail.setInUse(id(), call.receive<Flag>().value)
         call.respond(HttpStatusCode.NoContent)
@@ -243,6 +255,10 @@ private fun Route.outfits() {
     delete(Routes.OUTFIT) {
         wardrobe.outfitDetail.delete(id())
         call.respond(HttpStatusCode.NoContent)
+    }
+
+    post(Routes.OUTFIT_UNDELETE) {
+        call.respond(Flag(wardrobe.outfitDetail.undoDelete(id())))
     }
 
     get(Routes.OUTFIT_DETAIL) { call.respondOrNotFound(wardrobe.outfitDetail.outfit(id())) }

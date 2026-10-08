@@ -38,6 +38,15 @@ class OutfitRoutesTest {
         outfitDetail.delete(outfit.id)
         assertNull(outfitDetail.outfit(outfit.id))
         assertNull(outfitEdit.outfit(outfit.id))
+
+        // And back, from either place an outfit is deleted from: the list's
+        // undo finds what the detail's delete kept, since the wardrobe has
+        // one memory of recent deletes.
+        assertTrue(outfits.undoDelete(outfit.id))
+        assertEquals(4, outfitDetail.outfit(outfit.id)?.rating)
+        assertFalse(outfitDetail.undoDelete(outfit.id))
+        outfits.delete(outfit.id)
+        assertNull(outfitDetail.outfit(outfit.id))
     }
 
     @Test

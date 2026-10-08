@@ -89,6 +89,7 @@ import com.wardrobapp.ui.OutfitsScreen
 import com.wardrobapp.ui.PhoneSyncSection
 import com.wardrobapp.ui.RestoreDialog
 import com.wardrobapp.ui.SETTINGS
+import com.wardrobapp.ui.UndoSnackbar
 import com.wardrobapp.ui.STATISTICS
 import com.wardrobapp.ui.SettingsScreen
 import com.wardrobapp.ui.StatisticsScreen
@@ -257,6 +258,12 @@ class MainActivity : AppCompatActivity() {
                         if (TABS.any { it.route == route }) {
                             WardrobeBottomBar(route) { navigator.switchTo(it) }
                         }
+                    },
+                    // The undo line, above the bar and over whichever screen is
+                    // up: the one that deleted has usually closed by now.
+                    snackbarHost = {
+                        val offer by container.undo.offer.collectAsStateWithLifecycle()
+                        UndoSnackbar(offer = offer, onUndo = container.undo::onUndo)
                     },
                 ) { insets ->
                     // Asked once per launch, above every screen, because a newer
@@ -1448,9 +1455,12 @@ class MainActivity : AppCompatActivity() {
     @Composable
     private fun RefreshOnReturn(refresh: () -> Unit) {
         // And whenever a sync changes the wardrobe while the screen is showing
-        // it -- the one change that arrives without anybody leaving the screen.
-        val synced by AppContainer.get(applicationContext).sync.changes.collectAsStateWithLifecycle()
-        LifecycleResumeEffect(synced) {
+        // it, or an undo puts a deleted garment back -- the two changes that
+        // arrive without anybody leaving the screen.
+        val container = AppContainer.get(applicationContext)
+        val synced by container.sync.changes.collectAsStateWithLifecycle()
+        val restored by container.undo.restored.collectAsStateWithLifecycle()
+        LifecycleResumeEffect(synced, restored) {
             refresh()
             onPauseOrDispose { }
         }

@@ -148,6 +148,9 @@ class HttpOutfitDetailSource(private val http: HttpClient) : OutfitDetailSource 
     override suspend fun delete(outfitId: String) {
         http.delete(Routes.outfit(outfitId))
     }
+
+    override suspend fun undoDelete(outfitId: String): Boolean =
+        http.post(Routes.outfitUndelete(outfitId)).body<Flag>().value
 }
 
 class HttpOutfitEditSource(private val http: HttpClient) : OutfitEditSource {
@@ -207,6 +210,9 @@ class HttpOutfitsSource(private val http: HttpClient) : OutfitsSource {
     override suspend fun delete(outfitId: String) {
         http.delete(Routes.outfit(outfitId))
     }
+
+    override suspend fun undoDelete(outfitId: String): Boolean =
+        http.post(Routes.outfitUndelete(outfitId)).body<Flag>().value
 }
 
 class HttpGarmentDetailSource(private val http: HttpClient) : GarmentDetailSource {
@@ -219,6 +225,15 @@ class HttpGarmentDetailSource(private val http: HttpClient) : GarmentDetailSourc
 
     override suspend fun delete(id: String) {
         http.delete(Routes.garment(id))
+    }
+
+    // The memory of recent deletes is the server's, with the files: the
+    // browser only asks. See DatabaseGarmentDetailSource.
+    override suspend fun undoDelete(id: String): Boolean =
+        http.post(Routes.garmentUndelete(id)).body<Flag>().value
+
+    override suspend fun discardDeleted(id: String) {
+        http.post(Routes.garmentDiscard(id))
     }
 
     /**

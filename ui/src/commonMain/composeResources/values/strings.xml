@@ -236,7 +236,10 @@
     <string name="garment_retire_body">It leaves your wardrobe and stops appearing in outfits, but it is kept — with its photos — and counts towards how long things last. You can put it back at any time.</string>
     <string name="garment_retire_action">Stop wearing it</string>
     <string name="garment_delete_confirm">Delete this garment?</string>
-    <string name="garment_delete_body">Its photos go too, along with what the app has learned about which garments it goes with. Any saved outfit using it loses it, and an outfit left with nothing is deleted. This cannot be undone.</string>
+    <string name="garment_delete_body">Its photos go too, along with what the app has learned about which garments it goes with. Any saved outfit using it loses it, and an outfit left with nothing is deleted. You can undo this for a few seconds afterwards.</string>
+    <string name="undo_garment_deleted">Garment deleted</string>
+    <string name="undo_outfit_deleted">Outfit deleted</string>
+    <string name="undo_action">Undo</string>
     <string name="background_removing">Working on the photo…</string>
     <string name="background_remove">Remove background</string>
     <string name="background_undo">Undo background removal</string>

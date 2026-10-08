@@ -6,6 +6,7 @@ import com.wardrobapp.domain.Occasion
 import com.wardrobapp.presentation.OutfitsScreenState.Suggestion
 import java.io.IOException
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -47,6 +48,10 @@ class OutfitsScreenModelTest {
         override suspend fun unarchive(outfitId: String) = log("unarchive $outfitId")
         override suspend fun setPinned(outfitId: String, pinned: Boolean) = log("pin $outfitId $pinned")
         override suspend fun delete(outfitId: String) = log("delete $outfitId")
+        override suspend fun undoDelete(outfitId: String): Boolean {
+            log("undo $outfitId")
+            return true
+        }
 
         private fun log(write: String) {
             failWrites?.let { throw it }
@@ -217,6 +222,23 @@ class OutfitsScreenModelTest {
         model.onDeleteConfirmed()
         advanceUntilIdle()
         assertEquals(listOf("delete o1"), source.writes)
+    }
+
+    @Test
+    fun `a deleted outfit is offered back`() = runTest {
+        val source = FakeSource()
+        val undo = UndoHost(this, windowMillis = 1_000)
+        val model = OutfitsScreenModel(this, source, undo)
+        advanceUntilIdle()
+
+        model.onDeleteRequested(model.state.value.saved.first())
+        model.onDeleteConfirmed()
+        runCurrent()
+        assertEquals(Deleted.OUTFIT, undo.offer.value?.deleted)
+
+        undo.onUndo()
+        advanceUntilIdle()
+        assertEquals(listOf("delete o1", "undo o1"), source.writes)
     }
 
     @Test

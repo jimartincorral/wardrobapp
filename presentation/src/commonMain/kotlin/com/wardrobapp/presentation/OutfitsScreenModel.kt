@@ -70,12 +70,17 @@ interface OutfitsSource {
      * outfit is a grouping of them, not a thing that owns them.
      */
     suspend fun delete(outfitId: String)
+
+    /** Put a deleted outfit back, rating and all; false when it is too late. See GarmentDetailSource.undoDelete. */
+    suspend fun undoDelete(outfitId: String): Boolean = false
 }
 
 /** Suggestions and saved outfits: what OutfitsViewModel did, in common code. See ScreenModels.kt. */
 class OutfitsScreenModel(
     private val scope: CoroutineScope,
     private val source: OutfitsSource,
+    /** Where a delete is offered back; null where there is nothing to draw the offer. */
+    private val undo: UndoHost? = null,
 ) {
     private val _state = MutableStateFlow(OutfitsScreenState())
     val state: StateFlow<OutfitsScreenState> = _state.asStateFlow()
@@ -230,7 +235,9 @@ class OutfitsScreenModel(
         _state.update { it.copy(deleting = null) }
 
         scope.launch {
-            write { source.delete(outfit.id) }
+            if (write { source.delete(outfit.id) }) {
+                undo?.offer(Deleted.OUTFIT, undo = { source.undoDelete(outfit.id) })
+            }
             loadSaved()
         }
     }
