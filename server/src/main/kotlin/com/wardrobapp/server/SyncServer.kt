@@ -66,13 +66,24 @@ fun Application.wardrobeSync(profiles: ProfileRegistry, version: ServerVersion) 
         }
 
         // A phone that restored a backup: its wardrobe replaces this one, as of
-        // now, so the restore holds here and on every other phone. See
+        // the restore, so the restore holds here and on every other phone. See
         // SyncStore.replaceWith.
+        //
+        // As of the restore, not as of now: the phone may have restored days
+        // ago, away from home, and anything added here or on another phone
+        // since is newer than the restore and should stay -- dated from now,
+        // the deletions would beat it all. A phone from before it sent the
+        // time gets now, as before. Never later than now, whatever the phone's
+        // clock says: a deletion dated in the future would win against every
+        // edit made until then.
         post("/${SyncRoutes.REPLACE}") {
             val wardrobe = call.attributes[Syncing]
             val theirs = call.receive<WardrobeSnapshot>()
             val now = isoTimestamp(System.currentTimeMillis())
-            answer(wardrobe, withContext(Dispatchers.IO) { wardrobe.sync.replaceWith(theirs, now) })
+            val restoredAt = call.request.queryParameters[SyncRoutes.RESTORED_AT]
+                ?.takeIf { ISO_TIMESTAMP.matches(it) && it < now }
+                ?: now
+            answer(wardrobe, withContext(Dispatchers.IO) { wardrobe.sync.replaceWith(theirs, restoredAt) })
         }
 
         put("/${SyncRoutes.PHOTO}") {
@@ -124,6 +135,13 @@ private fun paired(profiles: ProfileRegistry) = createApplicationPlugin("Paired"
 
 /** The wardrobe the request's pairing code opened, put there by [paired]. */
 private val Syncing = AttributeKey<ServerWardrobe>("syncing")
+
+/**
+ * What isoTimestamp writes, and nothing else: timestamps in this shape order
+ * as text, which is how the merge compares them, and one in any other shape
+ * would compare as nonsense against every row it met.
+ */
+private val ISO_TIMESTAMP = Regex("""\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z""")
 
 /** Let go of the photos a merge left unused, and answer with the result and the photos still to come. */
 private suspend fun RoutingContext.answer(wardrobe: ServerWardrobe, result: MergedWardrobe) {

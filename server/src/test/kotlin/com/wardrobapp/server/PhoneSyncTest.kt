@@ -10,6 +10,7 @@ import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.JdbcSqlDriver
 import com.wardrobapp.data.SyncStore
 import com.wardrobapp.data.WardrobeSchema
+import com.wardrobapp.data.isoTimestamp
 import com.wardrobapp.presentation.GarmentFormState
 import com.wardrobapp.presentation.SyncFailure
 import io.ktor.server.cio.CIO
@@ -43,6 +44,7 @@ class PhoneSyncTest {
         override var background: Boolean = true
         override var wifiOnly: Boolean = true
         override var restorePending: Boolean = false
+        override var restoredAt: String? = null
     }
 
     /** What WorkManager would have been told. */
@@ -100,9 +102,9 @@ class PhoneSyncTest {
         }
     }
 
-    private suspend fun ServerWardrobe.addGarment() = garmentForm.save(
+    private suspend fun ServerWardrobe.addGarment(brand: String = "") = garmentForm.save(
         garmentId = null,
-        form = GarmentFormState(imageUris = listOf(photos.store(jpeg())), bgRemovedUris = listOf(""), category = "tops", colorPalette = listOf("#000000"), colorsChosen = true),
+        form = GarmentFormState(imageUris = listOf(photos.store(jpeg())), bgRemovedUris = listOf(""), category = "tops", colorPalette = listOf("#000000"), colorsChosen = true, brand = brand),
         previouslyStored = emptyList(),
     )
 
@@ -265,6 +267,12 @@ class PhoneSyncTest {
             garments = listOf(server.sync.snapshot().garments.single().copy(id = "from-the-backup", brand = "Restored")),
             deletions = emptyList(),
         )
+        // The restore is dated by the phone's clock, and the server's rows by
+        // the server's: the phone's has to be after the garment above for the
+        // restore to count as replacing it, as the clocks of a phone and a
+        // Home Assistant in the same house agree it would.
+        Thread.sleep(5)
+        clock.millis = System.currentTimeMillis()
         phone.restoring { phoneStore.replaceWith(backup, "2999-01-01T00:00:00.000Z") }
         assertEquals(listOf("from-the-backup"), phoneStore.snapshot().garments.map { it.id })
         assertTrue(phone.status.value.restorePending)
@@ -274,6 +282,46 @@ class PhoneSyncTest {
         assertEquals(listOf("from-the-backup"), server.sync.snapshot().garments.map { it.id })
         assertFalse(phone.status.value.restorePending, "the restore was sent; the next sync is an ordinary one")
         assertFalse(preferences.restorePending)
+    }
+
+    @Test
+    fun `a restore that waited to reach Home Assistant does not delete what was added meanwhile`() = phoneTest {
+        phone.connect(address, server.syncSecret.current())
+        server.addGarment()
+        phone.sync()
+
+        // The restore happens, on the phone's clock, after the garment above
+        // and before the one below, and is not sent: the phone is away from
+        // home. What the backup lacks is to be deleted as of this moment.
+        val backup = server.sync.snapshot().copy(
+            garments = listOf(server.sync.snapshot().garments.single().copy(id = "from-the-backup", brand = "Restored")),
+            deletions = emptyList(),
+        )
+        Thread.sleep(5)
+        clock.millis = System.currentTimeMillis()
+        phone.restoring { phoneStore.replaceWith(backup, "2999-01-01T00:00:00.000Z") }
+        assertEquals(isoTimestamp(clock.millis), preferences.restoredAt)
+
+        // Meanwhile the household adds a garment in the browser, stamped with
+        // the server's own clock: later than the restore.
+        Thread.sleep(5)
+        server.addGarment(brand = "Added after the restore")
+        val addedMeanwhile = server.sync.snapshot().garments.single { it.brand == "Added after the restore" }.id
+
+        // The restore arrives. Dated from the restore rather than from its
+        // arrival, its deletions are older than the addition, which stays;
+        // what the backup replaced is still gone.
+        assertNull(phone.sync())
+        assertEquals(
+            setOf("from-the-backup", addedMeanwhile),
+            server.sync.snapshot().garments.map { it.id }.toSet(),
+        )
+        assertEquals(
+            setOf("from-the-backup", addedMeanwhile),
+            phoneStore.snapshot().garments.map { it.id }.toSet(),
+            "and the phone has it too, from the answer",
+        )
+        assertNull(preferences.restoredAt, "sent; nothing left to date")
     }
 
     @Test

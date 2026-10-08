@@ -93,6 +93,15 @@ class SyncStore(private val driver: SqlDriver) {
      * edits the restore was meant to replace -- an edit made after the restore
      * still wins, as it should.
      *
+     * [now] should be that same time, the restore's, and the phone sends it
+     * (SyncRoutes.RESTORED_AT). It used to be the time the request arrived,
+     * which is the same thing when the phone is at home and a different thing
+     * when it is not: a phone that restored on Monday away from home and got
+     * back on Wednesday deleted, as of Wednesday, everything the household
+     * had added on Tuesday -- newer than the restore, and gone with the
+     * photos. Dated from the restore, Tuesday's additions are newer than the
+     * deletions and stay, by the ordinary rule.
+     *
      * A merge in every other respect: the same rules, the same application,
      * the same transaction, so a restore and a sync from somebody else cannot
      * interleave.

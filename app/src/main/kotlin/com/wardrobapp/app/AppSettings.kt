@@ -1,6 +1,8 @@
 package com.wardrobapp.app
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
 import androidx.core.os.LocaleListCompat
@@ -70,9 +72,24 @@ class AppSettings(context: Context) {
             }
         }
 
+        // The schedule's file was just overwritten with another phone's; make
+        // what is queued agree with it. See BackupSchedule.restored.
+        if ("wardrobapp_backup_schedule" in settings.preferences) BackupSchedule(context).restored()
+
         // Last, because it is the one that restarts activities to take effect.
+        //
+        // Posted to the main thread rather than called here, because this runs
+        // on IO, after the restore, and on Android 12 and below AppCompat
+        // applies a locale by recreating every activity then and there, on the
+        // calling thread -- which Activity.recreate refuses off the main one.
+        // The wardrobe was restored and the settings written by then; what the
+        // exception cost was the language, and a raw Java message in place of
+        // "restored". Android 13 and up hand the locale to the system instead
+        // and never had the problem.
         settings.language?.let {
-            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(it))
+            Handler(Looper.getMainLooper()).post {
+                AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(it))
+            }
         }
     }
 
@@ -101,8 +118,10 @@ class AppSettings(context: Context) {
             // Theme, and how the wardrobe is drawn.
             APPEARANCE_PREFERENCES,
             // Whether the scheduled backup is on, how often, how many to keep, and
-            // the Wi-Fi and battery rules. The run history rides along, which is
-            // untidy but harmless: the next run overwrites it.
+            // the Wi-Fi and battery rules. The run history rides along and is
+            // dropped again on restore, and the queued job is made to agree with
+            // the flag -- see BackupSchedule.restored, and why a flag alone is
+            // not enough.
             "wardrobapp_backup_schedule",
             // Which update was skipped.
             "wardrobapp_updates",

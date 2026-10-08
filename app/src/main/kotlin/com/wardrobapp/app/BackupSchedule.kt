@@ -28,9 +28,10 @@ import java.util.concurrent.TimeUnit
  *
  * SharedPreferences for the same reasons the theme uses it, written down in
  * [ThemePreference]: this is a setting about the phone rather than about the
- * wardrobe, and a restore from another device must not bring it along -- a backup
- * schedule that arrived inside a backup would be somebody else's decision applied
- * to this phone's data plan.
+ * wardrobe. A restore brings it along only when the person asks for the settings
+ * too (see AppSettings): a backup schedule that arrived inside a backup unasked
+ * would be somebody else's decision applied to this phone's data plan. When it
+ * does arrive, [restored] makes the queued job agree with it.
  */
 class BackupSchedule(context: Context) {
 
@@ -137,6 +138,30 @@ class BackupSchedule(context: Context) {
     fun disable() {
         preferences.edit { putBoolean(KEY_ENABLED, false) }
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+    }
+
+    /**
+     * Make what is queued agree with the file, after a restore with settings
+     * overwrote it with another phone's.
+     *
+     * The flag and the job move together everywhere else in this class, and a
+     * restore is the one writer that goes around it: it copies the file whole,
+     * so the flag can say "on" with nothing queued -- a safety net that
+     * quietly is not there, the case named at the top of this file -- or "off"
+     * with a job still running to a schedule nobody here can see. `KEEP`, as
+     * [enable] uses, so a job already running to the same rule is not pushed
+     * out; a changed rule is written by [changing] only, and this is not that.
+     *
+     * The other phone's run history goes: when its last backup ran, and why it
+     * failed, are facts about that phone, and shown here they would read as
+     * this one's.
+     */
+    fun restored() {
+        preferences.edit {
+            remove(KEY_LAST_RUN)
+            remove(KEY_LAST_FAILURE)
+        }
+        if (enabled) enable() else disable()
     }
 
     fun recordSuccess(atMillis: Long) = preferences.edit {

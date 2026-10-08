@@ -98,6 +98,20 @@ class BackgroundRemovalTest {
     }
 
     @Test
+    fun `a photo too large to decode safely is refused by its header, before it is decoded`() {
+        // A flat PNG a side over the limit: a few kilobytes on disk, hundreds
+        // of megabytes decoded. The refusal names the size, since the person
+        // who sent it is the one who can scale it.
+        val huge = BufferedImage(BackgroundRemover.MAX_SIDE + 1, 8, BufferedImage.TYPE_INT_RGB)
+        val bytes = ByteArrayOutputStream().use { ImageIO.write(huge, "png", it); it.toByteArray() }
+        val refusal = assertFailsWith<PhotoRejected.TooLarge> { BackgroundRemover.cutOut(bytes, LeftHalf()) }
+        assertTrue("${BackgroundRemover.MAX_SIDE + 1} by 8" in refusal.message.orEmpty(), refusal.message)
+
+        assertEquals(120 to 80, BackgroundRemover.dimensionsOf(photo()))
+        assertEquals(null, BackgroundRemover.dimensionsOf(byteArrayOf(1, 2, 3)))
+    }
+
+    @Test
     fun `the model is loaded when asked for, and let go when idle`() {
         val opened = AtomicInteger()
         val models = mutableListOf<LeftHalf>()

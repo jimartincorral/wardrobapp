@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Wardrobapp**
-Last updated: 29 August 2026
+Last updated: 8 October 2026
 
 Wardrobapp is a local-first wardrobe and outfit planner. There is no account to
 create, no server run by its developer, and nothing about you is collected,
@@ -37,7 +37,7 @@ None of it is sent anywhere by default. Uninstalling the app removes all of it.
 
 ## When the app uses the network
 
-Four occasions, and no others. Three of the four happen only because you asked
+Six occasions, and no others. All but the first happen only because you asked
 for them.
 
 **Checking for a new version.** The app fetches a small file from its own GitHub
@@ -56,6 +56,23 @@ press the button. See the section below.
 device, using a model that Google Play services provides. The photo itself is not
 uploaded; Play services may fetch the model itself over the network, which is
 Google's process rather than this app's.
+
+**Syncing with Home Assistant, if you pair the phone.** Off until you pair it,
+under Settings → Home Assistant, with the code shown in the Wardrobapp app in
+your own Home Assistant. Once paired, the phone sends your whole wardrobe —
+garments, outfits, ratings and photos — to the address you gave it, and takes
+back what has changed there. It does so when you open the app, when you tap
+**Sync now**, and, if you leave the switch on, every few hours in the background
+(waiting for Wi-Fi unless you say otherwise; the app reads whether the network is
+metered for that, which is the one permission it holds besides reaching the
+network and offering an install). The address is one on your home network, and
+the connection is plain HTTP: anyone who can read traffic on that network could
+read the wardrobe as it passes, which is why the Home Assistant app's
+documentation says to keep its sync port inside your home or put it behind
+HTTPS. Nothing goes to the developer or to anyone else: the only computer the
+phone talks to is the one you named. **Stop syncing** forgets the pairing and
+sends nothing more; what was already synced stays in your Home Assistant until
+you delete it there.
 
 **Scanning a pairing code.** **Scan pairing code**, in Settings under Home
 Assistant, opens Google Play services' code scanner. It reads the code on your

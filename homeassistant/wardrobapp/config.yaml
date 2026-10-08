@@ -10,7 +10,7 @@ name: Wardrobapp
 # What Home Assistant compares to decide whether there is an update, and the
 # tag of the image it pulls. The images are built by .github/workflows/
 # home-assistant.yml when this changes on main; bumping it is releasing.
-version: "0.7.0"
+version: "0.8.0"
 slug: wardrobapp
 description: Your wardrobe and outfit ideas, kept in Home Assistant.
 url: https://github.com/jimartincorral/wardrobapp
@@ -45,8 +45,9 @@ ports_description:
   8100/tcp: Phone sync (only needed to sync the Android app)
 # So the server can ask Home Assistant which host port the line above was
 # given, and Settings can show a phone one QR code to scan rather than a
-# paragraph about where to find it. Only that: the default role, which reads
-# an app's own information and changes nothing. See HostPorts in :server.
+# paragraph about where to find it. Only that: the default role, the least an
+# app can ask for, and reading its own information is all this server does
+# with it. See HostPorts in :server.
 hassio_api: true
 panel_icon: mdi:hanger
 panel_title: Wardrobe

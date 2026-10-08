@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import androidx.core.content.edit
+import androidx.core.content.pm.PackageInfoCompat
 import com.wardrobapp.data.AppRelease
 import com.wardrobapp.data.isTrustedDownload
 import com.wardrobapp.data.parseAppRelease
@@ -12,6 +13,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.MalformedURLException
 import java.net.URL
+import java.security.MessageDigest
 
 /**
  * Where the published document lives.
@@ -91,6 +93,12 @@ class AndroidAppUpdates(private val context: Context) {
         if (!isTrustedDownload(release.apkUrl)) {
             throw IOException(context.getString(R.string.error_update_untrusted))
         }
+        // Before a byte is fetched: a document with no hash offers nothing this
+        // phone can check, so there is nothing to download. Every document CI
+        // has published since the hash was added carries one; its absence is a
+        // publish that went wrong, not a build to install.
+        val expectedHash = release.apkSha256
+            ?: throw IOException(context.getString(R.string.error_update_unverified))
 
         val directory = File(context.cacheDir, UPDATE_DIRECTORY)
         directory.deleteRecursively()
@@ -112,6 +120,7 @@ class AndroidAppUpdates(private val context: Context) {
             }
 
             var written = 0L
+            val digest = MessageDigest.getInstance("SHA-256")
             connection.inputStream.use { source ->
                 file.outputStream().use { sink ->
                     val buffer = ByteArray(64 * 1024)
@@ -128,6 +137,7 @@ class AndroidAppUpdates(private val context: Context) {
                         }
 
                         sink.write(buffer, 0, read)
+                        digest.update(buffer, 0, read)
                         onProgress(expected?.let { (written.toFloat() / it).coerceIn(0f, 1f) })
                     }
                 }
@@ -138,6 +148,28 @@ class AndroidAppUpdates(private val context: Context) {
                 // a corrupt package, which sends the reader looking in the wrong
                 // place. Better to say the download did not finish.
                 throw IOException(context.getString(R.string.error_update_incomplete))
+            }
+
+            // What arrived is the file the document described, byte for byte.
+            // The address is a rolling one -- every build of main replaces the
+            // APK and the document together -- so a document read before a
+            // publish and a download after it would otherwise hand the installer
+            // the next build under this one's name and changelog. And a document
+            // that somehow named another file is found out here rather than by
+            // the installer, or not at all.
+            val actualHash = digest.digest().joinToString("") { "%02x".format(it) }
+            if (actualHash != expectedHash) {
+                throw IOException(context.getString(R.string.error_update_mismatch))
+            }
+
+            // And it is this app, at the build offered: the installer refuses a
+            // same-name package signed with another key, but installs a package
+            // of any other name without a second thought, as a new app. A build
+            // that is not this one is not installed, whatever got it here.
+            val info = context.packageManager.getPackageArchiveInfo(file.path, 0)
+            val versionCode = info?.let { PackageInfoCompat.getLongVersionCode(it) }
+            if (info == null || info.packageName != context.packageName || versionCode != release.versionCode) {
+                throw IOException(context.getString(R.string.error_update_mismatch))
             }
 
             return file
