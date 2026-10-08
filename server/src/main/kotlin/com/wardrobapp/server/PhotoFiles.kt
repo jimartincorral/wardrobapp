@@ -98,9 +98,10 @@ class PhotoFiles(val directory: File) {
      * dashes and underscores, starting with a letter or digit -- which rules
      * out separators, `..`, and a hidden file.
      */
-    private fun isPhotoName(name: String) = PHOTO_NAME.matches(name) && ".." !in name
-
     companion object {
+        /** Whether [name] is the shape of a stored photo's name; see [PHOTO_NAME]. */
+        fun isPhotoName(name: String) = PHOTO_NAME.matches(name) && ".." !in name
+
         /**
          * Twenty megabytes. A phone camera's JPEG is a few; this leaves room for
          * a large PNG while refusing a request that would fill the disk Home

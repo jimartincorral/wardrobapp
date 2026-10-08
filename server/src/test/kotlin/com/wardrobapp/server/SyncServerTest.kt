@@ -14,6 +14,7 @@ import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.JdbcSqlDriver
 import com.wardrobapp.data.SyncStore
 import com.wardrobapp.data.WardrobeSchema
+import com.wardrobapp.data.photoNames
 import com.wardrobapp.presentation.GarmentFormState
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -135,6 +136,45 @@ class SyncServerTest {
         // Settled: a second sync has nothing to move.
         assertEquals(SyncReport(uploaded = 0, downloaded = 0, changed = false), sync())
         assertEquals(SyncStore(phone.database).snapshot(), server.sync.snapshot())
+    }
+
+    @Test
+    fun `a photo that is a web address on the phone is no photo on the server`() = syncTest {
+        // A phone's record can name a web address where a photo should be;
+        // the server keeps the garment and drops the address, so no browser
+        // in the household fetches it and no phone is asked for it.
+        phone.garments.add("tracked", "https://tracker.example/pixel.gif", brand = "Tracked")
+
+        val report = sync()
+
+        assertEquals(0, report.uploaded, "nothing was asked for")
+        val onServer = server.sync.snapshot().garments.single()
+        assertEquals("Tracked", onServer.brand)
+        assertEquals("", onServer.imageUri)
+        assertTrue(onServer.imageUris.all { it.isEmpty() }, "nothing in any slot: ${onServer.imageUris}")
+        assertEquals(emptyList(), onServer.photoNames())
+
+        // And it stays that way: the phone sends the address again, the
+        // server drops it again, and nothing counts as changed.
+        assertEquals(SyncReport(uploaded = 0, downloaded = 0, changed = false), sync())
+    }
+
+    @Test
+    fun `refusals are logged once a minute, with a count, not once a request`() {
+        var now = 1_000_000L
+        val refusals = Refusals { now }
+
+        assertEquals("Refused a sync request from 192.168.1.9: no pairing code, or the wrong one", refusals.noting("192.168.1.9"))
+        now += 10_000
+        assertNull(refusals.noting("192.168.1.9"), "within the minute: counted, not written")
+        assertNull(refusals.noting("192.168.1.10"))
+        now += 55_000
+        assertEquals(
+            "Refused a sync request from 192.168.1.10: no pairing code, or the wrong one (and 2 more since the last line)",
+            refusals.noting("192.168.1.10"),
+        )
+        now += 60_000
+        assertEquals("Refused a sync request from 10.0.0.2: no pairing code, or the wrong one", refusals.noting("10.0.0.2"), "the count was spent")
     }
 
     @Test

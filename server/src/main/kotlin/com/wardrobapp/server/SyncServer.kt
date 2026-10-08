@@ -62,7 +62,7 @@ fun Application.wardrobeSync(profiles: ProfileRegistry, version: ServerVersion) 
 
         post("/${SyncRoutes.EXCHANGE}") {
             val wardrobe = call.attributes[Syncing]
-            val theirs = call.receive<WardrobeSnapshot>()
+            val theirs = call.receive<WardrobeSnapshot>().withStoredPhotosOnly()
             answer(wardrobe, withContext(Dispatchers.IO) { wardrobe.sync.mergeWith(theirs) })
         }
 
@@ -79,7 +79,7 @@ fun Application.wardrobeSync(profiles: ProfileRegistry, version: ServerVersion) 
         // edit made until then.
         post("/${SyncRoutes.REPLACE}") {
             val wardrobe = call.attributes[Syncing]
-            val theirs = call.receive<WardrobeSnapshot>()
+            val theirs = call.receive<WardrobeSnapshot>().withStoredPhotosOnly()
             val now = isoTimestamp(System.currentTimeMillis())
             val restoredAt = call.request.queryParameters[SyncRoutes.RESTORED_AT]
                 ?.takeIf { ISO_TIMESTAMP.matches(it) && it < now }
@@ -117,6 +117,7 @@ fun Application.wardrobeSync(profiles: ProfileRegistry, version: ServerVersion) 
  * than "something went wrong".
  */
 private fun paired(profiles: ProfileRegistry) = createApplicationPlugin("Paired") {
+    val refusals = Refusals()
     onCall { call ->
         val offered = call.request.headers[HttpHeaders.Authorization]
             ?.removePrefix("Bearer ")
@@ -125,7 +126,7 @@ private fun paired(profiles: ProfileRegistry) = createApplicationPlugin("Paired"
         if (wardrobe != null) {
             call.attributes.put(Syncing, wardrobe)
         } else {
-            call.application.log.warn("Refused a sync request from ${call.request.local.remoteAddress}: no pairing code, or the wrong one")
+            refusals.noting(call.request.local.remoteAddress)?.let { call.application.log.warn(it) }
             call.fail(
                 HttpStatusCode.Unauthorized,
                 ApiFailure.Message("This phone is not paired with this Home Assistant, or its pairing code was changed."),
@@ -133,6 +134,79 @@ private fun paired(profiles: ProfileRegistry) = createApplicationPlugin("Paired"
         }
     }
 }
+
+/**
+ * What to say in the log about a refused sync request, and when.
+ *
+ * One line per refusal was the right amount for a phone whose code was
+ * reset -- a few lines, then somebody pairs again -- and the wrong amount for
+ * a port scanner on the home network, which is a line per probe for as long
+ * as it likes, in the log Home Assistant shows for the app. So a refusal is
+ * written at once if nothing was written in the last minute, and otherwise
+ * counted and folded into the next line that is: the log still says that
+ * requests are being refused, from where, and how many, without being
+ * filled by them.
+ */
+internal class Refusals(private val now: () -> Long = System::currentTimeMillis) {
+    private val lock = Any()
+    private var lastWrittenAt = 0L
+    private var sinceThen = 0
+
+    /** The line to log for a refusal of a request from [address], or null to keep quiet this time. */
+    fun noting(address: String): String? = synchronized(lock) {
+        val at = now()
+        if (at - lastWrittenAt < QUIET_MILLIS) {
+            sinceThen++
+            return null
+        }
+        val folded = sinceThen
+        lastWrittenAt = at
+        sinceThen = 0
+        buildString {
+            append("Refused a sync request from ").append(address).append(": no pairing code, or the wrong one")
+            if (folded > 0) append(" (and ").append(folded).append(" more since the last line)")
+        }
+    }
+
+    private companion object {
+        const val QUIET_MILLIS = 60_000L
+    }
+}
+
+/**
+ * [this] with every photo reference that is not the name of a stored photo
+ * taken out.
+ *
+ * A phone's garment refers to its photos by file name, and those are what
+ * the server stores and serves. The record's fields can hold other things
+ * -- a web address, a data URL, an Android document -- because the phone's
+ * own database keeps those as they are (see toStoredImageRef), and a phone
+ * is trusted enough to be given the whole wardrobe. It is not trusted with
+ * every browser in the household: a garment synced with a web address for
+ * a photo would have every browser that opened the wardrobe fetch that
+ * address, and the server would ask every phone for a photo of that name
+ * for ever. So what is not a photo here is no photo here: a reference with
+ * nothing behind it, the way a garment without a photo already looks.
+ */
+private fun WardrobeSnapshot.withStoredPhotosOnly(): WardrobeSnapshot = copy(
+    garments = garments.map { garment ->
+        garment.copy(
+            imageUri = garment.imageUri.storedPhotoOrNone(),
+            imageUriNoBg = garment.imageUriNoBg?.storedPhotoOrNone(),
+            imageUris = garment.imageUris.map { it.storedPhotoOrNone() },
+            imageUrisNoBg = garment.imageUrisNoBg.map { it.storedPhotoOrNone() },
+        )
+    },
+)
+
+/**
+ * [this] if it names a stored photo, else nothing. An empty string stays
+ * one, and a list keeps its length: the lists are positional -- the cut-out
+ * list runs beside the photo list, an empty entry meaning "no cut-out of
+ * this one" -- and a record that came back a different shape from the one
+ * sent would read as a change on every sync.
+ */
+private fun String.storedPhotoOrNone(): String = if (isEmpty() || PhotoFiles.isPhotoName(this)) this else ""
 
 /** The wardrobe the request's pairing code opened, put there by [paired]. */
 private val Syncing = AttributeKey<ServerWardrobe>("syncing")
