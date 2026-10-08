@@ -132,6 +132,15 @@ class MainActivity : AppCompatActivity() {
     private val pendingPairing = mutableStateOf<String?>(null)
 
     /**
+     * A scan asked for from the welcome screen that could not start, because
+     * there is no scanner on this phone: carried to Settings, whose Home
+     * Assistant section is where that is said, beside the form it can be
+     * typed into instead. The section's own Scan button says it in place;
+     * the welcome screen has no section to say it in.
+     */
+    private val pendingScanFailure = mutableStateOf(false)
+
+    /**
      * Sync with Home Assistant, if paired, each time the app comes to the
      * front: the moment somebody is about to look at their wardrobe is the
      * moment it should be up to date. PhoneSync skips the times there is no
@@ -303,8 +312,21 @@ class MainActivity : AppCompatActivity() {
 
                     // And a pairing link to Settings, where the Home Assistant
                     // section takes it. As a tab, the way the bottom bar goes there.
-                    LaunchedEffect(pendingPairing.value) {
-                        if (pendingPairing.value != null) navigator.switchTo(SETTINGS)
+                    //
+                    // From the welcome screen too -- a scan asked for there, or a
+                    // camera app opening the link on a phone that has never been
+                    // past it -- in which case the flow is over: the person has
+                    // chosen a way in, as "Restore a backup" is one, and the
+                    // welcome screen is replaced by Home underneath Settings
+                    // the way "Start fresh" would have replaced it, so back and
+                    // the bottom bar find what they expect.
+                    LaunchedEffect(pendingPairing.value, pendingScanFailure.value) {
+                        if (pendingPairing.value == null && !pendingScanFailure.value) return@LaunchedEffect
+                        if (navigator.currentBackStackEntry?.destination?.route == ONBOARDING) {
+                            onboarding.seen = true
+                            navigator.navigate(HOME) { popUpTo(ONBOARDING) { inclusive = true } }
+                        }
+                        navigator.switchTo(SETTINGS)
                     }
 
                     @OptIn(ExperimentalSharedTransitionApi::class)
@@ -672,6 +694,18 @@ class MainActivity : AppCompatActivity() {
             },
             onSkip = { leave() },
             onRestoreRequested = { opener.launch(arrayOf("*/*")) },
+            // What the scanner reads goes the way a link from the camera app
+            // goes: to Settings, which takes the welcome screen down on the
+            // way (see the effect on pendingPairing). Nothing read -- a scan
+            // that returned no text -- still goes, as the empty string, so the
+            // section can say it was not a pairing code rather than nothing
+            // happening at all.
+            onPairRequested = {
+                scanPairingCode(
+                    onLink = { link -> pendingPairing.value = link ?: "" },
+                    onUnavailable = { pendingScanFailure.value = true },
+                )
+            },
         )
     }
 
@@ -922,6 +956,13 @@ class MainActivity : AppCompatActivity() {
             sync.onPairingLinkReceived(link)
         }
 
+        // And a scan the welcome screen could not start, said here.
+        LaunchedEffect(pendingScanFailure.value) {
+            if (!pendingScanFailure.value) return@LaunchedEffect
+            pendingScanFailure.value = false
+            sync.onScannerUnavailable()
+        }
+
         PhoneSyncSection(
             state = state,
             onConnect = sync::onConnect,
@@ -930,7 +971,12 @@ class MainActivity : AppCompatActivity() {
             onDisconnect = sync::onDisconnect,
             onBackgroundChanged = sync::onBackgroundChanged,
             onWifiOnlyChanged = sync::onWifiOnlyChanged,
-            onScanRequested = { scanPairingCode(sync) },
+            onScanRequested = {
+                scanPairingCode(
+                    onLink = sync::onPairingLinkReceived,
+                    onUnavailable = sync::onScannerUnavailable,
+                )
+            },
             onOfferTaken = sync::onOfferTaken,
         )
     }
@@ -949,17 +995,21 @@ class MainActivity : AppCompatActivity() {
      *
      * A scan somebody backs out of is cancelled, which is neither listener's:
      * there is nothing to say about it.
+     *
+     * Two callers: the Home Assistant section in Settings, which hands what
+     * was read to its own model, and the welcome screen, which has no model
+     * and hands it to Settings instead; hence callbacks rather than a model.
      */
-    private fun scanPairingCode(sync: PhoneSyncViewModel) {
+    private fun scanPairingCode(onLink: (String?) -> Unit, onUnavailable: () -> Unit) {
         val options = GmsBarcodeScannerOptions.Builder()
             .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
             .build()
         try {
             GmsBarcodeScanning.getClient(this, options).startScan()
-                .addOnSuccessListener { barcode -> sync.onPairingLinkReceived(barcode.rawValue) }
-                .addOnFailureListener { sync.onScannerUnavailable() }
+                .addOnSuccessListener { barcode -> onLink(barcode.rawValue) }
+                .addOnFailureListener { onUnavailable() }
         } catch (_: RuntimeException) {
-            sync.onScannerUnavailable()
+            onUnavailable()
         }
     }
 

@@ -163,7 +163,9 @@ can share one wardrobe:
 3. On your phone, go to **Settings → Home Assistant**, tap **Scan pairing
    code**, point it at the QR code and tap **Connect**. You can also point
    your phone's camera app at it. If your phone can't scan, type the address
-   and code shown under the QR code.
+   and code shown under the QR code. On a phone you have just installed the
+   app on, the welcome screen offers **Pair with Home Assistant**, which is
+   the same scan: the wardrobe arrives with the first sync.
 
 After that the phone syncs when you open the app, when you tap **Sync now**,
 and every few hours in the background. If a garment was changed in both places,

@@ -42,6 +42,7 @@ class OnboardingScreenTest {
     private var continued = 0
     private var skipped = 0
     private var restores = 0
+    private var pairings = 0
     private val themes = mutableListOf<ThemeChoice>()
     private val languages = mutableListOf<LanguageChoice>()
 
@@ -49,6 +50,7 @@ class OnboardingScreenTest {
         step: OnboardingStep,
         theme: ThemeChoice = ThemeChoice.SYSTEM,
         language: LanguageChoice = LanguageChoice.SYSTEM,
+        scanner: Boolean = true,
     ) {
         compose.setContent {
             OnboardingScreen(
@@ -60,18 +62,20 @@ class OnboardingScreenTest {
                 onContinue = { continued++ },
                 onSkip = { skipped++ },
                 onRestoreRequested = { restores++ },
+                onPairRequested = if (scanner) ({ pairings++ }) else null,
             )
         }
     }
 
     @Test
-    fun `the welcome screen offers three ways on, and they are three different ways`() {
+    fun `the welcome screen offers four ways on, and they are four different ways`() {
         show(OnboardingStep.WELCOME)
 
         compose.onNodeWithText("Start fresh").performClick()
         assertEquals(1, continued)
         assertEquals(0, skipped)
         assertEquals(0, restores)
+        assertEquals(0, pairings)
 
         // Straight to the picker. There is no screen of ours in between, so
         // nothing here should count as having agreed to anything else.
@@ -79,10 +83,24 @@ class OnboardingScreenTest {
         assertEquals(1, restores)
         assertEquals(1, continued)
 
+        // And straight to the scanner, for a wardrobe already in Home Assistant.
+        compose.onNodeWithText("Pair with Home Assistant").performClick()
+        assertEquals(1, pairings)
+        assertEquals(1, restores)
+        assertEquals(1, continued)
+
         // Skipping is not advancing: it marks the flow seen and leaves.
         compose.onNodeWithText("Not now").performClick()
         assertEquals(1, skipped)
         assertEquals(1, continued)
+    }
+
+    @Test
+    fun `without a scanner, pairing is not offered on the welcome screen`() {
+        show(OnboardingStep.WELCOME, scanner = false)
+
+        compose.onAllNodesWithText("Pair with Home Assistant").assertCountEquals(0)
+        compose.onNodeWithText("Restore a backup").assertIsDisplayed()
     }
 
     @Test

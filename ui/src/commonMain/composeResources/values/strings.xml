@@ -51,6 +51,8 @@
     <string name="w_start">Start fresh</string>
     <string name="w_restore">Restore a backup</string>
     <string name="w_restore_hint">Coming from another phone? Pick your backup and bring the whole wardrobe with you.</string>
+    <string name="w_pair">Pair with Home Assistant</string>
+    <string name="w_pair_hint">Already keep your wardrobe in Home Assistant? Scan the pairing code in its Settings and this phone joins it.</string>
     <string name="w_skip">Not now</string>
     <string name="a_title">Adding a garment is one photo</string>
     <string name="a_body">Point the camera at it, or pick a photo you already have. The app fills in what it can and asks you for the rest.</string>
