@@ -359,6 +359,7 @@ jobs:
 
           VERSION_CODE=$version_code \
           VERSION_NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts) \
+          APK_SHA256=$(sha256sum wardrobapp.apk | cut -d' ' -f1) \
           python3 - <<'PY' > latest.json
           import json
           import os
@@ -371,6 +372,11 @@ jobs:
                   f"https://github.com/{os.environ['GITHUB_REPOSITORY']}"
                   '/releases/download/nightly/wardrobapp.apk'
               ),
+              # The APK's hash, which the phone checks before it installs: the
+              # address above is replaced with every build, so this is what
+              # ties the file a phone downloads to the build this document
+              # describes. A phone refuses a document without one.
+              'apk_sha256': os.environ['APK_SHA256'],
               # Read by every build ever published, which expects strings; new
               # builds read the history beside it instead. See AppUpdates.kt.
               'changes': json.load(open('changes.json')),

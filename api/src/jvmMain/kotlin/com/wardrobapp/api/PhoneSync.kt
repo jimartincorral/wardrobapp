@@ -60,6 +60,15 @@ interface SyncPreferences {
      * would merge the restored wardrobe with the one it was meant to replace.
      */
     var restorePending: Boolean
+
+    /**
+     * When that restore happened, as the restored rows were stamped: what the
+     * server dates its deletions from, so a restore that waits days to reach
+     * Home Assistant does not delete what was added there while it waited.
+     * Null on a phone that stored a pending restore before this existed; the
+     * server then dates them from the request, as it always did.
+     */
+    var restoredAt: String?
 }
 
 /** Running a sync while nobody has the app open. WorkManager, on the phone. */
@@ -207,7 +216,11 @@ class PhoneSync(
         try {
             val restored = withContext(io) { restore() }
             if (_status.value.paired) {
-                withContext(io) { store.stampAll(isoTimestamp(now())) }
+                // One time for both: the rows are the restore's as of it, and
+                // so is whatever the server finds it lacks.
+                val restoredAt = isoTimestamp(now())
+                withContext(io) { store.stampAll(restoredAt) }
+                preferences.restoredAt = restoredAt
                 preferences.restorePending = true
             }
             return restored
@@ -263,7 +276,7 @@ class PhoneSync(
             val replacing = preferences.restorePending
             val failure = try {
                 val report = clientFor(address, code).use {
-                    WardrobeSyncClient(it, store, photos, io).sync(replace = replacing)
+                    WardrobeSyncClient(it, store, photos, io).sync(replace = replacing, restoredAt = preferences.restoredAt)
                 }
                 if (report.changed) _changes.update { it + 1 }
                 null
@@ -276,7 +289,10 @@ class PhoneSync(
                 // address that works.
                 if (replacing && e.isMissingRoute()) SyncFailure.ServerTooOld else syncFailureOf(e)
             }
-            if (replacing && failure == null) preferences.restorePending = false
+            if (replacing && failure == null) {
+                preferences.restorePending = false
+                preferences.restoredAt = null
+            }
 
             // Unpaired, or paired elsewhere, while this ran: there is nothing to
             // say about a pairing that is gone. The wardrobe it brought stays.
@@ -298,6 +314,7 @@ class PhoneSync(
         // A restore waiting to replace the wardrobe of a Home Assistant this
         // phone no longer syncs with has nowhere to go.
         preferences.restorePending = false
+        preferences.restoredAt = null
         preferences.lastSyncedAt = null
         preferences.lastFailure = null
         background.cancel()

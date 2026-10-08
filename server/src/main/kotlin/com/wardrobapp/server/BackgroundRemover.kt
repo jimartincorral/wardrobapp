@@ -150,10 +150,21 @@ class BackgroundRemover(
          * rather than a staircase of the model's pixels.
          */
         internal fun cutOut(photo: ByteArray, model: Segmenter): ByteArray {
+            // Measured before it is decoded. The 20 MB the store allows is a
+            // bound on the file, not on the picture: a flat-colour PNG of
+            // twenty thousand pixels a side compresses to under a megabyte
+            // and decodes to over a gigabyte, before the ARGB copy and the
+            // alpha plane below double it, and the server runs in a quarter
+            // of a Raspberry Pi's memory. The browser scales a photo to the
+            // phone's size before uploading it, so a photo this large did not
+            // come through the form; it is refused rather than attempted.
+            val (width, height) = dimensionsOf(photo)
+                ?: throw IllegalArgumentException("That photo could not be read.")
+            if (width > MAX_SIDE || height > MAX_SIDE) {
+                throw PhotoRejected.TooLarge("That photo is $width by $height pixels; up to $MAX_SIDE a side can be cut out.")
+            }
             val image = ImageIO.read(ByteArrayInputStream(photo))
                 ?: throw IllegalArgumentException("That photo could not be read.")
-            val width = image.width
-            val height = image.height
 
             val size = model.size
             val input = modelInput(image, size)
@@ -173,6 +184,28 @@ class BackgroundRemover(
                 out.toByteArray()
             }
         }
+
+        /**
+         * The most a photo may measure on either side to be cut out. Twice
+         * what the phone stores and change, and well above any screenshot;
+         * at this size the planes below come to a few hundred megabytes,
+         * which the smallest Pi the app runs on can spare once.
+         */
+        const val MAX_SIDE = 4096
+
+        /** [photo]'s width and height from its header alone, or null if no reader knows it. */
+        internal fun dimensionsOf(photo: ByteArray): Pair<Int, Int>? =
+            ImageIO.createImageInputStream(ByteArrayInputStream(photo))?.use { input ->
+                val reader = ImageIO.getImageReaders(input).asSequence().firstOrNull() ?: return null
+                try {
+                    reader.setInput(input)
+                    reader.getWidth(0) to reader.getHeight(0)
+                } catch (_: Exception) {
+                    null
+                } finally {
+                    reader.dispose()
+                }
+            }
 
         private val MEAN = floatArrayOf(0.485f, 0.456f, 0.406f)
         private val DEVIATION = floatArrayOf(0.229f, 0.224f, 0.225f)

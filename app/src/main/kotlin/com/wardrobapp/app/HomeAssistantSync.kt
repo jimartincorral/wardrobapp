@@ -82,6 +82,12 @@ class SharedPreferencesSyncSettings(context: Context) : SyncPreferences {
         get() = preferences.getBoolean(KEY_RESTORE_PENDING, false)
         set(value) = preferences.edit(commit = true) { putBoolean(KEY_RESTORE_PENDING, value) }
 
+    /** Committed for the same reason, and written just before the flag above. */
+    @set:SuppressLint("ApplySharedPref")
+    override var restoredAt: String?
+        get() = preferences.getString(KEY_RESTORED_AT, null)
+        set(value) = preferences.edit(commit = true) { putString(KEY_RESTORED_AT, value) }
+
     private companion object {
         const val FILE_NAME = "wardrobapp_sync"
         const val KEY_ADDRESS = "address"
@@ -91,6 +97,7 @@ class SharedPreferencesSyncSettings(context: Context) : SyncPreferences {
         const val KEY_BACKGROUND = "background"
         const val KEY_WIFI_ONLY = "wifi_only"
         const val KEY_RESTORE_PENDING = "restore_pending"
+        const val KEY_RESTORED_AT = "restored_at"
     }
 }
 

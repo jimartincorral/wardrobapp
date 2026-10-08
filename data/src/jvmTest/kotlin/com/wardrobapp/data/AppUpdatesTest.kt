@@ -26,6 +26,7 @@ class AppUpdatesTest {
           "version_name": "1.1.0",
           "commit": "d2b2e7407e5ef8925343655f95afa1939196e0f8",
           "apk_url": "https://github.com/jimartincorral/wardrobapp/releases/download/nightly/wardrobapp.apk",
+          "apk_sha256": "9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08",
           "changes": ["Read a garment's colours by themselves", "Remove the garment-type suggestions"]
         }
     """.trimIndent()
@@ -38,6 +39,19 @@ class AppUpdatesTest {
         assertEquals("1.1.0", release?.versionName)
         assertEquals(2, release?.changes?.size)
         assertEquals("Read a garment's colours by themselves", release?.changes?.first())
+        assertEquals("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", release?.apkSha256)
+    }
+
+    @Test
+    fun `a hash that is not a SHA-256 is no hash, and a document without one is still a document`() {
+        // The download refuses to go ahead without a hash; reading the
+        // document is also how the phone learns what is new, so a document
+        // short of one still reads.
+        val bare = """{"version_code": 9, "apk_url": "https://github.com/a/b/releases/download/nightly/c.apk"}"""
+        assertNull(parseAppRelease(bare)?.apkSha256)
+        val short = """{"version_code": 9, "apk_url": "https://github.com/a/b/releases/download/nightly/c.apk", "apk_sha256": "abc123"}"""
+        assertNull(parseAppRelease(short)?.apkSha256)
+        assertEquals(9L, parseAppRelease(short)?.versionCode)
     }
 
     @Test

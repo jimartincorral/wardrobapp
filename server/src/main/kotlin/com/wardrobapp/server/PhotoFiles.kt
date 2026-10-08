@@ -140,7 +140,8 @@ enum class PhotoType(val extension: String, val contentType: String) {
 
 /** Why an upload was not stored. */
 sealed class PhotoRejected(message: String) : Exception(message) {
-    class TooLarge : PhotoRejected("That photo is too large to store.")
+    /** Too many bytes to store, or -- with a message saying so -- too many pixels to cut out. */
+    class TooLarge(message: String = "That photo is too large to store.") : PhotoRejected(message)
 
     class NotAPhoto : PhotoRejected("That file is not a JPEG, PNG or WebP photo.")
 }

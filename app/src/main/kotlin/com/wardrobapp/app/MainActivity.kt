@@ -171,11 +171,15 @@ class MainActivity : AppCompatActivity() {
         // An address handed over from outside: a `wardrobapp://` link, or text
         // shared from a browser. A field rather than a local, because a second
         // link can arrive through onNewIntent while the app is already open.
-        pendingLink.value = importUrlFrom(intent)
-        // Only on a fresh start. A rotation creates the activity again with
-        // the same intent, and offering the link again would fill the form
-        // back in over whatever was typed since.
-        if (savedInstanceState == null) pendingPairing.value = pairingLinkFrom(intent)
+        //
+        // Both only on a fresh start. A rotation, a theme change or a language
+        // change creates the activity again with the same intent, and offering
+        // the link again would ask about a page already imported or dismissed,
+        // and fill the pairing form back in over whatever was typed since.
+        if (savedInstanceState == null) {
+            pendingLink.value = importUrlFrom(intent)
+            pendingPairing.value = pairingLinkFrom(intent)
+        }
 
         setContent {
             // The one piece of app state held here rather than in a ViewModel.

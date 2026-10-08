@@ -9,6 +9,7 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -45,8 +46,17 @@ object SyncRoutes {
      * than merging into it, after the phone restored a backup; answers
      * [SyncAnswer]. A server from before this answers 404, which the phone
      * reads as "update the Home Assistant app" (see PhoneSync).
+     *
+     * With [RESTORED_AT], the time of the restore as the phone stamped its
+     * rows with, which is when what the backup lacks counts as deleted. A
+     * phone from before the parameter sends none, and the server uses the
+     * time the request arrived, as it always did; see SyncStore.replaceWith
+     * for what that costs.
      */
     const val REPLACE = "sync/v1/replace"
+
+    /** [REPLACE]'s query parameter: an ISO timestamp, as isoTimestamp writes one. */
+    const val RESTORED_AT = "restoredAt"
 
     /** GET a photo by name, or PUT one under the name the phone stored it as. */
     const val PHOTO = "sync/v1/photos/{name}"
@@ -140,15 +150,18 @@ class WardrobeSyncClient(
      * a sync that dies partway leaves both sides with every photo their own
      * garments refer to -- at worst some that nothing does yet.
      */
-    suspend fun sync(replace: Boolean = false): SyncReport {
+    suspend fun sync(replace: Boolean = false, restoredAt: String? = null): SyncReport {
         val ours = withContext(io) { store.snapshot() }
 
         // Replacing is the same exchange to a different route: the server
         // deletes what this side does not have instead of keeping it, and
         // answers with the result. Merging that answer here is then a no-op
-        // for every row this side sent, so nothing else changes below.
+        // for every row this side sent, so nothing else changes below. The
+        // time of the restore goes with it, so the deletions date from the
+        // restore rather than from whenever this request got through.
         val answer = http.post(if (replace) SyncRoutes.REPLACE else SyncRoutes.EXCHANGE) {
             contentType(ContentType.Application.Json)
+            if (replace && restoredAt != null) parameter(SyncRoutes.RESTORED_AT, restoredAt)
             setBody(ours)
         }.body<SyncAnswer>()
 

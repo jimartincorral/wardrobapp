@@ -395,7 +395,7 @@ Publishing does require four things filled in on the Branding page: an app name,
 support email, a homepage and a privacy policy. The last two are in this
 repository -- the repository itself is the homepage, and [PRIVACY.md](PRIVACY.md)
 is the policy, which GitHub serves at a URL Google accepts. It is written from what
-the code does rather than from a template, so it names all four occasions on which
+the code does rather than from a template, so it names every occasion on which
 this app touches the network; if that ever stops being true, it is the file to
 change.
 

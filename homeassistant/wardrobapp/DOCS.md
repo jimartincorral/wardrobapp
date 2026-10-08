@@ -66,8 +66,9 @@ no QR code: that address only reaches Home Assistant itself, so open Home
 Assistant at the address you use at home to get one.
 
 The app asks Home Assistant which host port you gave it, which is why it asks
-for access to Home Assistant's Supervisor API. It reads only this app's own
-information.
+for access to Home Assistant's Supervisor API. It is the default, narrowest
+access an app can ask for, and the only thing this app does with it is read its
+own information.
 
 The phone then syncs when it is opened, from **Sync now**, and in the
 background if you let it. When the same garment or outfit was changed in both
@@ -90,8 +91,11 @@ The wardrobe — its database and its photos — is kept in this app's own stora
 which Home Assistant includes in its backups. Backing up Home Assistant backs
 up your wardrobe; nothing is sent anywhere else.
 
-The app answers only through Home Assistant: it publishes no port, and it
-refuses any request that did not come through Home Assistant's own sign-in.
+The browser app answers only through Home Assistant: it refuses any request
+that did not come through Home Assistant's own sign-in, and publishes no port
+of its own. The one exception is the phone sync port described above, which is
+closed until you open it, answers nothing but sync, and answers only a phone
+that has the pairing code.
 
 ## Importing from a link
 

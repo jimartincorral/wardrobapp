@@ -3,11 +3,12 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!--
-        Reaching the network at all. Two features need it and nothing else does:
-        importing a garment from a product page, and asking the rolling release
-        whether a newer build exists. Declared here rather than inherited from a
-        dependency's manifest, which is where it was coming from: a permission this
-        app relies on should be in this app's manifest.
+        Reaching the network at all. Every occasion is listed in PRIVACY.md, which
+        is the file to change when one is added: the update check, importing a
+        garment from a product page, Google Drive, syncing with Home Assistant,
+        and the Play services modules fetching themselves. Declared here rather
+        than inherited from a dependency's manifest, which is where it was coming
+        from: a permission this app relies on should be in this app's manifest.
     -->
     <uses-permission android:name="android.permission.INTERNET" />
 

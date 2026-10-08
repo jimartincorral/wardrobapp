@@ -28,6 +28,8 @@
     <string name="error_update_too_large">Esa descarga es mucho más grande que una versión de esta aplicación, así que se ha detenido.</string>
     <string name="error_update_redirects">Esa descarga no dejaba de redirigirse, así que se ha detenido.</string>
     <string name="error_update_incomplete">La descarga no ha terminado, así que no se ha instalado nada.</string>
+    <string name="error_update_unverified">Esta versión se ha publicado sin suma de comprobación, así que no se ha descargado. Inténtalo más tarde.</string>
+    <string name="error_update_mismatch">La descarga no es la versión que debía ser, así que no se ha instalado nada. Inténtalo más tarde.</string>
 
     <!-- Google Drive, en Ajustes -->
     <string name="error_drive_signin_unavailable">No se pudo iniciar el acceso. (%1$s)</string>

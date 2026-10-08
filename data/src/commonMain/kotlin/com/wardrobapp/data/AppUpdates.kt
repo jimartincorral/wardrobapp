@@ -35,6 +35,21 @@ data class AppRelease(
     /** Where the APK is. Checked against [TRUSTED_DOWNLOAD_HOSTS] before it is kept. */
     val apkUrl: String,
     /**
+     * The SHA-256 of the APK at [apkUrl], as 64 lowercase hex digits, or null
+     * for a document that does not carry one.
+     *
+     * The address names a rolling asset that CI replaces with every build of
+     * main, and the document beside it is replaced in the same step -- so a
+     * phone that read the document before a publish and downloads after it
+     * gets the next build under this build's name and changelog. The hash is
+     * what ties the file that arrived to the document that offered it, and the
+     * phone refuses to install a download whose hash is not this one. Null
+     * rather than a refusal here, because reading the document is also how the
+     * phone learns what is new; it is the download that will not go ahead
+     * without one.
+     */
+    val apkSha256: String? = null,
+    /**
      * What to tell somebody about this build, newest first.
      *
      * As published, the notes of this build alone -- everything merged since the
@@ -107,6 +122,9 @@ private val TRUSTED_DOWNLOAD_HOSTS = setOf(
 
 private val lenientJson = Json { ignoreUnknownKeys = true }
 
+/** What a SHA-256 looks like written out: 32 bytes as hex. */
+private val SHA256_HEX = Regex("^[0-9a-f]{64}$")
+
 /**
  * Read the published document, or nothing.
  *
@@ -139,6 +157,12 @@ fun parseAppRelease(text: String): AppRelease? {
         versionName = (root["version_name"] as? JsonPrimitive)
             ?.takeIf { it.isString }?.content?.takeIf { it.isNotBlank() } ?: "",
         apkUrl = apkUrl,
+        // Case folded, since `sha256sum` writes lowercase and a hand-written
+        // document might not; anything that is not a SHA-256 is no hash at
+        // all, which the download treats the same as a missing one.
+        apkSha256 = (root["apk_sha256"] as? JsonPrimitive)
+            ?.takeIf { it.isString }?.content?.trim()?.lowercase()
+            ?.takeIf { SHA256_HEX.matches(it) },
         changes = (root["changes"] as? JsonArray)
             ?.mapNotNull { (it as? JsonPrimitive)?.takeIf { line -> line.isString }?.content }
             ?.map { it.trim() }
