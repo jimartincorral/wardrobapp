@@ -23,10 +23,20 @@ import java.security.SecureRandom
  *
  * Resetting it makes a new one, which unpairs every phone at once: the way to
  * shut out a phone that was lost or given away.
+ *
+ * Read from disk once and kept: every request on the sync port is checked
+ * against every profile's code (see ProfileRegistry.pairedWith), and a port
+ * scanner on the home network would otherwise have the server reading a file
+ * per profile per probe. This instance is the only writer of its file -- the
+ * registry hands one instance per profile to whatever asks -- so what it
+ * last wrote is what the file holds.
  */
 class SyncSecret(private val file: File) {
 
     private val lock = Any()
+
+    /** What the file holds, once it has been read; null until then or while there is none. */
+    private var cached: String? = null
 
     /** The code, made now if there is none yet. */
     fun current(): String = synchronized(lock) { stored() ?: write(generate()) }
@@ -46,7 +56,10 @@ class SyncSecret(private val file: File) {
         return MessageDigest.isEqual(normalized(offered).toByteArray(), normalized(code).toByteArray())
     }
 
-    private fun stored(): String? = file.takeIf { it.isFile }?.readText()?.trim()?.takeIf { it.isNotEmpty() }
+    private fun stored(): String? {
+        cached?.let { return it }
+        return file.takeIf { it.isFile }?.readText()?.trim()?.takeIf { it.isNotEmpty() }?.also { cached = it }
+    }
 
     private fun write(code: String): String {
         file.absoluteFile.parentFile?.mkdirs()
@@ -59,6 +72,7 @@ class SyncSecret(private val file: File) {
             // Assistant's container, and the directory's own permissions apply.
         }
         partial.renameTo(file) || error("Could not save the pairing code to $file")
+        cached = code
         return code
     }
 

@@ -54,6 +54,17 @@ class ProfileRegistry(
     private var stored: List<Stored> = load()
     private val open = mutableMapOf<String, ServerWardrobe>()
 
+    /**
+     * One SyncSecret per profile, shared with the profile's wardrobe when it
+     * is opened: the one place a profile's code is read, so [pairedWith] can
+     * check a code against every profile without opening any of them, and a
+     * reset through the wardrobe is seen by the next request here.
+     */
+    private val secrets = mutableMapOf<String, SyncSecret>()
+
+    private fun secretOf(profile: Stored): SyncSecret =
+        secrets.getOrPut(profile.id) { ServerWardrobe.syncSecretIn(File(dataDirectory, profile.directory)) }
+
     /** Every profile, in the order they were made: the first is the one that was there before. */
     fun list(): List<Profile> = synchronized(lock) { stored.map { Profile(it.id, it.name) } }
 
@@ -70,6 +81,7 @@ class ProfileRegistry(
                 importer = importer,
                 backgrounds = backgrounds,
                 photoPrefix = Routes.profileBase(profile.id) + Routes.PHOTO_FILES,
+                syncSecret = secretOf(profile),
             ).also { open[id] = it }
         }
     }
@@ -78,17 +90,22 @@ class ProfileRegistry(
      * The wardrobe whose pairing code is [code], for the sync port; null if
      * none is. Every profile's code is tried, each in constant time, so which
      * profile a code belongs to is not something a guess can time its way to.
+     *
+     * Only the code is looked at, from memory (see SyncSecret); the wardrobe
+     * is opened for the one profile that matched, if any. It used to open
+     * every profile's wardrobe to ask each for its code, which made a wrong
+     * code -- a port scanner's, a phone paired with a code since reset --
+     * the most expensive request the server answered.
      */
     fun pairedWith(code: String): ServerWardrobe? {
-        val ids = synchronized(lock) { stored.map { it.id } }
-        var found: ServerWardrobe? = null
-        for (id in ids) {
-            val wardrobe = wardrobe(id) ?: continue
+        val candidates = synchronized(lock) { stored.map { it.id to secretOf(it) } }
+        var found: String? = null
+        for ((id, secret) in candidates) {
             // No early exit, so a match on the first profile takes as long as
             // one on the last.
-            if (wardrobe.syncSecret.accepts(code) && found == null) found = wardrobe
+            if (secret.accepts(code) && found == null) found = id
         }
-        return found
+        return found?.let(::wardrobe)
     }
 
     /** Make a profile called [name], and make it [owner]'s own if one is given. */
@@ -153,6 +170,7 @@ class ProfileRegistry(
         stored = stored - profile
         save()
         open.remove(id)?.retire()
+        secrets.remove(id)
 
         val directory = File(dataDirectory, profile.directory)
         if (profile.directory == "profiles/${profile.id}") {

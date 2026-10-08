@@ -68,6 +68,8 @@ class ServerWardrobe(
     importer: GarmentImporter? = null,
     private val backgrounds: BackgroundRemover? = null,
     private val photoPrefix: String = Routes.PHOTO_FILES,
+    /** The code a phone pairs with, kept beside the wardrobe it opens; see [syncSecretIn]. */
+    val syncSecret: SyncSecret = syncSecretIn(dataDirectory),
 ) : AutoCloseable {
 
     private val files = wardrobeFilesIn(dataDirectory)
@@ -112,9 +114,6 @@ class ServerWardrobe(
 
     /** Sync's view of the same database; see SyncServer. */
     val sync = SyncStore(database)
-
-    /** The code a phone pairs with, kept beside the wardrobe it opens. */
-    val syncSecret = SyncSecret(File(dataDirectory, SYNC_CODE))
 
     val importer: GarmentImporter = importer ?: run {
         val http = ImportHttp()
@@ -166,6 +165,14 @@ class ServerWardrobe(
 
     companion object {
         private const val SYNC_CODE = "sync-code"
+
+        /**
+         * The pairing code of the wardrobe in [dataDirectory]. Its own
+         * function so the registry can check a code against a profile
+         * without opening that profile's wardrobe -- the database, the HTTP
+         * client for imports -- which checking a code does not need.
+         */
+        fun syncSecretIn(dataDirectory: File) = SyncSecret(File(dataDirectory, SYNC_CODE))
 
         /**
          * Every file a wardrobe in [dataDirectory] keeps, and nothing else
