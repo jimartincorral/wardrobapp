@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.0
+
+- Opened through Nabu Casa's remote address, **Settings** still shows a QR
+  code for pairing a phone: it holds your Home Assistant's address on your
+  home network, and the phone syncs when it is on your Wi-Fi. At home, the
+  address in your browser is used as before.
+- A garment synced from a phone with a web address in place of a photo no
+  longer has the browser fetch that address; the garment shows with no
+  photo instead.
+- A phone sending a wrong or outdated pairing code, or anything else probing
+  the sync port, costs the app much less: codes are checked from memory
+  without opening every wardrobe, and refusals are logged once a minute with
+  a count rather than once a request.
+
 ## 0.8.0
 
 - Settings shows a QR code for pairing a phone, and says when the sync port

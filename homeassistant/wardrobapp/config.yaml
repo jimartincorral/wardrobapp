@@ -10,7 +10,7 @@ name: Wardrobapp
 # What Home Assistant compares to decide whether there is an update, and the
 # tag of the image it pulls. The images are built by .github/workflows/
 # home-assistant.yml when this changes on main; bumping it is releasing.
-version: "0.8.0"
+version: "0.9.0"
 slug: wardrobapp
 description: Your wardrobe and outfit ideas, kept in Home Assistant.
 url: https://github.com/jimartincorral/wardrobapp
