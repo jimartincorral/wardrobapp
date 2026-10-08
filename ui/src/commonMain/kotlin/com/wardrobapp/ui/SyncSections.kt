@@ -76,6 +76,7 @@ import com.wardrobapp.ui.resources.settings_sync_server_too_old
 import com.wardrobapp.ui.resources.settings_sync_unreachable
 import com.wardrobapp.ui.resources.settings_sync_wifi_only
 import com.wardrobapp.ui.resources.settings_sync_wifi_only_hint
+import com.wardrobapp.ui.resources.sync_pairing_at_home
 import com.wardrobapp.ui.resources.sync_pairing_closed
 import com.wardrobapp.ui.resources.sync_pairing_code
 import com.wardrobapp.ui.resources.sync_pairing_elsewhere
@@ -106,8 +107,11 @@ import org.jetbrains.compose.resources.stringResource
  *    since before this a phone would be paired against a closed port and
  *    told only that Home Assistant could not be reached.
  *  - A host port, but a host no phone can use -- Nabu Casa's remote address,
- *    or localhost: the port is named, and the reader is asked for the
- *    address they use at home.
+ *    or localhost -- and [homeHost], the machine's own address on the home
+ *    network, which the server asked Home Assistant for: a QR code of that
+ *    address, with a line saying it is the one at home.
+ *  - The same without a [homeHost]: the port is named, and the reader is
+ *    asked for the address they use at home.
  *  - Nothing known: the instructions there always were.
  *
  * The code is shown in every case and stays selectable, so it can be copied
@@ -127,6 +131,7 @@ fun SyncPairingSection(
     hostPort: Int?,
     browserHost: String,
     onResetConfirmed: () -> Unit,
+    homeHost: String? = null,
 ) {
     var confirming by remember { mutableStateOf(false) }
 
@@ -154,7 +159,16 @@ fun SyncPairingSection(
         return
     }
 
-    val phoneAddress = hostPort?.let { phoneSyncAddressFor(browserHost, it) }
+    // The browser's own host first, since it is the one name known to work
+    // from where the reader is; the machine's home address only when that
+    // host is no use to a phone, and the server could find one.
+    val browserAddress = hostPort?.let { phoneSyncAddressFor(browserHost, it) }
+    val homeAddress = if (browserAddress == null && hostPort != null && homeHost != null) {
+        phoneSyncAddressFor(homeHost, hostPort)
+    } else {
+        null
+    }
+    val phoneAddress = browserAddress ?: homeAddress
     val closed = hostPortKnown && hostPort == null
     when {
         closed -> Text(
@@ -162,6 +176,10 @@ fun SyncPairingSection(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
         )
+        homeAddress != null -> {
+            Hint(stringResource(Res.string.sync_pairing_at_home))
+            Hint(stringResource(Res.string.sync_pairing_scan))
+        }
         phoneAddress != null -> Hint(stringResource(Res.string.sync_pairing_scan))
         hostPort != null -> Hint(stringResource(Res.string.sync_pairing_elsewhere, hostPort))
         else -> Hint(stringResource(Res.string.sync_pairing_hint, port))

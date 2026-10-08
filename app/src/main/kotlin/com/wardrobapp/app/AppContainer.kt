@@ -147,6 +147,10 @@ class AppContainer(context: Context) {
         store = SyncStore(database),
         photos = DirectoryPhotoFolder(files.imagesDir),
         background = WorkManagerBackgroundSync(context),
+        // A wardrobe that arrived by sync has no first steps to take, as one
+        // that arrived by restore has not; see Onboarding in MainActivity
+        // for the restore's half of this.
+        onWardrobeArrived = { OnboardingPreference(context).firstStepsDismissed = true },
     )
 
     /**

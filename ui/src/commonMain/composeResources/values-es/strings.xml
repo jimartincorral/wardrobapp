@@ -707,6 +707,7 @@
     <string name="sync_pairing_scan">Empareja la aplicación de Android escaneando este código: en los ajustes del teléfono, en Home Assistant, elige Escanear código de emparejamiento. También puede abrirlo la cámara del teléfono.</string>
     <string name="sync_pairing_qr_description">Código QR para emparejar un teléfono</string>
     <string name="sync_pairing_closed">Los teléfonos aún no pueden conectar con esta aplicación. En Home Assistant, abre la pestaña Configuración de esta aplicación y, en Red, asigna un puerto del equipo al puerto %1$d (%1$d vale). Guarda y vuelve aquí para ver un código que escanear.</string>
+    <string name="sync_pairing_at_home">Has abierto Home Assistant desde fuera de casa, así que este código lleva su dirección en tu red doméstica. Escanéalo como se indica abajo; el teléfono sincroniza cuando está en tu wifi.</string>
     <string name="sync_pairing_elsewhere">Para ver un código que el teléfono pueda escanear, abre Home Assistant en la dirección que usas en casa, como homeassistant.local:8123. O, en los ajustes del teléfono, escribe esa dirección con el puerto %1$d y el código de abajo.</string>
     <string name="settings_section_home_assistant">Home Assistant</string>
     <string name="profile_choose_title">¿De quién es este armario?</string>

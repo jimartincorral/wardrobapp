@@ -67,7 +67,10 @@ class PhoneSyncTest {
         val schedule: Schedule,
         val clock: Clock,
         val phoneStore: SyncStore,
-    )
+        val arrivalCount: () -> Int,
+    ) {
+        val arrivals: Int get() = arrivalCount()
+    }
 
     private class Clock(var millis: Long = 1_790_000_000_000L)
 
@@ -85,6 +88,7 @@ class PhoneSyncTest {
                 val preferences = Preferences()
                 val schedule = Schedule()
                 val clock = Clock()
+                var arrivals = 0
                 val phone = PhoneSync(
                     preferences = preferences,
                     store = SyncStore(database),
@@ -92,8 +96,9 @@ class PhoneSyncTest {
                     background = schedule,
                     clientFor = { address, code -> createClient { speakSync(address, code) } },
                     now = { clock.millis },
+                    onWardrobeArrived = { arrivals++ },
                 )
-                Setup(server, phone, preferences, schedule, clock, SyncStore(database)).block()
+                Setup(server, phone, preferences, schedule, clock, SyncStore(database)) { arrivals }.block()
             }
         } finally {
             database.close()
@@ -322,6 +327,19 @@ class PhoneSyncTest {
             "and the phone has it too, from the answer",
         )
         assertNull(preferences.restoredAt, "sent; nothing left to date")
+    }
+
+    @Test
+    fun `a wardrobe arriving on an empty phone is announced once, and a later sync is not an arrival`() = phoneTest {
+        server.addGarment()
+        phone.connect(address, server.syncSecret.current())
+        assertEquals(0, arrivals, "pairing alone brings nothing; the sync after it does")
+        assertNull(phone.sync())
+        assertEquals(1, arrivals, "the wardrobe arrived with the first sync")
+
+        server.addGarment()
+        phone.sync()
+        assertEquals(1, arrivals, "more garments later are a change, not an arrival")
     }
 
     @Test

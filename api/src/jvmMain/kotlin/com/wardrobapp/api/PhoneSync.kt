@@ -152,6 +152,16 @@ class PhoneSync(
     private val clientFor: (address: String, code: String) -> HttpClient = ::syncHttpClient,
     private val now: () -> Long = System::currentTimeMillis,
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    /**
+     * Told when a sync brings garments into a wardrobe that had none: the
+     * moment a phone paired from its welcome screen has the wardrobe it was
+     * promised. The phone uses it the way it uses a finished restore -- to
+     * take down the first-steps card, since a wardrobe that arrived whole
+     * has no first steps to take. Here rather than on the screen, because
+     * the sync that does it may run in the background with nothing on
+     * screen at all.
+     */
+    private val onWardrobeArrived: () -> Unit = {},
 ) : PhoneSyncSource {
 
     /**
@@ -279,6 +289,7 @@ class PhoneSync(
                     WardrobeSyncClient(it, store, photos, io).sync(replace = replacing, restoredAt = preferences.restoredAt)
                 }
                 if (report.changed) _changes.update { it + 1 }
+                if (report.arrived) onWardrobeArrived()
                 null
             } catch (e: CancellationException) {
                 throw e

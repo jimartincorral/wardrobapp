@@ -511,6 +511,7 @@ class Screens(
                             runCatching { sources.server.resetPairing() }.onSuccess { pairing = it }
                         }
                     },
+                    homeHost = pairing?.homeHost,
                 )
             } },
         )

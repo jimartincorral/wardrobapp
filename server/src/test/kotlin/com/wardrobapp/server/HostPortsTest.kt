@@ -57,9 +57,54 @@ class HostPortsTest {
     }
 
     @Test
+    fun `the home address is the primary connected interface's IPv4, without its prefix`() {
+        val two = """{"result": "ok", "data": {"interfaces": [
+            {"interface": "wlan0", "enabled": true, "connected": true, "primary": false,
+             "ipv4": {"method": "auto", "address": ["192.168.1.21/24"]}},
+            {"interface": "end0", "enabled": true, "connected": true, "primary": true,
+             "ipv4": {"method": "auto", "address": ["192.168.1.10/24", "192.168.1.11/24"]}, "ipv6": {"address": ["fe80::1/64"]}},
+            {"interface": "end1", "enabled": true, "connected": false, "primary": false,
+             "ipv4": {"method": "auto", "address": ["10.0.0.5/8"]}}
+        ]}}"""
+        assertEquals("192.168.1.10", homeAddressIn(two))
+
+        // No primary: the first connected one. Link-local and loopback are
+        // skipped for one that is reachable.
+        val noPrimary = """{"result": "ok", "data": {"interfaces": [
+            {"interface": "end0", "enabled": true, "connected": true, "primary": false,
+             "ipv4": {"address": ["169.254.3.3/16", "192.168.1.30/24"]}}
+        ]}}"""
+        assertEquals("192.168.1.30", homeAddressIn(noPrimary))
+
+        // Nothing connected, nothing at all, or not the shape expected: null,
+        // and the browser says what it always said.
+        assertEquals(null, homeAddressIn("""{"result": "ok", "data": {"interfaces": [{"interface": "end0", "enabled": true, "connected": false, "ipv4": {"address": ["192.168.1.10/24"]}}]}}"""))
+        assertEquals(null, homeAddressIn("""{"result": "ok", "data": {"interfaces": []}}"""))
+        assertEquals(null, homeAddressIn("""{"result": "error"}"""))
+        assertEquals(null, homeAddressIn("<html>Bad gateway</html>"))
+    }
+
+    @Test
+    fun `the Supervisor is asked for the network, and a refusal is no address`() {
+        var path: String? = null
+        supervisor({ exchange ->
+            path = exchange.requestURI.path
+            200 to """{"result": "ok", "data": {"interfaces": [{"interface": "end0", "enabled": true, "connected": true, "primary": true, "ipv4": {"address": ["192.168.1.10/24"]}}]}}"""
+        }) { address ->
+            assertEquals("192.168.1.10", runBlocking { SupervisorHostPorts("token-1", address).home() })
+        }
+        assertEquals("/network/info", path)
+        supervisor({ 403 to """{"result": "error"}""" }) { address ->
+            assertEquals(null, runBlocking { SupervisorHostPorts("token", address).home() })
+        }
+    }
+
+    @Test
     fun `only a server running in Home Assistant asks`() = runBlocking {
         assertEquals(HostPort.Unknown, HostPorts.from(ServerSettings()).of(8100))
         assertEquals(true, HostPorts.from(ServerSettings(supervisorToken = "t")) is SupervisorHostPorts)
+        assertEquals(null, HomeAddress.from(ServerSettings()).home())
+        assertEquals(true, HomeAddress.from(ServerSettings(supervisorToken = "t")) is SupervisorHostPorts)
     }
 
     private fun info(network: String) =

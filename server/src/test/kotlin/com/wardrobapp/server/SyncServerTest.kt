@@ -253,4 +253,16 @@ class SyncServerTest {
             assertEquals(null, pairing.hostPort)
         }
     }
+
+    @Test
+    fun `Settings in the browser is told the machine's home address, with an open port and not without`() {
+        serverTest(hostPorts = { HostPort.Open(8100) }, homeAddress = { "192.168.1.10" }) {
+            assertEquals("192.168.1.10", http.get(com.wardrobapp.api.Routes.SYNC_PAIRING).body<SyncPairing>().homeHost)
+        }
+        // A home address for a closed port is an address to nothing, and is
+        // not asked for.
+        serverTest(hostPorts = { HostPort.Closed }, homeAddress = { error("asked for an address nothing could use") }) {
+            assertEquals(null, http.get(com.wardrobapp.api.Routes.SYNC_PAIRING).body<SyncPairing>().homeHost)
+        }
+    }
 }

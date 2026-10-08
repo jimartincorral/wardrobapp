@@ -89,6 +89,14 @@ data class SyncPairing(
     val port: Int,
     val hostPortKnown: Boolean = false,
     val hostPort: Int? = null,
+    /**
+     * The Home Assistant machine's address on the home network, when the
+     * server could find out and the port is open: what the QR code is made
+     * of when the browser's own host is no use to a phone -- Nabu Casa's
+     * remote address, say. Null otherwise, and the browser says what it
+     * said before.
+     */
+    val homeHost: String? = null,
 )
 
 /**
@@ -117,7 +125,19 @@ interface PhotoFolder {
  * this side's wardrobe changed -- photos arriving included, since a garment that
  * was drawn without its photo is drawn differently once it has one.
  */
-data class SyncReport(val uploaded: Int, val downloaded: Int, val changed: Boolean)
+data class SyncReport(
+    val uploaded: Int,
+    val downloaded: Int,
+    val changed: Boolean,
+    /**
+     * Whether this sync turned a wardrobe with no garments into one with
+     * some: a phone just paired joining a wardrobe that was already in Home
+     * Assistant. Said separately from [changed] because it means something
+     * [changed] does not -- the wardrobe arrived, the way a restore
+     * arrives, and whatever a restore settles can be settled now.
+     */
+    val arrived: Boolean = false,
+)
 
 /**
  * One phone's syncing: its wardrobe, its photos, and a client pointed at the
@@ -196,6 +216,7 @@ class WardrobeSyncClient(
             uploaded = uploaded,
             downloaded = downloaded,
             changed = result.changedAnything || downloaded > 0,
+            arrived = ours.garments.isEmpty() && result.merged.garments.isNotEmpty(),
         )
     }
 }
