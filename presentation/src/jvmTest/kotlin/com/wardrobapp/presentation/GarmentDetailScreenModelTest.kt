@@ -5,6 +5,7 @@ import com.wardrobapp.presentation.GarmentDetailScreenState.Confirm
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -31,6 +32,13 @@ class GarmentDetailScreenModelTest {
         }
         override suspend fun delete(id: String) {
             writes += "delete $id"
+        }
+        override suspend fun undoDelete(id: String): Boolean {
+            writes += "undo $id"
+            return true
+        }
+        override suspend fun discardDeleted(id: String) {
+            writes += "discard $id"
         }
         override suspend fun cutOut(photo: String): String {
             cutGate?.await()
@@ -105,6 +113,40 @@ class GarmentDetailScreenModelTest {
 
         assertEquals(listOf("delete g1"), source.writes)
         assertTrue(model.state.value.deleted)
+    }
+
+    @Test
+    fun `a delete is offered back, and undoing it asks the source`() = runTest {
+        val source = FakeSource()
+        val undo = UndoHost(this, windowMillis = 1_000)
+        val model = GarmentDetailScreenModel(this, source, "g1", undo)
+        advanceUntilIdle()
+
+        model.onDeleteRequested()
+        model.onConfirmed()
+        // Pending work only: letting the clock run would close the window too.
+        runCurrent()
+        assertEquals(Deleted.GARMENT, undo.offer.value?.deleted)
+
+        undo.onUndo()
+        advanceUntilIdle()
+        assertEquals(listOf("delete g1", "undo g1"), source.writes)
+        assertEquals(1, undo.restored.value)
+    }
+
+    @Test
+    fun `a delete nobody undoes lets its photos go when the window closes`() = runTest {
+        val source = FakeSource()
+        val undo = UndoHost(this, windowMillis = 1_000)
+        val model = GarmentDetailScreenModel(this, source, "g1", undo)
+        advanceUntilIdle()
+
+        model.onDeleteRequested()
+        model.onConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(listOf("delete g1", "discard g1"), source.writes)
+        assertNull(undo.offer.value)
     }
 
     @Test

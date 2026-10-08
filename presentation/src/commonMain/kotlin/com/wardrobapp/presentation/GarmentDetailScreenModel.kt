@@ -18,14 +18,25 @@ interface GarmentDetailSource {
     suspend fun setInUse(id: String, inUse: Boolean)
 
     /**
-     * Delete the garment, then its photos.
+     * Delete the garment, keeping its photos and what it took with it for a
+     * while, so [undoDelete] can put it back.
      *
-     * In that order, and deliberately: the write is atomic and says which files
-     * are now unreferenced, so a failure leaves the garment and its photos both
-     * intact. A photo that fails to delete does not fail the whole: the garment
-     * is gone either way, and reporting failure would suggest it was not.
+     * The write is atomic and says which files the garment referred to; they
+     * are not deleted here but when [discardDeleted] says the chance to undo
+     * has passed. See RecentlyDeleted in :data for the whole of this.
      */
     suspend fun delete(id: String)
+
+    /**
+     * Put a deleted garment back, photos and all; false when it is too late
+     * -- the window closed, the process restarted -- and nothing was done.
+     * A source with no memory of deletes answers false, which is what the
+     * default does.
+     */
+    suspend fun undoDelete(id: String): Boolean = false
+
+    /** The chance to undo has passed: delete the files the garment's delete kept. */
+    suspend fun discardDeleted(id: String) {}
 
     /**
      * Cut the garment in [photo] out of its background, store the result, and
@@ -49,6 +60,8 @@ class GarmentDetailScreenModel(
     private val scope: CoroutineScope,
     private val source: GarmentDetailSource,
     private val garmentId: String,
+    /** Where a delete is offered back; null where there is nothing to draw the offer, and a delete is final. */
+    private val undo: UndoHost? = null,
 ) {
     private val _state = MutableStateFlow(GarmentDetailScreenState(garmentId = garmentId))
     val state: StateFlow<GarmentDetailScreenState> = _state.asStateFlow()
@@ -144,7 +157,17 @@ class GarmentDetailScreenModel(
 
         scope.launch {
             attempt { source.delete(garmentId) }
-                .onSuccess { _state.update { it.copy(working = false, deleted = true) } }
+                .onSuccess {
+                    _state.update { it.copy(working = false, deleted = true) }
+                    // Offered after the screen is told, so the line appears
+                    // over the screen this one closes into, not under a
+                    // screen about to go.
+                    undo?.offer(
+                        Deleted.GARMENT,
+                        undo = { source.undoDelete(garmentId) },
+                        expire = { source.discardDeleted(garmentId) },
+                    )
+                }
                 .onFailure { e ->
                     _state.update {
                         it.copy(working = false, actionError = e.message, actionErrorFallback = ErrorFallback.GARMENT_NOT_DELETED)

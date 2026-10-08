@@ -26,6 +26,7 @@ import com.wardrobapp.data.ArchivePreview
 import com.wardrobapp.data.BackupSummary
 import com.wardrobapp.data.MaintenanceSummary
 import com.wardrobapp.domain.PhantomGarment
+import com.wardrobapp.presentation.UndoHost
 import com.wardrobapp.presentation.BULK_ADD_MINIMUM
 import com.wardrobapp.presentation.BulkAddScreenModel
 import com.wardrobapp.presentation.BulkAddState
@@ -122,6 +123,8 @@ class Screens(
     /** Open the wardrobe showing a query, and -- on a desktop -- with a garment open beside the grid. */
     private val openWardrobe: (WardrobeQuery?, String?) -> Unit,
     private val buildOutfitAround: (String) -> Unit,
+    /** Where a delete is offered back; the page's, drawn by WebApp. */
+    private val undo: UndoHost,
 ) {
     @Composable
     fun Show(
@@ -187,7 +190,7 @@ class Screens(
         var recent by remember { mutableStateOf(emptyList<GarmentRecord>()) }
         val caption = remember { BrowserWardrobeView().caption }
         val ideas = if (expanded) {
-            entry.keep("ideas") { OutfitsScreenModel(entry.scope, sources.outfits).also { it.generate() } }
+            entry.keep("ideas") { OutfitsScreenModel(entry.scope, sources.outfits, undo).also { it.generate() } }
         } else {
             null
         }
@@ -329,7 +332,7 @@ class Screens(
         onClosed: () -> Unit,
         onWardrobeChanged: () -> Unit,
     ) {
-        val model = pane.modelFor(garmentId) { GarmentDetailScreenModel(it, sources.garmentDetail, garmentId) }
+        val model = pane.modelFor(garmentId) { GarmentDetailScreenModel(it, sources.garmentDetail, garmentId, undo) }
         val state by model.state.collectAsState()
 
         // A delete closes the pane, as it closes the screen on a phone; the grid
@@ -371,7 +374,7 @@ class Screens(
 
     @Composable
     private fun Outfits(entry: Entry, seedGarmentId: String?, onSeedApplied: () -> Unit) {
-        val model = entry.model { OutfitsScreenModel(it, sources.outfits) }
+        val model = entry.model { OutfitsScreenModel(it, sources.outfits, undo) }
         val state by model.state.collectAsState()
         entry.onReturn = model::refresh
 
@@ -519,7 +522,7 @@ class Screens(
 
     @Composable
     private fun GarmentDetail(entry: Entry, garmentId: String) {
-        val model = entry.model { GarmentDetailScreenModel(it, sources.garmentDetail, garmentId) }
+        val model = entry.model { GarmentDetailScreenModel(it, sources.garmentDetail, garmentId, undo) }
         val state by model.state.collectAsState()
         entry.onReturn = model::refresh
 
@@ -547,7 +550,7 @@ class Screens(
 
     @Composable
     private fun OutfitDetail(entry: Entry, outfitId: String) {
-        val model = entry.model { OutfitDetailScreenModel(it, sources.outfitDetail, outfitId) }
+        val model = entry.model { OutfitDetailScreenModel(it, sources.outfitDetail, outfitId, undo) }
         val state by model.state.collectAsState()
         entry.onReturn = model::refresh
 

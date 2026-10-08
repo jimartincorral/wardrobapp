@@ -188,7 +188,10 @@
     <string name="garment_retire_body">Sale de tu armario y deja de aparecer en atuendos, pero se conserva — con sus fotos — y cuenta para saber cuánto duran las prendas. Puedes recuperarla cuando quieras.</string>
     <string name="garment_retire_action">Dejar de usarla</string>
     <string name="garment_delete_confirm">¿Eliminar esta prenda?</string>
-    <string name="garment_delete_body">También se eliminan sus fotos y lo que la aplicación ha aprendido sobre con qué prendas combina. Los atuendos guardados que la usen la pierden, y un atuendo que se quede sin nada se elimina. Esto no se puede deshacer.</string>
+    <string name="garment_delete_body">También se eliminan sus fotos y lo que la aplicación ha aprendido sobre con qué prendas combina. Los atuendos guardados que la usen la pierden, y un atuendo que se quede sin nada se elimina. Puedes deshacerlo durante unos segundos.</string>
+    <string name="undo_garment_deleted">Prenda eliminada</string>
+    <string name="undo_outfit_deleted">Atuendo eliminado</string>
+    <string name="undo_action">Deshacer</string>
     <string name="background_removing">Trabajando en la foto…</string>
     <string name="background_remove">Quitar el fondo</string>
     <string name="background_undo">Deshacer el quitado de fondo</string>

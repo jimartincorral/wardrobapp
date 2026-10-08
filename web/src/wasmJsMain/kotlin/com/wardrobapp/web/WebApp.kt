@@ -10,6 +10,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -22,12 +24,14 @@ import com.wardrobapp.api.ServerFeatures
 import com.wardrobapp.api.ServerVersion
 import com.wardrobapp.data.ReleaseNote
 import com.wardrobapp.data.parseWebReleases
+import com.wardrobapp.presentation.UndoHost
 import com.wardrobapp.presentation.AppDestination
 import com.wardrobapp.presentation.WardrobeQuery
 import com.wardrobapp.presentation.WhatsNewDecision
 import com.wardrobapp.presentation.WindowWidth
 import com.wardrobapp.presentation.windowWidthFor
 import com.wardrobapp.presentation.webWhatsNewDecision
+import com.wardrobapp.ui.UndoSnackbar
 import com.wardrobapp.ui.LocalPhotoTools
 import com.wardrobapp.ui.LocalWindowWidth
 import com.wardrobapp.ui.PhotoTools
@@ -70,6 +74,21 @@ fun WebApp(http: HttpClient, profile: ProfileControls) {
     val currentProfile by rememberUpdatedState(profile)
     val navigator = remember { Navigator() }
     var theme by remember { mutableStateOf(ThemePreference.choice) }
+
+    // The undo line, as MainActivity has it: one for the page, drawn by this
+    // shell over whichever screen is up, since the screen that deleted has
+    // usually closed. Its clock runs in the page's scope; closing the tab
+    // ends an offer the way killing the app does, and the server lets go of
+    // what it kept when something newer pushes it out.
+    val pageScope = rememberCoroutineScope()
+    val undo = remember { UndoHost(pageScope) }
+    // A garment or outfit put back is a change the screen on top did not
+    // make, like one a sync brings: the screen reads its list again, the way
+    // it does on being returned to.
+    val restored by undo.restored.collectAsState()
+    LaunchedEffect(restored) {
+        if (restored > 0) navigator.current.onReturn?.invoke()
+    }
 
     // What the wardrobe should show when something else opens it, and the
     // garment the outfits tab should build around: held here and consumed
@@ -136,6 +155,7 @@ fun WebApp(http: HttpClient, profile: ProfileControls) {
                 outfitSeed = garmentId
                 navigator.switchTo(Destination.Outfits)
             },
+            undo = undo,
         )
     }
 
@@ -164,6 +184,10 @@ fun WebApp(http: HttpClient, profile: ProfileControls) {
                                     navigator.switchTo(TAB_DESTINATIONS.getValue(selected))
                                 }
                             }
+                        },
+                        snackbarHost = {
+                            val offer by undo.offer.collectAsState()
+                            UndoSnackbar(offer = offer, onUndo = undo::onUndo)
                         },
                     ) { insets ->
                         Row(modifier = Modifier.fillMaxSize().padding(insets)) {

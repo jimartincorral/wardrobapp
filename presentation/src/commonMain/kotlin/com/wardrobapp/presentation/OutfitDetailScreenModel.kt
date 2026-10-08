@@ -39,6 +39,9 @@ interface OutfitDetailSource {
 
     /** Delete it. The garments in it are untouched. */
     suspend fun delete(outfitId: String)
+
+    /** Put a deleted outfit back, rating and all; false when it is too late. See GarmentDetailSource.undoDelete. */
+    suspend fun undoDelete(outfitId: String): Boolean = false
 }
 
 /**
@@ -53,6 +56,8 @@ class OutfitDetailScreenModel(
     private val scope: CoroutineScope,
     private val source: OutfitDetailSource,
     private val outfitId: String,
+    /** Where a delete is offered back; null where there is nothing to draw the offer. */
+    private val undo: UndoHost? = null,
 ) {
     private val _state = MutableStateFlow(OutfitDetailScreenState())
     val state: StateFlow<OutfitDetailScreenState> = _state.asStateFlow()
@@ -118,7 +123,10 @@ class OutfitDetailScreenModel(
 
         scope.launch {
             attempt { source.delete(outfitId) }
-                .onSuccess { _state.update { it.copy(working = false, deleted = true) } }
+                .onSuccess {
+                    _state.update { it.copy(working = false, deleted = true) }
+                    undo?.offer(Deleted.OUTFIT, undo = { source.undoDelete(outfitId) })
+                }
                 .onFailure { e ->
                     _state.update {
                         it.copy(working = false, error = e.message, errorFallback = ErrorFallback.OUTFIT_NOT_DELETED)

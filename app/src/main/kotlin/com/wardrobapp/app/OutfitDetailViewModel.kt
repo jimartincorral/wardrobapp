@@ -27,8 +27,10 @@ class OutfitDetailViewModel(
             outfitWrites = container.outfitWrites,
             garments = container.garments,
             io = Dispatchers.IO,
+            recentlyDeleted = container.recentlyDeleted,
         ),
         outfitId = outfitId,
+        undo = container.undo,
     )
 
     val state: StateFlow<OutfitDetailScreenState> = model.state

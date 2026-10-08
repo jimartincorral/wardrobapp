@@ -9,6 +9,7 @@ import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.JdbcSqlDriver
 import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
+import com.wardrobapp.data.RecentlyDeleted
 import com.wardrobapp.data.ReopeningDriver
 import com.wardrobapp.data.Suggestions
 import com.wardrobapp.data.SyncStore
@@ -88,8 +89,15 @@ class ServerWardrobe(
 
     private val io = Dispatchers.IO
 
+    /**
+     * The deletes that can still be undone, shared by every source that
+     * deletes from this wardrobe: an outfit deleted from the list and undone
+     * from the same list, or from its own screen, is the same memory.
+     */
+    private val recentlyDeleted = RecentlyDeleted()
+
     val home = DatabaseHomeSource(garments, outfits, io)
-    val outfitDetail = DatabaseOutfitDetailSource(outfits, outfitWrites, garments, io)
+    val outfitDetail = DatabaseOutfitDetailSource(outfits, outfitWrites, garments, io, recentlyDeleted)
     val outfitEdit = DatabaseOutfitEditSource(garments, outfits, outfitWrites, io)
     val wardrobe = DatabaseWardrobeSource(garments, io)
     val statistics = DatabaseStatisticsSource(
@@ -100,7 +108,7 @@ class ServerWardrobe(
         imageDirectory = photoPrefix,
         io = io,
     )
-    val outfitList = DatabaseOutfitsSource(garments, outfits, outfitWrites, Suggestions(garments, outfits), io)
+    val outfitList = DatabaseOutfitsSource(garments, outfits, outfitWrites, Suggestions(garments, outfits), io, recentlyDeleted)
     val garmentDetail = DatabaseGarmentDetailSource(
         garments = garments,
         garmentWrites = garmentWrites,
@@ -108,6 +116,7 @@ class ServerWardrobe(
         deletePhoto = photos::delete,
         removeBackground = ::removeBackground,
         io = io,
+        recentlyDeleted = recentlyDeleted,
     )
     val bulkAdd = DatabaseBulkAddSource(garmentWrites, photos::delete, io)
     val garmentForm = DatabaseGarmentFormSource(garments, garmentWrites, duplicates, photos::delete, io)

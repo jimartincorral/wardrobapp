@@ -32,6 +32,12 @@ object Routes {
     /** PUT [Flag]: in use, or retired. */
     const val GARMENT_IN_USE = "api/garments/{id}/in-use"
 
+    /** POST: put a garment deleted a moment ago back; answers a Flag saying whether it could. */
+    const val GARMENT_UNDELETE = "api/garments/{id}/undelete"
+
+    /** POST: the chance to undo a garment's delete has passed; its photos go. */
+    const val GARMENT_DISCARD = "api/garments/{id}/discard"
+
     /** PUT [SavedPhotos]. */
     const val GARMENT_PHOTOS = "api/garments/{id}/photos"
 
@@ -54,6 +60,9 @@ object Routes {
 
     /** GET: the outfit with its garments and its rating. */
     const val OUTFIT_DETAIL = "api/outfits/{id}/detail"
+
+    /** POST: put an outfit deleted a moment ago back; answers a Flag saying whether it could. */
+    const val OUTFIT_UNDELETE = "api/outfits/{id}/undelete"
 
     /** PUT [Rating]. */
     const val OUTFIT_RATING = "api/outfits/{id}/rating"
@@ -150,6 +159,9 @@ object Routes {
 
     fun garment(id: String) = GARMENT.with("id", id)
     fun garmentInUse(id: String) = GARMENT_IN_USE.with("id", id)
+    fun garmentUndelete(id: String) = GARMENT_UNDELETE.with("id", id)
+    fun garmentDiscard(id: String) = GARMENT_DISCARD.with("id", id)
+    fun outfitUndelete(id: String) = OUTFIT_UNDELETE.with("id", id)
     fun garmentPhotos(id: String) = GARMENT_PHOTOS.with("id", id)
     fun outfit(id: String) = OUTFIT.with("id", id)
     fun outfitDetail(id: String) = OUTFIT_DETAIL.with("id", id)

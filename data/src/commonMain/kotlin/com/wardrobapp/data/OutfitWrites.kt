@@ -153,20 +153,45 @@ class OutfitWrites(private val driver: SqlDriver) {
      * with a copy that still has the outfit would read it as one this side has
      * never seen, and bring it back.
      */
-    fun delete(id: String, now: String) = driver.transaction {
+    fun delete(id: String, now: String) {
+        remove(id, now)
+    }
+
+    /**
+     * Delete the outfit, keeping what went so [restore] can put it back; null
+     * when there is no such outfit. Its ratings go with it -- they are rows of
+     * its own -- and come back with it. See RecentlyDeleted.
+     */
+    fun remove(id: String, now: String): DeletedOutfit? = driver.transaction {
+        val outfit = driver.row("outfits", id) ?: return@transaction null
+        val ratings = driver.query("SELECT * FROM outfit_ratings WHERE outfit_id = ?", listOf(id))
         driver.execute("DELETE FROM outfit_ratings WHERE outfit_id = ?", listOf(id))
         driver.execute("DELETE FROM outfits WHERE id = ?", listOf(id))
         recordDeletion(driver, DeletionKind.OUTFIT, id, now)
+        DeletedOutfit(id, outfit, ratings)
+    }
+
+    /**
+     * Put a deleted outfit back, as of [now], for the reason GarmentWrites.restore
+     * gives: a sync may already carry the deletion, and a change after it wins.
+     * The ratings go back after the row, which they cascade on.
+     */
+    fun restore(deleted: DeletedOutfit, now: String) = driver.transaction {
+        driver.putRow("outfits", deleted.outfit, "updated_at" to now)
+        for (rating in deleted.ratings) driver.putRow("outfit_ratings", rating)
+        driver.execute("DELETE FROM deletions WHERE kind = ? AND id = ?", listOf(DeletionKind.OUTFIT.storedName, deleted.id))
     }
 
     /**
      * Drop a garment from every outfit that references it, so deleting a garment
-     * cannot leave outfits pointing at rows that no longer exist.
+     * cannot leave outfits pointing at rows that no longer exist; what was done
+     * to each, for [restoreAfterGarment] to undo.
      *
      * Outfits left with nothing are deleted; ones that still have garments are
      * kept -- their name may read slightly stale, but the outfit is still usable.
      */
-    fun removeGarment(garmentId: String, now: String) = driver.transaction {
+    internal fun removeGarment(garmentId: String, now: String): List<OutfitChange> = driver.transaction {
+        val changes = ArrayList<OutfitChange>()
         // Archived ones too, explicitly: they are hidden from the screen, not from
         // the database, and one left pointing at a garment that no longer exists
         // is exactly the dangling reference this function exists to prevent -- it
@@ -176,11 +201,33 @@ class OutfitWrites(private val driver: SqlDriver) {
 
             val remaining = outfit.garmentIds.filterNot { it == garmentId }
             if (remaining.isEmpty()) {
-                delete(outfit.id, now)
+                remove(outfit.id, now)?.let { changes += OutfitChange.Gone(it) }
             } else {
+                val before = driver.row("outfits", outfit.id) ?: continue
                 driver.execute(
                     "UPDATE outfits SET garment_ids = ?, updated_at = ? WHERE id = ?",
                     listOf(jsonArray(remaining), now, outfit.id),
+                )
+                changes += OutfitChange.Shrunk(outfit.id, before["garment_ids"] as? String ?: jsonArray(outfit.garmentIds), before["updated_at"])
+            }
+        }
+        changes
+    }
+
+    /**
+     * Undo what [removeGarment] did, as of [now]: an outfit that shrank gets
+     * its garments back, one that went is put back whole. Stamped now, not
+     * with the time it had, for the reason [restore] gives. An outfit that
+     * shrank and was then deleted outright is left deleted: that was a later
+     * decision of its own.
+     */
+    internal fun restoreAfterGarment(changes: List<OutfitChange>, now: String) = driver.transaction {
+        for (change in changes) {
+            when (change) {
+                is OutfitChange.Gone -> restore(change.outfit, now)
+                is OutfitChange.Shrunk -> driver.execute(
+                    "UPDATE outfits SET garment_ids = ?, updated_at = ? WHERE id = ?",
+                    listOf(change.garmentIds, now, change.id),
                 )
             }
         }

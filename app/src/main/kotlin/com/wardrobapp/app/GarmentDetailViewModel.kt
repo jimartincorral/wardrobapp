@@ -36,8 +36,10 @@ class GarmentDetailViewModel(
             deletePhoto = container.photos::delete,
             removeBackground = { photo, id -> container.backgrounds.removeBackground(photo.toUri(), id) },
             io = Dispatchers.IO,
+            recentlyDeleted = container.recentlyDeleted,
         ),
         garmentId = garmentId,
+        undo = container.undo,
     )
 
     val state: StateFlow<GarmentDetailScreenState> = model.state

@@ -9,6 +9,7 @@ import com.wardrobapp.data.Suggestions
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
+import com.wardrobapp.data.RecentlyDeleted
 import com.wardrobapp.data.isoTimestamp
 import com.wardrobapp.data.orphanedImageRefs
 import com.wardrobapp.data.resolveImageRef
@@ -71,6 +72,8 @@ class DatabaseOutfitDetailSource(
     private val outfitWrites: OutfitWrites,
     private val garments: GarmentQueries,
     private val io: CoroutineDispatcher,
+    /** Where a delete waits to be undone; the wardrobe's, shared with every source that deletes from it. */
+    private val recentlyDeleted: RecentlyDeleted = RecentlyDeleted(),
 ) : OutfitDetailSource {
     override suspend fun outfit(id: String): OutfitDetailContent? = withContext(io) {
         val outfit = outfits.outfit(id) ?: return@withContext null
@@ -88,7 +91,13 @@ class DatabaseOutfitDetailSource(
     }
 
     override suspend fun delete(outfitId: String) {
-        withContext(io) { outfitWrites.delete(outfitId, nowTimestamp()) }
+        withContext(io) { outfitWrites.remove(outfitId, nowTimestamp())?.let(recentlyDeleted::put) }
+    }
+
+    override suspend fun undoDelete(outfitId: String): Boolean = withContext(io) {
+        val deleted = recentlyDeleted.takeOutfit(outfitId) ?: return@withContext false
+        outfitWrites.restore(deleted, nowTimestamp())
+        true
     }
 }
 
@@ -203,6 +212,8 @@ class DatabaseOutfitsSource(
     private val outfitWrites: OutfitWrites,
     private val suggestions: Suggestions,
     private val io: CoroutineDispatcher,
+    /** Where a delete waits to be undone; the wardrobe's, shared with every source that deletes from it. */
+    private val recentlyDeleted: RecentlyDeleted = RecentlyDeleted(),
 ) : OutfitsSource {
     override suspend fun garment(id: String) = withContext(io) { garments.garment(id) }
 
@@ -257,7 +268,13 @@ class DatabaseOutfitsSource(
     }
 
     override suspend fun delete(outfitId: String) {
-        withContext(io) { outfitWrites.delete(outfitId, nowTimestamp()) }
+        withContext(io) { outfitWrites.remove(outfitId, nowTimestamp())?.let(recentlyDeleted::put) }
+    }
+
+    override suspend fun undoDelete(outfitId: String): Boolean = withContext(io) {
+        val deleted = recentlyDeleted.takeOutfit(outfitId) ?: return@withContext false
+        outfitWrites.restore(deleted, nowTimestamp())
+        true
     }
 
     private fun store(suggestion: Suggestion, archived: Boolean = false) {
@@ -288,6 +305,12 @@ class DatabaseGarmentDetailSource(
     /** Cut [photo] out of its background and store it under [id]; the stored name. */
     private val removeBackground: (photo: String, id: String) -> String,
     private val io: CoroutineDispatcher,
+    /**
+     * Where a delete waits to be undone. The wardrobe's, not this source's: on
+     * the phone a source is made per screen, and the screen that deleted a
+     * garment has closed by the time Undo is tapped from the one behind it.
+     */
+    private val recentlyDeleted: RecentlyDeleted = RecentlyDeleted(),
 ) : GarmentDetailSource {
     override suspend fun garment(id: String) = withContext(io) { garments.garment(id) }
 
@@ -299,8 +322,24 @@ class DatabaseGarmentDetailSource(
 
     override suspend fun delete(id: String) {
         withContext(io) {
-            val photos = garmentWrites.delete(id, nowTimestamp())
-            for (photo in photos) runCatching { deletePhoto(photo) }
+            // The row goes now; the files wait for discardDeleted, or for an
+            // older delete to push this one out of the memory of recent ones,
+            // whose files are let go of here. A photo that fails to delete
+            // does not fail the whole: the garment is gone either way.
+            val deleted = garmentWrites.remove(id, nowTimestamp()) ?: return@withContext
+            for (photo in recentlyDeleted.put(deleted)) runCatching { deletePhoto(photo) }
+        }
+    }
+
+    override suspend fun undoDelete(id: String): Boolean = withContext(io) {
+        val deleted = recentlyDeleted.takeGarment(id) ?: return@withContext false
+        garmentWrites.restore(deleted, nowTimestamp())
+        true
+    }
+
+    override suspend fun discardDeleted(id: String) {
+        withContext(io) {
+            for (photo in recentlyDeleted.discardGarment(id)) runCatching { deletePhoto(photo) }
         }
     }
 
