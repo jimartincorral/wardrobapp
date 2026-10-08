@@ -79,6 +79,7 @@ fun Application.wardrobeApi(
     settings.allowedClients?.let { allowed -> install(onlyFrom(allowed)) }
 
     install(ContentNegotiation) { json(WireJson) }
+    boundedBodies()
 
     answerFailures()
 

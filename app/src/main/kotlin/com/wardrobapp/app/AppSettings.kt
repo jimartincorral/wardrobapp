@@ -123,8 +123,10 @@ class AppSettings(context: Context) {
             // the flag -- see BackupSchedule.restored, and why a flag alone is
             // not enough.
             "wardrobapp_backup_schedule",
-            // Which update was skipped.
-            "wardrobapp_updates",
+            // Not `wardrobapp_updates`, which build was skipped: SkippedUpdate
+            // says a restore must not bring another phone's decision about
+            // that, and for a while this list said otherwise. An archive that
+            // has it, from a build that backed it up, is ignored here.
         )
     }
 }

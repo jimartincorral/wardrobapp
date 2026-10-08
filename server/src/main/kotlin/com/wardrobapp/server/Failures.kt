@@ -9,6 +9,7 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.plugins.BadRequestException
+import io.ktor.server.plugins.bodylimit.RequestBodyLimit
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 
@@ -61,6 +62,25 @@ internal fun Application.answerFailures() {
         }
     }
 }
+
+/**
+ * A ceiling on every request body, on both of the server's faces.
+ *
+ * The photo routes read their body with a bound of their own (PhotoFiles'
+ * 20 MB), but the JSON routes -- a garment, an outfit, a whole wardrobe to
+ * sync -- read theirs with `call.receive`, which reads however much arrives.
+ * Both faces are behind a credential, so the sender is a signed-in member of
+ * the household or a paired phone; the ceiling is against a mistake or a
+ * runaway client rather than a stranger, and so it is generous: a wardrobe of
+ * a few thousand garments is a few megabytes of JSON, and 64 MB is room to
+ * grow, well short of the server's memory. Ktor answers Payload Too Large on
+ * its own when a body passes it.
+ */
+internal fun Application.boundedBodies() {
+    install(RequestBodyLimit) { bodyLimit { MAX_BODY_BYTES } }
+}
+
+private const val MAX_BODY_BYTES = 64L * 1024L * 1024L
 
 /** Answer with [failure], typed as an ApiFailure so it carries the type that says which. */
 internal suspend fun ApplicationCall.fail(status: HttpStatusCode, failure: ApiFailure) {

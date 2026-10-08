@@ -79,6 +79,26 @@ class AndroidAppUpdates(private val context: Context) {
     }
 
     /**
+     * Delete a downloaded build once it is the one running, or older.
+     *
+     * [download] deletes the previous download only when the next one starts,
+     * which left the last APK -- around 20 MB -- in the cache after its install
+     * until the system got round to evicting it. Called at start, with the
+     * build that is running: a file named for that build or an older one has
+     * done its job. One still newer is a download that was not installed, and
+     * stays for the installer to be offered again.
+     */
+    fun discardInstalled(installedVersionCode: Long) {
+        val directory = File(context.cacheDir, UPDATE_DIRECTORY)
+        val downloads = directory.listFiles() ?: return
+        val waiting = downloads.any { file ->
+            val code = file.name.removePrefix("wardrobapp-").removeSuffix(".apk").toLongOrNull()
+            code != null && code > installedVersionCode
+        }
+        if (!waiting) directory.deleteRecursively()
+    }
+
+    /**
      * Download a build, reporting progress as a fraction where the size is known.
      *
      * Into the cache directory, because a downloaded APK is worth nothing once it

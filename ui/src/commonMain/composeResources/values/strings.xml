@@ -381,6 +381,7 @@
     <string name="archive_archive_truncated">Incomplete backup: the manifest lists %1$d photo(s) but only %2$d are present, so the archive is truncated. Nothing was changed.</string>
     <string name="archive_not_base64">Invalid backup: its contents are not valid base64. Nothing was changed.</string>
     <string name="archive_entry_outside_archive">Invalid backup: the archive contains an entry outside itself (%1$s). Nothing was changed.</string>
+    <string name="archive_not_enough_space">Not enough space: unpacking the backup would fill the storage on this device. Nothing was changed.</string>
     <string name="archive_integrity_check_failed">it failed SQLite's integrity check (%1$s)</string>
     <string name="archive_invalid_backup">Invalid backup: %1$s. Nothing was changed.</string>
     <string name="archive_restore_failed">Restore failed: %1$s. Your wardrobe was left unchanged.</string>

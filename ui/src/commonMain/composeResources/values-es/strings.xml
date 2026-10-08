@@ -321,6 +321,7 @@
     <string name="archive_archive_truncated">Copia incompleta: el manifiesto indica %1$d fotos pero solo hay %2$d, así que el archivo está truncado. No se cambió nada.</string>
     <string name="archive_not_base64">Copia no válida: su contenido no es base64 válido. No se cambió nada.</string>
     <string name="archive_entry_outside_archive">Copia no válida: el archivo contiene una entrada fuera de sí mismo (%1$s). No se cambió nada.</string>
+    <string name="archive_not_enough_space">No hay espacio suficiente: descomprimir la copia llenaría el almacenamiento de este dispositivo. No se cambió nada.</string>
     <string name="archive_integrity_check_failed">no pasó la comprobación de integridad de SQLite (%1$s)</string>
     <string name="archive_invalid_backup">Copia no válida: %1$s. No se cambió nada.</string>
     <string name="archive_restore_failed">La restauración falló: %1$s. Tu armario quedó sin cambios.</string>

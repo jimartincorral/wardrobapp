@@ -66,6 +66,7 @@ import com.wardrobapp.ui.resources.archive_manifest_unreadable
 import com.wardrobapp.ui.resources.archive_manifest_version_missing
 import com.wardrobapp.ui.resources.archive_no_database
 import com.wardrobapp.ui.resources.archive_not_base64
+import com.wardrobapp.ui.resources.archive_not_enough_space
 import com.wardrobapp.ui.resources.archive_restore_failed
 import com.wardrobapp.ui.resources.archive_rollback_failed
 import com.wardrobapp.ui.resources.archive_unsupported_version
@@ -808,6 +809,8 @@ private fun archiveFailureText(reason: UnrestorableReason): String = when (reaso
 
     is UnrestorableReason.EntryOutsideArchive ->
         stringResource(Res.string.archive_entry_outside_archive, reason.entry)
+
+    UnrestorableReason.NotEnoughSpace -> stringResource(Res.string.archive_not_enough_space)
 
     is UnrestorableReason.IntegrityCheckFailed ->
         stringResource(Res.string.archive_integrity_check_failed, reason.result)

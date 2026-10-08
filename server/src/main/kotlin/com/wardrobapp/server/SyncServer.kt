@@ -54,6 +54,7 @@ import com.wardrobapp.data.MergedWardrobe
 fun Application.wardrobeSync(profiles: ProfileRegistry, version: ServerVersion) {
     install(paired(profiles))
     install(ContentNegotiation) { json(WireJson) }
+    boundedBodies()
     answerFailures()
 
     routing {

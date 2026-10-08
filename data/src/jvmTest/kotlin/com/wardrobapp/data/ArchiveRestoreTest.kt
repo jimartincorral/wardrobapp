@@ -244,6 +244,26 @@ class ArchiveRestoreTest {
     }
 
     @Test
+    fun `stops unpacking before it fills the device, and nothing is changed`() {
+        // Asked to keep more space free than any disk has, so the first byte
+        // is one too many: the way a corrupt or hostile archive that unpacks
+        // to more than the phone holds looks, without making one.
+        givenLiveWardrobe()
+        val work = File(workDir, "space-check")
+        val archive = zipOf(mapOf("$ARCHIVE_IMAGES_DIRNAME/big.jpg" to ByteArray(1024)))
+
+        val refusal = assertFailsWith<UnrestorableArchiveException> {
+            extractZip(ByteArrayInputStream(archive), work, keepFree = Long.MAX_VALUE)
+        }
+        assertEquals(UnrestorableReason.NotEnoughSpace, refusal.reason)
+        assertEquals(0L, File(work, "$ARCHIVE_IMAGES_DIRNAME/big.jpg").length(), "nothing of the entry was written")
+
+        // And with the ordinary margin a kilobyte goes through.
+        extractZip(ByteArrayInputStream(archive), work)
+        assertEquals(1024L, File(work, "$ARCHIVE_IMAGES_DIRNAME/big.jpg").length())
+    }
+
+    @Test
     fun `does not reuse what a previous extraction left in the work directory`() {
         // A restore that died after extracting leaves a whole archive behind.
         // Reusing it merges someone's second attempt with their first: entries

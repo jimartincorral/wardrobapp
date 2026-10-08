@@ -58,13 +58,13 @@ CI builds one on every push and publishes it from `main` to the rolling [`nightl
 ## Testing
 
 ```bash
-./gradlew test                    # 959 tests, no Android SDK, seconds
-./gradlew :app:testDebugUnitTest  # 192 more, needs the SDK — no emulator
+./gradlew test                    # about 1100 tests, no Android SDK, seconds
+./gradlew :app:testDebugUnitTest  # about 200 more, needs the SDK — no emulator
 ```
 
-The 959 cover the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, each screen's logic against a fake source, every type a source hands over going to JSON and back, the server's routes driven by the browser's own sources, and both languages' string resources against each other.
+The first set covers the suggestion engine, duplicate detection, colour comparison, pair learning, URL safety and which addresses will be fetched, reading a product page, row normalization against every list-column shape that exists, the two database schemas in the wild, backup validation and its refusal messages, which published build is worth offering and where an update may be downloaded from, the form rules, filtering and ordering, the chart arithmetic, each screen's logic against a fake source, every type a source hands over going to JSON and back, the server's routes driven by the browser's own sources, and both languages' string resources against each other.
 
-The 192 in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
+The ones in `:app` are Robolectric tests, not instrumented ones — what a screen shows, where a file lands, and what another activity is asked for, which is the part no pure module can answer:
 
 ```bash
 ./gradlew :app:testDebugUnitTest
@@ -98,10 +98,10 @@ One module that builds only where there is an Android SDK, `:app`; six that need
 
 
 ```
-app/           The Android app: Compose screens, ViewModels, and the platform
+app/           The Android app: the activity, ViewModels, and the platform
                plumbing that genuinely needs Android — the camera, the document
-               picker, SQLite, ML Kit, the share target. 30 files, and the only
-               module that needs the SDK.
+               picker, SQLite, ML Kit, the self-update, the share target. The
+               only module that needs the SDK; the screens are in ui/.
 presentation/  What a screen shows, as pure functions over records: list
                filtering and ordering, form state, the detail view, the chart
                arithmetic, the colour a photo suggests.
@@ -322,6 +322,17 @@ Moving between the two was a one-time break, and it is done. Android replaces an
 installed app only with a build signed by the same key, so the first signed build could
 not upgrade anything: it needed a backup, an uninstall, an install and a restore, once
 per device. Every build since upgrades in place as before.
+
+**On a fork, three addresses name this repository and want changing first.**
+`RELEASE_MANIFEST_URL` in `app/.../AndroidAppUpdates.kt` is where a phone looks
+for a newer build; left as it is, a fork's phones are offered this project's
+APKs, which Android refuses to install over a build signed with the fork's key,
+and the fork's own builds are never offered. `image` in
+`homeassistant/wardrobapp/config.yaml`, with `url` there and in
+`repository.yaml`, name the registry the Home Assistant images are published
+to; the publish step pushes as the fork's own actor and fails against this
+project's namespace. `latest.json`'s `apk_url` already follows the repository
+it is built in.
 
 **Setting this up on a fork.** Create a keystore — needs a desktop, and both passwords
 want keeping somewhere you will still have them in five years, because losing them

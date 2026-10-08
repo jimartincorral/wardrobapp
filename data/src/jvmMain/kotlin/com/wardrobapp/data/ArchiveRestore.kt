@@ -440,11 +440,12 @@ private fun decodeBase64(text: String): ByteArray = try {
  * Nothing in a real backup needs a path like that, so refusing them costs
  * nothing.
  */
-internal fun extractZip(archive: InputStream, destination: File) {
+internal fun extractZip(archive: InputStream, destination: File, keepFree: Long = KEEP_FREE_BYTES) {
     destination.mkdirs()
     val root = destination.canonicalFile
 
     ZipInputStream(archive.buffered()).use { zip ->
+        val buffer = ByteArray(64 * 1024)
         while (true) {
             val entry = zip.nextEntry ?: break
             val target = File(root, entry.name).canonicalFile
@@ -459,12 +460,37 @@ internal fun extractZip(archive: InputStream, destination: File) {
                 target.mkdirs()
             } else {
                 target.parentFile?.mkdirs()
-                target.outputStream().use { out -> zip.copyTo(out) }
+                // Copied by hand so the space can be looked at as the entry
+                // grows, not only before it starts: a zip entry's declared
+                // size is a claim the archive makes about itself, and a
+                // corrupt or hostile one can unpack to any size at all. The
+                // check is against what is free on the volume, which is the
+                // one number that says whether the phone is about to be
+                // full, rather than a ceiling guessed at here: a wardrobe of
+                // photos is legitimately hundreds of megabytes.
+                target.outputStream().use { out ->
+                    while (true) {
+                        val read = zip.read(buffer)
+                        if (read < 0) break
+                        if (root.usableSpace < keepFree) {
+                            throw UnrestorableArchiveException(UnrestorableReason.NotEnoughSpace)
+                        }
+                        out.write(buffer, 0, read)
+                    }
+                }
             }
             zip.closeEntry()
         }
     }
 }
+
+/**
+ * How much of the volume unpacking must leave free. Enough for the app to go
+ * on working -- the database, a few photos, the system's own needs -- and far
+ * more than the staging a restore does after unpacking, which moves files
+ * rather than copying them.
+ */
+private const val KEEP_FREE_BYTES = 256L * 1024L * 1024L
 
 /** Replace a working directory with an empty one. */
 private fun resetDirectory(dir: File): File {
