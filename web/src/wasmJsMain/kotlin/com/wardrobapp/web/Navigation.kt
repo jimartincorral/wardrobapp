@@ -31,6 +31,8 @@ sealed interface Destination {
     data object BulkAdd : Destination
     data class Outfit(val id: String) : Destination
     data object OutfitBuild : Destination
+    /** A training session: ten outfit ideas rated in a row. */
+    data object TasteTraining : Destination
     data class OutfitEdit(val id: String) : Destination
 }
 

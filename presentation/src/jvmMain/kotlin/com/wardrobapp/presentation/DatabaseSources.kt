@@ -231,6 +231,7 @@ class DatabaseOutfitsSource(
                     occasion = request.filters.occasion,
                 ),
                 alreadySeen = request.alreadySeen,
+                explore = request.explore,
             ),
             seedGarmentId = request.seedGarmentId,
         ).map { Suggestion(id = newRowId(), outfit = it) }

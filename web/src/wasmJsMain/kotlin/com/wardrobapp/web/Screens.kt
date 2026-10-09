@@ -27,6 +27,8 @@ import com.wardrobapp.data.BackupSummary
 import com.wardrobapp.data.MaintenanceSummary
 import com.wardrobapp.domain.PhantomGarment
 import com.wardrobapp.presentation.UndoHost
+import com.wardrobapp.presentation.showsTasteTraining
+import com.wardrobapp.presentation.TasteTrainingScreenModel
 import com.wardrobapp.presentation.BULK_ADD_MINIMUM
 import com.wardrobapp.presentation.BulkAddScreenModel
 import com.wardrobapp.presentation.BulkAddState
@@ -47,6 +49,7 @@ import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.WardrobeQuery
 import com.wardrobapp.presentation.WardrobeScreenModel
 import com.wardrobapp.presentation.firstStepsFor
+import com.wardrobapp.ui.TasteTrainingScreen
 import com.wardrobapp.ui.AppVersion
 import com.wardrobapp.ui.isExpanded
 import com.wardrobapp.ui.OutfitIdeas
@@ -146,6 +149,7 @@ class Screens(
             is Destination.Garment -> GarmentDetail(entry, destination.id)
             is Destination.Outfit -> OutfitDetail(entry, destination.id)
             Destination.OutfitBuild -> OutfitEdit(entry, outfitId = null)
+            Destination.TasteTraining -> TasteTraining(entry)
             is Destination.OutfitEdit -> OutfitEdit(entry, destination.id)
             is Destination.GarmentAdd -> GarmentForm(entry, garmentId = null, wanted = destination.wanted)
             is Destination.GarmentEdit -> GarmentForm(entry, garmentId = destination.id, wanted = null)
@@ -215,7 +219,8 @@ class Screens(
                 when (step) {
                     FirstStep.GARMENT -> navigator.open(Destination.GarmentAdd())
                     FirstStep.BULK_ADD -> navigator.open(Destination.BulkAdd)
-                    FirstStep.RATE -> navigator.switchTo(Destination.Outfits)
+                    // Training rather than the outfits tab, as on the phone.
+                    FirstStep.RATE -> navigator.open(Destination.TasteTraining)
                 }
             },
             onAddRequested = { navigator.open(Destination.GarmentAdd()) },
@@ -228,6 +233,12 @@ class Screens(
             recent = recent,
             caption = caption,
             onRecentOpened = { openWardrobe(WardrobeQuery.showing(null), it) },
+            trainingOffered = showsTasteTraining(
+                firstStepsVisible = steps.isVisible,
+                garments = state.items.takeIf { known },
+                rated = state.rated.takeIf { known },
+            ),
+            onTrainRequested = { navigator.open(Destination.TasteTraining) },
             outfitIdeas = if (ideas == null) null else { {
                 val ideasState by ideas.state.collectAsState()
 
@@ -418,7 +429,27 @@ class Screens(
             onGarmentOpened = { navigator.open(Destination.Garment(it)) },
             onOutfitOpened = { navigator.open(Destination.Outfit(it)) },
             onBuildRequested = { navigator.open(Destination.OutfitBuild) },
+            onTrainRequested = { navigator.open(Destination.TasteTraining) },
             garmentPhotos = photos,
+        )
+    }
+
+    /** A training session; see TasteTrainingScreen. Back and Done both leave. */
+    @Composable
+    private fun TasteTraining(entry: Entry) {
+        val model = entry.model { TasteTrainingScreenModel(it, sources.outfits) }
+        val state by model.state.collectAsState()
+
+        TasteTrainingScreen(
+            state = state,
+            onBack = navigator::back,
+            onRate = model::onRated,
+            onSkip = model::onSkipped,
+            onSave = model::onSaveRequested,
+            onKeepGoing = model::onKeepGoing,
+            onDone = navigator::back,
+            onRetry = model::onRetry,
+            onGarmentOpened = { navigator.open(Destination.Garment(it)) },
         )
     }
 

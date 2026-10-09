@@ -17,8 +17,9 @@ data class HomeScreenState(
     /**
      * How many ratings have ever been given.
      *
-     * Not shown anywhere. It is read here because it is the only thing the
-     * first-steps card cannot work out from the two counts above, and this
+     * Not shown as a number. It is read here because it is what the
+     * first-steps card and the offer of a training session (see
+     * showsTasteTraining) cannot work out from the two counts above, and this
      * screen is already reading the wardrobe -- a second model for one number
      * would be a second read on every visit to Home.
      */

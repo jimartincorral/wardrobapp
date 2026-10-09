@@ -71,6 +71,8 @@ import com.wardrobapp.ui.resources.home_settings_title
 import com.wardrobapp.ui.resources.home_statistics_detail
 import com.wardrobapp.ui.resources.home_statistics_title
 import com.wardrobapp.ui.resources.home_subtitle
+import com.wardrobapp.ui.resources.home_train_detail
+import com.wardrobapp.ui.resources.home_train_title
 import com.wardrobapp.ui.resources.home_title
 import org.jetbrains.compose.resources.stringResource
 
@@ -113,6 +115,13 @@ fun HomeScreen(
      * Null on the phone, whose Home links to the outfits tab instead.
      */
     outfitIdeas: (@Composable () -> Unit)? = null,
+    /**
+     * Whether to offer a training session: a card that is there while the
+     * wardrobe has few ratings and goes once it has a round's worth. Whether
+     * that is so is [com.wardrobapp.presentation.showsTasteTraining]'s answer.
+     */
+    trainingOffered: Boolean = false,
+    onTrainRequested: () -> Unit = {},
 ) {
     if (isExpanded()) {
         ExpandedHome(
@@ -131,6 +140,8 @@ fun HomeScreen(
             caption = caption,
             onRecentOpened = onRecentOpened,
             outfitIdeas = outfitIdeas,
+            trainingOffered = trainingOffered,
+            onTrainRequested = onTrainRequested,
         )
         return
     }
@@ -178,6 +189,12 @@ fun HomeScreen(
 
             item {
                 AddGarmentButton(onAddRequested, Modifier.fillMaxWidth().padding(vertical = 4.dp))
+            }
+
+            // Above the outfits card while it is there: it is the thing to do
+            // before the ideas are worth much, and it goes once it has been done.
+            if (trainingOffered) {
+                item { TrainAction(onTrainRequested) }
             }
 
             item {
@@ -316,6 +333,8 @@ private fun ExpandedHome(
     caption: GarmentCaption,
     onRecentOpened: (String) -> Unit,
     outfitIdeas: (@Composable () -> Unit)?,
+    trainingOffered: Boolean,
+    onTrainRequested: () -> Unit,
 ) {
     Scaffold(topBar = { HomeTopBar() }) { insets ->
         BoxWithConstraints(
@@ -434,6 +453,10 @@ private fun ExpandedHome(
                         FirstStepsCard(steps = firstSteps, onDismiss = onFirstStepsDismissed, onStep = onFirstStep)
                     }
 
+                    if (trainingOffered) {
+                        TrainAction(onTrainRequested)
+                    }
+
                     Action(
                         title = stringResource(Res.string.home_statistics_title),
                         detail = stringResource(Res.string.home_statistics_detail),
@@ -544,6 +567,17 @@ private fun Count(
  * [glyph] is null for Settings, which is the one destination Material's core set
  * already carries an icon for.
  */
+/** The card that offers a training session, on both layouts; see TasteTrainingScreen. */
+@Composable
+private fun TrainAction(onTrainRequested: () -> Unit) {
+    Action(
+        title = stringResource(Res.string.home_train_title),
+        detail = stringResource(Res.string.home_train_detail),
+        glyph = Glyph.Tune,
+        onClick = onTrainRequested,
+    )
+}
+
 @Composable
 private fun Action(title: String, detail: String, glyph: Painter?, onClick: () -> Unit) {
     val press = remember { MutableInteractionSource() }
