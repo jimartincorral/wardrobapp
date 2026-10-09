@@ -402,13 +402,13 @@ class Screens(
         // Read again whenever the saved list changes, so an outfit kept from a
         // suggestion a moment ago has its pictures.
         val expanded = isExpanded()
-        var photos by remember { mutableStateOf(emptyMap<String, String>()) }
+        var photos by remember { mutableStateOf(emptyMap<String, GarmentRecord>()) }
         LaunchedEffect(expanded, state.saved) {
             if (!expanded) return@LaunchedEffect
             val wanted = state.saved.flatMap { it.garmentIds }.toSet()
             if (wanted.isEmpty() || wanted.all { it in photos }) return@LaunchedEffect
             runCatching { sources.wardrobe.garments(WardrobeQuery(includeRetired = true)) }
-                .onSuccess { garments -> photos = garments.associate { it.id to it.displayImage } }
+                .onSuccess { garments -> photos = garments.associateBy { it.id } }
         }
 
         OutfitsScreen(

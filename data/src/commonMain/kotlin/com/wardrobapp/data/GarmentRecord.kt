@@ -84,9 +84,22 @@ data class GarmentRecord(
     val displayNoBgImageUris: List<String>
         get() = imageUrisNoBg.ifEmpty { listOf(imageUriNoBg ?: "") }
 
+    /**
+     * The cut-out that [displayImage] shows, or null when it shows the plain
+     * photo.
+     *
+     * Separate from [displayImage] because a screen draws the two differently: a
+     * cut-out is transparent where the background was, so it is shown whole on a
+     * plain tile, where a photo fills its frame edge to edge. The screen cannot
+     * tell them apart from the uri, and guessing from the file extension would
+     * break the moment a cut-out was stored any other way.
+     */
+    val displayCutout: String?
+        get() = imageUrisNoBg.firstOrNull { it.isNotEmpty() }
+
     /** The background-removed photo if there is one, else the plain photo. */
     val displayImage: String
-        get() = imageUrisNoBg.firstOrNull { it.isNotEmpty() }
+        get() = displayCutout
             ?: displayImageUris.firstOrNull()
             ?: imageUri
 }

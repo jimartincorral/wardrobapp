@@ -93,7 +93,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -104,7 +103,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import coil3.compose.AsyncImage
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
@@ -1005,20 +1003,17 @@ internal fun GarmentCell(
             .clickCursor()
             .clickable(interactionSource = press, indication = null, onClick = onClick),
     ) {
-        AsyncImage(
-            model = garment.displayImage,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
+        GarmentPhoto(
+            garment,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(3f / 4f)
                 .garmentSharedElement(garment.id)
                 // Two dp of primary, two dp clear of the photo. Drawn rather than a
                 // border, which would sit on the photo and eat into the garment, and
-                // drawn before the clip so the clip does not take it away again.
-                .then(if (selected) Modifier.selectionOutline(outline, corner = 8.dp) else Modifier)
-                .clip(RoundedCornerShape(8.dp))
-                .background(photoSurface()),
+                // drawn before the frame's clip so the clip does not take it away
+                // again.
+                .then(if (selected) Modifier.selectionOutline(outline, corner = 8.dp) else Modifier),
         )
 
         Text(
@@ -1441,15 +1436,14 @@ private fun GarmentRow(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AsyncImage(
-                model = garment.displayImage,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
+            // Square where the grid is 3:4, because a row is as tall as its
+            // text. A cut-out is shown whole inside it regardless; a photo is
+            // cropped to it, as it always was.
+            GarmentPhoto(
+                garment,
                 modifier = Modifier
                     .size(64.dp)
-                    .garmentSharedElement(garment.id)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(photoSurface()),
+                    .garmentSharedElement(garment.id),
             )
 
             Column(
