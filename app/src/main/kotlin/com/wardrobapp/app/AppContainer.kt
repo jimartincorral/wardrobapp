@@ -196,11 +196,42 @@ class AppContainer(context: Context) {
     fun tidyPhotos(onProgress: (Int, Int) -> Unit): MaintenanceSummary {
         val shrunk = photos.shrinkOversizedCutouts(onProgress)
 
+        // A third pass, framing cut-outs around their garment, which is here
+        // as well as run once on its own (see [frameCutoutsOnce]) so that a
+        // cut-out that pass could not read, or a wardrobe restored from a
+        // backup made before cut-outs were framed, has a way to catch up.
+        val framed = photos.frameLooseCutouts(onProgress)
+
         val referenced = garments
             .allGarments(GarmentQueries.Filters(availableOnly = false))
             .flatMap { it.displayImageUris + it.displayNoBgImageUris }
 
-        return shrunk.and(photos.deleteUnreferenced(referenced, onProgress = onProgress))
+        return shrunk.and(framed).and(photos.deleteUnreferenced(referenced, onProgress = onProgress))
+    }
+
+    /**
+     * Frame every cut-out already on the phone around its garment, once.
+     *
+     * Cut-outs made before CutoutFraming existed keep the whole photo's
+     * canvas, with the garment wherever it was in it, and a wardrobe of a few
+     * hundred garments is not going to be re-cut by hand. So the first start
+     * of a build that frames them frames what is there, in the background,
+     * and remembers having done so. In [appScope] rather than the activity's,
+     * as the sync is: a pass through a hundred PNGs outlasts a screen.
+     *
+     * What is on screen during that first start may still show the old
+     * framing: the image loader keeps what it has decoded, and a file
+     * rewritten underneath it is read again only when it is next asked for.
+     * The next start shows every cut-out framed.
+     */
+    fun frameCutoutsOnce() {
+        val maintenance = PhotoMaintenancePreference(context)
+        if (maintenance.cutoutsFramed) return
+
+        appScope.launch(Dispatchers.IO) {
+            photos.frameLooseCutouts()
+            maintenance.cutoutsFramed = true
+        }
     }
 
     /**

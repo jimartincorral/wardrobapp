@@ -95,7 +95,7 @@ class SettingsScreenModel<Archive, Destination>(
                                 Tidy.NothingToDo(summary.examined)
                             } else {
                                 Tidy.Done(
-                                    tidied = summary.shrunk + summary.deleted,
+                                    tidied = summary.touched,
                                     reclaimed = summary.deleted,
                                     megabytes = formatMegabytes(summary.bytesSaved),
                                 )

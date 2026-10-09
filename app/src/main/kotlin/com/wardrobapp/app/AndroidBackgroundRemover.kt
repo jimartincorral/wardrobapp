@@ -72,10 +72,28 @@ class AndroidBackgroundRemover(
                 bitmap.recycle()
             }
 
-            try {
-                return photos.writeCutout(foreground, id)
-            } finally {
+            // Framed around the garment before it is stored, so a garment
+            // photographed off to one side, or small in a big photo, fills its
+            // tile like every other; see CutoutFraming in :data. The model's
+            // answer is let go as soon as the framed copy exists.
+            val framed = try {
+                foreground.framedAroundGarment()
+            } catch (_: OutOfMemoryError) {
+                // Two copies of an 800px cut-out is a few megabytes, but a
+                // phone that cannot spare them still gets its cut-out, unframed.
+                null
+            }
+            val cutout = if (framed != null) {
                 foreground.recycle()
+                framed
+            } else {
+                foreground
+            }
+
+            try {
+                return photos.writeCutout(cutout, id)
+            } finally {
+                cutout.recycle()
             }
         } finally {
             running.set(false)

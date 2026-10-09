@@ -12,6 +12,7 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicInteger
 import javax.imageio.ImageIO
 import kotlin.math.abs
@@ -53,16 +54,77 @@ class BackgroundRemovalTest {
     private fun alpha(image: BufferedImage, x: Int, y: Int) = image.getRGB(x, y) ushr 24
 
     @Test
-    fun `the cut-out is the photo, with what the model left out made transparent`() {
+    fun `the cut-out is what the model kept, framed, with the rest made transparent`() {
         val cutout = decode(BackgroundRemover.cutOut(photo(), LeftHalf()))
 
-        assertEquals(120 to 80, cutout.width to cutout.height, "the cut-out is not the photo's size")
+        // The left half of a 120 by 80 photo, 60 by 80, with a margin of 4%
+        // of its longer side, on a 3:4 canvas: 66 wide, 88 tall, give or take
+        // where the smoothed mask's edge falls. See CutoutFraming in :data.
+        assertTrue(cutout.width in 62..72, "the cut-out is ${cutout.width} wide")
+        assertEquals(Math.round(cutout.width / 0.75f), cutout.height, "the canvas is not 3:4")
         assertTrue(cutout.colorModel.hasAlpha())
-        assertEquals(255, alpha(cutout, 5, 40))
-        assertEquals(0, alpha(cutout, 115, 40))
+        // Garment in the middle, margin at the edge.
+        assertEquals(255, alpha(cutout, cutout.width / 2, cutout.height / 2))
+        assertEquals(0, alpha(cutout, cutout.width - 1, cutout.height / 2))
+        assertEquals(0, alpha(cutout, cutout.width / 2, 0))
         // The colour kept where the garment is: the photo's, give or take the JPEG.
-        val kept = Color(cutout.getRGB(40, 40))
+        val kept = Color(cutout.getRGB(cutout.width / 2, cutout.height / 2))
         assertTrue(abs(kept.red - 150) < 12 && kept.green < 40, "the garment's colour changed: $kept")
+    }
+
+    @Test
+    fun `a cut-out is framed around its garment, and a framed one is left as it is`() {
+        // A 120 by 80 transparent canvas with a 40 by 60 garment at the far
+        // left: the case of a cape photographed off to one side.
+        val loose = BufferedImage(120, 80, BufferedImage.TYPE_INT_ARGB)
+        loose.createGraphics().apply {
+            color = Color(150, 20, 30)
+            fillRect(0, 10, 40, 60)
+            dispose()
+        }
+
+        val framed = framedAroundGarment(loose)!!
+
+        // Margin 2 round a 40 by 60 garment is 44 by 64; tall, so 48 by 64.
+        assertEquals(48 to 64, framed.width to framed.height)
+        assertEquals(255, alpha(framed, 24, 32))
+        assertEquals(0, alpha(framed, 0, 32))
+        assertEquals(0, alpha(framed, 47, 32))
+        assertEquals(0, alpha(framed, 24, 0))
+        // The garment's left edge is at 4: the width's spare 4 shared, plus
+        // the margin of 2.
+        assertEquals(0, alpha(framed, 3, 32))
+        assertEquals(255, alpha(framed, 4, 32))
+
+        assertEquals(null, framedAroundGarment(framed), "a framed cut-out was framed again")
+    }
+
+    @Test
+    fun `the stored cut-outs are framed on a start, once each`() {
+        val directory = Files.createTempDirectory("cutouts").toFile()
+        try {
+            val loose = BufferedImage(120, 80, BufferedImage.TYPE_INT_ARGB)
+            loose.createGraphics().apply {
+                color = Color(150, 20, 30)
+                fillRect(0, 10, 40, 60)
+                dispose()
+            }
+            ImageIO.write(loose, "png", File(directory, "a_nobg.png"))
+            // A photo that is not a cut-out, whatever is in it, is not looked at.
+            File(directory, "b.jpg").writeBytes(photo())
+            // And a cut-out that will not decode is left exactly as it was.
+            File(directory, "c_nobg.png").writeBytes(byteArrayOf(1, 2, 3))
+
+            assertEquals(1, frameLooseCutouts(directory))
+            val framed = ImageIO.read(File(directory, "a_nobg.png"))
+            assertEquals(48 to 64, framed.width to framed.height)
+            assertEquals(3, File(directory, "c_nobg.png").length().toInt())
+            assertTrue(directory.listFiles()!!.none { it.name.endsWith(".part") }, "a staged copy was left behind")
+
+            assertEquals(0, frameLooseCutouts(directory), "the second pass found something to do")
+        } finally {
+            directory.deleteRecursively()
+        }
     }
 
     @Test
@@ -135,8 +197,8 @@ class BackgroundRemovalTest {
 
         assertTrue(cutout.startsWith("p/main/photos/") && cutout.endsWith("_nobg.png"), cutout)
         val served = decode(fromPage(cutout).readRawBytes())
-        assertEquals(255, alpha(served, 5, 40))
-        assertEquals(0, alpha(served, 115, 40))
+        assertEquals(255, alpha(served, served.width / 2, served.height / 2))
+        assertEquals(0, alpha(served, served.width - 1, served.height / 2))
         assertEquals(200, fromPage(original).status.value, "the original went")
         // The browser's own photo work asks the same route.
         assertTrue(photos.cutOut(original).endsWith("_nobg.png"))
@@ -174,9 +236,12 @@ class BackgroundRemovalTest {
         assertTrue(model.isFile, "the build did not download the model to $model")
         val remover = BackgroundRemover.at(model)!!
         remover.use {
+            // Framed, so the garment is at the middle of whatever came back
+            // and the corner is its margin.
             val cutout = decode(it.cutOut(photo(width = 400, height = 300)))
-            assertTrue(alpha(cutout, 200, 150) > 200, "the garment was cut away: ${alpha(cutout, 200, 150)}")
-            assertTrue(alpha(cutout, 10, 10) < 50, "the floor was kept: ${alpha(cutout, 10, 10)}")
+            val middle = alpha(cutout, cutout.width / 2, cutout.height / 2)
+            assertTrue(middle > 200, "the garment was cut away: $middle")
+            assertTrue(alpha(cutout, 2, 2) < 50, "the floor was kept: ${alpha(cutout, 2, 2)}")
         }
     }
 
