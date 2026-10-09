@@ -104,6 +104,7 @@ import com.wardrobapp.ui.resources.outfits_suggest
 import com.wardrobapp.ui.resources.outfits_suggest_again
 import com.wardrobapp.ui.resources.outfits_suggesting
 import com.wardrobapp.ui.resources.outfits_title
+import com.wardrobapp.ui.resources.taste_training_title
 import com.wardrobapp.ui.resources.outfits_use_whole_wardrobe
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.pluralStringResource
@@ -118,6 +119,9 @@ const val OUTFIT_ARCHIVE_TOGGLE = "outfit-archive-toggle"
 /** The line under a suggestion saying why it came up. */
 /** The way to building an outfit by hand. */
 const val OUTFIT_BUILD_ACTION = "outfit-build-action"
+
+/** The way into a training session, on the outfits screen. */
+const val OUTFIT_TRAIN_ACTION = "outfit-train-action"
 
 const val OUTFIT_REASONS = "outfit-reasons"
 
@@ -193,6 +197,8 @@ fun OutfitsScreen(
     onGarmentOpened: (String) -> Unit,
     onOutfitOpened: (String) -> Unit,
     onBuildRequested: () -> Unit,
+    /** Open a training session: ten ideas rated in a row. See TasteTrainingScreen. */
+    onTrainRequested: () -> Unit = {},
     /**
      * Photos of the garments in saved outfits, by garment id, for the desktop's
      * saved list. A saved outfit is stored as the ids of what is in it, and the
@@ -239,6 +245,7 @@ fun OutfitsScreen(
             onGarmentOpened = onGarmentOpened,
             onOutfitOpened = onOutfitOpened,
             onBuildRequested = onBuildRequested,
+            onTrainRequested = onTrainRequested,
         )
         return
     }
@@ -297,6 +304,11 @@ fun OutfitsScreen(
             }
 
             item { SuggestButton(state, onGenerate, Modifier.fillMaxWidth()) }
+
+            // Under the button that asks for ideas, because it is the way to
+            // make those ideas better: a text button, since it is the second
+            // thing here and the one most people will tap once.
+            item { TrainButton(onTrainRequested, Modifier.fillMaxWidth()) }
 
             state.error?.let { error ->
                 item {
@@ -491,6 +503,15 @@ private fun Arriving(index: Int, key: Any, content: @Composable () -> Unit) {
 
 /** How far apart the cards land. The design's 120ms. */
 private const val ARRIVAL_STAGGER_MILLIS = 120L
+
+/** The way into a training session; see TasteTrainingScreen. */
+@Composable
+private fun TrainButton(onTrainRequested: () -> Unit, modifier: Modifier = Modifier) {
+    TextButton(onClick = onTrainRequested, modifier = modifier.testTag(OUTFIT_TRAIN_ACTION)) {
+        Icon(Glyph.Tune, contentDescription = null, modifier = Modifier.size(18.dp))
+        Text(stringResource(Res.string.taste_training_title), modifier = Modifier.padding(start = 8.dp))
+    }
+}
 
 /**
  * Ask the engine, and ask it again.
@@ -867,6 +888,7 @@ private fun ExpandedOutfits(
     onGarmentOpened: (String) -> Unit,
     onOutfitOpened: (String) -> Unit,
     onBuildRequested: () -> Unit,
+    onTrainRequested: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -939,6 +961,8 @@ private fun ExpandedOutfits(
                         modifier = Modifier.wrapContentWidth(Alignment.Start).widthIn(max = 360.dp).fillMaxWidth(),
                     )
                 }
+
+                across { TrainButton(onTrainRequested, Modifier.wrapContentWidth(Alignment.Start)) }
 
                 state.error?.let { error ->
                     across {

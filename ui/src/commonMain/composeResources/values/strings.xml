@@ -97,7 +97,7 @@
     <!-- Where each row goes, for a screen reader. The label above says the job. -->
     <string name="first_steps_open_garment">Open the form for a new garment</string>
     <string name="first_steps_open_bulk">Open adding several garments at once</string>
-    <string name="first_steps_open_outfits">Open the outfits tab</string>
+    <string name="first_steps_open_training">Open Train your taste</string>
 
     <!-- Home -->
     <string name="home_title">My Wardrobe</string>
@@ -165,6 +165,28 @@
     <string name="outfits_subtitle">Suggestions are built from what you own, and learn from what you rate.</string>
     <string name="outfits_filter_any">Any</string>
     <string name="outfits_suggest">Suggest outfits</string>
+
+    <!-- Train your taste: a round of outfits rated one after another, so the suggestions learn. -->
+    <string name="taste_training_title">Train your taste</string>
+    <string name="taste_training_intro">Rate each outfit and the suggestions learn what you like.</string>
+    <string name="taste_training_progress">%1$d of %2$d</string>
+    <string name="taste_training_skip">Skip</string>
+    <string name="taste_training_round_done">Round done</string>
+    <plurals name="taste_training_rated">
+        <item quantity="one">You rated %1$d outfit.</item>
+        <item quantity="other">You rated %1$d outfits.</item>
+    </plurals>
+    <string name="taste_training_verdicts">%1$d liked · %2$d not for you</string>
+    <plurals name="taste_training_skipped">
+        <item quantity="one">%1$d skipped</item>
+        <item quantity="other">%1$d skipped</item>
+    </plurals>
+    <string name="taste_training_keep_going">Keep going</string>
+    <string name="taste_training_done">Done</string>
+    <string name="taste_training_retry">Try again</string>
+    <string name="taste_training_exhausted">That is every outfit the app can put together for now. Add more garments to keep going.</string>
+    <string name="home_train_title">Train your taste</string>
+    <string name="home_train_detail">Rate ten outfit ideas so the suggestions learn what you like</string>
 
     <!-- After the first press: what it does then is replace three you have read. -->
     <string name="outfits_suggest_again">Suggest again</string>

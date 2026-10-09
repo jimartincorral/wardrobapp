@@ -63,6 +63,7 @@ import com.wardrobapp.presentation.BULK_ADD_MINIMUM
 import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.OnboardingStep
+import com.wardrobapp.presentation.showsTasteTraining
 import com.wardrobapp.presentation.SettingsScreenState
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.WardrobeLink
@@ -89,6 +90,7 @@ import com.wardrobapp.ui.OutfitsScreen
 import com.wardrobapp.ui.PhoneSyncSection
 import com.wardrobapp.ui.RestoreDialog
 import com.wardrobapp.ui.SETTINGS
+import com.wardrobapp.ui.TasteTrainingScreen
 import com.wardrobapp.ui.UndoSnackbar
 import com.wardrobapp.ui.STATISTICS
 import com.wardrobapp.ui.SettingsScreen
@@ -377,6 +379,7 @@ class MainActivity : AppCompatActivity() {
                                         onboarding = onboarding,
                                         onAddRequested = { navigator.navigate(GARMENT_ADD) },
                                         onBulkAddRequested = { navigator.navigate(GARMENT_BULK_ADD) },
+                                        onTrainRequested = { navigator.navigate(TASTE_TRAINING) },
                                         // The plain wardrobe for what is in use, and the
                                         // wardrobe with retired garments shown for the
                                         // number that counts exactly those.
@@ -432,6 +435,7 @@ class MainActivity : AppCompatActivity() {
                                     onGarmentOpened = { navigator.openGarment(it) },
                                     onOutfitOpened = { navigator.navigate("$OUTFIT/${Uri.encode(it)}") },
                                     onBuildRequested = { navigator.navigate(OUTFIT_BUILD) },
+                                    onTrainRequested = { navigator.navigate(TASTE_TRAINING) },
                                 )
                             }
                         }
@@ -528,6 +532,10 @@ class MainActivity : AppCompatActivity() {
 
                         composable(OUTFIT_BUILD) {
                             OutfitEdit(container = container, outfitId = null, navigator = navigator)
+                        }
+
+                        composable(TASTE_TRAINING) {
+                            TasteTraining(container = container, navigator = navigator)
                         }
 
                         composable("$OUTFIT_EDIT/{$OUTFIT_ID}") { backStackEntry ->
@@ -722,6 +730,7 @@ class MainActivity : AppCompatActivity() {
         onboarding: OnboardingPreference,
         onAddRequested: () -> Unit,
         onBulkAddRequested: () -> Unit,
+        onTrainRequested: () -> Unit,
         onWardrobeRequested: () -> Unit,
         onArchivedRequested: () -> Unit,
         onOutfitsRequested: () -> Unit,
@@ -778,7 +787,10 @@ class MainActivity : AppCompatActivity() {
                 when (step) {
                     FirstStep.GARMENT -> onAddRequested()
                     FirstStep.BULK_ADD -> onBulkAddRequested()
-                    FirstStep.RATE -> onOutfitsRequested()
+                    // Training rather than the outfits tab: the row asks for a
+                    // rating, and a session is ten of them with nothing else
+                    // in the way.
+                    FirstStep.RATE -> onTrainRequested()
                 }
             },
             onAddRequested = onAddRequested,
@@ -788,6 +800,38 @@ class MainActivity : AppCompatActivity() {
             onStatisticsRequested = onStatisticsRequested,
             onSettingsRequested = onSettingsRequested,
             onRetry = model::refresh,
+            // Offered only once the card above has gone, and only until a
+            // round's worth of ratings exists; see showsTasteTraining.
+            trainingOffered = showsTasteTraining(
+                firstStepsVisible = steps.isVisible,
+                garments = state.items.takeIf { known },
+                rated = state.rated.takeIf { known },
+            ),
+            onTrainRequested = onTrainRequested,
+        )
+    }
+
+    /**
+     * A training session. Back and Done both leave: the session has already
+     * recorded each rating as it was given, so there is nothing to finish.
+     */
+    @Composable
+    private fun TasteTraining(container: AppContainer, navigator: NavHostController) {
+        val model: TasteTrainingViewModel = viewModel(
+            factory = viewModelFactory { initializer { TasteTrainingViewModel(container) } }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        TasteTrainingScreen(
+            state = state,
+            onBack = { navigator.popBackStack() },
+            onRate = model::onRated,
+            onSkip = model::onSkipped,
+            onSave = model::onSaveRequested,
+            onKeepGoing = model::onKeepGoing,
+            onDone = { navigator.popBackStack() },
+            onRetry = model::onRetry,
+            onGarmentOpened = { navigator.openGarment(it) },
         )
     }
 
@@ -1069,6 +1113,7 @@ class MainActivity : AppCompatActivity() {
         onGarmentOpened: (String) -> Unit,
         onOutfitOpened: (String) -> Unit,
         onBuildRequested: () -> Unit,
+        onTrainRequested: () -> Unit,
     ) {
         val model: OutfitsViewModel = viewModel(
             factory = viewModelFactory { initializer { OutfitsViewModel(container) } }
@@ -1107,6 +1152,7 @@ class MainActivity : AppCompatActivity() {
             onGarmentOpened = onGarmentOpened,
             onOutfitOpened = onOutfitOpened,
             onBuildRequested = onBuildRequested,
+            onTrainRequested = onTrainRequested,
         )
     }
 
@@ -1663,6 +1709,9 @@ class MainActivity : AppCompatActivity() {
         // segment as an id.
         const val OUTFIT_BUILD = "build-outfit"
         const val OUTFIT_EDIT = "edit-outfit"
+
+        /** A training session: ten outfit ideas rated in a row. Not a tab, so no bar. */
+        const val TASTE_TRAINING = "train-taste"
 
         /**
          * The first-launch flow.

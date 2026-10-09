@@ -30,8 +30,9 @@ class HomeScreenTest {
 
     private var wardrobe = 0
     private var archived = 0
+    private var trainings = 0
 
-    private fun show(state: HomeScreenState) {
+    private fun show(state: HomeScreenState, trainingOffered: Boolean = false) {
         compose.setContent {
             HomeScreen(
                 state = state,
@@ -48,8 +49,23 @@ class HomeScreenTest {
                 onStatisticsRequested = {},
                 onSettingsRequested = {},
                 onRetry = {},
+                trainingOffered = trainingOffered,
+                onTrainRequested = { trainings++ },
             )
         }
+    }
+
+    @Test
+    fun `training is a card only while it is offered`() {
+        show(HomeScreenState(loading = false, items = 14), trainingOffered = true)
+        compose.onNodeWithText("Train your taste").performClick()
+        assertEquals(1, trainings)
+    }
+
+    @Test
+    fun `once it is not offered, there is no card`() {
+        show(HomeScreenState(loading = false, items = 14), trainingOffered = false)
+        compose.onAllNodesWithText("Train your taste").assertCountEquals(0)
     }
 
     @Test

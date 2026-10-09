@@ -169,6 +169,23 @@ data class GenerateSuggestionsOptions(
      * nothing.
      */
     val alreadySeen: List<List<String>> = emptyList(),
+    /**
+     * Breadth over the best: for a session that rates outfits to teach the
+     * engine, rather than one that wants to wear something.
+     *
+     * The ordinary draw picks the best fit four times in five and ranks the
+     * candidates by score, which is right for the outfits tab and wrong for
+     * training: after a handful of ratings it keeps reaching for the pair it
+     * has learned, with a different third garment each time, and the person
+     * is asked about the same two things ten times over. Exploring halves the
+     * best-fit share, and prefers candidates that bring a garment nothing in
+     * [alreadySeen] or this batch has shown yet -- so ten outfits walk across
+     * the wardrobe, and a second round with the first as [alreadySeen] keeps
+     * walking. Template weights are left alone: covering the garments covers
+     * the templates, and sampling templates evenly would push outfits with no
+     * shoes back into view, which the weights exist to prevent.
+     */
+    val explore: Boolean = false,
 )
 
 /** Whether a garment's tags match the season in play. */
@@ -607,7 +624,8 @@ data class SuggestionContext(
 /**
  * Generate outfit suggestions from an explicit context.
  *
- * Uses epsilon-greedy: 80% best-scoring picks, 20% random for variety.
+ * Uses epsilon-greedy: best-scoring picks [BEST_FIT_SHARE] of the time, random
+ * for variety the rest; half and half when exploring.
  */
 fun buildSuggestions(
     context: SuggestionContext,
@@ -682,7 +700,8 @@ fun buildSuggestions(
             // The epsilon draw happens before the branch and both branches draw
             // exactly once, so the random sequence does not depend on which one
             // is taken.
-            val picked = if (random() < 0.8 && selected.isNotEmpty()) {
+            val bestFitShare = if (options.explore) EXPLORING_BEST_FIT_SHARE else BEST_FIT_SHARE
+            val picked = if (random() < bestFitShare && selected.isNotEmpty()) {
                 pickBestFit(
                     available,
                     selected,
@@ -723,16 +742,30 @@ fun buildSuggestions(
     val seen = mutableSetOf<String>()
     val results = mutableListOf<ScoredOutfit>()
 
-    // Two passes over the same ranking: fresh outfits first, then the ones already
-    // shown if there were not enough. A single pass that skipped what was seen
-    // would answer a small wardrobe with fewer outfits every time the button was
-    // pressed, which is a worse failure than a repeat.
-    for (allowRepeats in listOf(false, true)) {
+    // The garments the reader has already been shown, in [alreadySeen] or in
+    // this batch so far; what an exploring pass wants to get past.
+    val seenGarments = options.alreadySeen.flatten().toMutableSet()
+
+    // Passes over the same ranking, each looser than the last: when exploring,
+    // outfits that bring an unseen garment first; then fresh outfits; then the
+    // ones already shown if there were still not enough. A single pass that
+    // skipped what was seen would answer a small wardrobe with fewer outfits
+    // every time the button was pressed, which is a worse failure than a
+    // repeat.
+    val passes = buildList {
+        if (options.explore) add(Pass.NEW_GARMENT)
+        add(Pass.FRESH)
+        add(Pass.ANY)
+    }
+    for (pass in passes) {
         for (c in ranked) {
-            val key = key(c.garments.map { it.id })
-            if (!allowRepeats && key in alreadySeen) continue
+            val ids = c.garments.map { it.id }
+            val key = key(ids)
+            if (pass != Pass.ANY && key in alreadySeen) continue
+            if (pass == Pass.NEW_GARMENT && ids.all { it in seenGarments }) continue
             if (!seen.add(key)) continue
 
+            seenGarments += ids
             results.add(c.copy(score = normalizeOutfitScore(c.score)))
             if (results.size >= count) return results
         }
@@ -740,3 +773,12 @@ fun buildSuggestions(
 
     return results
 }
+
+/** Which candidates a selection pass accepts; see the loop in [buildSuggestions]. */
+private enum class Pass { NEW_GARMENT, FRESH, ANY }
+
+/** How often a slot is filled by the best fit rather than a weighted draw: epsilon-greedy's one-minus-epsilon. */
+private const val BEST_FIT_SHARE = 0.8
+
+/** The same while exploring (see GenerateSuggestionsOptions.explore): half, for breadth. */
+private const val EXPLORING_BEST_FIT_SHARE = 0.5

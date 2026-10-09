@@ -260,6 +260,7 @@ class WireTypesTest {
                 alreadySeen = listOf(listOf("g1", "g2")),
                 seedGarmentId = "g1",
                 count = 5,
+                explore = true,
             ),
         )
         add(SavedOutfits(outfits = listOf(outfit), archivedCount = 2))

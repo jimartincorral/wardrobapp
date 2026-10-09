@@ -398,6 +398,56 @@ class OutfitSuggestionsTest {
     }
 
     @Test
+    fun `exploring walks across the wardrobe rather than circling what it has learned`() {
+        // A session that rates outfits to teach the engine wants to be asked
+        // about everything, not about the one pair it already likes with a
+        // different third garment. With a strongly learned pair, an exploring
+        // batch of ten spreads over more distinct garments than an ordinary one.
+        val favoured = pairKey("top-white", "bottom-jeans")
+
+        fun distinctGarments(explore: Boolean) = (1..40).map { seed ->
+            buildSuggestions(
+                context(seed = seed.toLong(), pairScores = mapOf(favoured to 5.0)),
+                GenerateSuggestionsOptions(count = 10, explore = explore),
+            ).flatMap { outfit -> outfit.garments.map { it.id } }.toSet().size
+        }.average()
+
+        val exploring = distinctGarments(explore = true)
+        val ordinary = distinctGarments(explore = false)
+        assertTrue(exploring > ordinary, "exploring did not widen the batch: $exploring vs $ordinary")
+    }
+
+    @Test
+    fun `exploring brings a garment the reader has not been shown first`() {
+        // Everything shown so far was built from two tops, one pair of jeans and
+        // one pair of shoes; the first outfit of the next exploring round must
+        // bring something else, as long as the wardrobe has something else.
+        val shown = listOf(
+            listOf("top-white", "bottom-jeans", "shoes-white"),
+            listOf("top-navy", "bottom-jeans", "shoes-white"),
+        )
+        val seenGarments = shown.flatten().toSet()
+
+        for (seed in 1L..20L) {
+            val next = buildSuggestions(
+                context(seed = seed),
+                GenerateSuggestionsOptions(count = 10, alreadySeen = shown, explore = true),
+            )
+            assertTrue(next.isNotEmpty())
+            val first = next.first().garments.map { it.id }
+            assertTrue(first.any { it !in seenGarments }, "seed $seed led with the garments already shown: $first")
+        }
+    }
+
+    @Test
+    fun `exploring with the same draws gives the same suggestions`() {
+        // The random source is still stepped the same way whichever branch is
+        // taken, so a session can be replayed exactly.
+        val options = GenerateSuggestionsOptions(count = 10, explore = true)
+        assertEquals(buildSuggestions(context(seed = 9), options), buildSuggestions(context(seed = 9), options))
+    }
+
+    @Test
     fun `a wardrobe with one outfit in it repeats rather than saying nothing`() {
         // Last, not never. A wardrobe with a single wearable combination would
         // otherwise run out of things to say, and a repeat beats a blank screen.

@@ -12,6 +12,7 @@ import com.wardrobapp.domain.OutfitReason
 import com.wardrobapp.presentation.OutfitsScreenState
 import com.wardrobapp.ui.OUTFIT_ARCHIVE_TOGGLE
 import com.wardrobapp.ui.OUTFIT_REASONS
+import com.wardrobapp.ui.OUTFIT_TRAIN_ACTION
 import com.wardrobapp.ui.OutfitsScreen
 import com.wardrobapp.ui.starTag
 import org.junit.Assert.assertEquals
@@ -68,6 +69,7 @@ class OutfitsScreenTest {
     )
 
     private var rated: Int? = null
+    private var trainings = 0
 
     private fun show(state: OutfitsScreenState) {
         compose.setContent {
@@ -89,8 +91,17 @@ class OutfitsScreenTest {
                 onGarmentOpened = {},
                 onOutfitOpened = {},
                 onBuildRequested = {},
+                onTrainRequested = { trainings++ },
             )
         }
+    }
+
+    @Test
+    fun `the way into training is beside the suggest button`() {
+        show(OutfitsScreenState())
+
+        compose.onNodeWithTag(OUTFIT_TRAIN_ACTION).performClick()
+        assertEquals(1, trainings)
     }
 
     @Test

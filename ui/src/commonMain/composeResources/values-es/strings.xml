@@ -59,7 +59,7 @@
     <!-- Where each row goes, for a screen reader. -->
     <string name="first_steps_open_garment">Abrir el formulario de una prenda nueva</string>
     <string name="first_steps_open_bulk">Abrir agregar varias prendas a la vez</string>
-    <string name="first_steps_open_outfits">Abrir la pestaña de atuendos</string>
+    <string name="first_steps_open_training">Abrir Entrena tu gusto</string>
 
     <!-- Home -->
     <string name="home_title">Mi Armario</string>
@@ -119,6 +119,28 @@
     <string name="outfits_subtitle">Las sugerencias se construyen con lo que tienes y aprenden de lo que valoras.</string>
     <string name="outfits_filter_any">Cualquiera</string>
     <string name="outfits_suggest">Sugerir atuendos</string>
+
+    <!-- Entrena tu gusto: una ronda de atuendos valorados uno tras otro, para que las sugerencias aprendan. -->
+    <string name="taste_training_title">Entrena tu gusto</string>
+    <string name="taste_training_intro">Valora cada atuendo y las sugerencias aprenderán lo que te gusta.</string>
+    <string name="taste_training_progress">%1$d de %2$d</string>
+    <string name="taste_training_skip">Omitir</string>
+    <string name="taste_training_round_done">Ronda terminada</string>
+    <plurals name="taste_training_rated">
+        <item quantity="one">Valoraste %1$d atuendo.</item>
+        <item quantity="other">Valoraste %1$d atuendos.</item>
+    </plurals>
+    <string name="taste_training_verdicts">%1$d te gustaron · %2$d no te convencieron</string>
+    <plurals name="taste_training_skipped">
+        <item quantity="one">%1$d omitido</item>
+        <item quantity="other">%1$d omitidos</item>
+    </plurals>
+    <string name="taste_training_keep_going">Seguir</string>
+    <string name="taste_training_done">Hecho</string>
+    <string name="taste_training_retry">Intentar de nuevo</string>
+    <string name="taste_training_exhausted">Eso es todo lo que la aplicación puede combinar por ahora. Agrega más prendas para seguir.</string>
+    <string name="home_train_title">Entrena tu gusto</string>
+    <string name="home_train_detail">Valora diez ideas de atuendo para que las sugerencias aprendan lo que te gusta</string>
     <string name="outfits_suggest_again">Sugerir otra vez</string>
     <string name="outfits_building_around">Combinando con</string>
     <string name="outfits_use_whole_wardrobe">Todo el armario</string>

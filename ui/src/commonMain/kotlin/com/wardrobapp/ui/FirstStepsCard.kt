@@ -31,7 +31,7 @@ import com.wardrobapp.ui.resources.first_steps_dismiss
 import com.wardrobapp.ui.resources.first_steps_garment
 import com.wardrobapp.ui.resources.first_steps_open_bulk
 import com.wardrobapp.ui.resources.first_steps_open_garment
-import com.wardrobapp.ui.resources.first_steps_open_outfits
+import com.wardrobapp.ui.resources.first_steps_open_training
 import com.wardrobapp.ui.resources.first_steps_rate
 import com.wardrobapp.ui.resources.first_steps_title
 import org.jetbrains.compose.resources.StringResource
@@ -196,5 +196,5 @@ private val FirstStep.clickLabelRes: StringResource
     get() = when (this) {
         FirstStep.GARMENT -> Res.string.first_steps_open_garment
         FirstStep.BULK_ADD -> Res.string.first_steps_open_bulk
-        FirstStep.RATE -> Res.string.first_steps_open_outfits
+        FirstStep.RATE -> Res.string.first_steps_open_training
     }

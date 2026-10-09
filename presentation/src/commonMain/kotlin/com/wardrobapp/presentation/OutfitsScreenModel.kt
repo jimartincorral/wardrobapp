@@ -26,6 +26,12 @@ data class SuggestionRequest(
     /** A garment every suggestion must be built around, or null for the whole wardrobe. */
     val seedGarmentId: String?,
     val count: Int,
+    /**
+     * Breadth over the best, for a training session; see
+     * GenerateSuggestionsOptions.explore. False for the outfits tab, and for a
+     * browser older than the field, which the default also covers.
+     */
+    val explore: Boolean = false,
 )
 
 /** The saved outfits, and how many are archived whether or not they are shown. */
