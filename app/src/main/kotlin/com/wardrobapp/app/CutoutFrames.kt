@@ -2,6 +2,7 @@ package com.wardrobapp.app
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import androidx.core.graphics.createBitmap
 import com.wardrobapp.data.cutoutFraming
 import com.wardrobapp.data.opaqueBounds
 
@@ -21,9 +22,9 @@ fun Bitmap.framedAroundGarment(): Bitmap? {
     val framing = cutoutFraming(opaqueBounds(pixels, width, height), width, height) ?: return null
     if (!framing.changes(width, height)) return null
 
-    // ARGB, transparent where nothing is drawn: a new bitmap starts out all
-    // zero, which in ARGB is transparent black.
-    val framed = Bitmap.createBitmap(framing.width, framing.height, Bitmap.Config.ARGB_8888)
+    // ARGB (the KTX helper's default), transparent where nothing is drawn: a
+    // new bitmap starts out all zero, which in ARGB is transparent black.
+    val framed = createBitmap(framing.width, framing.height)
     Canvas(framed).drawBitmap(this, framing.drawX.toFloat(), framing.drawY.toFloat(), null)
     return framed
 }
