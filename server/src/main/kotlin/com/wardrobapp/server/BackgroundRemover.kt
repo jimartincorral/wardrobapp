@@ -179,8 +179,13 @@ class BackgroundRemover(
                     cutout.setRGB(x, y, (a shl 24) or (image.getRGB(x, y) and 0xFFFFFF))
                 }
             }
+
+            // Framed around the garment before it is stored, as the phone
+            // frames its own, so a garment photographed off to one side or
+            // small in a big photo fills its tile; see CutoutFraming in :data.
+            val framed = framedAroundGarment(cutout) ?: cutout
             return ByteArrayOutputStream().use { out ->
-                ImageIO.write(cutout, "png", out)
+                ImageIO.write(framed, "png", out)
                 out.toByteArray()
             }
         }

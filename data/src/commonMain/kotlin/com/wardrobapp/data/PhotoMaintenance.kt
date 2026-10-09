@@ -72,9 +72,14 @@ data class MaintenanceSummary(
     val bytesSaved: Long,
     /** How many files were deleted because nothing pointed at them. */
     val deleted: Int = 0,
+    /** How many cut-outs were rewritten framed around their garment; see CutoutFraming. */
+    val framed: Int = 0,
 ) {
     /** Whether the pass did anything, which is what decides what it reports. */
-    val changedAnything: Boolean get() = shrunk > 0 || deleted > 0
+    val changedAnything: Boolean get() = shrunk > 0 || deleted > 0 || framed > 0
+
+    /** How many files were touched, which is the number the settings screen reports. */
+    val touched: Int get() = shrunk + deleted + framed
 }
 
 /** Two passes over the same directory, reported as one. */
@@ -85,6 +90,7 @@ fun MaintenanceSummary.and(other: MaintenanceSummary): MaintenanceSummary = Main
     shrunk = shrunk + other.shrunk,
     bytesSaved = bytesSaved + other.bytesSaved,
     deleted = deleted + other.deleted,
+    framed = framed + other.framed,
 )
 
 /**

@@ -166,6 +166,9 @@ class MainActivity : AppCompatActivity() {
 
         val container = AppContainer.get(applicationContext)
 
+        // What this build owes the photos already here; a no-op once done.
+        container.frameCutoutsOnce()
+
         // Read before the first composition, not from within it: the colours have
         // to be right on the first frame, and a choice arriving afterwards is a
         // visible repaint of the whole app.

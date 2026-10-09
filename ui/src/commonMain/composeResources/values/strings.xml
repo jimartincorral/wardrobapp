@@ -423,7 +423,7 @@
 
     <!-- Tidying up photos stored by an older build -->
     <string name="settings_tidy">Optimize storage</string>
-    <string name="settings_tidy_hint">Shrinks cut-out photos saved by an older version, and deletes photos no garment points at any more. Nothing a garment shows is touched, and it is safe to run again.</string>
+    <string name="settings_tidy_hint">Shrinks cut-out photos saved by an older version, frames every cut-out around its garment, and deletes photos no garment points at any more. Nothing a garment shows is lost, and it is safe to run again.</string>
     <string name="tidy_running_title">Optimizing storage</string>
     <string name="tidy_running_body">Checking photo %1$d of %2$d…</string>
     <string name="tidy_nothing_title">Nothing to optimize</string>

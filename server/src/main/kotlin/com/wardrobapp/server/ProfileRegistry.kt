@@ -3,6 +3,7 @@ package com.wardrobapp.server
 import com.wardrobapp.api.Profile
 import com.wardrobapp.api.Routes
 import com.wardrobapp.api.WireJson
+import com.wardrobapp.data.wardrobeFilesIn
 import com.wardrobapp.presentation.GarmentImporter
 import java.io.File
 import java.security.SecureRandom
@@ -67,6 +68,15 @@ class ProfileRegistry(
 
     /** Every profile, in the order they were made: the first is the one that was there before. */
     fun list(): List<Profile> = synchronized(lock) { stored.map { Profile(it.id, it.name) } }
+
+    /**
+     * Where every profile keeps its photos, without opening any wardrobe: for
+     * the passes the photo files are owed on a start (see Main), which have no
+     * business opening a database to find a directory.
+     */
+    fun photoDirectories(): List<File> = synchronized(lock) {
+        stored.map { wardrobeFilesIn(File(dataDirectory, it.directory)).imagesDir }
+    }
 
     /** The profile [user] opens by default, or null if they have not made one theirs. */
     fun yours(user: String?): String? = synchronized(lock) {

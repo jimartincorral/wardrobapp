@@ -177,6 +177,58 @@ class AndroidPhotoStore(private val context: Context) {
     }
 
     /**
+     * Frame every stored cut-out around its garment that is not framed yet.
+     *
+     * The pass that cut-outs made before CutoutFraming existed are owed: each
+     * one is decoded, asked what framing it would get, and rewritten only if
+     * that framing changes it -- so one that was framed when it was made, or
+     * by an earlier run of this, costs a decode and nothing else, and the
+     * pass can run as often as it is asked to.
+     *
+     * In place, over the same filename, for the reason [shrinkOversizedCutouts]
+     * gives: the database holds that name. And a failure on one file is
+     * swallowed for the same reason too; the file is left exactly as it was.
+     *
+     * [onProgress] is called with how many of the cut-outs are done.
+     */
+    fun frameLooseCutouts(onProgress: (Int, Int) -> Unit = { _, _ -> }): MaintenanceSummary {
+        val cutouts = directory.listFiles()
+            ?.filter { it.isFile && isCutoutFilename(it.name) }
+            ?.sortedBy { it.name }
+            ?: return MaintenanceSummary(0, 0, 0)
+
+        var framed = 0
+        for ((done, file) in cutouts.withIndex()) {
+            try {
+                val bitmap = bitmapFor(Uri.fromFile(file))
+                if (bitmap != null) {
+                    try {
+                        bitmap.framedAroundGarment()?.let { result ->
+                            try {
+                                writeBitmap(result, file, Bitmap.CompressFormat.PNG)
+                                framed += 1
+                            } finally {
+                                result.recycle()
+                            }
+                        }
+                    } finally {
+                        bitmap.recycle()
+                    }
+                }
+            } catch (_: Exception) {
+                // An unreadable file, no room for the staged copy: this one
+                // stays as it is and the next is not its problem.
+            } catch (_: OutOfMemoryError) {
+                // Likewise; the next file may well be smaller.
+            }
+
+            onProgress(done + 1, cutouts.size)
+        }
+
+        return MaintenanceSummary(examined = cutouts.size, shrunk = 0, bytesSaved = 0, framed = framed)
+    }
+
+    /**
      * Delete the photos no garment points at any more.
      *
      * Which files those are is :data's call ([unreferencedPhotos]); what is decided

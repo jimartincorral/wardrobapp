@@ -363,7 +363,7 @@
 
     <!-- Tidying up photos stored by an older build -->
     <string name="settings_tidy">Optimizar almacenamiento</string>
-    <string name="settings_tidy_hint">Reduce las fotos recortadas guardadas por una versión anterior y elimina las fotos a las que ya no apunta ninguna prenda. No toca nada que una prenda muestre, y se puede repetir sin problema.</string>
+    <string name="settings_tidy_hint">Reduce las fotos recortadas guardadas por una versión anterior, encuadra cada recorte en torno a su prenda y elimina las fotos a las que ya no apunta ninguna prenda. No se pierde nada que una prenda muestre, y se puede repetir sin problema.</string>
     <string name="tidy_running_title">Optimizando el almacenamiento</string>
     <string name="tidy_running_body">Revisando la foto %1$d de %2$d…</string>
     <string name="tidy_nothing_title">Nada que optimizar</string>
