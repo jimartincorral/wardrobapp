@@ -101,6 +101,9 @@ class AppContainer(context: Context) {
     /** Cutting a garment out of its background, on device. */
     val backgrounds = AndroidBackgroundRemover(context, photos)
 
+    /** What the photo directory has been through; see [frameCutoutsOnce]. */
+    private val photoMaintenance = PhotoMaintenancePreference(context)
+
     /** The requests URL import makes, for pages and images alike. */
     private val importHttp = ImportHttp()
 
@@ -225,12 +228,11 @@ class AppContainer(context: Context) {
      * The next start shows every cut-out framed.
      */
     fun frameCutoutsOnce() {
-        val maintenance = PhotoMaintenancePreference(context)
-        if (maintenance.cutoutsFramed) return
+        if (photoMaintenance.cutoutsFramed) return
 
         appScope.launch(Dispatchers.IO) {
             photos.frameLooseCutouts()
-            maintenance.cutoutsFramed = true
+            photoMaintenance.cutoutsFramed = true
         }
     }
 
