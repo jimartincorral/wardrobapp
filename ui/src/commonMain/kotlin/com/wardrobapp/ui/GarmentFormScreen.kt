@@ -1022,14 +1022,11 @@ private fun DuplicateWarning(
                             modifier = Modifier.padding(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            AsyncImage(
-                                model = match.garment.displayImage,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                            GarmentPhoto(
+                                match.garment,
+                                shape = RoundedCornerShape(6.dp),
+                                inset = 3.dp,
+                                modifier = Modifier.size(48.dp),
                             )
                             // The type, and nothing under it. Every match is here
                             // for the identical reason -- same type, same colours --

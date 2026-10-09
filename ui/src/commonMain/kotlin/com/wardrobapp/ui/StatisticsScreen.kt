@@ -55,7 +55,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -64,7 +63,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import com.wardrobapp.data.DuplicateGarmentGroup
 import com.wardrobapp.data.GapOutfit
 import com.wardrobapp.data.GapWithPhotos
@@ -896,14 +894,11 @@ private fun DuplicateRow(group: DuplicateGarmentGroup, onGarmentOpened: (String)
                     ?.let { garmentTypeLabel(it) }
                     ?: categoryLabel(garment.category)
 
-                AsyncImage(
-                    model = garment.displayImage,
+                GarmentPhoto(
+                    garment,
                     contentDescription = stringResource(Res.string.statistics_open_garment, what),
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(56.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .testTag(duplicateTag(garment.id))
                         // The description names it; a click label as well would
                         // have a screen reader say the same words twice.
@@ -1062,18 +1057,15 @@ private fun GapExample(example: GapOutfit, colour: String, ghostLabel: String) {
             if (garment == null) {
                 GhostTile(colour = colour, label = ghostLabel)
             } else {
-                AsyncImage(
-                    model = garment.displayImage,
-                    // Null rather than a description: these are the outfit's
-                    // supporting cast, already counted in the line above, and a
-                    // screen reader announcing four garments per example three
-                    // times over would bury the one thing the card is saying.
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                // No description: these are the outfit's supporting cast,
+                // already counted in the line above, and a screen reader
+                // announcing four garments per example three times over would
+                // bury the one thing the card is saying.
+                GarmentPhoto(
+                    garment,
+                    shape = RoundedCornerShape(6.dp),
+                    inset = 2.dp,
+                    modifier = Modifier.size(44.dp),
                 )
             }
         }

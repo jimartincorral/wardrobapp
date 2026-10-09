@@ -1,7 +1,6 @@
 package com.wardrobapp.ui
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -58,13 +57,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.domain.Occasion
@@ -142,12 +138,12 @@ private fun BuildingAround(seed: GarmentRecord, onCleared: () -> Unit) {
         ) {
             // The cut-out where there is one, which is what every other screen
             // shows a garment as.
-            seed.displayImage.takeIf { it.isNotEmpty() }?.let { uri ->
-                AsyncImage(
-                    model = uri,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)),
+            if (seed.displayImage.isNotEmpty()) {
+                GarmentPhoto(
+                    seed,
+                    shape = RoundedCornerShape(6.dp),
+                    inset = 2.dp,
+                    modifier = Modifier.size(40.dp),
                 )
                 Spacer(modifier = Modifier.width(12.dp))
             }
@@ -200,12 +196,14 @@ fun OutfitsScreen(
     /** Open a training session: ten ideas rated in a row. See TasteTrainingScreen. */
     onTrainRequested: () -> Unit = {},
     /**
-     * Photos of the garments in saved outfits, by garment id, for the desktop's
-     * saved list. A saved outfit is stored as the ids of what is in it, and the
-     * phone's row is words only; on a desktop there is room for the garments, and
-     * whoever has them hands them over. Missing ones are simply not drawn.
+     * The garments in saved outfits, by id, for the desktop's saved list to draw
+     * their photos from. A saved outfit is stored as the ids of what is in it,
+     * and the phone's row is words only; on a desktop there is room for the
+     * garments, and whoever has them hands them over. Missing ones are simply
+     * not drawn. The record rather than a uri, because the frame needs to know
+     * whether what it is drawing is a cut-out: see GarmentPhoto.
      */
-    garmentPhotos: Map<String, String> = emptyMap(),
+    garmentPhotos: Map<String, GarmentRecord> = emptyMap(),
 ) {
     state.deleting?.let { outfit ->
         AlertDialog(
@@ -630,15 +628,11 @@ internal fun SuggestionCard(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
             ) {
                 for (garment in suggestion.outfit.garments) {
-                    AsyncImage(
-                        model = garment.displayImage,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
+                    GarmentPhoto(
+                        garment,
                         modifier = Modifier
                             .weight(1f)
                             .aspectRatio(3f / 4f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(photoSurface())
                             .clickable { onGarmentOpened(garment.id) },
                     )
                 }
@@ -675,7 +669,7 @@ private fun SavedOutfitRow(
     onPinToggled: () -> Unit,
     onDelete: () -> Unit,
     /** The desktop's thumbnails, in outfit order; null on the phone, whose row is words only. */
-    photos: List<String>? = null,
+    photos: List<GarmentRecord>? = null,
 ) {
     // The card opens the outfit; the two buttons on it do their own thing. The
     // clickable goes on the card rather than the row inside it so the whole
@@ -696,16 +690,12 @@ private fun SavedOutfitRow(
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                     modifier = Modifier.padding(end = 12.dp),
                 ) {
-                    for (uri in photos.take(THUMBNAILS_ACROSS)) {
-                        AsyncImage(
-                            model = uri,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .width(30.dp)
-                                .aspectRatio(3f / 4f)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(photoSurface()),
+                    for (garment in photos.take(THUMBNAILS_ACROSS)) {
+                        GarmentPhoto(
+                            garment,
+                            shape = RoundedCornerShape(4.dp),
+                            inset = 2.dp,
+                            modifier = Modifier.width(30.dp).aspectRatio(3f / 4f),
                         )
                     }
                 }
@@ -875,7 +865,7 @@ private const val HOME_IDEAS = 2
 @Composable
 private fun ExpandedOutfits(
     state: OutfitsScreenState,
-    garmentPhotos: Map<String, String>,
+    garmentPhotos: Map<String, GarmentRecord>,
     onSeasonTapped: (Season?) -> Unit,
     onOccasionTapped: (Occasion?) -> Unit,
     onGenerate: () -> Unit,

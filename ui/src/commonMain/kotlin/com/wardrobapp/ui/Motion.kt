@@ -147,6 +147,29 @@ fun photoSurface(): Color =
     }
 
 /**
+ * What a cut-out sits on; see [GarmentPhoto].
+ *
+ * Not [photoSurface]. In light that is `surfaceVariant`, and in the tonal scheme
+ * Material 3 draws today `surfaceVariant` is the same colour as a card
+ * (`surfaceContainerHighest`) -- so on the wardrobe list the tile vanished and
+ * the cut-out appeared to float on the card. A cut-out needs a tile that reads
+ * as a tile: `surfaceContainerLowest`, which is white in light mode, the way a
+ * catalogue shows a garment with its background removed. The hairline the frame
+ * draws is what keeps it from vanishing into a white page in turn.
+ *
+ * In dark the same rule as [photoSurface], for the reason written there: a
+ * cream shirt must stay the brightest thing in its frame, so nothing paler than
+ * `surfaceContainerHigh`.
+ */
+@Composable
+fun cutoutSurface(): Color =
+    if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
+        MaterialTheme.colorScheme.surfaceContainerHigh
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerLowest
+    }
+
+/**
  * Rough perceptual brightness, enough to tell a dark scheme from a light one.
  *
  * `isSystemInDarkTheme()` would answer a different question -- what the *device*

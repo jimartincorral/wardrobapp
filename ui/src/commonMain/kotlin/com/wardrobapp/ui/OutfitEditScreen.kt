@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -33,12 +32,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.GARMENT_CATEGORIES
 import com.wardrobapp.domain.Occasion
@@ -328,14 +324,11 @@ private fun Editor(
 @Composable
 private fun ChosenGarment(garment: GarmentRecord, onTap: () -> Unit) {
     Column(modifier = Modifier.width(72.dp).clickable(onClick = onTap)) {
-        AsyncImage(
-            model = garment.displayImage,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
+        GarmentPhoto(
+            garment,
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(3f / 4f)
-                .clip(RoundedCornerShape(8.dp)),
+                .aspectRatio(3f / 4f),
         )
         Text(
             garmentTypeLabel(garment.subcategory ?: garment.category),
@@ -356,14 +349,11 @@ private fun PickableGarment(garment: GarmentRecord, picked: Boolean, onTap: () -
             .testTag(outfitPickTag(garment.id)),
     ) {
         Box {
-            AsyncImage(
-                model = garment.displayImage,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
+            GarmentPhoto(
+                garment,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(3f / 4f)
-                    .clip(RoundedCornerShape(8.dp)),
+                    .aspectRatio(3f / 4f),
             )
 
             // A tick rather than only a border: "which of these did I already

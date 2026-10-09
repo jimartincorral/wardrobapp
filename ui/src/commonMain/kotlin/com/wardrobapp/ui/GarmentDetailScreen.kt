@@ -53,10 +53,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import com.wardrobapp.presentation.BackgroundAction
 import com.wardrobapp.presentation.GalleryEntry
 import com.wardrobapp.presentation.GarmentDetailScreenState
@@ -342,7 +342,10 @@ private fun GarmentBody(
             .padding(insets)
             .verticalScroll(rememberScrollState()),
     ) {
-        if (pane) PanePhoto(view.displayedImage) else Photo(garmentId, view.displayedImage)
+        // Whether the large photo is a cut-out is what the selected gallery
+        // entry knows; the view does not say it twice.
+        val cutout = view.gallery.getOrNull(view.selectedIndex)?.hasCutout == true
+        if (pane) PanePhoto(view.displayedImage, cutout) else Photo(garmentId, view.displayedImage, cutout)
 
         if (view.showsGallery) {
             LazyRow(
@@ -612,27 +615,36 @@ private fun ConfirmationDialog(
  * worse failure of the two. On an in-app photo the two are identical.
  */
 @Composable
-private fun Photo(garmentId: String, uri: String?) {
-    Box(
+private fun Photo(garmentId: String, uri: String?, cutout: Boolean) {
+    if (uri == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(3f / 4f)
+                .background(photoSurface()),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(stringResource(Res.string.garment_no_photo), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
+
+    // The same frame as every thumbnail, so the cut-out that flew in from the
+    // list lands on the same white it left, only larger. Square-cornered: this
+    // one runs edge to edge under the app bar rather than sitting in a card.
+    // No breathing room either -- the photo is the whole point of the screen,
+    // and it arrived cropped to 3:4 with its own margins.
+    GarmentPhoto(
+        uri = uri,
+        cutout = cutout,
+        shape = RectangleShape,
+        inset = 0.dp,
+        photoScale = ContentScale.Fit,
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(3f / 4f)
-            .background(photoSurface()),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (uri == null) {
-            Text(stringResource(Res.string.garment_no_photo), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            AsyncImage(
-                model = uri,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .garmentSharedElement(garmentId),
-            )
-        }
-    }
+            .garmentSharedElement(garmentId),
+    )
 }
 
 /**
@@ -648,26 +660,30 @@ private fun Photo(garmentId: String, uri: String?) {
  * it, so there is no transition for the photo to fly through.
  */
 @Composable
-private fun PanePhoto(uri: String?) {
+private fun PanePhoto(uri: String?, cutout: Boolean) {
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
-        Box(
-            modifier = Modifier
-                .heightIn(max = 440.dp)
-                .aspectRatio(3f / 4f, matchHeightConstraintsFirst = true)
-                .clip(RoundedCornerShape(12.dp))
-                .background(photoSurface()),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (uri == null) {
+        val frame = Modifier
+            .heightIn(max = 440.dp)
+            .aspectRatio(3f / 4f, matchHeightConstraintsFirst = true)
+
+        if (uri == null) {
+            Box(
+                modifier = frame.clip(RoundedCornerShape(12.dp)).background(photoSurface()),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text(stringResource(Res.string.garment_no_photo), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                AsyncImage(
-                    model = uri,
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
-                )
             }
+        } else {
+            // The thumbnail's frame at the pane's size; see [Photo] for why there
+            // is no breathing room.
+            GarmentPhoto(
+                uri = uri,
+                cutout = cutout,
+                shape = RoundedCornerShape(12.dp),
+                inset = 0.dp,
+                photoScale = ContentScale.Fit,
+                modifier = frame,
+            )
         }
     }
 }
@@ -680,16 +696,16 @@ private fun Thumbnail(entry: GalleryEntry, width: Dp = 72.dp, onClick: () -> Uni
         Color.Transparent
     }
 
-    AsyncImage(
-        model = entry.uri,
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
+    // The selection border is drawn on the frame's outside, before its clip, so
+    // it neither eats into the garment nor gets rounded away.
+    GarmentPhoto(
+        uri = entry.uri,
+        cutout = entry.hasCutout,
+        inset = 3.dp,
         modifier = Modifier
             .width(width)
             .aspectRatio(0.75f)
-            .clip(RoundedCornerShape(8.dp))
             .border(2.dp, border, RoundedCornerShape(8.dp))
-            .background(photoSurface())
             .clickable(onClick = onClick),
     )
 }

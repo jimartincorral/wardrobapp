@@ -20,6 +20,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -251,7 +252,8 @@ class MainActivity : AppCompatActivity() {
                     // Applying the inset also *consumes* it, which is what stops
                     // the navigation bar below from adding its own padding on top --
                     // that would leave a bar-shaped gap between the keyboard and
-                    // the content.
+                    // the content. The system bars get the same treatment where
+                    // the `insets` this Scaffold hands out are applied, below.
                     modifier = Modifier.imePadding(),
                     // Only on the top-level destinations: a garment's detail is
                     // somewhere you came *from* one of them, so the bar would
@@ -344,7 +346,23 @@ class MainActivity : AppCompatActivity() {
                             NavHost(
                                 navController = navigator,
                                 startDestination = if (opensOnOnboarding) ONBOARDING else HOME,
-                                modifier = Modifier.padding(insets),
+                                // Padded by what this Scaffold found: the bottom bar's
+                                // height on a tab, the system's navigation-bar inset
+                                // everywhere else, and the status bar at the top.
+                                //
+                                // And *consumed*, which `padding` alone does not do.
+                                // Every screen below has a Scaffold of its own, with
+                                // the default content insets, and a Scaffold asks the
+                                // window for the system bars unless an ancestor says
+                                // it has already dealt with them. Without this line
+                                // each one dealt with them again: a band of its own
+                                // background, the height of the gesture area, between
+                                // the list and the bottom bar, and the status bar's
+                                // height a second time under every TopAppBar. The
+                                // band was there from the start and only became
+                                // visible when a phone's gesture inset grew tall
+                                // enough to notice.
+                                modifier = Modifier.padding(insets).consumeWindowInsets(insets),
                             ) {
                                 // Before Home, and only on a first launch. The bottom bar
                                 // does not appear here and needs no telling: `TABS` does
