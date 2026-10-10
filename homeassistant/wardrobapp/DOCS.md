@@ -16,6 +16,13 @@ in the Android app, with a few things that need the phone:
   works, which is given back a couple of minutes after the last photo. The
   result is close to the phone's but not identical: the two use different
   models.
+- **Reading a garment's style** — formality, pattern, fit, weight — is done
+  by this app from the garment's photo, for garments where you have not set
+  it yourself, and **Looks I like** (on the Outfits screen) compares outfits
+  with photos of looks you save. The first start after updating reads every
+  photo in the background, which takes a few minutes on a Raspberry Pi. Like
+  background removal, the model needs about 150 MB of memory while it works
+  and gives it back a couple of minutes after the last photo.
 - **Cropping** is not available in the browser. A cut-out made on the phone
   can still be undone.
 - **Photos** are scaled to the size the phone stores before they are uploaded,

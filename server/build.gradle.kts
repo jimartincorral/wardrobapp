@@ -105,6 +105,28 @@ application {
 // look.
 val backgroundModel = layout.buildDirectory.file("models/silueta.onnx")
 
+/**
+ * Download [url] to [target], keeping it only if its SHA-256 is [sha256]: a
+ * file swapped at the source is a failed build, not a different model in
+ * Home Assistant. Written to a `.part` beside the target first, so a download
+ * cut short is never taken for the file. [what] names it in the error.
+ */
+fun downloadVerified(url: String, sha256: String, target: File, what: String) {
+    target.parentFile.mkdirs()
+    val partial = File(target.parentFile, "${target.name}.part")
+    URI(url).toURL().openStream().use { input ->
+        partial.outputStream().use { output -> input.copyTo(output) }
+    }
+    val digest = MessageDigest.getInstance("SHA-256")
+        .digest(partial.readBytes())
+        .joinToString("") { "%02x".format(it) }
+    if (digest != sha256) {
+        partial.delete()
+        throw GradleException("The $what at $url is not the one chosen: SHA-256 $digest, expected $sha256.")
+    }
+    partial.renameTo(target) || throw GradleException("Could not move the $what into $target.")
+}
+
 val downloadBackgroundModel by tasks.registering {
     val url = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/silueta.onnx"
     val sha256 = "75da6c8d2f8096ec743d071951be73b4a8bc7b3e51d9a6625d63644f90ffeedb"
@@ -112,27 +134,41 @@ val downloadBackgroundModel by tasks.registering {
     inputs.property("sha256", sha256)
     outputs.file(backgroundModel)
     outputs.cacheIf { true }
+    doLast { downloadVerified(url, sha256, backgroundModel.get().asFile, "background model") }
+}
+
+// The model StyleEncoder runs, and the anchors it reads attributes with: the
+// image half of OpenAI's CLIP ViT-B/32, quantised to 8 bits, and the text
+// half's embeddings of a few sentences per attribute value. Both made by
+// scripts/export-style-model.py and published by .github/workflows/
+// style-model.yml as a release of this repository, which is where they are
+// fetched from -- by digest, for the reason the background model is. A new
+// export is a new release tag, and new digests here.
+val styleRelease = "https://github.com/jimartincorral/wardrobapp/releases/download/style-model-v1"
+val styleModel = layout.buildDirectory.file("models/style-image-vitb32-int8.onnx")
+val styleAnchors = layout.buildDirectory.file("models/style-anchors.json")
+
+val downloadStyleModel by tasks.registering {
+    val modelSha256 = "3c4250fe483e4e36f272f95ba122b603226ece047bd791cb1266265ae5a78b5b"
+    val anchorsSha256 = "a2129312f64762b2932eb6c71f37a552b5bcb7a83feb90c130158ac21e843243"
+    inputs.property("release", styleRelease)
+    inputs.property("modelSha256", modelSha256)
+    inputs.property("anchorsSha256", anchorsSha256)
+    outputs.files(styleModel, styleAnchors)
+    outputs.cacheIf { true }
     doLast {
-        val target = backgroundModel.get().asFile
-        target.parentFile.mkdirs()
-        val partial = File(target.parentFile, "${target.name}.part")
-        URI(url).toURL().openStream().use { input ->
-            partial.outputStream().use { output -> input.copyTo(output) }
-        }
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest(partial.readBytes())
-            .joinToString("") { "%02x".format(it) }
-        if (digest != sha256) {
-            partial.delete()
-            throw GradleException("The background model at $url is not the one chosen: SHA-256 $digest, expected $sha256.")
-        }
-        partial.renameTo(target) || throw GradleException("Could not move the background model into $target.")
+        val model = styleModel.get().asFile
+        val anchors = styleAnchors.get().asFile
+        downloadVerified("$styleRelease/${model.name}", modelSha256, model, "style model")
+        downloadVerified("$styleRelease/${anchors.name}", anchorsSha256, anchors, "style anchors")
     }
 }
 
 tasks.withType<Test>().configureEach {
-    dependsOn(downloadBackgroundModel)
+    dependsOn(downloadBackgroundModel, downloadStyleModel)
     systemProperty("backgroundModel", backgroundModel.get().asFile.absolutePath)
+    systemProperty("styleModel", styleModel.get().asFile.absolutePath)
+    systemProperty("styleAnchors", styleAnchors.get().asFile.absolutePath)
 }
 
 // ONNX Runtime's jar, without the macOS and Windows libraries in it: a
@@ -156,6 +192,7 @@ distributions {
             exclude { it.name == "onnxruntime-$onnxRuntimeVersion.jar" && !it.file.path.contains("onnxruntime-linux") }
             from(onnxRuntimeForLinux) { into("lib") }
             from(downloadBackgroundModel) { into("models") }
+            from(downloadStyleModel) { into("models") }
         }
     }
 }

@@ -26,6 +26,20 @@ published image at `/opt/wardrobapp/models/silueta.onnx`. It is run with
 [ONNX Runtime](https://github.com/microsoft/onnxruntime), MIT License,
 Copyright (c) Microsoft Corporation.
 
+## CLIP (ViT-B/32)
+
+The style model the Home Assistant app runs, `style-image-vitb32-int8.onnx`, is
+the image encoder of OpenAI's [CLIP](https://github.com/openai/CLIP) ViT-B/32,
+MIT License, Copyright (c) 2021 OpenAI, converted to ONNX and quantised to 8-bit
+weights with [OpenCLIP](https://github.com/mlfoundations/open_clip), MIT License,
+Copyright (c) 2012-2021 Gabriel Ilharco et al. `style-anchors.json` holds
+embeddings of short English phrases made with the same model's text encoder.
+Both are made by `scripts/export-style-model.py`, published as a release of
+this repository, downloaded when the server is built (see
+`server/build.gradle.kts`, which checks their hashes), and are in every
+published image under `/opt/wardrobapp/models/`. The model is run with ONNX
+Runtime, as above.
+
 ## QR Code generator
 
 The QR code encoder in `presentation/.../QrCode.kt` follows

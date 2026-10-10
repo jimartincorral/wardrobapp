@@ -143,6 +143,19 @@ class HomeAssistantAppTest {
     }
 
     @Test
+    fun `the style model and its anchors are where the build puts them`() {
+        // As the background model: the build downloads both into models/,
+        // and a server pointed anywhere else starts without the style model
+        // and says so once in its log, which nobody reads.
+        val build = File(repository, "server/build.gradle.kts").readText()
+        val model = File(System.getProperty("styleModel")).name
+        val anchors = File(System.getProperty("styleAnchors")).name
+        assertTrue("models/$model" in build && "models/$anchors" in build, "the distribution does not carry models/$model and models/$anchors")
+        assertEquals("/opt/wardrobapp/models/$model", environment("WARDROBAPP_STYLE_MODEL"))
+        assertEquals("/opt/wardrobapp/models/$anchors", environment("WARDROBAPP_STYLE_ANCHORS"))
+    }
+
+    @Test
     fun `the server knows its version from the build that made it`() {
         assertEquals("\${BUILD_VERSION}", environment("WARDROBAPP_VERSION"))
         assertTrue("BUILD_VERSION=\${{ steps.app.outputs.version }}" in workflow)
