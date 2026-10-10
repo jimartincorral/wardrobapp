@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.10.0
+
+- **Looks I like**, under the outfit ideas: save photos of outfits you like,
+  from anywhere, and the suggestions lean towards outfits that look like
+  them. Looks saved on a paired phone come here at its next sync, and the
+  other way round.
+- The app now reads a garment's style from its photo: how dressed-up,
+  patterned, fitted and heavy it is. It does this only where you have not
+  set it yourself in the garment's new Style section. The first start after
+  updating reads every photo in the background, which takes a few minutes
+  on a Raspberry Pi.
+- Suggestions learn what you like from your ratings: how dressed-up,
+  patterned or loud an outfit is, not just the exact garments in it.
+  **Train your taste** rates ten outfit ideas in a row to teach it quickly.
+- A photo with its background removed is shown whole, on a plain tile, and
+  the garment is centred and fills it, on new cut-outs and the ones you
+  already have.
+- Deleting a garment or an outfit can be undone for a few seconds afterwards.
+
 ## 0.9.0
 
 - Opened through Nabu Casa's remote address, **Settings** still shows a QR
