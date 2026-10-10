@@ -13,6 +13,7 @@ import com.wardrobapp.api.HttpGarmentDetailSource
 import com.wardrobapp.api.HttpGarmentFormSource
 import com.wardrobapp.api.HttpGarmentImporter
 import com.wardrobapp.api.HttpHomeSource
+import com.wardrobapp.api.HttpInspirationSource
 import com.wardrobapp.api.HttpOutfitDetailSource
 import com.wardrobapp.api.HttpOutfitEditSource
 import com.wardrobapp.api.HttpOutfitsSource
@@ -36,6 +37,7 @@ import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.GarmentDetailScreenModel
 import com.wardrobapp.presentation.GarmentFormScreenModel
 import com.wardrobapp.presentation.HomeScreenModel
+import com.wardrobapp.presentation.InspirationScreenModel
 import com.wardrobapp.presentation.LanguageChoice
 import com.wardrobapp.presentation.OutfitDetailScreenModel
 import com.wardrobapp.presentation.OutfitEditScreenModel
@@ -59,6 +61,7 @@ import com.wardrobapp.ui.BulkAddScreen
 import com.wardrobapp.ui.GarmentDetailScreen
 import com.wardrobapp.ui.GarmentFormScreen
 import com.wardrobapp.ui.HomeScreen
+import com.wardrobapp.ui.InspirationScreen
 import com.wardrobapp.ui.OutfitDetailScreen
 import com.wardrobapp.ui.OutfitEditScreen
 import com.wardrobapp.ui.OutfitsScreen
@@ -84,6 +87,7 @@ class WebSources(http: HttpClient) {
     val importer = HttpGarmentImporter(http)
     val bulkAdd = HttpBulkAddSource(http)
     val photos = BrowserPhotoWork(HttpPhotos(http))
+    val inspirations = HttpInspirationSource(http)
     val server = HttpStorageSource(http)
     val settings = WebSettingsSource(server)
 }
@@ -128,6 +132,8 @@ class Screens(
     private val buildOutfitAround: (String) -> Unit,
     /** Where a delete is offered back; the page's, drawn by WebApp. */
     private val undo: UndoHost,
+    /** Whether the server learns from looks, read when the outfits tab is drawn; see ServerFeatures. */
+    private val learnsStyle: () -> Boolean = { false },
 ) {
     @Composable
     fun Show(
@@ -150,6 +156,7 @@ class Screens(
             is Destination.Outfit -> OutfitDetail(entry, destination.id)
             Destination.OutfitBuild -> OutfitEdit(entry, outfitId = null)
             Destination.TasteTraining -> TasteTraining(entry)
+            Destination.Inspiration -> Inspiration(entry)
             is Destination.OutfitEdit -> OutfitEdit(entry, destination.id)
             is Destination.GarmentAdd -> GarmentForm(entry, garmentId = null, wanted = destination.wanted)
             is Destination.GarmentEdit -> GarmentForm(entry, garmentId = destination.id, wanted = null)
@@ -430,7 +437,38 @@ class Screens(
             onOutfitOpened = { navigator.open(Destination.Outfit(it)) },
             onBuildRequested = { navigator.open(Destination.OutfitBuild) },
             onTrainRequested = { navigator.open(Destination.TasteTraining) },
+            onInspirationRequested = if (learnsStyle()) ({ navigator.open(Destination.Inspiration) }) else null,
             garmentPhotos = photos,
+        )
+    }
+
+    /**
+     * The looks the reader likes. The photo is picked and stored the way the
+     * garment form's is, then handed to the model as a stored reference.
+     */
+    @Composable
+    private fun Inspiration(entry: Entry) {
+        val model = entry.model { InspirationScreenModel(it, sources.inspirations) }
+        val state by model.state.collectAsState()
+
+        InspirationScreen(
+            state = state,
+            onBack = navigator::back,
+            onAddRequested = {
+                entry.scope.launch {
+                    model.onAddStarted()
+                    val picked = pickPhotos(multiple = false).firstOrNull()
+                    if (picked == null) {
+                        model.onAddAbandoned()
+                        return@launch
+                    }
+                    val stored = runCatching { sources.photos.store(picked) }
+                    stored.onSuccess { model.onPhotoStored(it) }
+                        .onFailure { model.onAddAbandoned(it.message) }
+                }
+            },
+            onRemove = model::onDeleteRequested,
+            onRetry = model::refresh,
         )
     }
 

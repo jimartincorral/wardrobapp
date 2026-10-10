@@ -80,6 +80,11 @@ data class ServerVersion(val name: String, val build: Long) {
 data class ServerFeatures(
     /** Whether it has the model to cut a garment out of its background; see Routes.PHOTO_CUT_OUT. */
     val removesBackgrounds: Boolean = false,
+    /**
+     * Whether it has the model that reads a photo's style, so photos of looks
+     * the reader likes teach the suggestions something; see Routes.INSPIRATIONS.
+     */
+    val learnsStyle: Boolean = false,
 )
 
 /** Where an uploaded photo was stored, in the form a garment row refers to it by. */

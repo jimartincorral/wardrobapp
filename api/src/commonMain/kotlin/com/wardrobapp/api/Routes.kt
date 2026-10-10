@@ -137,6 +137,16 @@ object Routes {
     /** POST the photo's bytes, typed by Content-Type; answers [StoredPhoto]. */
     const val PHOTOS = "api/photos"
 
+    /**
+     * GET: the looks the reader likes, as [com.wardrobapp.data.InspirationRecord]s.
+     * POST [StoredPhoto]: a photo already uploaded, kept as a look; answers the
+     * record. Only where [ServerFeatures] says the server learns style.
+     */
+    const val INSPIRATIONS = "api/inspirations"
+
+    /** DELETE. */
+    const val INSPIRATION = "api/inspirations/{id}"
+
     /** DELETE. */
     const val PHOTO = "api/photos/{name}"
 
@@ -157,6 +167,7 @@ object Routes {
     /** The prefix every garment row's photo reference has, as the server reads them. */
     const val PHOTO_FILES = "photos/"
 
+    fun inspiration(id: String) = INSPIRATION.with("id", id)
     fun garment(id: String) = GARMENT.with("id", id)
     fun garmentInUse(id: String) = GARMENT_IN_USE.with("id", id)
     fun garmentUndelete(id: String) = GARMENT_UNDELETE.with("id", id)

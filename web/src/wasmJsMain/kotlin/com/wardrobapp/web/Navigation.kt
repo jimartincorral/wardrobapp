@@ -33,6 +33,8 @@ sealed interface Destination {
     data object OutfitBuild : Destination
     /** A training session: ten outfit ideas rated in a row. */
     data object TasteTraining : Destination
+    /** The looks the reader likes; see InspirationScreen. */
+    data object Inspiration : Destination
     data class OutfitEdit(val id: String) : Destination
 }
 

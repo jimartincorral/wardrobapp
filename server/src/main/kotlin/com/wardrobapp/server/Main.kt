@@ -20,10 +20,16 @@ fun main() {
         println("Removing backgrounds is off: no model at ${settings.backgroundModel ?: "WARDROBAPP_BACKGROUND_MODEL, which is not set"}.")
     }
 
-    val profiles = ProfileRegistry(settings.dataDirectory, backgrounds = backgrounds)
+    val style = StyleEncoder.at(settings.styleModel, settings.styleAnchors)
+    if (style == null) {
+        println("Learning style from photos is off: no model at ${settings.styleModel ?: "WARDROBAPP_STYLE_MODEL, which is not set"}.")
+    }
+
+    val profiles = ProfileRegistry(settings.dataDirectory, backgrounds = backgrounds, style = style)
     Runtime.getRuntime().addShutdownHook(Thread {
         profiles.close()
         backgrounds?.close()
+        style?.close()
     })
 
     frameStoredCutouts(settings.dataDirectory, profiles)

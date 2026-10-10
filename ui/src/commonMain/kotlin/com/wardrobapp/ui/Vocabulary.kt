@@ -104,6 +104,7 @@ import com.wardrobapp.ui.resources.formality_smart
 import com.wardrobapp.ui.resources.formality_smart_casual
 import com.wardrobapp.ui.resources.formality_casual
 import com.wardrobapp.ui.resources.formality_lounge
+import com.wardrobapp.ui.resources.reason_style
 import com.wardrobapp.ui.resources.reason_taste
 import com.wardrobapp.ui.resources.reason_colours
 import com.wardrobapp.ui.resources.reason_learned
@@ -250,6 +251,7 @@ val OutfitReason.labelRes: StringResource
         OutfitReason.SEASON -> Res.string.reason_season
         OutfitReason.COHERENT -> Res.string.reason_coherent
         OutfitReason.TASTE -> Res.string.reason_taste
+        OutfitReason.STYLE -> Res.string.reason_style
     }
 
 /** A garment's style attributes, in words; see GarmentAttributes for what they are for. */

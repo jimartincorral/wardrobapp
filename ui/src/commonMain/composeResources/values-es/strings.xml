@@ -153,6 +153,7 @@
     <string name="reason_season">Apropiado para la temporada</string>
     <string name="reason_coherent">Del mismo estilo</string>
     <string name="reason_taste">Como los atuendos que valoraste bien</string>
+    <string name="reason_style">Como los looks que guardaste</string>
     <string name="outfits_saved_section">Guardados</string>
     <string name="outfit_keep_title">¿Guardar este atuendo?</string>
     <string name="outfit_keep_body">Tu valoración se guarda igualmente y la aplicación ya ha aprendido de ella. Guardar «%1$s» lo añade además a tus atuendos guardados.</string>
@@ -200,6 +201,13 @@
     <string name="property_seasons">Temporadas</string>
     <string name="property_occasions">Ocasiones</string>
     <string name="property_style">Estilo</string>
+    <string name="inspiration_title">Looks que me gustan</string>
+    <string name="inspiration_intro">Añade fotos de atuendos que te gusten, de donde sea. Las sugerencias se acercarán a atuendos que se les parezcan.</string>
+    <string name="inspiration_add">Añadir un look</string>
+    <string name="inspiration_adding">Añadiendo…</string>
+    <string name="inspiration_empty">Aún no hay looks. Añade una foto de un atuendo que te pondrías.</string>
+    <string name="inspiration_remove">Quitar este look</string>
+    <string name="inspiration_retry">Reintentar</string>
     <string name="form_section_style">Estilo</string>
     <string name="form_style_hint">Si se deja en blanco, decide el tipo de prenda.</string>
     <string name="attribute_formality">Formalidad</string>

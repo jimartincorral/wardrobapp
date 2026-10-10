@@ -35,6 +35,8 @@ class ProfileRegistry(
     private val importer: GarmentImporter? = null,
     /** One for every profile, since there is one model and it is cut-outs it costs, not profiles; null for none. */
     val backgrounds: BackgroundRemover? = null,
+    /** Likewise the style model; each profile keeps its own index over it. */
+    val style: StyleEncoder? = null,
 ) : AutoCloseable {
 
     @Serializable
@@ -90,6 +92,7 @@ class ProfileRegistry(
                 dataDirectory = File(dataDirectory, profile.directory),
                 importer = importer,
                 backgrounds = backgrounds,
+                styleEncoder = style,
                 photoPrefix = Routes.profileBase(profile.id) + Routes.PHOTO_FILES,
                 syncSecret = secretOf(profile),
             ).also { open[id] = it }

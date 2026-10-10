@@ -7,6 +7,7 @@ import com.wardrobapp.data.DuplicateGarmentGroup
 import com.wardrobapp.data.GapOutfit
 import com.wardrobapp.data.GapWithPhotos
 import com.wardrobapp.data.GarmentRecord
+import com.wardrobapp.data.InspirationRecord
 import com.wardrobapp.data.MaintenanceSummary
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.SuggestedOutfit
@@ -307,6 +308,7 @@ class WireTypesTest {
                 statement = false,
             ),
         )
+        add(InspirationRecord(id = "l1", imageUri = "photos/look.jpg", createdAt = "2026-01-02T03:04:05.000Z"))
         add(StorageFigures(garments = 10, retired = 2, photoBytes = 123_456_789))
     }
 

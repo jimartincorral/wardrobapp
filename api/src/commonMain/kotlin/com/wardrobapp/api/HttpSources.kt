@@ -4,6 +4,7 @@ import com.wardrobapp.data.DuplicateGarment
 import com.wardrobapp.data.DuplicateGarmentGroup
 import com.wardrobapp.data.GapWithPhotos
 import com.wardrobapp.data.GarmentRecord
+import com.wardrobapp.data.InspirationRecord
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.toStoredImageRef
 import com.wardrobapp.domain.DuplicateCandidate
@@ -19,6 +20,7 @@ import com.wardrobapp.presentation.GarmentFormState
 import com.wardrobapp.presentation.GarmentImporter
 import com.wardrobapp.presentation.HomeCounts
 import com.wardrobapp.presentation.HomeSource
+import com.wardrobapp.presentation.InspirationSource
 import com.wardrobapp.presentation.OutfitDetailContent
 import com.wardrobapp.presentation.OutfitDetailSource
 import com.wardrobapp.presentation.OutfitDraft
@@ -244,6 +246,17 @@ class HttpGarmentDetailSource(private val http: HttpClient) : GarmentDetailSourc
 
     override suspend fun savePhotos(id: String, edit: BackgroundEdit, alsoImages: Boolean) {
         http.putJson(Routes.garmentPhotos(id), SavedPhotos(edit, alsoImages))
+    }
+}
+
+class HttpInspirationSource(private val http: HttpClient) : InspirationSource {
+    override suspend fun looks(): List<InspirationRecord> = http.get(Routes.INSPIRATIONS).body()
+
+    override suspend fun add(photo: String): InspirationRecord =
+        http.postJson(Routes.INSPIRATIONS, StoredPhoto(photo)).body()
+
+    override suspend fun delete(id: String) {
+        http.delete(Routes.inspiration(id))
     }
 }
 

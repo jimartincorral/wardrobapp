@@ -156,6 +156,7 @@ fun WebApp(http: HttpClient, profile: ProfileControls) {
                 navigator.switchTo(Destination.Outfits)
             },
             undo = undo,
+            learnsStyle = { features.learnsStyle },
         )
     }
 

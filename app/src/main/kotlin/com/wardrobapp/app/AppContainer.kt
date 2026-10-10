@@ -19,6 +19,7 @@ import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.ReopeningDriver
 import com.wardrobapp.data.Suggestions
+import com.wardrobapp.data.StyleQueries
 import com.wardrobapp.data.SyncStore
 import com.wardrobapp.data.WardrobeSchema
 import com.wardrobapp.domain.ImageFetcher
@@ -80,7 +81,7 @@ class AppContainer(context: Context) {
     val outfits = OutfitQueries(database)
     val outfitWrites = OutfitWrites(database)
     val analytics = AnalyticsQueries(database)
-    val suggestions = Suggestions(garments, outfits)
+    val suggestions = Suggestions(garments, outfits, StyleQueries(database))
     val duplicates = Duplicates(garments)
     val gaps = Gaps(garments, outfits)
 

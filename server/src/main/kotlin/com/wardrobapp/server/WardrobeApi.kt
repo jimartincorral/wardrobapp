@@ -106,7 +106,9 @@ fun Application.wardrobeApi(
 
             get(Routes.VERSION) { call.respond(settings.version) }
 
-            get(Routes.FEATURES) { call.respond(ServerFeatures(removesBackgrounds = wardrobe.removesBackgrounds)) }
+            get(Routes.FEATURES) {
+                call.respond(ServerFeatures(removesBackgrounds = wardrobe.removesBackgrounds, learnsStyle = wardrobe.learnsStyle))
+            }
 
             // Served as the workflow wrote it: the browser reads it with the same
             // lenient parser the phone reads its own document with, so a server
@@ -179,6 +181,7 @@ private fun Route.garments() {
     post(Routes.GARMENTS) {
         val saved = call.receive<SavedGarment>()
         wardrobe.garmentForm.save(null, saved.form, saved.previouslyStored)
+        wardrobe.style?.refresh()
         call.respond(HttpStatusCode.NoContent)
     }
 
@@ -186,6 +189,7 @@ private fun Route.garments() {
 
     post(Routes.GARMENT_BULK) {
         wardrobe.bulkAdd.save(call.receive<BulkAddState.Draft>())
+        wardrobe.style?.refresh()
         call.respond(HttpStatusCode.NoContent)
     }
 
@@ -202,6 +206,7 @@ private fun Route.garments() {
     put(Routes.GARMENT) {
         val saved = call.receive<SavedGarment>()
         wardrobe.garmentForm.save(id(), saved.form, saved.previouslyStored)
+        wardrobe.style?.refresh()
         call.respond(HttpStatusCode.NoContent)
     }
 
@@ -230,6 +235,27 @@ private fun Route.garments() {
     put(Routes.GARMENT_PHOTOS) {
         val saved = call.receive<SavedPhotos>()
         wardrobe.garmentDetail.savePhotos(id(), saved.edit, saved.alsoImages)
+        wardrobe.style?.refresh()
+        call.respond(HttpStatusCode.NoContent)
+    }
+
+    // The looks the reader likes; see InspirationSource. Only where there is
+    // a model to learn from them: elsewhere a look would be a photo kept for
+    // nothing, and the browser does not offer it (see ServerFeatures).
+    get(Routes.INSPIRATIONS) {
+        call.respond(wardrobe.inspirations.looks())
+    }
+
+    post(Routes.INSPIRATIONS) {
+        // 501 through Failures, as a cut-out without the model is.
+        val style = wardrobe.style ?: throw StyleUnavailable()
+        val look = wardrobe.inspirations.add(call.receive<StoredPhoto>().ref)
+        style.refresh()
+        call.respond(HttpStatusCode.Created, look)
+    }
+
+    delete(Routes.INSPIRATION) {
+        wardrobe.inspirations.delete(id())
         call.respond(HttpStatusCode.NoContent)
     }
 }

@@ -324,6 +324,12 @@ data class OutfitScore(
      * pairs, or a liking for the dressed-up, to garments never rated.
      */
     val taste: Double = 0.0,
+    /**
+     * How close the outfit comes to the looks the reader saved and the
+     * outfits they rated well, by the style model's eye; see StyleTaste.
+     * Zero where there is no model, no looks, or no garment it has seen.
+     */
+    val style: Double = 0.0,
 )
 
 /**
@@ -339,6 +345,8 @@ internal fun scoreOutfit(
     preferences: SuggestionPreferences?,
     learned: LearnedPreferences = LearnedPreferences.NONE,
     taste: TasteModel? = null,
+    style: StyleLookup? = null,
+    styleTaste: FloatArray? = null,
 ): OutfitScore {
     // Pair scores from learning
     var pairTotal = 0.0
@@ -397,8 +405,16 @@ internal fun scoreOutfit(
     // made about outfits in general rather than about these two garments.
     val tasteScore = taste?.let { it.score(outfitFeatures(garments)) * TASTE_WEIGHT } ?: 0.0
 
+    // And what the style model makes of it against the looks the reader
+    // likes, where there is a model and a taste to compare with.
+    val styleScore = if (style != null && styleTaste != null) {
+        styleScore(garments.map { style.vector(it.id) }, styleTaste) * STYLE_WEIGHT
+    } else {
+        0.0
+    }
+
     return OutfitScore(
-        total = learnedScore + affinity + season + occasion + coherence + harmony + loud + tasteScore,
+        total = learnedScore + affinity + season + occasion + coherence + harmony + loud + tasteScore + styleScore,
         learnedPairs = learnedScore,
         garmentAffinity = affinity,
         season = season,
@@ -407,6 +423,7 @@ internal fun scoreOutfit(
         harmony = harmony,
         loudColours = loud,
         taste = tasteScore,
+        style = styleScore,
     )
 }
 
@@ -430,6 +447,8 @@ enum class OutfitReason {
     COHERENT,
     /** It is the kind of outfit this reader has rated well: see TasteModel. */
     TASTE,
+    /** It looks like the looks the reader saved: see StyleTaste. */
+    STYLE,
 }
 
 /** Above this share of its own possible value, a term is worth mentioning. */
@@ -458,6 +477,9 @@ fun outfitReasons(score: OutfitScore, limit: Int = 2): List<OutfitReason> = list
     // The same shape as the learned claim: no ceiling, and a clear positive
     // is what earns a mention. Half a star's worth, in the model's units.
     OutfitReason.TASTE to score.taste.takeIf { it >= TASTE_WEIGHT * 0.25 },
+    // A cosine: 0.3 and up is a resemblance worth naming in this space, where
+    // two garments of the same kind sit around 0.6 and unrelated ones near 0.
+    OutfitReason.STYLE to score.style.takeIf { it >= STYLE_WEIGHT * 0.3 },
     OutfitReason.COLOURS to score.harmony.takeIf { it >= 1.5 * REASON_THRESHOLD },
     OutfitReason.OCCASION to score.occasion.takeIf { it >= 1.2 * REASON_THRESHOLD },
     OutfitReason.SEASON to score.season.takeIf { it >= 1.0 * REASON_THRESHOLD },
@@ -506,6 +528,15 @@ private const val GARMENT_AFFINITY_WEIGHT = 1.0
  */
 private const val TASTE_WEIGHT = 2.0
 
+/**
+ * How much the style model's opinion counts: a cosine, -1 to 1, so at 2 it
+ * is level with the taste model and with a strongly learned pair at the
+ * extremes. In practice a cosine sits within a few tenths of zero for most
+ * outfits and climbs for the ones that look like the saved looks, which is
+ * a tilt towards them rather than a veto on everything else.
+ */
+private const val STYLE_WEIGHT = 2.0
+
 /** How many colours past the allowance an outfit shouts in. */
 private fun excessLoudColours(garments: List<Garment>): Int =
     (garments.count { isLoudColor(it.primaryColor) } - LOUD_COLOUR_ALLOWANCE).coerceAtLeast(0)
@@ -548,6 +579,8 @@ private fun pickBestFit(
     preferences: SuggestionPreferences?,
     learned: LearnedPreferences,
     taste: TasteModel?,
+    style: StyleLookup?,
+    styleTaste: FloatArray?,
 ): Garment {
     var bestScore = Double.NEGATIVE_INFINITY
     var tied = mutableListOf<Garment>()
@@ -585,11 +618,16 @@ private fun pickBestFit(
         // the loud-colour rule is: an outfit the model will rank down is a draw
         // wasted on building it.
         val tasteScore = taste?.let { it.score(outfitFeatures(selected + candidate)) * TASTE_WEIGHT } ?: 0.0
+        val styleScore = if (style != null && styleTaste != null) {
+            styleScore((selected + candidate).map { style.vector(it.id) }, styleTaste) * STYLE_WEIGHT
+        } else {
+            0.0
+        }
 
         val total = pairScoreSum + harmony + coherence + affinity -
             wouldShout * LOUD_COLOUR_PENALTY +
             contextScore(candidate, currentSeason, preferences) * 1.5 +
-            tasteScore
+            tasteScore + styleScore
 
         if (total > bestScore + SCORE_TIE_EPSILON) {
             bestScore = total
@@ -661,6 +699,14 @@ data class SuggestionContext(
      * of them; null while there are too few. See TasteModel.
      */
     val taste: TasteModel? = null,
+    /**
+     * The style model's vector for a garment, where the Home Assistant app
+     * has embedded it, and the reader's taste in the same space; see
+     * StyleTaste. Null where there is no model, which is every phone that
+     * does not sync and every wardrobe before its first embedding.
+     */
+    val style: StyleLookup? = null,
+    val styleTaste: FloatArray? = null,
 )
 
 /**
@@ -682,6 +728,8 @@ fun buildSuggestions(
     val currentSeason = context.currentSeason
     val random = context.random
     val taste = context.taste
+    val style = context.style
+    val styleTaste = context.styleTaste
 
     if (garments.isEmpty()) return emptyList()
 
@@ -754,6 +802,8 @@ fun buildSuggestions(
                     preferences,
                     learned,
                     taste,
+                    style,
+                    styleTaste,
                 )
             } else {
                 pickWeightedAtRandom(available, currentSeason, random, preferences)
@@ -765,7 +815,7 @@ fun buildSuggestions(
 
         if (selected.isEmpty()) continue
 
-        val score = scoreOutfit(selected, getPairScore, currentSeason, preferences, learned, taste)
+        val score = scoreOutfit(selected, getPairScore, currentSeason, preferences, learned, taste, style, styleTaste)
         val name = outfitNameFrom(selected.map { garmentLabelFor(it.category, it.subcategory) })
         candidates.add(
             ScoredOutfit(
