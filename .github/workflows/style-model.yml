@@ -34,9 +34,16 @@ jobs:
 
       # The CPU build of PyTorch: a fifth of the size of the default, and the
       # export runs no faster on a GPU the runner does not have.
+      #
+      # torchvision in the same command and from the same index, not left to
+      # open_clip to pull in. open_clip imports it, and torchvision is built
+      # against one exact torch: installed on its own from PyPI it came paired
+      # with the GPU torch of the day, and importing it against the CPU one
+      # died with "operator torchvision::nms does not exist" before the
+      # export began. One resolve over one index gives a matching pair.
       - name: Install the exporter
         run: |
-          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
           pip install open_clip_torch onnx onnxruntime numpy
 
       - name: Export
