@@ -4,10 +4,12 @@ import com.wardrobapp.domain.GenerateSuggestionsOptions
 import com.wardrobapp.domain.OutfitReason
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.RatedExample
+import com.wardrobapp.domain.StyleLookup
 import com.wardrobapp.domain.SuggestionContext
 import com.wardrobapp.domain.TasteModel
 import com.wardrobapp.domain.fitTasteModel
 import com.wardrobapp.domain.outfitFeatures
+import com.wardrobapp.domain.tasteVector
 import com.wardrobapp.domain.buildSuggestions
 import kotlinx.serialization.Serializable
 
@@ -44,6 +46,8 @@ data class SuggestedOutfit(
 class Suggestions(
     private val garments: GarmentQueries,
     private val outfits: OutfitQueries,
+    /** What the style model has said, where it has; see StyleQueries. Null for an engine without it. */
+    private val style: StyleQueries? = null,
 ) {
 
     /**
@@ -84,6 +88,8 @@ class Suggestions(
         // deleted garment lands here, which is why it is not an error.
         val seed = seedGarmentId?.let { id -> available.firstOrNull { it.id == id } ?: return emptyList() }
 
+        val history = outfits.ratedHistory()
+        val embeddings = style?.embeddings().orEmpty()
         val scored = buildSuggestions(
             SuggestionContext(
                 garments = available.map { it.toDomain() },
@@ -91,7 +97,9 @@ class Suggestions(
                 learned = outfits.learnedPreferences(),
                 currentSeason = currentSeason,
                 random = random,
-                taste = tasteModel(),
+                taste = tasteModel(history),
+                style = if (embeddings.isEmpty()) null else StyleLookup { embeddings[it] },
+                styleTaste = styleTaste(history, embeddings),
             ),
             if (seed == null) options else options.copy(seedGarments = listOf(seed.toDomain())),
         )
@@ -119,13 +127,27 @@ class Suggestions(
      * a garment that is gone altogether is left out, and an outfit with
      * fewer than two garments left says nothing about combinations.
      */
-    private fun tasteModel(): TasteModel? {
+    private fun tasteModel(history: List<RatedOutfit>): TasteModel? {
         val byId = garments.allGarments(GarmentQueries.Filters(availableOnly = false))
             .associate { it.id to it.toDomain() }
-        val examples = outfits.ratedHistory().mapNotNull { rated ->
+        val examples = history.mapNotNull { rated ->
             val present = rated.garmentIds.mapNotNull { byId[it] }
             if (present.size < 2) null else RatedExample(outfitFeatures(present), rated.rating)
         }
         return fitTasteModel(examples)
+    }
+
+    /**
+     * The reader's taste in the style model's space, from the looks they
+     * saved and the outfits they rated; null without a model's word on any of
+     * it. See StyleTaste in :domain for the arithmetic.
+     */
+    private fun styleTaste(history: List<RatedOutfit>, embeddings: Map<String, FloatArray>): FloatArray? {
+        if (style == null || embeddings.isEmpty()) return null
+        val rated = history.mapNotNull { rated ->
+            val vectors = rated.garmentIds.mapNotNull { embeddings[it] }
+            if (vectors.isEmpty()) null else vectors to rated.rating
+        }
+        return tasteVector(style.inspirationVectors(), rated)
     }
 }

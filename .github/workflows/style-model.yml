@@ -1,0 +1,54 @@
+name: Style model
+
+# Export the image model the Home Assistant app embeds photos with, and the
+# anchors it reads attributes off them with, and attach both to a release of
+# this repository; see scripts/export-style-model.py for what they are.
+#
+# Run by hand, once, and again only to change the model or the prompts. The
+# server's build downloads the files from the release this makes and checks
+# their digests (server/build.gradle.kts), so a new run is a new tag and a
+# new pair of digests, pinned in a commit of their own. The export needs
+# PyTorch and the model's weights, which is why it is a workflow rather than
+# a build step: a gigabyte of download for a file that changes once.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag to attach the files to
+        required: true
+        default: style-model-v1
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    name: Export and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # The CPU build of PyTorch: a fifth of the size of the default, and the
+      # export runs no faster on a GPU the runner does not have.
+      - name: Install the exporter
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install open_clip_torch onnx onnxruntime numpy
+
+      - name: Export
+        run: python scripts/export-style-model.py style-model
+
+      - name: Publish to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ inputs.tag }}" \
+            --title "Style model ${{ inputs.tag }}" \
+            --notes "The image model and anchors the Home Assistant app embeds photos with; see scripts/export-style-model.py. Downloaded by the server's build, by digest." \
+            style-model/*.onnx style-model/style-anchors.json
+          echo "Pin these in server/build.gradle.kts:"
+          sha256sum style-model/*.onnx style-model/style-anchors.json

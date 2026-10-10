@@ -8,6 +8,7 @@ import com.wardrobapp.api.HttpGarmentDetailSource
 import com.wardrobapp.api.HttpGarmentFormSource
 import com.wardrobapp.api.HttpGarmentImporter
 import com.wardrobapp.api.HttpHomeSource
+import com.wardrobapp.api.HttpInspirationSource
 import com.wardrobapp.api.HttpOutfitDetailSource
 import com.wardrobapp.api.HttpOutfitEditSource
 import com.wardrobapp.api.HttpOutfitsSource
@@ -49,6 +50,7 @@ class ServerUnderTest(val http: HttpClient, val wardrobe: ServerWardrobe, val da
     val importer = HttpGarmentImporter(http)
     val storage = HttpStorageSource(http)
     val photos = HttpPhotos(http)
+    val inspirations = HttpInspirationSource(http)
 
     val photoDirectory: File get() = wardrobe.photos.directory
 
@@ -94,12 +96,13 @@ fun serverTest(
     importer: GarmentImporter? = null,
     settings: ServerSettings = ServerSettings(),
     backgrounds: BackgroundRemover? = null,
+    style: StyleEncoder? = null,
     hostPorts: HostPorts = HostPorts.NONE,
     homeAddress: HomeAddress = HomeAddress.NONE,
     block: suspend ServerUnderTest.() -> Unit,
 ) {
     val directory = Files.createTempDirectory("wardrobe-server").toFile()
-    val profiles = ProfileRegistry(directory, importer, backgrounds)
+    val profiles = ProfileRegistry(directory, importer, backgrounds, style)
     try {
         testApplication {
             application { wardrobeApi(profiles, settings, hostPorts, homeAddress) }

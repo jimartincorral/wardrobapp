@@ -97,6 +97,24 @@ object WardrobeSchema {
       id TEXT NOT NULL,
       deleted_at TEXT NOT NULL,
       PRIMARY KEY (kind, id)
+    );
+
+    CREATE TABLE IF NOT EXISTS garment_embeddings (
+      garment_id TEXT PRIMARY KEY,
+      photo TEXT NOT NULL,
+      model TEXT NOT NULL,
+      vector BLOB NOT NULL,
+      computed_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS inspirations (
+      id TEXT PRIMARY KEY,
+      image_uri TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT,
+      deleted_at TEXT,
+      model TEXT,
+      vector BLOB
     );"""
 
     /**

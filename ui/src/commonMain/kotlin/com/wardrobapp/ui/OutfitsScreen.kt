@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -100,6 +101,7 @@ import com.wardrobapp.ui.resources.outfits_suggest
 import com.wardrobapp.ui.resources.outfits_suggest_again
 import com.wardrobapp.ui.resources.outfits_suggesting
 import com.wardrobapp.ui.resources.outfits_title
+import com.wardrobapp.ui.resources.inspiration_title
 import com.wardrobapp.ui.resources.taste_training_title
 import com.wardrobapp.ui.resources.outfits_use_whole_wardrobe
 import kotlinx.coroutines.delay
@@ -118,6 +120,9 @@ const val OUTFIT_BUILD_ACTION = "outfit-build-action"
 
 /** The way into a training session, on the outfits screen. */
 const val OUTFIT_TRAIN_ACTION = "outfit-train-action"
+
+/** The way to the looks the reader likes, for a test to find. */
+const val OUTFIT_INSPIRATION_ACTION = "outfit-inspiration-action"
 
 const val OUTFIT_REASONS = "outfit-reasons"
 
@@ -196,6 +201,12 @@ fun OutfitsScreen(
     /** Open a training session: ten ideas rated in a row. See TasteTrainingScreen. */
     onTrainRequested: () -> Unit = {},
     /**
+     * Open the looks the reader likes; null where there is nothing to learn
+     * from them -- a server without the style model, or a phone that does
+     * not sync -- and then the way in is not drawn. See InspirationScreen.
+     */
+    onInspirationRequested: (() -> Unit)? = null,
+    /**
      * The garments in saved outfits, by id, for the desktop's saved list to draw
      * their photos from. A saved outfit is stored as the ids of what is in it,
      * and the phone's row is words only; on a desktop there is room for the
@@ -244,6 +255,7 @@ fun OutfitsScreen(
             onOutfitOpened = onOutfitOpened,
             onBuildRequested = onBuildRequested,
             onTrainRequested = onTrainRequested,
+            onInspirationRequested = onInspirationRequested,
         )
         return
     }
@@ -307,6 +319,8 @@ fun OutfitsScreen(
             // make those ideas better: a text button, since it is the second
             // thing here and the one most people will tap once.
             item { TrainButton(onTrainRequested, Modifier.fillMaxWidth()) }
+
+            onInspirationRequested?.let { item { InspirationButton(it, Modifier.fillMaxWidth()) } }
 
             state.error?.let { error ->
                 item {
@@ -508,6 +522,15 @@ private fun TrainButton(onTrainRequested: () -> Unit, modifier: Modifier = Modif
     TextButton(onClick = onTrainRequested, modifier = modifier.testTag(OUTFIT_TRAIN_ACTION)) {
         Icon(Glyph.Tune, contentDescription = null, modifier = Modifier.size(18.dp))
         Text(stringResource(Res.string.taste_training_title), modifier = Modifier.padding(start = 8.dp))
+    }
+}
+
+/** The way to the looks the reader likes; see InspirationScreen. Drawn like the training button, under it. */
+@Composable
+private fun InspirationButton(onInspirationRequested: () -> Unit, modifier: Modifier = Modifier) {
+    TextButton(onClick = onInspirationRequested, modifier = modifier.testTag(OUTFIT_INSPIRATION_ACTION)) {
+        Icon(Icons.Filled.Favorite, contentDescription = null, modifier = Modifier.size(18.dp))
+        Text(stringResource(Res.string.inspiration_title), modifier = Modifier.padding(start = 8.dp))
     }
 }
 
@@ -879,6 +902,7 @@ private fun ExpandedOutfits(
     onOutfitOpened: (String) -> Unit,
     onBuildRequested: () -> Unit,
     onTrainRequested: () -> Unit,
+    onInspirationRequested: (() -> Unit)?,
 ) {
     Scaffold(
         topBar = {
@@ -953,6 +977,7 @@ private fun ExpandedOutfits(
                 }
 
                 across { TrainButton(onTrainRequested, Modifier.wrapContentWidth(Alignment.Start)) }
+                onInspirationRequested?.let { across { InspirationButton(it, Modifier.wrapContentWidth(Alignment.Start)) } }
 
                 state.error?.let { error ->
                     across {

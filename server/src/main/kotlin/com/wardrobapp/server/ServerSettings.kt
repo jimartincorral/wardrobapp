@@ -59,6 +59,15 @@ data class ServerSettings(
      */
     val backgroundModel: File? = null,
     /**
+     * `WARDROBAPP_STYLE_MODEL` and `WARDROBAPP_STYLE_ANCHORS`: the image
+     * model StyleEncoder embeds photos with and the anchors it reads
+     * attributes with, as the build downloaded them into the image; null, or
+     * files that are not there, for a server that does not learn style --
+     * which says so to the browser rather than failing to start.
+     */
+    val styleModel: File? = null,
+    val styleAnchors: File? = null,
+    /**
      * `SUPERVISOR_TOKEN`: what Home Assistant gives an app to ask its
      * Supervisor about itself, when config.yaml asks for `hassio_api`; null
      * anywhere else. Used for one question -- which host port the sync port
@@ -113,6 +122,8 @@ data class ServerSettings(
                 ),
                 releaseNotes = value("WARDROBAPP_RELEASE_NOTES")?.let(::File),
                 backgroundModel = value("WARDROBAPP_BACKGROUND_MODEL")?.let(::File),
+                styleModel = value("WARDROBAPP_STYLE_MODEL")?.let(::File),
+                styleAnchors = value("WARDROBAPP_STYLE_ANCHORS")?.let(::File),
                 supervisorToken = value("SUPERVISOR_TOKEN"),
             )
         }

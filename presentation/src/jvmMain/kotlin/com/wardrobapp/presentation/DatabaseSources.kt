@@ -12,7 +12,10 @@ import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.RecentlyDeleted
 import com.wardrobapp.data.isoTimestamp
 import com.wardrobapp.data.orphanedImageRefs
+import com.wardrobapp.data.InspirationRecord
+import com.wardrobapp.data.StyleQueries
 import com.wardrobapp.data.resolveImageRef
+import com.wardrobapp.data.toStoredImageRef
 import com.wardrobapp.domain.DuplicateCandidate
 import com.wardrobapp.domain.GenerateSuggestionsOptions
 import com.wardrobapp.domain.ImageFetcher
@@ -514,5 +517,39 @@ class FetchingGarmentImporter<P>(
 
     override suspend fun import(url: String): ImportedGarmentPreview = withContext(io) {
         openPages().use { pages -> importGarmentFromUrl(url, pages, images) }
+    }
+}
+
+/**
+ * The looks the reader likes, over the shared tables; see StyleQueries.
+ *
+ * On the server only for now: the phone gets its looks through sync, later.
+ * The photo is deleted with the look, through the same hook the garment
+ * sources delete photos with, since a look is nothing but its photo.
+ */
+class DatabaseInspirationSource(
+    private val style: StyleQueries,
+    private val imageDirectory: String,
+    private val deletePhoto: (String) -> Unit,
+    private val io: CoroutineDispatcher,
+) : InspirationSource {
+
+    override suspend fun looks(): List<InspirationRecord> = withContext(io) {
+        style.inspirations().map { it.copy(imageUri = resolveImageRef(it.imageUri, imageDirectory)) }
+    }
+
+    override suspend fun add(photo: String): InspirationRecord = withContext(io) {
+        val id = newRowId()
+        val now = nowTimestamp()
+        // Stored as a bare name, as a garment's photo is, and resolved on the
+        // way out, so the row reads the same wherever the directory is.
+        style.addInspiration(id, toStoredImageRef(photo), now)
+        InspirationRecord(id = id, imageUri = resolveImageRef(toStoredImageRef(photo), imageDirectory), createdAt = now)
+    }
+
+    override suspend fun delete(id: String) {
+        withContext(io) {
+            style.deleteInspiration(id, nowTimestamp())?.let { runCatching { deletePhoto(it) } }
+        }
     }
 }

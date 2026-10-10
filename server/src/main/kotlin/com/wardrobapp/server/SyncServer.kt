@@ -91,6 +91,9 @@ fun Application.wardrobeSync(profiles: ProfileRegistry, version: ServerVersion) 
             val wardrobe = call.attributes[Syncing]
             val bytes = call.receiveChannel().readRemaining(PhotoFiles.MAX_PHOTO_BYTES + 1L).readByteArray()
             wardrobe.photos.storeAs(call.parameters["name"].orEmpty(), bytes)
+            // A photo that arrived is a garment the style model can now see;
+            // what it reads off it reaches the phone on the next sync.
+            wardrobe.style?.refresh()
             call.respond(HttpStatusCode.NoContent)
         }
 
@@ -221,6 +224,9 @@ private val ISO_TIMESTAMP = Regex("""\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z
 /** Let go of the photos a merge left unused, and answer with the result and the photos still to come. */
 private suspend fun RoutingContext.answer(wardrobe: ServerWardrobe, result: MergedWardrobe) {
     for (name in result.photosNoLongerUsed) wardrobe.photos.delete(name)
+    // Garments that arrived with photos already here are embedded in the
+    // background; the attributes read off them ride the sync after this one.
+    wardrobe.style?.refresh()
 
     val missing = result.merged.garments
         .flatMap { it.photoNames() }

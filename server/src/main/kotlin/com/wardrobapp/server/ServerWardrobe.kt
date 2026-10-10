@@ -11,6 +11,7 @@ import com.wardrobapp.data.OutfitQueries
 import com.wardrobapp.data.OutfitWrites
 import com.wardrobapp.data.RecentlyDeleted
 import com.wardrobapp.data.ReopeningDriver
+import com.wardrobapp.data.StyleQueries
 import com.wardrobapp.data.Suggestions
 import com.wardrobapp.data.SyncStore
 import com.wardrobapp.data.WardrobeSchema
@@ -25,6 +26,7 @@ import com.wardrobapp.presentation.DatabaseBulkAddSource
 import com.wardrobapp.presentation.DatabaseGarmentDetailSource
 import com.wardrobapp.presentation.DatabaseGarmentFormSource
 import com.wardrobapp.presentation.DatabaseHomeSource
+import com.wardrobapp.presentation.DatabaseInspirationSource
 import com.wardrobapp.presentation.DatabaseOutfitDetailSource
 import com.wardrobapp.presentation.DatabaseOutfitEditSource
 import com.wardrobapp.presentation.DatabaseOutfitsSource
@@ -68,6 +70,8 @@ class ServerWardrobe(
     dataDirectory: File,
     importer: GarmentImporter? = null,
     private val backgrounds: BackgroundRemover? = null,
+    /** The style model, shared by every wardrobe; null where there is none. See StyleIndex. */
+    styleEncoder: StyleEncoder? = null,
     private val photoPrefix: String = Routes.PHOTO_FILES,
     /** The code a phone pairs with, kept beside the wardrobe it opens; see [syncSecretIn]. */
     val syncSecret: SyncSecret = syncSecretIn(dataDirectory),
@@ -86,8 +90,21 @@ class ServerWardrobe(
     private val outfits = OutfitQueries(database)
     private val outfitWrites = OutfitWrites(database)
     private val duplicates = Duplicates(garments)
+    internal val styleQueries = StyleQueries(database)
 
     private val io = Dispatchers.IO
+
+    /**
+     * What the style model has said about this wardrobe and keeps saying;
+     * null on a server without the model, which the browser is told (see
+     * [learnsStyle]) so it does not offer what nothing would use.
+     */
+    val style: StyleIndex? = styleEncoder?.let { StyleIndex(it, photos, styleQueries, garments, garmentWrites) }
+
+    /** Whether photos of looks the reader likes would teach this server anything. */
+    val learnsStyle: Boolean get() = style != null
+
+    val inspirations = DatabaseInspirationSource(styleQueries, photoPrefix, photos::delete, io)
 
     /**
      * The deletes that can still be undone, shared by every source that
@@ -108,7 +125,7 @@ class ServerWardrobe(
         imageDirectory = photoPrefix,
         io = io,
     )
-    val outfitList = DatabaseOutfitsSource(garments, outfits, outfitWrites, Suggestions(garments, outfits), io, recentlyDeleted)
+    val outfitList = DatabaseOutfitsSource(garments, outfits, outfitWrites, Suggestions(garments, outfits, styleQueries), io, recentlyDeleted)
     val garmentDetail = DatabaseGarmentDetailSource(
         garments = garments,
         garmentWrites = garmentWrites,
@@ -162,6 +179,7 @@ class ServerWardrobe(
      * a test would ask; the server closes this when it stops.
      */
     override fun close() {
+        style?.close()
         database.whileClosed { }
     }
 

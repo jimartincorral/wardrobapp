@@ -48,6 +48,10 @@ internal fun Application.answerFailures() {
         exception<BackgroundRemovalUnavailable> { call, e ->
             call.fail(HttpStatusCode.NotImplemented, ApiFailure.Message(e.message.orEmpty()))
         }
+        // Likewise a look saved on a server with no style model to learn from it.
+        exception<StyleUnavailable> { call, e ->
+            call.fail(HttpStatusCode.NotImplemented, ApiFailure.Message(e.message.orEmpty()))
+        }
         // A body that is not the JSON the route takes. Ktor wraps the
         // serializer's complaint; the complaint is the useful part.
         exception<BadRequestException> { call, e ->
@@ -102,3 +106,5 @@ internal class PhotoNotFound : RuntimeException("No such photo.")
 
 /** Asked to cut a photo out on a server without the model to do it with. */
 internal class BackgroundRemovalUnavailable : RuntimeException("Removing a background is not available on this server.")
+
+internal class StyleUnavailable : RuntimeException("Learning from looks is not available on this server: it has no style model.")
