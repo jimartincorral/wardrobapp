@@ -61,7 +61,7 @@ class AppContainer(context: Context) {
      * exactly as the TypeScript client does -- including the open that follows a
      * restore, which may have installed a database written by an older build.
      */
-    private val database = ReopeningDriver {
+    val database = ReopeningDriver {
         AndroidSqlDriver.open(context, files.databaseFile.absolutePath)
             .also { WardrobeSchema.applyTo(it) }
     }
@@ -163,6 +163,10 @@ class AppContainer(context: Context) {
         store = SyncStore(database),
         photos = DirectoryPhotoFolder(files.imagesDir),
         background = WorkManagerBackgroundSync(context),
+        // The looks saved here go to Home Assistant, whose model embeds them
+        // and the garments; the vectors come back. The phone has no model of
+        // its own, so without the pairing the looks are only kept.
+        style = StyleQueries(database),
         // A wardrobe that arrived by sync has no first steps to take, as one
         // that arrived by restore has not; see Onboarding in MainActivity
         // for the restore's half of this.

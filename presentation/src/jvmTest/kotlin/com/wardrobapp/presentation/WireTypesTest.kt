@@ -10,7 +10,11 @@ import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.InspirationRecord
 import com.wardrobapp.data.MaintenanceSummary
 import com.wardrobapp.data.OutfitRecord
+import com.wardrobapp.data.StyleAnswer
+import com.wardrobapp.data.StyleExchange
 import com.wardrobapp.data.SuggestedOutfit
+import com.wardrobapp.data.SyncEmbedding
+import com.wardrobapp.data.SyncInspiration
 import com.wardrobapp.data.SyncOutfit
 import com.wardrobapp.data.SyncRating
 import com.wardrobapp.data.WardrobeSnapshot
@@ -309,6 +313,21 @@ class WireTypesTest {
             ),
         )
         add(InspirationRecord(id = "l1", imageUri = "photos/look.jpg", createdAt = "2026-01-02T03:04:05.000Z"))
+        add(SyncInspiration("l2", "look2.jpg", "2026-01-02T03:04:05.000Z", null, null))
+        add(SyncEmbedding("g2", "two.jpg", "clip", listOf(0f, 1f)))
+        add(
+            StyleExchange(
+                inspirations = listOf(SyncInspiration("l1", "look.jpg", "2026-01-02T03:04:05.000Z", "2026-01-02T03:04:05.000Z", null)),
+                embedded = mapOf("g1" to "one.jpg"),
+            ),
+        )
+        add(
+            StyleAnswer(
+                inspirations = listOf(SyncInspiration("l1", "look.jpg", "2026-01-02T03:04:05.000Z", null, "2026-01-03T00:00:00.000Z", vector = listOf(0.5f, -0.5f))),
+                embeddings = listOf(SyncEmbedding("g1", "one.jpg", "clip", listOf(1f, 0f))),
+                missingPhotos = listOf("look.jpg"),
+            ),
+        )
         add(StorageFigures(garments = 10, retired = 2, photoBytes = 123_456_789))
     }
 

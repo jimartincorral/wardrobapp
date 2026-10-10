@@ -92,6 +92,99 @@ class StyleQueries(private val driver: SqlDriver) {
         driver.execute("UPDATE inspirations SET model = ?, vector = ? WHERE id = ?", listOf(model, packVector(vector), id))
     }
 
+    /** Every look as the sync carries it, tombstones included. */
+    fun inspirationRows(): List<SyncInspiration> = driver
+        .query("SELECT id, image_uri, created_at, updated_at, deleted_at, vector FROM inspirations ORDER BY id")
+        .map { row ->
+            SyncInspiration(
+                id = jsString(row["id"]),
+                photo = jsString(row["image_uri"]),
+                createdAt = jsString(row["created_at"]),
+                updatedAt = row["updated_at"] as? String,
+                deletedAt = row["deleted_at"] as? String,
+                vector = (row["vector"] as? ByteArray)?.let { unpackVector(it).toList() },
+            )
+        }
+
+    /**
+     * Bring this side's looks up to the merge of its own and [theirs]; see
+     * StyleSync. One transaction, so a look added here while the request was
+     * out is in the merge rather than under it. A look that arrives with a
+     * vector keeps it; one that arrives deleted loses its vector here.
+     */
+    fun mergeInspirations(theirs: List<SyncInspiration>): InspirationMerge = driver.transaction {
+        val ours = inspirationRows().associateBy { it.id }
+        val merged = mergeInspirations(ours.values.toList(), theirs)
+        var changed = false
+        val noLongerUsed = mutableListOf<String>()
+
+        for (look in merged) {
+            val mine = ours[look.id]
+            if (mine == look) continue
+            changed = true
+            if (mine == null) {
+                driver.execute(
+                    "INSERT INTO inspirations (id, image_uri, created_at, updated_at, deleted_at, vector) VALUES (?, ?, ?, ?, ?, ?)",
+                    listOf(look.id, look.photo, look.createdAt, look.updatedAt, look.deletedAt, look.vector?.let { packVector(it.toFloatArray()) }),
+                )
+            } else {
+                // The vector stays unless the look is deleted or the other
+                // side had one and this side did not.
+                val vector = when {
+                    look.deletedAt != null -> null
+                    look.vector != null -> packVector(look.vector.toFloatArray())
+                    else -> mine.vector?.let { packVector(it.toFloatArray()) }
+                }
+                driver.execute(
+                    "UPDATE inspirations SET image_uri = ?, created_at = ?, updated_at = ?, deleted_at = ?, vector = ? WHERE id = ?",
+                    listOf(look.photo, look.createdAt, look.updatedAt, look.deletedAt, vector, look.id),
+                )
+                if (mine.deletedAt == null && look.deletedAt != null) noLongerUsed += mine.photo
+            }
+        }
+
+        InspirationMerge(
+            merged = inspirationRows(),
+            photosNoLongerUsed = noLongerUsed,
+            photosInUse = merged.filter { it.deletedAt == null }.map { it.photo },
+            changedAnything = changed,
+        )
+    }
+
+    /**
+     * Vectors from the server, kept as given. Stamped by the database's clock
+     * rather than a caller's, since the caller is common code with no clock of
+     * its own; on this side `computed_at` means received, which is as close
+     * as it can mean.
+     */
+    fun putEmbeddings(embeddings: List<SyncEmbedding>) {
+        if (embeddings.isEmpty()) return
+        driver.transaction {
+            for (embedding in embeddings) {
+                driver.execute(
+                    "INSERT OR REPLACE INTO garment_embeddings (garment_id, photo, model, vector, computed_at) " +
+                        "VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+                    listOf(embedding.garmentId, embedding.photo, embedding.model, packVector(embedding.vector.toFloatArray())),
+                )
+            }
+        }
+    }
+
+    /** The vectors the other side lacks: every garment whose photo differs from what [theirs] says it has. */
+    fun embeddingsMissingFrom(theirs: Map<String, String>): List<SyncEmbedding> = driver
+        .query("SELECT garment_id, photo, model, vector FROM garment_embeddings")
+        .mapNotNull { row ->
+            val id = jsString(row["garment_id"])
+            val photo = jsString(row["photo"])
+            if (theirs[id] == photo) return@mapNotNull null
+            SyncEmbedding(
+                garmentId = id,
+                photo = photo,
+                model = jsString(row["model"]),
+                vector = unpackVector(row["vector"]).toList(),
+            )
+        }
+
     /** Every look's vector, for the taste; looks not yet embedded are not here. */
     fun inspirationVectors(): List<FloatArray> = driver
         .query("SELECT vector FROM inspirations WHERE deleted_at IS NULL AND vector IS NOT NULL")

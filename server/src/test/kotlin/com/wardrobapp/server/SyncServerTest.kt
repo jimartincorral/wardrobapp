@@ -12,6 +12,7 @@ import com.wardrobapp.api.speakWardrobe
 import com.wardrobapp.data.GarmentQueries
 import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.JdbcSqlDriver
+import com.wardrobapp.data.StyleQueries
 import com.wardrobapp.data.SyncStore
 import com.wardrobapp.data.WardrobeSchema
 import com.wardrobapp.data.photoNames
@@ -25,7 +26,11 @@ import io.ktor.client.request.setBody
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import java.awt.Color
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
 import java.io.File
+import javax.imageio.ImageIO
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -57,14 +62,14 @@ class SyncServerTest {
             builder.createClient { speakSync("http://localhost/", code) }
 
         fun syncer(code: String = server.syncSecret.current()) =
-            WardrobeSyncClient(client(code), SyncStore(phone.database), phone.photos, Dispatchers.IO)
+            WardrobeSyncClient(client(code), SyncStore(phone.database), phone.photos, Dispatchers.IO, StyleQueries(phone.database))
 
         suspend fun sync(): SyncReport = syncer().sync()
     }
 
-    private fun syncTest(block: suspend Setup.() -> Unit) {
+    private fun syncTest(style: StyleEncoder? = null, block: suspend Setup.() -> Unit) {
         val directory = Files.createTempDirectory("wardrobe-sync").toFile()
-        val profiles = ProfileRegistry(File(directory, "server"))
+        val profiles = ProfileRegistry(File(directory, "server"), style = style)
         val server = profiles.wardrobe(ProfileRegistry.FIRST)!!
         try {
             testApplication {
@@ -136,6 +141,86 @@ class SyncServerTest {
         // Settled: a second sync has nothing to move.
         assertEquals(SyncReport(uploaded = 0, downloaded = 0, changed = false), sync())
         assertEquals(SyncStore(phone.database).snapshot(), server.sync.snapshot())
+    }
+
+    /**
+     * A model that answers the same unit vector for every picture, with
+     * anchors to match: enough to see vectors and looks travel, which is what
+     * the sync is for. What a vector means is StyleTest's business.
+     */
+    private class SameEncoder : ImageEncoder {
+        override val size = 8
+        override fun embed(input: FloatArray) = floatArrayOf(1f, 0f, 0f, 0f)
+        override fun close() = Unit
+    }
+
+    private fun sameEncoder() = StyleEncoder(
+        StyleAnchors.parse(
+            """{"model": "same", "imageSize": 8, "mean": [0.5, 0.5, 0.5], "deviation": [0.25, 0.25, 0.25], "dimensions": 4,
+                "anchors": {"formality": {"formal": [1, 0, 0, 0], "casual": [0, 1, 0, 0]}}}""",
+        ),
+    ) { SameEncoder() }
+
+    /** A photo of a flat colour, as a JPEG the server can decode. */
+    private fun decodablePhoto(): ByteArray {
+        val image = BufferedImage(16, 20, BufferedImage.TYPE_INT_RGB)
+        image.createGraphics().apply { color = Color(200, 30, 30); fillRect(0, 0, 16, 20); dispose() }
+        return ByteArrayOutputStream().use { ImageIO.write(image, "jpg", it); it.toByteArray() }
+    }
+
+    @Test
+    fun `the looks go up, the vectors come down, and a look removed on one side goes from the other`() = syncTest(style = sameEncoder()) {
+        val phoneStyle = StyleQueries(phone.database)
+        phone.photos.write("garment.jpg", decodablePhoto())
+        phone.garments.add("phone-garment", "garment.jpg")
+        phone.photos.write("look.jpg", decodablePhoto())
+        phoneStyle.addInspiration("look", "look.jpg", "2026-01-01T00:00:00.000Z")
+
+        // The first sync carries the look and the garment up, photos and
+        // all. The server embeds both in the background, so whether a
+        // vector is already back from this sync depends on the machine;
+        // only the uploads are certain.
+        assertEquals(2, sync().uploaded)
+        assertEquals(listOf("look"), server.inspirations.looks().map { it.id })
+        assertContentEquals(decodablePhoto(), server.photos.file("look.jpg")?.readBytes())
+        server.style!!.refreshNow()
+        assertEquals(setOf("phone-garment"), server.styleQueries.embeddings().keys)
+
+        // By the next sync the vectors are down: the garment's, and the look's.
+        sync()
+        assertEquals(listOf(1f, 0f, 0f, 0f), phoneStyle.embeddings().getValue("phone-garment").toList())
+        assertEquals(1, phoneStyle.inspirationVectors().size)
+        // And, the model having read the garment, the attribute it read.
+        assertTrue("formality:formal" in phone.garment("phone-garment")!!.tags)
+
+        // Settled: nothing more moves, vectors included.
+        assertEquals(SyncReport(uploaded = 0, downloaded = 0, changed = false), sync())
+
+        // A look saved in the browser reaches the phone, photo and vector;
+        // one removed on the phone leaves the server, photo and all.
+        val fromServer = server.inspirations.add(server.photos.store(decodablePhoto()))
+        server.style!!.refreshNow()
+        // Deleted as the phone's screen deletes: the row by tombstone, then
+        // the photo it hands back.
+        phoneStyle.deleteInspiration("look", "2026-01-05T00:00:00.000Z")?.let { phone.photos.delete(it) }
+        assertTrue(sync().changed)
+        assertEquals(listOf(fromServer.id), phoneStyle.inspirations().map { it.id })
+        assertTrue(phone.photos.has(fromServer.imageUri.substringAfterLast('/')))
+        assertEquals(1, phoneStyle.inspirationVectors().size)
+        assertEquals(listOf(fromServer.id), server.inspirations.looks().map { it.id })
+        assertNull(server.photos.file("look.jpg"), "the removed look's photo stayed on the server")
+        assertFalse(phone.photos.has("look.jpg"), "the removed look's photo stayed on the phone")
+    }
+
+    @Test
+    fun `a server from before the style exchange is one with nothing to say`() = syncTest {
+        // No model: the route still answers, keeping the looks for the day
+        // there is one, and hands back no vectors.
+        StyleQueries(phone.database).addInspiration("look", "look.jpg", "2026-01-01T00:00:00.000Z")
+        phone.photos.write("look.jpg", jpeg())
+        assertEquals(1, sync().uploaded)
+        assertEquals(listOf("look"), server.styleQueries.inspirations().map { it.id })
+        assertEquals(SyncReport(uploaded = 0, downloaded = 0, changed = false), sync())
     }
 
     @Test

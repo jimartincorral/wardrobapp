@@ -7,6 +7,8 @@ import com.wardrobapp.api.SyncRoutes
 import com.wardrobapp.api.WireJson
 import com.wardrobapp.data.WardrobeSnapshot
 import com.wardrobapp.data.photoNames
+import com.wardrobapp.data.StyleExchange
+import com.wardrobapp.data.StyleAnswer
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -95,6 +97,30 @@ fun Application.wardrobeSync(profiles: ProfileRegistry, version: ServerVersion) 
             // what it reads off it reaches the phone on the next sync.
             wardrobe.style?.refresh()
             call.respond(HttpStatusCode.NoContent)
+        }
+
+        // The looks and vectors, after the wardrobe; see StyleSync in :data.
+        // Answered whether or not this server has the model: a phone that
+        // saved looks before the model arrived still wants them merged, and
+        // the vectors come when they come.
+        post("/${SyncRoutes.STYLE}") {
+            val wardrobe = call.attributes[Syncing]
+            val theirs = call.receive<StyleExchange>()
+            val answer = withContext(Dispatchers.IO) {
+                val merge = wardrobe.styleQueries.mergeInspirations(
+                    theirs.inspirations.map { it.copy(photo = it.photo.storedPhotoOrNone(), vector = null) }.filter { it.photo.isNotEmpty() },
+                )
+                for (name in merge.photosNoLongerUsed) wardrobe.photos.delete(name)
+                StyleAnswer(
+                    inspirations = merge.merged,
+                    embeddings = wardrobe.styleQueries.embeddingsMissingFrom(theirs.embedded),
+                    missingPhotos = merge.photosInUse.distinct().filter { wardrobe.photos.file(it) == null },
+                )
+            }
+            // A look that arrived, or a photo PUT after this, is embedded in
+            // the background; its vector reaches the phone next time.
+            wardrobe.style?.refresh()
+            call.respond(answer)
         }
 
         get("/${SyncRoutes.PHOTO}") {

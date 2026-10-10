@@ -33,6 +33,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -87,6 +88,7 @@ import com.wardrobapp.ui.OUTFITS
 import com.wardrobapp.ui.OnboardingScreen
 import com.wardrobapp.ui.OutfitDetailScreen
 import com.wardrobapp.ui.OutfitEditScreen
+import com.wardrobapp.ui.InspirationScreen
 import com.wardrobapp.ui.OutfitsScreen
 import com.wardrobapp.ui.PhoneSyncSection
 import com.wardrobapp.ui.RestoreDialog
@@ -105,6 +107,7 @@ import com.wardrobapp.ui.WhatsNewDialog
 import com.wardrobapp.ui.springGentle
 import java.io.File
 import java.io.FileNotFoundException
+import kotlinx.coroutines.launch
 
 /**
  * The one activity.
@@ -457,6 +460,7 @@ class MainActivity : AppCompatActivity() {
                                     onOutfitOpened = { navigator.navigate("$OUTFIT/${Uri.encode(it)}") },
                                     onBuildRequested = { navigator.navigate(OUTFIT_BUILD) },
                                     onTrainRequested = { navigator.navigate(TASTE_TRAINING) },
+                                    onInspirationRequested = { navigator.navigate(INSPIRATION) },
                                 )
                             }
                         }
@@ -557,6 +561,10 @@ class MainActivity : AppCompatActivity() {
 
                         composable(TASTE_TRAINING) {
                             TasteTraining(container = container, navigator = navigator)
+                        }
+
+                        composable(INSPIRATION) {
+                            Inspiration(container = container, navigator = navigator)
                         }
 
                         composable("$OUTFIT_EDIT/{$OUTFIT_ID}") { backStackEntry ->
@@ -856,6 +864,47 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    /**
+     * The looks a reader likes; see InspirationViewModel for what the phone
+     * does with them. The photo comes through the gallery picker and is
+     * stored as a garment's would be, uncropped: a look is a whole outfit,
+     * and the model reads the whole picture.
+     */
+    @Composable
+    private fun Inspiration(container: AppContainer, navigator: NavHostController) {
+        val model: InspirationViewModel = viewModel(
+            factory = viewModelFactory { initializer { InspirationViewModel(container) } }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+        val scope = rememberCoroutineScope()
+        val work = remember(container) { PhonePhotoWork(container) }
+
+        val picker = rememberLauncherForActivityResult(
+            ActivityResultContracts.PickVisualMedia()
+        ) { uri ->
+            if (uri == null) {
+                model.onAddAbandoned()
+            } else {
+                scope.launch {
+                    runCatching { work.store(uri) }
+                        .onSuccess { model.onPhotoStored(it) }
+                        .onFailure { model.onAddAbandoned(it.message) }
+                }
+            }
+        }
+
+        InspirationScreen(
+            state = state,
+            onBack = { navigator.popBackStack() },
+            onAddRequested = {
+                model.onAddStarted()
+                picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onRemove = model::onDeleteRequested,
+            onRetry = model::refresh,
+        )
+    }
+
     @Composable
     private fun Wardrobe(
         container: AppContainer,
@@ -1135,11 +1184,13 @@ class MainActivity : AppCompatActivity() {
         onOutfitOpened: (String) -> Unit,
         onBuildRequested: () -> Unit,
         onTrainRequested: () -> Unit,
+        onInspirationRequested: () -> Unit,
     ) {
         val model: OutfitsViewModel = viewModel(
             factory = viewModelFactory { initializer { OutfitsViewModel(container) } }
         )
         val state by model.state.collectAsStateWithLifecycle()
+        val syncStatus by container.sync.status.collectAsStateWithLifecycle()
 
         RefreshOnReturn(model::refresh)
 
@@ -1174,6 +1225,10 @@ class MainActivity : AppCompatActivity() {
             onOutfitOpened = onOutfitOpened,
             onBuildRequested = onBuildRequested,
             onTrainRequested = onTrainRequested,
+            // Only once paired: a look does nothing until Home Assistant has
+            // embedded it, and a button that leads to a screen whose photos
+            // change nothing would be a promise the phone cannot keep.
+            onInspirationRequested = if (syncStatus.paired) onInspirationRequested else null,
         )
     }
 
@@ -1734,6 +1789,9 @@ class MainActivity : AppCompatActivity() {
 
         /** A training session: ten outfit ideas rated in a row. Not a tab, so no bar. */
         const val TASTE_TRAINING = "train-taste"
+
+        /** The looks a reader likes, reached from the outfits tab; likewise not a tab. */
+        const val INSPIRATION = "inspiration"
 
         /**
          * The first-launch flow.
