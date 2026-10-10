@@ -72,7 +72,12 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.wardrobapp.data.DuplicateGarment
 import com.wardrobapp.domain.COMMON_SIZES
+import com.wardrobapp.domain.Fit
+import com.wardrobapp.domain.Formality
 import com.wardrobapp.domain.GARMENT_CATEGORIES
+import com.wardrobapp.domain.GarmentAttributes
+import com.wardrobapp.domain.Pattern
+import com.wardrobapp.domain.Weight
 import com.wardrobapp.domain.SIZE_CHIPS
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.garmentCategory
@@ -104,6 +109,13 @@ import com.wardrobapp.ui.resources.form_save_edit
 import com.wardrobapp.ui.resources.form_saving
 import com.wardrobapp.ui.resources.form_section_photos
 import com.wardrobapp.ui.resources.form_section_tags
+import com.wardrobapp.ui.resources.attribute_statement
+import com.wardrobapp.ui.resources.attribute_weight
+import com.wardrobapp.ui.resources.attribute_fit
+import com.wardrobapp.ui.resources.attribute_pattern
+import com.wardrobapp.ui.resources.attribute_formality
+import com.wardrobapp.ui.resources.form_style_hint
+import com.wardrobapp.ui.resources.form_section_style
 import com.wardrobapp.ui.resources.form_size_custom
 import com.wardrobapp.ui.resources.form_tag_hint
 import com.wardrobapp.ui.resources.form_take_photo
@@ -158,6 +170,7 @@ fun GarmentFormScreen(
     onBrandChanged: (String) -> Unit,
     onSizeChanged: (String) -> Unit,
     onTagsChanged: (List<String>) -> Unit,
+    onAttributesChanged: (GarmentAttributes) -> Unit,
     onSave: () -> Unit,
     onSaveAnyway: () -> Unit,
     onDuplicatesDismissed: () -> Unit,
@@ -209,6 +222,7 @@ fun GarmentFormScreen(
             onBrandChanged = onBrandChanged,
             onSizeChanged = onSizeChanged,
             onTagsChanged = onTagsChanged,
+            onAttributesChanged = onAttributesChanged,
             onSave = onSave,
             onImportUrlChanged = onImportUrlChanged,
             onImportRequested = onImportRequested,
@@ -338,6 +352,12 @@ fun GarmentFormScreen(
             }
 
             item {
+                Section(stringResource(Res.string.form_section_style)) {
+                    StyleAttributes(form.attributes, onAttributesChanged)
+                }
+            }
+
+            item {
                 Section(stringResource(Res.string.filter_brand)) {
                     Brand(form.brand, brandSuggestions(form.brand), onBrandChanged)
                 }
@@ -458,6 +478,7 @@ private fun ExpandedGarmentForm(
     onBrandChanged: (String) -> Unit,
     onSizeChanged: (String) -> Unit,
     onTagsChanged: (List<String>) -> Unit,
+    onAttributesChanged: (GarmentAttributes) -> Unit,
     onSave: () -> Unit,
     onImportUrlChanged: (String) -> Unit,
     onImportRequested: () -> Unit,
@@ -587,6 +608,10 @@ private fun ExpandedGarmentForm(
 
                     Section(stringResource(Res.string.form_section_tags)) {
                         Tags(form.tags, onTagsChanged)
+                    }
+
+                    Section(stringResource(Res.string.form_section_style)) {
+                        StyleAttributes(form.attributes, onAttributesChanged)
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.Top) {
@@ -1250,3 +1275,68 @@ private fun DetectingColors() {
         )
     }
 }
+
+/**
+ * The style attributes, each a row of chips with at most one chosen.
+ *
+ * Tapping the chosen one clears it, which is how "let the type decide" is
+ * said: there is no chip for it, because a chip labelled "default" would be
+ * one more thing to read on a form that is already long, and the hint under
+ * the heading says what blank means. The statement chip stands alone: it is
+ * yes or not said, and "no" is what the type's default is anyway.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+internal fun StyleAttributes(attributes: GarmentAttributes, onChanged: (GarmentAttributes) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            stringResource(Res.string.form_style_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        AttributeRow(stringResource(Res.string.attribute_formality), Formality.entries, attributes.formality, { stringResource(it.labelRes) }) {
+            onChanged(attributes.copy(formality = it))
+        }
+        AttributeRow(stringResource(Res.string.attribute_pattern), Pattern.entries, attributes.pattern, { stringResource(it.labelRes) }) {
+            onChanged(attributes.copy(pattern = it))
+        }
+        AttributeRow(stringResource(Res.string.attribute_fit), Fit.entries, attributes.fit, { stringResource(it.labelRes) }) {
+            onChanged(attributes.copy(fit = it))
+        }
+        AttributeRow(stringResource(Res.string.attribute_weight), Weight.entries, attributes.weight, { stringResource(it.labelRes) }) {
+            onChanged(attributes.copy(weight = it))
+        }
+        FilterChip(
+            selected = attributes.statement == true,
+            onClick = { onChanged(attributes.copy(statement = if (attributes.statement == true) null else true)) },
+            label = { Text(stringResource(Res.string.attribute_statement)) },
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.testTag(FORM_STATEMENT_CHIP),
+        )
+    }
+}
+
+/** One attribute: its name, and its values as chips of which one or none is chosen. */
+@Composable
+private fun <T> AttributeRow(
+    title: String,
+    options: List<T>,
+    chosen: T?,
+    label: @Composable (T) -> String,
+    onChosen: (T?) -> Unit,
+) {
+    Column {
+        Text(
+            title,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 6.dp),
+        )
+        Chips(options, setOfNotNull(chosen), label) { tapped ->
+            onChosen(if (tapped == chosen) null else tapped)
+        }
+    }
+}
+
+/** The statement-piece chip, for a test to tap. */
+const val FORM_STATEMENT_CHIP = "form-statement-chip"

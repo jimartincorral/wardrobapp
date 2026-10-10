@@ -658,6 +658,7 @@ class Screens(
             onBrandChanged = model::onBrandChanged,
             onSizeChanged = model::onSizeChanged,
             onTagsChanged = model::onTagsChanged,
+            onAttributesChanged = model::onAttributesChanged,
             onSave = { model.onSaveRequested() },
             onSaveAnyway = { model.onSaveRequested(force = true) },
             onDuplicatesDismissed = model::onDuplicateWarningDismissed,

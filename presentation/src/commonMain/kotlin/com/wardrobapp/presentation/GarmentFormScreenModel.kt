@@ -6,6 +6,7 @@ import com.wardrobapp.domain.DuplicateCandidate
 import com.wardrobapp.domain.GarmentImportException
 import com.wardrobapp.domain.ImportedGarmentPreview
 import com.wardrobapp.domain.PhantomGarment
+import com.wardrobapp.domain.GarmentAttributes
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.UnsafeUrlException
 import com.wardrobapp.domain.seasonsForSubcategories
@@ -155,6 +156,8 @@ class GarmentFormScreenModel<Picked>(
     fun onSizeChanged(size: String) = edit { it.copy(size = size) }
 
     fun onTagsChanged(tags: List<String>) = edit { it.copy(tags = tags) }
+
+    fun onAttributesChanged(attributes: GarmentAttributes) = edit { it.copy(attributes = attributes) }
 
     fun onPhotoSelected(index: Int) = edit { it.copy(selectedImageIndex = index) }
 
@@ -547,7 +550,7 @@ class GarmentFormScreenModel<Picked>(
                     }
 
                     storedRefs = record.displayImageUris + record.displayNoBgImageUris
-                    val (customTags, seasons) = splitStructuredTags(record.tags)
+                    val (customTags, seasons, attributes) = splitStructuredTags(record.tags)
                     _state.update {
                         it.copy(
                             loading = false,
@@ -558,6 +561,7 @@ class GarmentFormScreenModel<Picked>(
                                 subcategories = record.effectiveSubcategories,
                                 tags = customTags,
                                 seasons = seasons,
+                                attributes = attributes,
                                 brand = record.brand ?: "",
                                 colorPalette = record.palette,
                                 // The garment's saved colours are a choice already

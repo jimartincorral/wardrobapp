@@ -3,7 +3,11 @@ package com.wardrobapp.data
 import com.wardrobapp.domain.GenerateSuggestionsOptions
 import com.wardrobapp.domain.OutfitReason
 import com.wardrobapp.domain.Season
+import com.wardrobapp.domain.RatedExample
 import com.wardrobapp.domain.SuggestionContext
+import com.wardrobapp.domain.TasteModel
+import com.wardrobapp.domain.fitTasteModel
+import com.wardrobapp.domain.outfitFeatures
 import com.wardrobapp.domain.buildSuggestions
 import kotlinx.serialization.Serializable
 
@@ -87,6 +91,7 @@ class Suggestions(
                 learned = outfits.learnedPreferences(),
                 currentSeason = currentSeason,
                 random = random,
+                taste = tasteModel(),
             ),
             if (seed == null) options else options.copy(seedGarments = listOf(seed.toDomain())),
         )
@@ -102,5 +107,25 @@ class Suggestions(
                 garments = outfit.garments.mapNotNull { byId[it.id] },
             )
         }
+    }
+
+    /**
+     * The reader's taste, fitted from every rated outfit; null while there
+     * are too few to mean anything.
+     *
+     * Rated outfits are judged on every garment in them, retired ones
+     * included: a rating given to an outfit is a rating of that outfit, and
+     * a garment retired since does not change what the reader thought. Only
+     * a garment that is gone altogether is left out, and an outfit with
+     * fewer than two garments left says nothing about combinations.
+     */
+    private fun tasteModel(): TasteModel? {
+        val byId = garments.allGarments(GarmentQueries.Filters(availableOnly = false))
+            .associate { it.id to it.toDomain() }
+        val examples = outfits.ratedHistory().mapNotNull { rated ->
+            val present = rated.garmentIds.mapNotNull { byId[it] }
+            if (present.size < 2) null else RatedExample(outfitFeatures(present), rated.rating)
+        }
+        return fitTasteModel(examples)
     }
 }

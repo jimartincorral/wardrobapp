@@ -1,6 +1,7 @@
 package com.wardrobapp.presentation
 
 import com.wardrobapp.data.GarmentRecord
+import com.wardrobapp.domain.GarmentAttributes
 
 /**
  * Finding a garment by typing at it.
@@ -35,7 +36,9 @@ fun garmentMatchesSearch(garment: GarmentRecord, term: String): Boolean {
         addAll(garment.subcategories)
         garment.brand?.let { add(it) }
         garment.size?.let { add(it) }
-        addAll(garment.tags)
+        // Not the attribute tags: "smart" would match every blazer, which is
+        // not what somebody typing it into a search box is looking for.
+        addAll(garment.tags.filterNot { GarmentAttributes.isAttributeTag(it.lowercase()) })
     }
 
     return haystack.any { it.lowercase().contains(needle) }

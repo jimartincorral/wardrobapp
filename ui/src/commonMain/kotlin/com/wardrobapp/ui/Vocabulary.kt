@@ -5,6 +5,10 @@ import com.wardrobapp.domain.ImportFailureReason
 import com.wardrobapp.domain.ImportWarning
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.OutfitReason
+import com.wardrobapp.domain.Fit
+import com.wardrobapp.domain.Formality
+import com.wardrobapp.domain.Pattern
+import com.wardrobapp.domain.Weight
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.UnsafeUrlReason
 import com.wardrobapp.presentation.ErrorFallback
@@ -83,6 +87,24 @@ import com.wardrobapp.ui.resources.occasion_lounge
 import com.wardrobapp.ui.resources.occasion_sport
 import com.wardrobapp.ui.resources.occasion_work
 import com.wardrobapp.ui.resources.reason_coherent
+import com.wardrobapp.ui.resources.weight_heavy
+import com.wardrobapp.ui.resources.weight_mid
+import com.wardrobapp.ui.resources.weight_light
+import com.wardrobapp.ui.resources.fit_oversized
+import com.wardrobapp.ui.resources.fit_relaxed
+import com.wardrobapp.ui.resources.fit_regular
+import com.wardrobapp.ui.resources.fit_fitted
+import com.wardrobapp.ui.resources.pattern_texture
+import com.wardrobapp.ui.resources.pattern_print
+import com.wardrobapp.ui.resources.pattern_checks
+import com.wardrobapp.ui.resources.pattern_stripes
+import com.wardrobapp.ui.resources.pattern_solid
+import com.wardrobapp.ui.resources.formality_formal
+import com.wardrobapp.ui.resources.formality_smart
+import com.wardrobapp.ui.resources.formality_smart_casual
+import com.wardrobapp.ui.resources.formality_casual
+import com.wardrobapp.ui.resources.formality_lounge
+import com.wardrobapp.ui.resources.reason_taste
 import com.wardrobapp.ui.resources.reason_colours
 import com.wardrobapp.ui.resources.reason_learned
 import com.wardrobapp.ui.resources.reason_occasion
@@ -227,6 +249,41 @@ val OutfitReason.labelRes: StringResource
         OutfitReason.OCCASION -> Res.string.reason_occasion
         OutfitReason.SEASON -> Res.string.reason_season
         OutfitReason.COHERENT -> Res.string.reason_coherent
+        OutfitReason.TASTE -> Res.string.reason_taste
+    }
+
+/** A garment's style attributes, in words; see GarmentAttributes for what they are for. */
+val Formality.labelRes: StringResource
+    get() = when (this) {
+        Formality.LOUNGE -> Res.string.formality_lounge
+        Formality.CASUAL -> Res.string.formality_casual
+        Formality.SMART_CASUAL -> Res.string.formality_smart_casual
+        Formality.SMART -> Res.string.formality_smart
+        Formality.FORMAL -> Res.string.formality_formal
+    }
+
+val Pattern.labelRes: StringResource
+    get() = when (this) {
+        Pattern.SOLID -> Res.string.pattern_solid
+        Pattern.STRIPES -> Res.string.pattern_stripes
+        Pattern.CHECKS -> Res.string.pattern_checks
+        Pattern.PRINT -> Res.string.pattern_print
+        Pattern.TEXTURE -> Res.string.pattern_texture
+    }
+
+val Fit.labelRes: StringResource
+    get() = when (this) {
+        Fit.FITTED -> Res.string.fit_fitted
+        Fit.REGULAR -> Res.string.fit_regular
+        Fit.RELAXED -> Res.string.fit_relaxed
+        Fit.OVERSIZED -> Res.string.fit_oversized
+    }
+
+val Weight.labelRes: StringResource
+    get() = when (this) {
+        Weight.LIGHT -> Res.string.weight_light
+        Weight.MID -> Res.string.weight_mid
+        Weight.HEAVY -> Res.string.weight_heavy
     }
 
 val Occasion.labelRes: StringResource

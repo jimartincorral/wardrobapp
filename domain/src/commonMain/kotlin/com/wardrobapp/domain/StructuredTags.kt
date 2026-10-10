@@ -23,6 +23,8 @@ private val LEGACY_STRUCTURED_TAGS = setOf(
 data class StructuredTags(
     val customTags: List<String>,
     val seasons: List<Season>,
+    /** What was set on the garment; see GarmentAttributes for why these are tags. */
+    val attributes: GarmentAttributes = GarmentAttributes.NONE,
 )
 
 /**
@@ -34,11 +36,20 @@ data class StructuredTags(
  * value appearing twice -- as a typed tag and as a season, or in two cases --
  * appears once.
  */
-fun mergeStructuredTags(customTags: List<String>, seasons: List<Season>): List<String> {
+fun mergeStructuredTags(
+    customTags: List<String>,
+    seasons: List<Season>,
+    attributes: GarmentAttributes = GarmentAttributes.NONE,
+): List<String> {
     val merged = mutableListOf<String>()
     val seen = mutableSetOf<String>()
 
-    for (tag in customTags.map { it.trim().lowercase() } + seasons.map { it.tag }) {
+    // A typed tag that happens to carry an attribute prefix is not kept as
+    // typed: the attributes passed in are the whole truth about attributes,
+    // or clearing one in the form would leave its old tag behind.
+    val typed = customTags.map { it.trim().lowercase() }.filterNot { GarmentAttributes.isAttributeTag(it) }
+
+    for (tag in typed + seasons.map { it.tag } + attributes.toTags()) {
         if (tag.isEmpty() || !seen.add(tag)) continue
         merged.add(tag)
     }
@@ -53,6 +64,7 @@ fun splitStructuredTags(tags: List<String>): StructuredTags {
     for (rawTag in tags) {
         val tag = rawTag.trim().lowercase()
         if (tag.isEmpty()) continue
+        if (GarmentAttributes.isAttributeTag(tag)) continue
 
         val season = Season.fromTag(tag)
         if (season != null) {
@@ -64,5 +76,5 @@ fun splitStructuredTags(tags: List<String>): StructuredTags {
         customTags.add(tag)
     }
 
-    return StructuredTags(customTags, seasons)
+    return StructuredTags(customTags, seasons, GarmentAttributes.fromTags(tags))
 }

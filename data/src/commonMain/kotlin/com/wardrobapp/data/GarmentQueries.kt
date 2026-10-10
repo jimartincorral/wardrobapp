@@ -1,5 +1,6 @@
 package com.wardrobapp.data
 
+import com.wardrobapp.domain.GarmentAttributes
 /**
  * Reading garments.
  *
@@ -93,6 +94,8 @@ class GarmentQueries(
         for (garment in allGarments(Filters(availableOnly = false))) {
             for (tag in garment.tags) {
                 val trimmed = tag.trim()
+                // An attribute is not a tag anybody typed; see GarmentAttributes.
+                if (GarmentAttributes.isAttributeTag(trimmed.lowercase())) continue
                 if (trimmed.isEmpty() || !seen.add(trimmed.lowercase())) continue
                 tags.add(trimmed)
             }

@@ -200,6 +200,7 @@
     <string name="reason_occasion">Suits the occasion</string>
     <string name="reason_season">Right for the season</string>
     <string name="reason_coherent">Dressed for the same day</string>
+    <string name="reason_taste">Like the outfits you rated well</string>
     <string name="outfits_saved_section">Saved</string>
     <string name="outfit_keep_title">Keep this outfit?</string>
     <string name="outfit_keep_body">Your rating is saved either way, and the app has already learned from it. Keeping \u201c%1$s\u201d also puts it in your saved outfits.</string>
@@ -246,6 +247,33 @@
     <string name="property_size">Size</string>
     <string name="property_seasons">Seasons</string>
     <string name="property_occasions">Occasions</string>
+    <string name="property_style">Style</string>
+    <!-- A garment's style attributes, which the outfit suggestions learn over.
+         The hint says what an unset one means. -->
+    <string name="form_section_style">Style</string>
+    <string name="form_style_hint">Left blank, the type of garment decides.</string>
+    <string name="attribute_formality">Formality</string>
+    <string name="attribute_pattern">Pattern</string>
+    <string name="attribute_fit">Fit</string>
+    <string name="attribute_weight">Weight</string>
+    <string name="attribute_statement">Statement piece</string>
+    <string name="formality_lounge">Lounge</string>
+    <string name="formality_casual">Casual</string>
+    <string name="formality_smart_casual">Smart casual</string>
+    <string name="formality_smart">Smart</string>
+    <string name="formality_formal">Formal</string>
+    <string name="pattern_solid">Solid</string>
+    <string name="pattern_stripes">Stripes</string>
+    <string name="pattern_checks">Checks</string>
+    <string name="pattern_print">Print</string>
+    <string name="pattern_texture">Texture</string>
+    <string name="fit_fitted">Fitted</string>
+    <string name="fit_regular">Regular</string>
+    <string name="fit_relaxed">Relaxed</string>
+    <string name="fit_oversized">Oversized</string>
+    <string name="weight_light">Light</string>
+    <string name="weight_mid">Mid</string>
+    <string name="weight_heavy">Heavy</string>
     <string name="property_added">Added</string>
     <string name="property_tags">Tags</string>
     <string name="garment_retired">Not in use</string>

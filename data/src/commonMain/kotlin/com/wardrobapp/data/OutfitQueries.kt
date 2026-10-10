@@ -85,6 +85,34 @@ class OutfitQueries(private val driver: SqlDriver) {
     }
 
     /**
+     * Every rated outfit as it stands now: its garments' ids and the one rating
+     * it carries.
+     *
+     * What TasteModel is fitted from. Read fresh each time rather than kept
+     * as a running score, because a fit over the whole history is the point:
+     * it has one answer whatever order the ratings arrived in, which the
+     * running averages do not (see SyncStore.apply). The garments are ids,
+     * resolved by the caller against the wardrobe as it is today -- an outfit
+     * rated last year is judged by what its garments are like now, which is
+     * the best information there is.
+     *
+     * An outfit a deleted garment was trimmed out of still counts with what
+     * is left; one trimmed to nothing is deleted with it and so is not here.
+     */
+    fun ratedHistory(): List<RatedOutfit> = driver
+        .query(
+            "SELECT o.garment_ids AS garment_ids, r.rating AS rating " +
+                "FROM outfit_ratings r JOIN outfits o ON o.id = r.outfit_id " +
+                "ORDER BY r.rated_at, r.id",
+        )
+        .map { row ->
+            RatedOutfit(
+                garmentIds = parseStringArray(row["garment_ids"]),
+                rating = (row["rating"] as Number).toInt(),
+            )
+        }
+
+    /**
      * Every learned pair score, as the lookup the suggestion engine takes.
      *
      * Loaded in one query rather than queried per pair: the engine asks for a
@@ -143,3 +171,6 @@ class OutfitQueries(private val driver: SqlDriver) {
         )
     }
 }
+
+/** One outfit and what it was rated; see [OutfitQueries.ratedHistory]. */
+data class RatedOutfit(val garmentIds: List<String>, val rating: Int)
