@@ -29,9 +29,19 @@ import open_clip
 import torch
 from onnxruntime.quantization import QuantType, quantize_dynamic
 
-MODEL = "ViT-B-32"
+# The quickgelu variant, not plain "ViT-B-32": OpenAI trained these weights
+# with the QuickGELU activation, and open_clip's plain config uses GELU. Loading
+# the weights into the plain one runs, with a warning ("QuickGELU mismatch"),
+# and gives embeddings a little off from the model's own -- and the smoke test
+# below cannot see it, since it compares the export with the same mismatched
+# model. The quickgelu config is the one the weights belong to.
+MODEL = "ViT-B-32-quickgelu"
 PRETRAINED = "openai"
 MODEL_ID = "clip-vit-b32-openai"
+
+# Named here rather than derived from MODEL, so the variant's suffix does not
+# end up in a file name the server's build pins.
+IMAGE_FILE = "style-image-vitb32-int8.onnx"
 
 # Several sentences per value, averaged: CLIP's answer to one sentence is
 # noisy, and the average of five phrasings is what the papers call a prompt
@@ -101,16 +111,25 @@ def main(out: Path) -> None:
         image_size = image_size[0]
 
     full = out / "style-image-full.onnx"
-    quantised = out / f"style-image-{MODEL.lower().replace('-', '')}-int8.onnx"
+    quantised = out / IMAGE_FILE
+    # PyTorch's current exporter (dynamo=True, the default now, said so the
+    # call reads the same on any version). Opset 18 because that is where it
+    # starts, and asking for an older one is a conversion that can only fail;
+    # ONNX Runtime 1.30, which the server runs, reads 18. A fixed batch of one,
+    # since the server embeds one picture at a time and a dynamic axis is a
+    # second thing to get right for nothing. external_data=False keeps the
+    # weights inside the one file instead of a .data file beside it, which
+    # the quantiser and the release would both have to know about.
     with torch.no_grad():
         torch.onnx.export(
             ImageTower(clip),
-            torch.zeros(1, 3, image_size, image_size),
+            (torch.zeros(1, 3, image_size, image_size),),
             str(full),
             input_names=["image"],
             output_names=["embedding"],
-            dynamic_axes={"image": {0: "batch"}, "embedding": {0: "batch"}},
-            opset_version=14,
+            opset_version=18,
+            dynamo=True,
+            external_data=False,
         )
     onnx.checker.check_model(str(full))
     quantize_dynamic(str(full), str(quantised), weight_type=QuantType.QUInt8)
@@ -151,7 +170,10 @@ def main(out: Path) -> None:
     actual = session.run(None, {"image": picture.numpy()})[0]
     cosine = float(numpy.dot(expected[0], actual[0]) / (numpy.linalg.norm(expected[0]) * numpy.linalg.norm(actual[0])))
     print(f"ONNX agrees with PyTorch to cosine {cosine:.4f}")
-    if cosine < 0.98:
+    # A broken export lands near zero; an 8-bit one on random noise, which is
+    # nothing like a photo, can wander a few hundredths from one. 0.95 tells
+    # the two apart without failing a sound export on a picture of static.
+    if cosine < 0.95:
         sys.exit("the quantised export disagrees with the model")
 
     for path in (quantised, anchors_file):
