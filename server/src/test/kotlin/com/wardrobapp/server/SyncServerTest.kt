@@ -177,16 +177,17 @@ class SyncServerTest {
         phoneStyle.addInspiration("look", "look.jpg", "2026-01-01T00:00:00.000Z")
 
         // The first sync carries the look and the garment up, photos and
-        // all; nothing comes down, since the server embeds both in the
-        // background and the vectors are not ready yet.
-        assertEquals(SyncReport(uploaded = 2, downloaded = 0, changed = false), sync())
+        // all. The server embeds both in the background, so whether a
+        // vector is already back from this sync depends on the machine;
+        // only the uploads are certain.
+        assertEquals(2, sync().uploaded)
         assertEquals(listOf("look"), server.inspirations.looks().map { it.id })
         assertContentEquals(decodablePhoto(), server.photos.file("look.jpg")?.readBytes())
         server.style!!.refreshNow()
         assertEquals(setOf("phone-garment"), server.styleQueries.embeddings().keys)
 
-        // The second brings the vectors down: the garment's, and the look's.
-        assertTrue(sync().changed)
+        // By the next sync the vectors are down: the garment's, and the look's.
+        sync()
         assertEquals(listOf(1f, 0f, 0f, 0f), phoneStyle.embeddings().getValue("phone-garment").toList())
         assertEquals(1, phoneStyle.inspirationVectors().size)
         // And, the model having read the garment, the attribute it read.
