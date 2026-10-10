@@ -1,5 +1,6 @@
 package com.wardrobapp.api
 
+import com.wardrobapp.data.StyleQueries
 import com.wardrobapp.data.SyncStore
 import com.wardrobapp.data.isoTimestamp
 import com.wardrobapp.presentation.PhoneSyncSource
@@ -153,6 +154,11 @@ class PhoneSync(
     private val now: () -> Long = System::currentTimeMillis,
     private val io: CoroutineDispatcher = Dispatchers.IO,
     /**
+     * The looks and vectors, exchanged after the wardrobe; see StyleSync in
+     * :data. Null on a side that keeps none, and the exchange is skipped.
+     */
+    private val style: StyleQueries? = null,
+    /**
      * Told when a sync brings garments into a wardrobe that had none: the
      * moment a phone paired from its welcome screen has the wardrobe it was
      * promised. The phone uses it the way it uses a finished restore -- to
@@ -286,7 +292,7 @@ class PhoneSync(
             val replacing = preferences.restorePending
             val failure = try {
                 val report = clientFor(address, code).use {
-                    WardrobeSyncClient(it, store, photos, io).sync(replace = replacing, restoredAt = preferences.restoredAt)
+                    WardrobeSyncClient(it, store, photos, io, style).sync(replace = replacing, restoredAt = preferences.restoredAt)
                 }
                 if (report.changed) _changes.update { it + 1 }
                 if (report.arrived) onWardrobeArrived()

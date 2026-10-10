@@ -3,6 +3,9 @@ package com.wardrobapp.api
 import com.wardrobapp.data.SyncStore
 import com.wardrobapp.data.WardrobeSnapshot
 import com.wardrobapp.data.photoNames
+import com.wardrobapp.data.StyleQueries
+import com.wardrobapp.data.StyleExchange
+import com.wardrobapp.data.StyleAnswer
 import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
 import io.ktor.client.call.body
@@ -60,6 +63,14 @@ object SyncRoutes {
 
     /** GET a photo by name, or PUT one under the name the phone stored it as. */
     const val PHOTO = "sync/v1/photos/{name}"
+
+    /**
+     * POST [com.wardrobapp.data.StyleExchange]; answers
+     * [com.wardrobapp.data.StyleAnswer]. A route of its own, after the
+     * wardrobe's, for the reason StyleSync gives; a server from before it
+     * answers 404, which the phone reads as nothing to exchange.
+     */
+    const val STYLE = "sync/v1/style"
 
     fun photo(name: String) = PHOTO.replace("{name}", name.encodeURLPathPart())
 }
@@ -150,6 +161,8 @@ class WardrobeSyncClient(
     private val store: SyncStore,
     private val photos: PhotoFolder,
     private val io: CoroutineDispatcher,
+    /** This side's looks and vectors, exchanged after the wardrobe; null on a side without them. */
+    private val style: StyleQueries? = null,
 ) {
     /** The server's version, or the reason it will not answer: not reachable, or not paired. */
     suspend fun check(): ServerVersion = http.get(SyncRoutes.STATUS).body()
@@ -212,11 +225,73 @@ class WardrobeSyncClient(
             downloaded++
         }
 
+        val styled = if (style != null) syncStyle(style) else StyleSynced()
+
         return SyncReport(
+            uploaded = uploaded + styled.uploaded,
+            downloaded = downloaded + styled.downloaded,
+            changed = result.changedAnything || downloaded > 0 || styled.changed,
+            arrived = ours.garments.isEmpty() && result.merged.garments.isNotEmpty(),
+        )
+    }
+
+    /** What the style exchange moved, for the report; see [syncStyle]. */
+    private class StyleSynced(val uploaded: Int = 0, val downloaded: Int = 0, val changed: Boolean = false)
+
+    /**
+     * The style exchange, after the wardrobe's: send the looks and which
+     * vectors this side has, get back the merged looks, the vectors it
+     * lacks and the look photos the server wants; then the photos both ways,
+     * as the wardrobe's go. A server without the route is one with nothing
+     * to say, not a failure: the wardrobe synced.
+     *
+     * A vector arriving counts as a change, though no row a person wrote
+     * moved: it changes what the suggestions do, which is what the report's
+     * "changed" is for.
+     */
+    private suspend fun syncStyle(style: StyleQueries): StyleSynced {
+        val exchange = withContext(io) {
+            StyleExchange(inspirations = style.inspirationRows(), embedded = style.embeddedPhotos())
+        }
+        val answer = try {
+            http.post(SyncRoutes.STYLE) {
+                contentType(ContentType.Application.Json)
+                setBody(exchange)
+            }.body<StyleAnswer>()
+        } catch (_: NotFoundException) {
+            return StyleSynced()
+        }
+
+        var uploaded = 0
+        for (name in answer.missingPhotos) {
+            val bytes = photos.read(name) ?: continue
+            http.put(SyncRoutes.photo(name)) {
+                contentType(ContentType.Application.OctetStream)
+                setBody(bytes)
+            }
+            uploaded++
+        }
+
+        val merge = withContext(io) { style.mergeInspirations(answer.inspirations) }
+        for (name in merge.photosNoLongerUsed) photos.delete(name)
+
+        var downloaded = 0
+        for (name in merge.photosInUse.distinct()) {
+            if (photos.has(name)) continue
+            val bytes = try {
+                http.get(SyncRoutes.photo(name)).readRawBytes()
+            } catch (_: NotFoundException) {
+                continue
+            }
+            photos.write(name, bytes)
+            downloaded++
+        }
+
+        withContext(io) { style.putEmbeddings(answer.embeddings) }
+        return StyleSynced(
             uploaded = uploaded,
             downloaded = downloaded,
-            changed = result.changedAnything || downloaded > 0,
-            arrived = ours.garments.isEmpty() && result.merged.garments.isNotEmpty(),
+            changed = merge.changedAnything || downloaded > 0 || answer.embeddings.isNotEmpty(),
         )
     }
 }
