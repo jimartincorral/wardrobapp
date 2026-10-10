@@ -12,6 +12,10 @@ import com.wardrobapp.domain.ImportFailureReason
 import com.wardrobapp.domain.UnsafeUrlReason
 import com.wardrobapp.presentation.GarmentFormScreenState
 import com.wardrobapp.presentation.GarmentFormState
+import com.wardrobapp.domain.Formality
+import com.wardrobapp.domain.GarmentAttributes
+import com.wardrobapp.ui.FORM_STATEMENT_CHIP
+import androidx.compose.ui.test.hasTestTag
 import com.wardrobapp.ui.GARMENT_FORM_LIST
 import com.wardrobapp.ui.GarmentFormScreen
 import org.junit.Assert.assertEquals
@@ -43,6 +47,7 @@ class GarmentFormScreenTest {
         state: GarmentFormScreenState = GarmentFormScreenState(),
         isEditing: Boolean = false,
         onColorToggled: (String) -> Unit = {},
+        onAttributesChanged: (GarmentAttributes) -> Unit = {},
     ) {
         compose.setContent {
             GarmentFormScreen(
@@ -63,6 +68,7 @@ class GarmentFormScreenTest {
                 onBrandChanged = {},
                 onSizeChanged = {},
                 onTagsChanged = {},
+                onAttributesChanged = onAttributesChanged,
                 onSave = {},
                 onSaveAnyway = {},
                 onDuplicatesDismissed = {},
@@ -110,6 +116,31 @@ class GarmentFormScreenTest {
         compose.onNodeWithTag(GARMENT_FORM_LIST).performScrollToNode(hasText("Take Photo"))
 
         compose.onNodeWithText("Take Photo").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a style attribute is chosen as a word, and the chosen one again clears it`() {
+        // The attributes the suggestions learn over, offered as chips like
+        // everything else on the form. Tapping "Smart" sets the formality;
+        // the test below it in spirit -- tapping it again -- is the screen's
+        // way of saying "let the type decide", and is asserted by the value
+        // handed back.
+        var changed: GarmentAttributes? = null
+        show(
+            state = GarmentFormScreenState(form = GarmentFormState(attributes = GarmentAttributes(formality = Formality.CASUAL))),
+            onAttributesChanged = { changed = it },
+        )
+
+        compose.onNodeWithTag(GARMENT_FORM_LIST).performScrollToNode(hasText("Smart casual"))
+        compose.onNodeWithText("Smart casual").performClick()
+        assertEquals(GarmentAttributes(formality = Formality.SMART_CASUAL), changed)
+
+        compose.onNodeWithText("Casual").performClick()
+        assertEquals(GarmentAttributes.NONE, changed)
+
+        compose.onNodeWithTag(GARMENT_FORM_LIST).performScrollToNode(hasTestTag(FORM_STATEMENT_CHIP))
+        compose.onNodeWithTag(FORM_STATEMENT_CHIP).performClick()
+        assertEquals(GarmentAttributes(formality = Formality.CASUAL, statement = true), changed)
     }
 
     @Test

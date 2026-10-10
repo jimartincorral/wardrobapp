@@ -433,7 +433,7 @@ class DatabaseGarmentFormSource(
     override suspend fun save(garmentId: String?, form: GarmentFormState, previouslyStored: List<String>) {
         withContext(io) {
             val now = nowTimestamp()
-            val tags = mergeStructuredTags(form.tags, form.seasons)
+            val tags = mergeStructuredTags(form.tags, form.seasons, form.attributes)
 
             // A slot whose background was removed stores the cut-out in both
             // columns and lets the original go. Decided in GarmentFormState, and

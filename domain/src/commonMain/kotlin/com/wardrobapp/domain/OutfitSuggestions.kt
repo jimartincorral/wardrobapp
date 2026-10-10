@@ -317,6 +317,13 @@ data class OutfitScore(
     val harmony: Double,
     /** Negative or zero: the only part of the judgement that takes away. */
     val loudColours: Double,
+    /**
+     * What the reader's ratings say about outfits like this one; see
+     * TasteModel. Zero until there are enough ratings to say anything, and
+     * either sign after: this is the term that carries a dislike of patterned
+     * pairs, or a liking for the dressed-up, to garments never rated.
+     */
+    val taste: Double = 0.0,
 )
 
 /**
@@ -331,6 +338,7 @@ internal fun scoreOutfit(
     currentSeason: Season,
     preferences: SuggestionPreferences?,
     learned: LearnedPreferences = LearnedPreferences.NONE,
+    taste: TasteModel? = null,
 ): OutfitScore {
     // Pair scores from learning
     var pairTotal = 0.0
@@ -384,8 +392,13 @@ internal fun scoreOutfit(
     // gets on -- so this is counted over the outfit rather than over its pairs.
     val loud = -excessLoudColours(garments) * LOUD_COLOUR_PENALTY
 
+    // What this reader thinks of outfits like this one, from every rating so
+    // far. Weighted like a learned pair, because it is the same kind of claim
+    // made about outfits in general rather than about these two garments.
+    val tasteScore = taste?.let { it.score(outfitFeatures(garments)) * TASTE_WEIGHT } ?: 0.0
+
     return OutfitScore(
-        total = learnedScore + affinity + season + occasion + coherence + harmony + loud,
+        total = learnedScore + affinity + season + occasion + coherence + harmony + loud + tasteScore,
         learnedPairs = learnedScore,
         garmentAffinity = affinity,
         season = season,
@@ -393,6 +406,7 @@ internal fun scoreOutfit(
         coherence = coherence,
         harmony = harmony,
         loudColours = loud,
+        taste = tasteScore,
     )
 }
 
@@ -414,6 +428,8 @@ enum class OutfitReason {
     SEASON,
     /** The garments are dressed for the same kind of day. */
     COHERENT,
+    /** It is the kind of outfit this reader has rated well: see TasteModel. */
+    TASTE,
 }
 
 /** Above this share of its own possible value, a term is worth mentioning. */
@@ -439,6 +455,9 @@ fun outfitReasons(score: OutfitScore, limit: Int = 2): List<OutfitReason> = list
     // thing to a reader, and saying it twice would push a real second reason off
     // a line that only holds two.
     OutfitReason.LEARNED to (score.learnedPairs + score.garmentAffinity).takeIf { it > 0.3 },
+    // The same shape as the learned claim: no ceiling, and a clear positive
+    // is what earns a mention. Half a star's worth, in the model's units.
+    OutfitReason.TASTE to score.taste.takeIf { it >= TASTE_WEIGHT * 0.25 },
     OutfitReason.COLOURS to score.harmony.takeIf { it >= 1.5 * REASON_THRESHOLD },
     OutfitReason.OCCASION to score.occasion.takeIf { it >= 1.2 * REASON_THRESHOLD },
     OutfitReason.SEASON to score.season.takeIf { it >= 1.0 * REASON_THRESHOLD },
@@ -475,6 +494,17 @@ private const val LOUD_COLOUR_PENALTY = 0.8
  * tilt a close call rather than decide one on its own.
  */
 private const val GARMENT_AFFINITY_WEIGHT = 1.0
+
+/**
+ * How much the taste model's opinion counts.
+ *
+ * Its prediction is a normalised rating, -1 to 1 at the extremes and much
+ * less than that for most outfits once ridge regression has had its say, so
+ * at 2 it is level with a strongly learned pair at the extremes and a tilt
+ * the rest of the time -- which is what a claim about outfits in general
+ * should be against a claim about these exact garments.
+ */
+private const val TASTE_WEIGHT = 2.0
 
 /** How many colours past the allowance an outfit shouts in. */
 private fun excessLoudColours(garments: List<Garment>): Int =
@@ -517,6 +547,7 @@ private fun pickBestFit(
     random: () -> Double,
     preferences: SuggestionPreferences?,
     learned: LearnedPreferences,
+    taste: TasteModel?,
 ): Garment {
     var bestScore = Double.NEGATIVE_INFINITY
     var tied = mutableListOf<Garment>()
@@ -550,9 +581,15 @@ private fun pickBestFit(
         val wouldShout = excessLoudColours(selected + candidate) -
             excessLoudColours(selected)
 
+        // Steered by taste as well as scored by it at the end, for the reason
+        // the loud-colour rule is: an outfit the model will rank down is a draw
+        // wasted on building it.
+        val tasteScore = taste?.let { it.score(outfitFeatures(selected + candidate)) * TASTE_WEIGHT } ?: 0.0
+
         val total = pairScoreSum + harmony + coherence + affinity -
             wouldShout * LOUD_COLOUR_PENALTY +
-            contextScore(candidate, currentSeason, preferences) * 1.5
+            contextScore(candidate, currentSeason, preferences) * 1.5 +
+            tasteScore
 
         if (total > bestScore + SCORE_TIE_EPSILON) {
             bestScore = total
@@ -619,6 +656,11 @@ data class SuggestionContext(
     val currentSeason: Season,
     /** Source of randomness, injected so a run can be reproduced. */
     val random: () -> Double,
+    /**
+     * What the reader's ratings say about outfits in general, fitted from all
+     * of them; null while there are too few. See TasteModel.
+     */
+    val taste: TasteModel? = null,
 )
 
 /**
@@ -639,6 +681,7 @@ fun buildSuggestions(
     val learned = context.learned
     val currentSeason = context.currentSeason
     val random = context.random
+    val taste = context.taste
 
     if (garments.isEmpty()) return emptyList()
 
@@ -710,6 +753,7 @@ fun buildSuggestions(
                     random,
                     preferences,
                     learned,
+                    taste,
                 )
             } else {
                 pickWeightedAtRandom(available, currentSeason, random, preferences)
@@ -721,7 +765,7 @@ fun buildSuggestions(
 
         if (selected.isEmpty()) continue
 
-        val score = scoreOutfit(selected, getPairScore, currentSeason, preferences, learned)
+        val score = scoreOutfit(selected, getPairScore, currentSeason, preferences, learned, taste)
         val name = outfitNameFrom(selected.map { garmentLabelFor(it.category, it.subcategory) })
         candidates.add(
             ScoredOutfit(

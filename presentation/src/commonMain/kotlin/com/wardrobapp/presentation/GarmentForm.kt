@@ -1,5 +1,6 @@
 package com.wardrobapp.presentation
 
+import com.wardrobapp.domain.GarmentAttributes
 import com.wardrobapp.domain.Season
 import kotlinx.serialization.Serializable
 
@@ -41,6 +42,14 @@ data class GarmentFormState(
      */
     val colorsChosen: Boolean = false,
     val size: String = "",
+    /**
+     * What was set about the garment's style, and only that: an attribute
+     * left unset is decided by the garment's type when outfits are scored
+     * (see GarmentAttributes), and the form shows it unset so that is what
+     * is saved -- a default written as a choice would stop the type, or the
+     * server, from ever improving on it.
+     */
+    val attributes: GarmentAttributes = GarmentAttributes.NONE,
 ) {
     companion object {
         const val DEFAULT_COLOR = "#000000"

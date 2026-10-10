@@ -25,7 +25,12 @@ import com.wardrobapp.domain.OutfitReason
 import com.wardrobapp.domain.OutfitSlot
 import com.wardrobapp.domain.PhantomGarment
 import com.wardrobapp.domain.ScoredOutfit
+import com.wardrobapp.domain.Fit
+import com.wardrobapp.domain.Formality
+import com.wardrobapp.domain.GarmentAttributes
+import com.wardrobapp.domain.Pattern
 import com.wardrobapp.domain.Season
+import com.wardrobapp.domain.Weight
 import com.wardrobapp.domain.UnsafeUrlReason
 import com.wardrobapp.domain.WardrobeGap
 import java.io.File
@@ -290,6 +295,16 @@ class WireTypesTest {
                 colorPalette = listOf("#000080"),
                 colorsChosen = true,
                 size = "32",
+                attributes = GarmentAttributes(formality = Formality.SMART, statement = true),
+            ),
+        )
+        add(
+            GarmentAttributes(
+                formality = Formality.FORMAL,
+                pattern = Pattern.CHECKS,
+                fit = Fit.OVERSIZED,
+                weight = Weight.HEAVY,
+                statement = false,
             ),
         )
         add(StorageFigures(garments = 10, retired = 2, photoBytes = 123_456_789))

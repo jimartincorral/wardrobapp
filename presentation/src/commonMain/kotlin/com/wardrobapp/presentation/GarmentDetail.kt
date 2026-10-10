@@ -2,7 +2,9 @@ package com.wardrobapp.presentation
 
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.Occasion
+import com.wardrobapp.domain.GarmentAttributes
 import com.wardrobapp.domain.Season
+import com.wardrobapp.domain.attributes
 import com.wardrobapp.domain.occasions
 import com.wardrobapp.domain.splitStructuredTags
 import kotlinx.serialization.Serializable
@@ -63,6 +65,11 @@ data class GarmentDetailView(
     val seasons: List<Season>,
     val occasions: List<Occasion>,
     val palette: List<PaletteEntry>,
+    /**
+     * What the garment is like, as the engine sees it: what was set, and the
+     * type's defaults for the rest, so every field is there to show.
+     */
+    val attributes: GarmentAttributes,
     /** Tags the user typed, with the structured ones taken out. */
     val tags: List<String>,
     val backgroundAction: BackgroundAction?,
@@ -258,6 +265,7 @@ fun garmentDetail(garment: GarmentRecord, selectedIndex: Int = 0): GarmentDetail
         palette = garment.palette.map { hex ->
             PaletteEntry(hex = hex, colorKey = COLOR_KEYS_BY_HEX[hex.trim().uppercase()])
         },
+        attributes = garment.toDomain().attributes,
         tags = customTags,
         backgroundAction = backgroundActionFor(images.getOrNull(selected), cutouts.getOrNull(selected)),
         isAvailable = garment.isAvailable,

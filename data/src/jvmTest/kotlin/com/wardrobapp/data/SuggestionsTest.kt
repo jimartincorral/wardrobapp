@@ -156,6 +156,49 @@ class SuggestionsTest {
     }
 
     @Test
+    fun `learns a taste from the ratings, not only the exact garments rated`() {
+        // A wardrobe where every top is striped and half the bottoms are
+        // checked, and a reader who has rated eight clashing outfits one star
+        // and eight plain ones five: the taste model should carry that to
+        // outfits of garments never rated -- the ones built from a fresh pair
+        // of plain trousers.
+        addGarment("top-s", "tops", "Shirt", tags = """["pattern:stripes"]""")
+        addGarment("bottom-plain", "bottoms", "Chinos")
+        addGarment("bottom-checked", "bottoms", "Jeans", tags = """["pattern:checks"]""")
+        addGarment("shoes-1", "shoes", "Sneakers")
+        val writes = OutfitWrites(driver)
+        for (i in 0 until 16) {
+            val clashing = i % 2 == 0
+            val id = "rated-$i"
+            writes.insertIfAbsent(
+                id = id,
+                name = "Rated $i",
+                garmentIds = listOf("top-s", if (clashing) "bottom-checked" else "bottom-plain", "shoes-1"),
+                isSuggested = true,
+                isArchived = true,
+                now = "2026-01-0${i % 9 + 1}T00:00:00.000Z",
+            )
+            writes.rate(ratingId = "r-$i", outfitId = id, rating = if (clashing) 1 else 5, now = "2026-02-01T00:00:00.000Z")
+        }
+        // Then the garments the taste has to generalise to.
+        addGarment("top-new", "tops", "Blouse", tags = """["pattern:print"]""")
+        addGarment("bottom-new-plain", "bottoms", "Pants")
+        addGarment("bottom-new-checked", "bottoms", "Skirt", tags = """["pattern:checks"]""")
+
+        val suggestions = subject.suggest(Season.SUMMER, sequence(seed = 5), GenerateSuggestionsOptions(count = 6))
+
+        val first = suggestions.first().garments.map { it.id }
+        assertTrue(
+            "bottom-new-plain" in first || "bottom-plain" in first,
+            "the best suggestion still clashes: $first",
+        )
+        assertTrue(
+            suggestions.any { it.reasons.contains(com.wardrobapp.domain.OutfitReason.TASTE) },
+            "no suggestion says it is what the reader likes",
+        )
+    }
+
+    @Test
     fun `builds every outfit around the garment it was given`() {
         givenWardrobe()
 

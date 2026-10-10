@@ -93,6 +93,8 @@ import com.wardrobapp.ui.resources.garment_untitled
 import com.wardrobapp.ui.resources.property_added
 import com.wardrobapp.ui.resources.property_colours
 import com.wardrobapp.ui.resources.property_occasions
+import com.wardrobapp.ui.resources.property_style
+import com.wardrobapp.ui.resources.attribute_statement
 import com.wardrobapp.ui.resources.property_seasons
 import com.wardrobapp.ui.resources.property_size
 import com.wardrobapp.ui.resources.property_tags
@@ -403,6 +405,19 @@ private fun GarmentBody(
                     Property(stringResource(Res.string.property_occasions)) {
                         Value(view.occasions.map { stringResource(it.labelRes) }.joinToString(", "))
                     }
+                }
+                // What the engine takes the garment to be like, whether set or
+                // implied by its type: the form is where the two are told apart.
+                Property(stringResource(Res.string.property_style)) {
+                    Value(
+                        listOfNotNull(
+                            view.attributes.formality?.let { stringResource(it.labelRes) },
+                            view.attributes.pattern?.let { stringResource(it.labelRes) },
+                            view.attributes.fit?.let { stringResource(it.labelRes) },
+                            view.attributes.weight?.let { stringResource(it.labelRes) },
+                            if (view.attributes.statement == true) stringResource(Res.string.attribute_statement) else null,
+                        ).joinToString(" \u00b7 "),
+                    )
                 }
                 view.purchaseDate?.let { Property(stringResource(Res.string.property_added)) { Value(displayDate(it)) } }
             }

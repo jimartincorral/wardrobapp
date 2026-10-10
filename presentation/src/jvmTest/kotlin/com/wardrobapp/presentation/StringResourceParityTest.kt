@@ -90,6 +90,7 @@ class StringResourceParityTest {
         // Loanwords Spanish uses unchanged.
         "occasion_casual",
         "occasion_formal",
+        "formality_formal",
         "color_beige",
         "color_coral",
         "subcategory_blazer",

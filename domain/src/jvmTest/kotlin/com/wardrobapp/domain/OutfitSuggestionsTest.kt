@@ -487,7 +487,7 @@ class OutfitSuggestionsTest {
 
         assertEquals(
             score.learnedPairs + score.season + score.occasion +
-                score.coherence + score.harmony + score.loudColours,
+                score.coherence + score.harmony + score.loudColours + score.taste,
             score.total,
             absoluteTolerance = 1e-9,
             message = "the parts do not sum to the total",

@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.domain.PhantomGarment
+import com.wardrobapp.domain.GarmentAttributes
 import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.DatabaseGarmentFormSource
 import com.wardrobapp.presentation.FetchingGarmentImporter
@@ -63,6 +64,7 @@ class GarmentFormViewModel(
     fun onBrandChanged(brand: String) = model.onBrandChanged(brand)
     fun onSizeChanged(size: String) = model.onSizeChanged(size)
     fun onTagsChanged(tags: List<String>) = model.onTagsChanged(tags)
+    fun onAttributesChanged(attributes: GarmentAttributes) = model.onAttributesChanged(attributes)
     fun onPhotoSelected(index: Int) = model.onPhotoSelected(index)
     fun onPhotoRemoved(index: Int) = model.onPhotoRemoved(index)
     fun onPhotoPicked(source: Uri) = model.onPhotoPicked(source)
