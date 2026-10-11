@@ -104,14 +104,16 @@ android {
         buildConfigField("String", "STYLE_MODEL_SHA256", "\"$styleModelSha256\"")
         buildConfigField("long", "STYLE_MODEL_BYTES", "${styleModelBytes}L")
 
-        // ARM only. ONNX Runtime ships its native library for four ABIs, and
-        // the two x86 ones -- emulators, and a handful of discontinued Intel
-        // tablets -- were half of what made build 424 too large for any phone
-        // to install. On an x86 emulator the app still installs and runs;
-        // the style model and ML Kit's background removal do not, and the app
-        // carries on without them, as it does on any phone where they fail.
+        // Three of ONNX Runtime's four ABIs: both ARM ones, which are every
+        // phone, and x86_64, which is ChromeOS and every current emulator --
+        // lint refuses a build without it, since a Chromebook would otherwise
+        // run the app with no native code to load. Not 32-bit x86, which
+        // nothing that runs this app still is. With the native libraries
+        // compressed (packaging, below), the three cost a fraction of what
+        // the four uncompressed ones did in build 424, which no phone could
+        // install.
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
     }
 
