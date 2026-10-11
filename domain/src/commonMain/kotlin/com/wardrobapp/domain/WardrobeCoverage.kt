@@ -3,8 +3,8 @@ package com.wardrobapp.domain
 /**
  * How many outfits a wardrobe can actually finish, and which slot stops it.
  *
- * Pure arithmetic over the same templates the suggestion engine draws from, and
- * deliberately exact rather than sampled: this half of the gaps feature makes
+ * Pure arithmetic over [OUTFIT_TEMPLATES], and deliberately exact rather than
+ * sampled: this half of the gaps feature makes
  * claims a reader can check by counting their own clothes, so it must not be an
  * estimate. The expensive, sampled half -- *which* garment to want, and in what
  * colour -- is in WardrobeGaps.kt and builds on the numbers here.
@@ -25,6 +25,36 @@ package com.wardrobapp.domain
  * a duplicate slot set fails there rather than quietly inflating everybody's
  * numbers.
  */
+
+/**
+ * Which sets of slots count as an outfit, for counting.
+ *
+ * The suggestion engine used to draw from these; it now builds every outfit to
+ * one shape (OutfitBase in OutfitSuggestions.kt), finished with whatever shoes,
+ * layer and accessory the wardrobe and the season allow. They stay here as
+ * coverage's definition of a wearable combination, which is a different
+ * question: "how many outfits can this wardrobe finish, and what would one more
+ * pair of shoes add" wants the bare combinations counted too, so a wardrobe with
+ * no shoes is told how much they would add rather than that it can dress for
+ * nothing.
+ */
+internal val OUTFIT_TEMPLATES: List<List<OutfitSlot>> = listOf(
+    listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS),
+    listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS, OutfitSlot.OUTERWEAR),
+    listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS, OutfitSlot.ACCESSORIES),
+    listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS, OutfitSlot.SHOES),
+    listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS, OutfitSlot.SHOES, OutfitSlot.OUTERWEAR),
+    listOf(OutfitSlot.DRESSES),
+    listOf(OutfitSlot.DRESSES, OutfitSlot.OUTERWEAR),
+    listOf(OutfitSlot.DRESSES, OutfitSlot.SHOES),
+    listOf(OutfitSlot.DRESSES, OutfitSlot.SHOES, OutfitSlot.OUTERWEAR),
+    listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS, OutfitSlot.SHOES, OutfitSlot.ACCESSORIES),
+    listOf(OutfitSlot.ACTIVEWEAR_SETS),
+    listOf(OutfitSlot.ACTIVEWEAR_SETS, OutfitSlot.OUTERWEAR),
+    listOf(OutfitSlot.ACTIVEWEAR_SETS, OutfitSlot.SHOES),
+    listOf(OutfitSlot.LOUNGEWEAR_SETS),
+    listOf(OutfitSlot.LOUNGEWEAR_SETS, OutfitSlot.OUTERWEAR),
+)
 
 /** A garment type that could fill a slot: its category, and the type within it. */
 data class GarmentType(val category: String, val subcategory: String)
@@ -251,11 +281,10 @@ fun outfitCoverage(
         // Ties are common and they are real: with tops and bottoms and nothing
         // else, one jacket and one pair of shoes each complete exactly the same
         // number of outfits, and counting cannot tell them apart because there is
-        // nothing to tell. The engine's own view that shoes matter more lives in
-        // `templateWeight`, and is deliberately not consulted here -- it triples
-        // the odds of drawing a shoe template, so a lift measured through it
-        // would answer "shoes" for every wardrobe on earth and stop being a
-        // measurement. Which of two tied slots to actually want is settled by the
+        // nothing to tell. The engine's own view that shoes matter more -- it
+        // puts them on every outfit it can -- is deliberately not consulted
+        // here: a lift measured through it would answer "shoes" for every
+        // wardrobe on earth and stop being a measurement. Which of two tied slots to actually want is settled by the
         // sampled half of the feature, on whether the outfits would be any good.
         slotLift = lift.entries
             .sortedWith(compareByDescending<Map.Entry<OutfitSlot, Long>> { it.value }

@@ -407,9 +407,9 @@ class WardrobeGapsTest {
 
     /**
      * The bug that left the strongest gap with nothing to show for itself:
-     * `buildSuggestions` keeps only the templates it has a garment for every slot
-     * of, and reads that from the pool rather than from the seed -- so a shoe
-     * seeded into a shoeless wardrobe made every shoe template unviable.
+     * `buildSuggestions` used to keep only the templates it had a garment for
+     * every slot of, reading that from the pool rather than from the seed -- so
+     * a shoe seeded into a shoeless wardrobe made every shoe template unviable.
      */
     @Test
     fun `the gap in an empty slot still comes with outfits to show`() {

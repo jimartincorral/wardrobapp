@@ -287,26 +287,107 @@ class OutfitSuggestionsTest {
         )
     }
 
-    @Test
-    fun `most suggestions come with shoes on`() {
-        // Templates used to be drawn uniformly and only six of the fifteen include
-        // shoes, so most of what the screen showed was a top and a bottom and
-        // nothing on the feet. Counted over many draws, because any single one is
-        // allowed to be a dress on its own.
-        val outfits = (1..60).flatMap { seed ->
-            buildSuggestions(context(seed = seed.toLong()), GenerateSuggestionsOptions(count = 3))
-        }
-
-        val shod = outfits.count { outfit -> outfit.garments.any { it.category == "shoes" } }
-
-        // Measured: 160 of 180 with the weights, 110 without. The threshold sits
-        // between the two so this fails if the weighting is removed rather than
-        // passing on the uniform draw, which already clears half in this wardrobe
-        // -- four of its eight viable templates include shoes.
-        assertTrue(
-            shod * 4 > outfits.size * 3,
-            "only $shod of ${outfits.size} suggestions had shoes",
+    /** Suggestions over many seeds, for the rules that must hold for every one of them. */
+    private fun manyOutfits(
+        garments: List<Garment> = wardrobe,
+        season: Season = Season.SPRING,
+        preferences: SuggestionPreferences? = null,
+    ): List<ScoredOutfit> = (1..30).flatMap { seed ->
+        buildSuggestions(
+            context(garments = garments, season = season, seed = seed.toLong()),
+            GenerateSuggestionsOptions(count = 3, preferences = preferences),
         )
+    }
+
+    @Test
+    fun `every suggestion comes with shoes on`() {
+        // Templates used to be drawn, and only six of the fifteen included shoes;
+        // weighting them up still left about one outfit in nine barefoot, and
+        // the ranking -- which averages over pairs, so shoes could only lower a
+        // good top-and-bottom's score -- kept putting those first. Now shoes are
+        // part of every outfit the wardrobe has shoes for. Not most: every.
+        val outfits = manyOutfits()
+
+        assertTrue(outfits.isNotEmpty())
+        for (outfit in outfits) {
+            assertTrue(outfit.garments.any { it.category == "shoes" }, "${outfit.name} has no shoes")
+        }
+    }
+
+    @Test
+    fun `outside summer every outfit has a layer, and in summer none does`() {
+        // Spring was a coin toss under the templates: a jacket on one outfit and
+        // not the next, for the same day.
+        for (season in listOf(Season.SPRING, Season.FALL, Season.WINTER)) {
+            for (outfit in manyOutfits(season = season)) {
+                assertTrue(
+                    outfit.garments.any { it.category == "outerwear" },
+                    "${outfit.name} has no layer in $season",
+                )
+            }
+        }
+        val summer = SuggestionPreferences(seasons = listOf(Season.SUMMER))
+        for (outfit in manyOutfits(season = Season.SUMMER, preferences = summer)) {
+            assertTrue(outfit.garments.none { it.category == "outerwear" }, "${outfit.name} has a coat in summer")
+        }
+    }
+
+    private val accessorised = wardrobe + listOf(
+        garment("belt", "accessories", "Belt", color = "#5D4037"),
+        garment("watch", "accessories", "Watch", color = "#BDC3C7"),
+        garment("wallet", "accessories", "Wallet"),
+        garment("gloves", "accessories", "Gloves"),
+    )
+
+    @Test
+    fun `every outfit has exactly one accessory when one suits`() {
+        for (outfit in manyOutfits(garments = accessorised)) {
+            val accessories = outfit.garments.filter { it.category == "accessories" }
+            assertEquals(1, accessories.size, "${outfit.name} has ${accessories.size} accessories")
+            assertTrue(accessories.single().id != "wallet", "a wallet was suggested as part of a look")
+        }
+    }
+
+    @Test
+    fun `gloves wait for the cold`() {
+        val spring = manyOutfits(garments = accessorised, season = Season.SPRING)
+        assertTrue(spring.none { outfit -> outfit.garments.any { it.id == "gloves" } }, "gloves in spring")
+
+        val winter = manyOutfits(garments = accessorised, season = Season.WINTER)
+        assertTrue(winter.any { outfit -> outfit.garments.any { it.id == "gloves" } }, "never gloves in winter")
+    }
+
+    @Test
+    fun `pyjamas get neither shoes nor a belt, and only a robe over them`() {
+        // Nothing here is a rule about pyjamas: no shoe and no accessory is
+        // dressed for lounging, and a coat is not either, so the occasion
+        // tables leave them off on their own.
+        val lounge = listOf(
+            garment("pjs", "loungewear", "Pajama Set"),
+            garment("robe", "loungewear", "Robe"),
+        )
+        val nothingElseToWear = accessorised.filterNot { it.category in setOf("tops", "bottoms", "dresses") }
+        val outfits = manyOutfits(garments = nothingElseToWear + lounge)
+
+        assertTrue(outfits.isNotEmpty())
+        for (outfit in outfits) {
+            val ids = outfit.garments.map { it.id }
+            assertEquals(listOf("pjs", "robe"), ids, "pyjamas were finished with ${ids - "pjs"}")
+        }
+    }
+
+    @Test
+    fun `a seeded accessory is the outfit's one accessory`() {
+        val belt = accessorised.single { it.id == "belt" }
+        val suggestions = buildSuggestions(
+            context(garments = accessorised),
+            GenerateSuggestionsOptions(count = 4, seedGarments = listOf(belt)),
+        )
+
+        assertTrue(suggestions.isNotEmpty())
+        for (outfit in suggestions) {
+            assertEquals(listOf("belt"), outfit.garments.filter { it.category == "accessories" }.map { it.id })
+        }
     }
 
     @Test
@@ -544,8 +625,8 @@ class OutfitSuggestionsTest {
 
     @Test
     fun `a summer selection keeps the wool coat out`() {
-        // Heavy outerwear in a summer outfit is the one seasonal rule the engine
-        // enforces by filtering rather than by scoring.
+        // A summer outfit has no layer at all; this is the case that rule grew
+        // out of, kept because a wool coat in July is the worst form of it.
         val summer = SuggestionPreferences(seasons = listOf(Season.SUMMER))
 
         val suggestions = buildSuggestions(

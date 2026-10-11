@@ -24,67 +24,149 @@ enum class OutfitSlot {
     LOUNGEWEAR_SETS,
 }
 
-/** Which category slots make a valid outfit. Order is part of the behaviour. */
-internal val OUTFIT_TEMPLATES: List<List<OutfitSlot>> = listOf(
-    listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS),
-    listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS, OutfitSlot.OUTERWEAR),
-    listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS, OutfitSlot.ACCESSORIES),
-    listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS, OutfitSlot.SHOES),
-    listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS, OutfitSlot.SHOES, OutfitSlot.OUTERWEAR),
-    listOf(OutfitSlot.DRESSES),
-    listOf(OutfitSlot.DRESSES, OutfitSlot.OUTERWEAR),
-    listOf(OutfitSlot.DRESSES, OutfitSlot.SHOES),
-    listOf(OutfitSlot.DRESSES, OutfitSlot.SHOES, OutfitSlot.OUTERWEAR),
-    listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS, OutfitSlot.SHOES, OutfitSlot.ACCESSORIES),
-    listOf(OutfitSlot.ACTIVEWEAR_SETS),
-    listOf(OutfitSlot.ACTIVEWEAR_SETS, OutfitSlot.OUTERWEAR),
-    listOf(OutfitSlot.ACTIVEWEAR_SETS, OutfitSlot.SHOES),
-    listOf(OutfitSlot.LOUNGEWEAR_SETS),
-    listOf(OutfitSlot.LOUNGEWEAR_SETS, OutfitSlot.OUTERWEAR),
-)
-
 /**
- * How often a template is drawn, relative to the others.
+ * What an outfit is built around: the garments that cover the body.
  *
- * Templates used to be picked uniformly, and only six of the fifteen include
- * shoes -- so most of what the screen showed was a top and a bottom with nothing
- * on the feet, which reads as an unfinished thought rather than an outfit. These
- * weights are the fix, and they say what "finished" means here: shoes are what
- * turn a pair of garments into something you could walk out in, and a layer or an
- * accessory is what makes it look chosen rather than assembled.
+ * Every outfit is one of these with the same finishing on top -- shoes, a layer
+ * when the season wants one, and an accessory (see [FINISHING_SLOTS]). It used
+ * to be a draw from fifteen templates, `{top, bottom}` and `{top, bottom,
+ * shoes}` and the rest, weighted towards the ones with shoes. That made the
+ * shape of an outfit a lottery: whether it came with shoes, a coat or a belt
+ * was decided by the ticket, not by the wardrobe or the weather, so two
+ * suggestions side by side often disagreed about what an outfit even was. And
+ * the weights could not fix it, because the ranking undid them --
+ * [scoreOutfit] averages over pairs, so adding shoes to a top and a bottom
+ * that go well together could only pull the average down, and the bare pair
+ * kept winning. Building every candidate to one shape means the ranking
+ * compares like with like, and the only thing left to vary is which garments.
  *
- * A multiplier rather than a rule, because the plain combinations are still real
- * answers -- a dress on its own is an outfit -- and a wardrobe with no shoes in it
- * must still be able to suggest something. Nothing is excluded; the odds move.
+ * The weights say how often each base is drawn, and are the shares the
+ * templates gave them: separates were six templates of fifteen and the
+ * heaviest-weighted, dresses four, the sets the rest. A wardrobe without a
+ * base's garments never draws it.
  */
-private fun templateWeight(template: List<OutfitSlot>): Double {
-    var weight = 1.0
-    if (template.contains(OutfitSlot.SHOES)) weight *= 3.0
-    if (template.any { it == OutfitSlot.OUTERWEAR || it == OutfitSlot.ACCESSORIES }) weight *= 1.5
-    return weight
+internal enum class OutfitBase(val slots: List<OutfitSlot>, val weight: Double) {
+    SEPARATES(listOf(OutfitSlot.TOPS, OutfitSlot.BOTTOMS), 6.0),
+    DRESS(listOf(OutfitSlot.DRESSES), 4.0),
+    ACTIVEWEAR(listOf(OutfitSlot.ACTIVEWEAR_SETS), 2.0),
+    LOUNGEWEAR(listOf(OutfitSlot.LOUNGEWEAR_SETS), 1.0),
 }
 
 /**
- * Draw a template, in proportion to [templateWeight].
+ * What finishes any base, in the order it is chosen.
  *
- * One call to [random], as the uniform draw it replaces was: the epsilon-greedy
- * step downstream assumes the generator advances the same number of times
- * whichever branch a run takes, and a template draw that sometimes stepped twice
- * would make a seeded run unreproducible.
+ * Shoes first, so the layer and the accessory are picked against an outfit
+ * that already has its shoes on. Each is filled when the wardrobe has one that
+ * suits (see [finishingCandidates]) and left out quietly when it does not: a
+ * wardrobe with no shoes in it still gets outfits, and the gaps screen is
+ * where it hears about the shoes.
  */
-private fun pickTemplate(
-    templates: List<List<OutfitSlot>>,
-    random: () -> Double,
-): List<OutfitSlot> {
-    val weights = templates.map { templateWeight(it) }
+private val FINISHING_SLOTS = listOf(OutfitSlot.SHOES, OutfitSlot.OUTERWEAR, OutfitSlot.ACCESSORIES)
 
-    var ticket = random() * weights.sum()
-    for (i in templates.indices) {
-        ticket -= weights[i]
-        if (ticket <= 0) return templates[i]
+/**
+ * Accessories that are never part of how an outfit looks. A wallet is owned
+ * and carried, and suggesting one says nothing about the outfit; it would
+ * also take the one accessory slot from a belt or a bag that does.
+ */
+private val UNSEEN_ACCESSORIES = setOf("Wallet")
+
+/** Accessories that are worn for the cold, and look wrong without it. */
+private val COLD_WEATHER_ACCESSORIES = setOf("Gloves", "Scarf")
+
+/**
+ * The seasons an outfit is being dressed for: the ones asked for, or the one
+ * it is. All-season is no season at all here -- it says nothing about whether
+ * it is cold.
+ */
+private fun seasonsInPlay(currentSeason: Season, preferences: SuggestionPreferences?): Set<Season> =
+    (preferences?.seasons ?: emptyList()).filter { it != Season.ALL_SEASON }.toSet()
+        .ifEmpty { setOf(currentSeason) }
+
+/**
+ * Whether two garments could be worn on the same kind of day: true unless
+ * both have an opinion and the opinions never meet.
+ */
+private fun canShareADay(garment: Garment, other: Garment): Boolean =
+    sharesAnOccasion(garment.occasions(), other.occasions()) != false
+
+/**
+ * The garments that may finish [base] in [slot], or none when the slot is
+ * better left empty.
+ *
+ * A finishing garment has to be dressed for the same kind of day as some part
+ * of the base, which settles most of what would otherwise need a rule: no
+ * occasion an accessory is made for is sport or lounging, so a track suit and
+ * a pair of pyjamas go without one; a robe suits pyjamas and a coat does not.
+ * And it has to suit the season, as the engine reads a season everywhere else
+ * ([matchesSeason]): a pair of sandals tagged for summer is not finishing a
+ * winter outfit.
+ *
+ * Then a rule per slot:
+ *  - Shoes are part of every outfit. When nothing in the wardrobe suits, any
+ *    pair beats none -- trainers with a cocktail dress is an outfit somebody
+ *    can fix by swapping the shoes, and one with no shoes reads as unfinished.
+ *    Except when the base is for lounging and nothing else: there is no shoe
+ *    for a dressing gown, and suggesting boots with pyjamas would be worse
+ *    than leaving the feet bare.
+ *  - A layer whenever the outfit is for anything but high summer. Not a coin
+ *    toss for spring and autumn, which is what the templates made it: those
+ *    are the seasons people go out in a jacket, and an outfit that only
+ *    sometimes has one was exactly the inconsistency being fixed.
+ *  - One accessory, whenever one suits -- the choice the wardrobe's owner made
+ *    over a setting or leaving it to the occasion. Not one nobody sees (a
+ *    wallet), and not gloves or a scarf outside autumn and winter.
+ */
+private fun finishingCandidates(
+    slot: OutfitSlot,
+    pool: List<Garment>,
+    base: List<Garment>,
+    currentSeason: Season,
+    preferences: SuggestionPreferences?,
+): List<Garment> {
+    val seasons = seasonsInPlay(currentSeason, preferences)
+    val suitable = pool.filter { candidate ->
+        matchesSeason(candidate, currentSeason, preferences?.seasons) &&
+            (base.isEmpty() || base.any { canShareADay(candidate, it) })
+    }
+
+    return when (slot) {
+        OutfitSlot.SHOES -> {
+            val lounging = base.isNotEmpty() && base.all { it.occasions() == listOf(Occasion.LOUNGE) }
+            when {
+                suitable.isNotEmpty() -> suitable
+                lounging -> emptyList()
+                else -> pool
+            }
+        }
+        OutfitSlot.OUTERWEAR -> if (seasons.all { it == Season.SUMMER }) emptyList() else suitable
+        OutfitSlot.ACCESSORIES -> {
+            val cold = seasons.any { it == Season.FALL || it == Season.WINTER }
+            suitable.filter { accessory ->
+                val types = accessory.effectiveSubcategories
+                types.none { it in UNSEEN_ACCESSORIES } &&
+                    (cold || types.none { it in COLD_WEATHER_ACCESSORIES })
+            }
+        }
+        else -> pool
+    }
+}
+
+/**
+ * Draw a base, in proportion to its weight.
+ *
+ * One call to [random], as the template draw it replaces was: the epsilon-greedy
+ * step downstream assumes the generator advances the same number of times
+ * whichever branch a run takes, and a draw that sometimes stepped twice would
+ * make a seeded run unreproducible.
+ */
+private fun pickBase(bases: List<OutfitBase>, random: () -> Double): OutfitBase {
+    var ticket = random() * bases.sumOf { it.weight }
+    for (base in bases) {
+        ticket -= base.weight
+        if (ticket <= 0) return base
     }
     // Only reachable through floating-point drift at the very end of the wheel.
-    return templates.last()
+    return bases.last()
 }
 
 @Serializable
@@ -144,14 +226,6 @@ internal fun garmentSlots(garment: Garment): List<OutfitSlot> {
 
 private fun normalizedTags(garment: Garment): List<String> = garment.tags.map { it.lowercase() }
 
-private fun isHotCompatibleOuterwear(garment: Garment): Boolean {
-    if (garment.category != "outerwear") return true
-    val tags = normalizedTags(garment)
-    val sub = (garment.subcategory ?: "").lowercase()
-    if (tags.contains("lightweight") || tags.contains("summer")) return true
-    return sub in listOf("vest", "windbreaker", "cardigan", "blazer")
-}
-
 data class GenerateSuggestionsOptions(
     val count: Int = 3,
     val preferences: SuggestionPreferences? = null,
@@ -181,9 +255,9 @@ data class GenerateSuggestionsOptions(
      * best-fit share, and prefers candidates that bring a garment nothing in
      * [alreadySeen] or this batch has shown yet -- so ten outfits walk across
      * the wardrobe, and a second round with the first as [alreadySeen] keeps
-     * walking. Template weights are left alone: covering the garments covers
-     * the templates, and sampling templates evenly would push outfits with no
-     * shoes back into view, which the weights exist to prevent.
+     * walking. The shape of an outfit is left alone (see [OutfitBase]): what
+     * a rating teaches is which garments go together, and an outfit missing
+     * its shoes would only teach that it looked unfinished.
      */
     val explore: Boolean = false,
 )
@@ -745,47 +819,45 @@ fun buildSuggestions(
         }
     }
 
-    // Keep heavy outerwear out of summer outfits. This used to key off a "hot"
-    // weather filter; with weather gone it keys off an explicit summer
-    // selection, which is the same intent in the vocabulary that remains.
-    val summerOnly = preferences?.seasons?.size == 1 && preferences.seasons[0] == Season.SUMMER
-    if (summerOnly && bySlot[OutfitSlot.OUTERWEAR] != null) {
-        bySlot[OutfitSlot.OUTERWEAR] =
-            bySlot[OutfitSlot.OUTERWEAR]!!.filter { isHotCompatibleOuterwear(it) }.toMutableList()
+    // Viable bases are the ones we have garments for. With seed garments,
+    // narrow further to bases that can hold every seeded slot: a seeded top
+    // needs separates, while a seeded pair of shoes or a belt finishes any base.
+    val viableBases = OutfitBase.entries.filter { base ->
+        base.slots.all { slot -> !bySlot[slot].isNullOrEmpty() } &&
+            seedSlots.all { slot -> slot in base.slots || slot in FINISHING_SLOTS }
     }
 
-    // Viable templates are the ones we have garments for. With seed garments,
-    // narrow further to templates that include every seeded slot.
-    var viableTemplates = OUTFIT_TEMPLATES.filter { template ->
-        template.all { slot -> !bySlot[slot].isNullOrEmpty() }
-    }
-
-    if (seedSlots.isNotEmpty()) {
-        viableTemplates = viableTemplates.filter { template ->
-            seedSlots.all { slot -> template.contains(slot) }
-        }
-    }
-
-    if (viableTemplates.isEmpty()) return emptyList()
+    if (viableBases.isEmpty()) return emptyList()
 
     val candidates = mutableListOf<ScoredOutfit>()
     val attempts = suggestionAttempts(count, garments.size)
 
     for (i in 0 until attempts) {
-        val template = pickTemplate(viableTemplates, random)
+        val base = pickBase(viableBases, random)
 
         val selected = seedGarments.toMutableList()
         val usedGarmentIds = seedGarments.map { it.id }.toMutableSet()
 
-        for (slot in template) {
+        for (slot in base.slots + FINISHING_SLOTS) {
             // A seeded garment already fills its slot. Without this the loop
             // filled it again -- seeding a top produced outfits containing two
             // tops, because usedGarmentIds blocks repeating a garment but not
             // repeating a slot.
             if (seedSlots.contains(slot)) continue
 
-            val available = (bySlot[slot] ?: emptyList<Garment>())
+            val pool = (bySlot[slot] ?: emptyList<Garment>())
                 .filter { !usedGarmentIds.contains(it.id) }
+            val available = if (slot in base.slots) {
+                pool
+            } else {
+                finishingCandidates(
+                    slot,
+                    pool,
+                    base = selected.filter { garment -> garmentSlots(garment).any { it in base.slots } },
+                    currentSeason = currentSeason,
+                    preferences = preferences,
+                )
+            }
             if (available.isEmpty()) continue
 
             // The epsilon draw happens before the branch and both branches draw

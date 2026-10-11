@@ -324,11 +324,11 @@ private fun outfitsAbove(
     val outfits = buildSuggestions(
         SuggestionContext(
             // The phantom goes into the pool as well as into the seed, and it has
-            // to: `buildSuggestions` keeps only the templates whose every slot it
-            // has a garment for, and it reads that from the pool rather than from
-            // the seed. Left out, a shoe seeded into a wardrobe with no shoes
-            // makes every shoe template unviable and the run comes back empty --
-            // which is precisely the wardrobe this feature exists to talk about.
+            // to: `buildSuggestions` keeps only the bases whose every slot it has
+            // a garment for, and it reads that from the pool rather than from the
+            // seed. Left out, a dress seeded into a wardrobe with no dresses
+            // leaves no base to build on and the run comes back empty -- which is
+            // precisely the wardrobe this feature exists to talk about.
             //
             // Safe against being used twice: the slot loop skips any slot the seed
             // already fills, so the phantom can only reach an outfit through the
@@ -538,10 +538,11 @@ fun analyzeGaps(context: GapContext, options: GapOptions = GapOptions()): List<W
                 // garments and pairs, so putting the black shoes into a
                 // two-garment outfit pulls the colour average down towards
                 // neutral and the outfit with shoes on scores *below* the one
-                // without. The engine knows this about itself -- it is why
-                // `templateWeight` corrects for it in the draw rather than in the
-                // score -- and a bar applied here would have quietly filtered out
-                // the examples for the strongest gaps the feature can find.
+                // without. The engine knows this about itself -- it is why every
+                // outfit it builds has one shape, so its own candidates are
+                // never compared across that line -- and a bar applied here would
+                // have quietly filtered out the examples for the strongest gaps
+                // the feature can find.
                 if (nothingFillsIt) null else bar,
                 options,
             ) ?: continue
