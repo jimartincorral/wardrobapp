@@ -14,18 +14,14 @@ import com.wardrobapp.data.centreSquare
 import com.wardrobapp.data.clipInput
 import com.wardrobapp.domain.normalized
 import java.io.File
-import java.io.FileInputStream
-import java.nio.ByteBuffer
 import java.nio.FloatBuffer
-import java.nio.channels.FileChannel
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
-/** The model and its anchors, as the build puts them in the APK's assets. */
-private const val MODEL_ASSET = "style-image-vitb32-int8.onnx"
+/** The anchors, as the build puts them in the APK's assets. The model is downloaded; see StyleModelDownload. */
 private const val ANCHORS_ASSET = "style-anchors.json"
 
 /** How long the model stays loaded after the last photo; the server's two minutes. */
@@ -40,7 +36,8 @@ private const val TAG = "StyleEncoder"
  * The style model, on the phone: a stored photo to a unit vector.
  *
  * The same model the Home Assistant app runs -- the image half of CLIP
- * ViT-B/32 at 8 bits, in the APK's assets -- run the way the server runs it
+ * ViT-B/32 at 8 bits, downloaded when somebody asks for it (StyleModelDownload)
+ * -- run the way the server runs it
  * (StyleEncoder there) and for the same reasons: one photo at a time on a
  * thread of its own, without ONNX Runtime's arena, loaded on first use and
  * let go two minutes after the last. Everything about what the model is shown
@@ -49,25 +46,29 @@ private const val TAG = "StyleEncoder"
  * into the model's input (clipInput). Only the decoding and the scaling are
  * Android's own.
  *
- * The model is read straight out of the APK, memory-mapped -- the build stores
- * it uncompressed for that -- so loading it costs neither a copy on disk nor
- * 87 MB of Java heap, which a phone with a small heap would not have.
+ * The model is opened from its file by ONNX Runtime itself, so loading it
+ * costs none of the Java heap, which a phone with a small heap would not have
+ * 85 MB of. Without the file -- not downloaded, or removed -- every photo is
+ * answered null at once, and the app goes on without the style term.
  *
  * A phone where the model will not load -- too little memory, a missing
  * native library, a Robolectric run with no native code at all -- says so in
- * the log once and then answers null for every photo, and the app goes on
- * without the style term, as it did before the model was here.
+ * the log once and answers null from then on, until a different file arrives.
  */
 class AndroidStyleEncoder(
     private val context: Context,
     /** The stored photo by its name, or null when there is no such file. */
     private val photoFile: (String) -> File?,
+    /** The downloaded model, or null when it is not on this phone. */
+    private val modelFile: () -> File?,
 ) : AutoCloseable {
 
     // All of these only ever touched on [worker]'s one thread.
     private var session: Loaded? = null
     private var closing: ScheduledFuture<*>? = null
-    private var unavailable = false
+
+    /** When the model file that would not load was written, so a new download is tried afresh. */
+    private var failedModel: Long? = null
 
     private val worker = Executors.newSingleThreadScheduledExecutor { task ->
         Thread(null, task, "style-encoder", STACK_BYTES).apply { isDaemon = true }
@@ -86,18 +87,22 @@ class AndroidStyleEncoder(
         }
     }
 
+    /** Whether the model is on this phone. */
+    val hasModel: Boolean get() = modelFile() != null
+
     /**
      * The photo stored as [photo] as a unit vector, or null when there is no
      * such photo, no decoder reads it, or the model cannot run here. Blocking,
      * for a fraction of a second on a recent phone, on the encoder's thread.
      */
     fun embed(photo: String): FloatArray? = onWorker {
-        if (unavailable) return@onWorker null
+        val model = modelFile() ?: return@onWorker null
+        if (failedModel == model.lastModified()) return@onWorker null
         val file = photoFile(photo) ?: return@onWorker null
         val anchors = anchors ?: return@onWorker null
         closing?.cancel(false)
         try {
-            val loaded = session ?: load().also { session = it }
+            val loaded = session ?: load(model).also { session = it }
             val pixels = squareOf(file, loaded.size) ?: run {
                 Log.w(TAG, "Could not read $photo")
                 return@onWorker null
@@ -107,7 +112,7 @@ class AndroidStyleEncoder(
             // A model that will not load will not load next time either; a
             // photo that broke it is one photo. Only the first is remembered.
             if (session == null) {
-                unavailable = true
+                failedModel = model.lastModified()
                 Log.w(TAG, "The style model cannot run on this phone: $e")
             } else {
                 Log.w(TAG, "Could not embed $photo: $e")
@@ -149,23 +154,23 @@ class AndroidStyleEncoder(
         }
     }
 
-    private fun load(): Loaded {
+    private fun load(model: File): Loaded {
         val environment = OrtEnvironment.getEnvironment()
         val options = OrtSession.SessionOptions().apply {
             setCPUArenaAllocator(false)
             setMemoryPatternOptimization(false)
         }
-        val model: ByteBuffer = context.assets.openFd(MODEL_ASSET).use { descriptor ->
-            FileInputStream(descriptor.fileDescriptor).channel.use { channel ->
-                channel.map(FileChannel.MapMode.READ_ONLY, descriptor.startOffset, descriptor.declaredLength)
-            }
-        }
-        return Loaded(environment, options, environment.createSession(model, options))
+        return Loaded(environment, options, environment.createSession(model.path, options))
     }
 
     private fun closeIdle() {
         session?.close()
         session = null
+    }
+
+    /** Let go of the model now, before its file is deleted. */
+    fun release() {
+        if (!worker.isShutdown) onWorker(::closeIdle)
     }
 
     override fun close() {

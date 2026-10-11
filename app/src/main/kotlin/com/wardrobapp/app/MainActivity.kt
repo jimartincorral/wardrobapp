@@ -67,6 +67,7 @@ import com.wardrobapp.presentation.FirstStep
 import com.wardrobapp.presentation.OnboardingStep
 import com.wardrobapp.presentation.showsTasteTraining
 import com.wardrobapp.presentation.SettingsScreenState
+import com.wardrobapp.presentation.StyleModelState
 import com.wardrobapp.presentation.ThemeChoice
 import com.wardrobapp.presentation.WardrobeLink
 import com.wardrobapp.presentation.WardrobeQuery
@@ -98,6 +99,8 @@ import com.wardrobapp.ui.UndoSnackbar
 import com.wardrobapp.ui.STATISTICS
 import com.wardrobapp.ui.SettingsScreen
 import com.wardrobapp.ui.StatisticsScreen
+import com.wardrobapp.ui.StyleModelLooksNotice
+import com.wardrobapp.ui.StyleModelSection
 import com.wardrobapp.ui.TABS
 import com.wardrobapp.ui.WARDROBE
 import com.wardrobapp.ui.WardrobappTheme
@@ -876,6 +879,7 @@ class MainActivity : AppCompatActivity() {
             factory = viewModelFactory { initializer { InspirationViewModel(container) } }
         )
         val state by model.state.collectAsStateWithLifecycle()
+        val styleModel = rememberStyleModelState(container)
         val scope = rememberCoroutineScope()
         val work = remember(container) { PhonePhotoWork(container) }
 
@@ -902,6 +906,39 @@ class MainActivity : AppCompatActivity() {
             },
             onRemove = model::onDeleteRequested,
             onRetry = model::refresh,
+            // Said on this screen, where somebody is about to save looks,
+            // whenever those looks would otherwise quietly do nothing.
+            modelNotice = styleModel.takeIf { it.showsOnLooks }?.let { offered ->
+                {
+                    StyleModelLooksNotice(
+                        state = offered,
+                        onDownload = container.styleModel::start,
+                        onCancel = container.styleModel::cancel,
+                        onRemove = container.styleModel::remove,
+                    )
+                }
+            },
+        )
+    }
+
+    /**
+     * The style model as its card shows it: where the download is, its size,
+     * whether Home Assistant does the work already, and whether this network
+     * may cost money -- read when the card is drawn, which is when it is
+     * about to be needed.
+     */
+    @Composable
+    private fun rememberStyleModelState(container: AppContainer): StyleModelState {
+        val status by container.styleModel.status.collectAsStateWithLifecycle()
+        val syncStatus by container.sync.status.collectAsStateWithLifecycle()
+        val metered = remember(status) {
+            getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered ?: true
+        }
+        return StyleModelState(
+            status = status,
+            bytes = container.styleModel.bytes,
+            paired = syncStatus.paired,
+            metered = metered,
         )
     }
 
@@ -1054,6 +1091,14 @@ class MainActivity : AppCompatActivity() {
             onRetry = model::refresh,
             cloudSection = { CloudBackup(container) },
             syncSection = { HomeAssistantSync(container) },
+            styleModelSection = {
+                StyleModelSection(
+                    state = rememberStyleModelState(container),
+                    onDownload = container.styleModel::start,
+                    onCancel = container.styleModel::cancel,
+                    onRemove = container.styleModel::remove,
+                )
+            },
             restoreReplacesSynced = syncStatus.paired,
         )
     }

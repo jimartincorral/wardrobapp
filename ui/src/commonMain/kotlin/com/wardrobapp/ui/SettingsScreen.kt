@@ -193,6 +193,13 @@ fun SettingsScreen(
      * included; null on the phone, which holds one wardrobe.
      */
     profileSection: (@Composable () -> Unit)? = null,
+    /**
+     * The phone's style model: what it is, its size, and downloading or
+     * removing it. Heading included. Beside storage, since it is the largest
+     * thing the app can keep on the phone. Null in the browser, whose server
+     * runs the model itself.
+     */
+    styleModelSection: (@Composable () -> Unit)? = null,
     /** Whether a restore here also replaces the wardrobe in Home Assistant; see RestoreDialog. */
     restoreReplacesSynced: Boolean = false,
 ) {
@@ -368,7 +375,7 @@ fun SettingsScreen(
             ExpandedSettings(
                 insets = insets,
                 left = listOfNotNull(profileSection, syncSection, backup, cloud),
-                right = listOfNotNull(storage, languages, themes, about),
+                right = listOfNotNull(storage, styleModelSection, languages, themes, about),
             )
             return@Scaffold
         }
@@ -388,6 +395,12 @@ fun SettingsScreen(
             storage()
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            if (styleModelSection != null) {
+                styleModelSection()
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            }
 
             if (backup != null) {
                 backup()

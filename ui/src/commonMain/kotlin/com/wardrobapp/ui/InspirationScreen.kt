@@ -66,6 +66,13 @@ fun InspirationScreen(
     onAddRequested: () -> Unit,
     onRemove: (String) -> Unit,
     onRetry: () -> Unit,
+    /**
+     * Above the looks, when there is something to say about whether they do
+     * anything yet: the phone's style model card, when the phone has no model
+     * and no Home Assistant to read the looks instead. Null where there is
+     * nothing to say -- always in the browser, whose server reads every look.
+     */
+    modelNotice: (@Composable () -> Unit)? = null,
 ) {
     Scaffold(
         topBar = {
@@ -109,6 +116,7 @@ fun InspirationScreen(
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column {
+                    modelNotice?.invoke()
                     Text(
                         stringResource(Res.string.inspiration_intro),
                         style = MaterialTheme.typography.bodyMedium,

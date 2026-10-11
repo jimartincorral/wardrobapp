@@ -273,6 +273,30 @@ jobs:
           fi
           echo "Signed with the installed base's key ($expected)."
 
+      # The installed app refuses an update larger than MAX_APK_BYTES, and that
+      # limit is compiled into every build already on a phone: a release over it
+      # cannot be installed by anybody, and raising the limit only helps the
+      # builds after the one that raises it. Build 424 found this out on the
+      # phones, at 229 MB with the style model bundled. So the limit is read
+      # from the source, the one place it is written, and an APK over it fails
+      # here instead of being published. The size is printed either way, since
+      # the artifact below is zipped and says nothing reliable about it.
+      - name: Check the APK fits the updater's limit
+        run: |
+          apk=app/build/outputs/apk/release/app-release.apk
+          size=$(stat -c %s "$apk")
+          expression=$(sed -n 's/^private const val MAX_APK_BYTES = \(.*\)$/\1/p' app/src/main/kotlin/com/wardrobapp/app/AndroidAppUpdates.kt | tr -d 'L ')
+          if [ -z "$expression" ]; then
+            echo '::error::MAX_APK_BYTES could not be read from AndroidAppUpdates.kt, so the APK size could not be checked.'
+            exit 1
+          fi
+          limit=$(( expression ))
+          echo "The release APK is $size bytes; installed phones accept up to $limit."
+          if [ "$size" -gt "$limit" ]; then
+            echo "::error::The release APK is $size bytes, over the $limit installed phones accept: none of them could install it."
+            exit 1
+          fi
+
       # Kept alongside the release below: artifacts give a per-run history, the
       # release gives one permanent link to the newest build.
       - name: Upload APK artifact

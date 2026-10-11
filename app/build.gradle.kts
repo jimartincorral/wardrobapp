@@ -51,6 +51,19 @@ val RELEASE_DRIVE_CLIENT_ID =
 val DEBUG_DRIVE_CLIENT_ID =
     "\"911335776498-cdb983dqrt7mh2eti4pdlmo764eedbt7.apps.googleusercontent.com\""
 
+// The style model's release, and the two files in it the app uses: the
+// anchors, small, bundled in the APK; and the model, 87 MB, downloaded by the
+// app only when somebody asks for it (StyleModelDownload). The same release and
+// digests the Home Assistant app pins in server/build.gradle.kts -- the phone
+// and the server must embed a photo alike, since their vectors are compared
+// after every sync -- so a new export changes both build files at once.
+val styleRelease = "https://github.com/jimartincorral/wardrobapp/releases/download/style-model-v1"
+val styleModelFile = "style-image-vitb32-int8.onnx"
+val styleModelSha256 = "3c4250fe483e4e36f272f95ba122b603226ece047bd791cb1266265ae5a78b5b"
+val styleModelBytes = 89_313_414L
+val styleAnchorsFile = "style-anchors.json"
+val styleAnchorsSha256 = "a2129312f64762b2932eb6c71f37a552b5bcb7a83feb90c130158ac21e843243"
+
 val releaseStoreFile: String? = providers.gradleProperty("WARDROBAPP_STORE_FILE").orNull
 val releaseStorePassword: String? = providers.gradleProperty("WARDROBAPP_STORE_PASSWORD").orNull
 val releaseKeyAlias: String? = providers.gradleProperty("WARDROBAPP_KEY_ALIAS").orNull
@@ -84,6 +97,22 @@ android {
         // above the last one published by the app this replaces.
         versionCode = versionCodeOffset + ciRunNumber
         versionName = "1.1.0"
+
+        // Where the style model is fetched from on request, and what it must
+        // be; see StyleModelDownload, and styleRelease above.
+        buildConfigField("String", "STYLE_MODEL_URL", "\"$styleRelease/$styleModelFile\"")
+        buildConfigField("String", "STYLE_MODEL_SHA256", "\"$styleModelSha256\"")
+        buildConfigField("long", "STYLE_MODEL_BYTES", "${styleModelBytes}L")
+
+        // ARM only. ONNX Runtime ships its native library for four ABIs, and
+        // the two x86 ones -- emulators, and a handful of discontinued Intel
+        // tablets -- were half of what made build 424 too large for any phone
+        // to install. On an x86 emulator the app still installs and runs;
+        // the style model and ML Kit's background removal do not, and the app
+        // carries on without them, as it does on any phone where they fail.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     // Per-app language, the way Google documents it: the locale list is
@@ -97,11 +126,18 @@ android {
     // safe default.
     androidResources {
         generateLocaleConfig = true
-        // The style model is read straight out of the APK, memory-mapped, which
-        // only works for an asset stored as it is. Compressing it would save
-        // little anyway -- 8-bit weights look like noise to deflate -- and would
-        // mean inflating 87 MB into memory or onto disk on first use.
-        noCompress.add("onnx")
+    }
+
+    // Native libraries compressed in the APK and extracted at install, rather
+    // than AGP's default for this minSdk of storing them uncompressed so they
+    // load in place. In place saves a copy on disk; compressed is the
+    // difference between ONNX Runtime costing a download of tens of megabytes
+    // and of over a hundred, and the download is what every update pays and
+    // what MAX_APK_BYTES bounds.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 
     lint {
@@ -272,17 +308,15 @@ kotlin {
 }
 
 /**
- * The style model and its anchors, fetched into the APK's assets.
+ * The style anchors, fetched into the APK's assets: 137 KB of text
+ * embeddings the phone reads attributes against, checked against the digest
+ * the server pins too. Only the anchors -- the model itself is 87 MB and is
+ * downloaded by the app when somebody asks for it, not carried by every
+ * install (see styleRelease above).
  *
- * The same two files the Home Assistant app carries, from the same release
- * and checked against the same digests (server/build.gradle.kts): the phone
- * and the server must embed a photo the same way, since their vectors are
- * compared after every sync. A new export is a new release tag and new
- * digests, in both build files at once.
- *
- * Downloaded rather than committed for the reason the server gives: the
- * repository would carry every version of 87 MB forever. Into the build
- * directory, once, and again only after a clean.
+ * Downloaded rather than committed so the file and its digest come from the
+ * one release the export made. Into the build directory, once, and again
+ * only after a clean.
  */
 @CacheableTask
 abstract class DownloadStyleAssets : DefaultTask() {
@@ -321,13 +355,8 @@ abstract class DownloadStyleAssets : DefaultTask() {
 }
 
 val downloadStyleAssets by tasks.registering(DownloadStyleAssets::class) {
-    release.set("https://github.com/jimartincorral/wardrobapp/releases/download/style-model-v1")
-    digests.set(
-        mapOf(
-            "style-image-vitb32-int8.onnx" to "3c4250fe483e4e36f272f95ba122b603226ece047bd791cb1266265ae5a78b5b",
-            "style-anchors.json" to "a2129312f64762b2932eb6c71f37a552b5bcb7a83feb90c130158ac21e843243",
-        ),
-    )
+    release.set(styleRelease)
+    digests.set(mapOf(styleAnchorsFile to styleAnchorsSha256))
     outputDirectory.set(layout.buildDirectory.dir("generated/style-assets"))
 }
 

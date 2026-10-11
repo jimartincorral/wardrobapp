@@ -30,9 +30,10 @@ import kotlinx.coroutines.launch
  * two queries, so asking often is cheap, and spares every save path from
  * having to know about the model.
  *
- * The first pass on a phone that has just updated embeds the whole wardrobe,
- * a fraction of a second a photo, in the background. Suggestions made
- * meanwhile simply have fewer vectors to go on.
+ * Nothing happens until the model is on the phone: it is downloaded on
+ * request (StyleModelDownload), and the pass that follows its arrival embeds
+ * the whole wardrobe, a fraction of a second a photo, in the background.
+ * Suggestions made meanwhile simply have fewer vectors to go on.
  */
 class PhoneStyleIndex(
     private val scope: CoroutineScope,
@@ -51,6 +52,9 @@ class PhoneStyleIndex(
         if (!pending.compareAndSet(false, true)) return
         scope.launch(oneAtATime) {
             pending.set(false)
+            // Nothing to do without the model: no walk over the wardrobe
+            // asking for vectors that cannot come.
+            if (!encoder.hasModel) return@launch
             val anchors = encoder.anchors ?: return@launch
             try {
                 val embedded = StyleIndexer(
