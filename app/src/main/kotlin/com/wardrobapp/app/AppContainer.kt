@@ -174,12 +174,33 @@ class AppContainer(context: Context) {
     )
 
     /**
+     * The style model, and the pass that keeps every photo's vector up to
+     * date -- the same model and pass the Home Assistant app runs, here so a
+     * phone that is never paired gets them too. One of each for the process:
+     * the model is the heaviest thing the app loads, and two passes over one
+     * wardrobe would embed the same photos twice.
+     */
+    val styleEncoder = AndroidStyleEncoder(context) { name ->
+        java.io.File(files.imagesDir, name).takeIf { it.isFile }
+    }
+    val styleIndex = PhoneStyleIndex(appScope, styleEncoder, StyleQueries(database), garments, garmentWrites)
+
+    init {
+        // A sync can bring garments, new photos and looks, none of them with
+        // a vector from this phone. Read once on start too, which is the
+        // StateFlow's current value: that is the pass for an app just updated.
+        appScope.launch { sync.changes.collect { styleIndex.refresh() } }
+    }
+
+    /**
      * Sync because the app came to the front, unless PhoneSync decides there is
      * no point -- see [PhoneSync.syncOnOpen]. In [appScope], so it is not
-     * cancelled by the activity going away under it.
+     * cancelled by the activity going away under it. Embedding whatever lacks
+     * a vector too, for the photos added while the app was away from the front.
      */
     fun syncOnOpen(metered: Boolean) {
         appScope.launch { sync.syncOnOpen(metered) }
+        styleIndex.refresh()
     }
 
     /** How much disk the wardrobe's photos take, for the settings screen. */
