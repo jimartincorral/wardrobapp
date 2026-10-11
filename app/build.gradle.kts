@@ -178,6 +178,16 @@ android {
         // From here rather than a lint block of :ui's own so that both are held
         // to the one configuration above and land in the one report CI prints.
         checkDependencies = true
+
+        // No second, smaller lint inside the release build. By default
+        // assembleRelease runs lintVitalRelease -- the fatal subset of the
+        // checks, against release -- so that a build nobody linted cannot ship
+        // a crash lint could have seen. Every build here is linted already, in
+        // full and with warnings fatal (the lint job in ci.yml), and the
+        // release is only published once that job has passed; the vital
+        // subset found nothing the full run would not, and cost CI the better
+        // part of half a minute on every run to find it again.
+        checkReleaseBuilds = false
     }
 
     signingConfigs {

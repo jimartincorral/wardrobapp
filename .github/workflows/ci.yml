@@ -68,30 +68,29 @@ jobs:
       - name: Test the release notes
         run: python3 -m unittest discover -s scripts -v
 
-  # The app itself. Everything that needs the Android SDK happens here, and
-  # nothing here needs an emulator: the Compose tests are Robolectric ones.
+  # The app itself: its tests, and the release build that gets published.
+  # Everything that needs the Android SDK happens here or in the lint job
+  # beside it, and nothing here needs an emulator: the Compose tests are
+  # Robolectric ones.
+  #
+  # Lint used to be in this job too, and at two minutes it was the biggest
+  # single part of it. It needs nothing this job builds -- it reads sources,
+  # not the APK -- so it runs on a runner of its own, at the same time; the
+  # publishing waits for both (the publish job below), so a build that fails
+  # lint is still never published.
   android:
     name: Build the app
     runs-on: ubuntu-latest
 
-    # Needed to publish the release below. The repository default is read-only;
-    # a workflow may request more for itself.
-    permissions:
-      contents: write
+    # For the publish job, which uploads what this built and has to say how it
+    # was signed.
+    outputs:
+      signed: ${{ steps.signing.outputs.signed }}
 
     steps:
-      # Whole history, not the default single commit: the release published below
-      # carries a changelog, and a changelog is a range of commits.
-      #
-      # This sat on the Kotlin job instead, which reads no history at all, so
-      # this job -- the only one that does -- ran at depth 1. At that depth the
-      # commit named by the previous `latest.json` is not in the clone, the
-      # `git cat-file -e` guard below fails, and the range is never taken: every
-      # release published took the one-entry fallback. The dedup, the merge
-      # subject parsing and the fifty-line bound underneath it had never run.
+      # The default single commit: the history the changelog needs is read by
+      # the publish job, which checks out its own.
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -140,7 +139,7 @@ jobs:
           } >> "$GITHUB_ENV"
           echo 'signed=true' >> "$GITHUB_OUTPUT"
 
-      # One Gradle invocation for all three, rather than the three it used to be.
+      # One Gradle invocation for all of these, rather than one each.
       # The daemon already survived between them and up-to-date checks already
       # stopped the debug sources compiling twice, so what this actually saves is
       # two configuration phases of an Android project -- worth something, not
@@ -150,7 +149,7 @@ jobs:
       # Tests first in the list, because a task list is also the order the
       # failures arrive in and a failing test is the more useful thing to be told
       # about. Gradle stops at the first failure: there is no `--continue` here,
-      # so a red test means lint and the assemble never run.
+      # so a red test means the assemble never runs.
       #
       # `:app:testDebugUnitTest`, the debug variant by name, not `:app:test`,
       # which would also run these against release. They cannot run there:
@@ -164,37 +163,18 @@ jobs:
       # because :ui is built only where there is an SDK -- settings.gradle.kts
       # explains why -- and this is the job that has one.
       #
-      # `:app:lintDebug` is every check lint has, with warnings failing the
-      # build. There is no baseline file: the backlog was cleared rather than
-      # frozen.
-      #
       # `:app:assembleRelease` is the only thing that ever exercises R8, since
       # `isMinifyEnabled` is on for release and nothing else here builds that
       # variant. It stays on every run for that reason: a `proguard-rules.pro`
       # that strips something wanted is worth discovering on the branch rather
       # than at the merge.
-      - name: Build, test and lint
+      - name: Build and test
         run: |
           ./gradlew \
             :ui:test \
             :app:testDebugUnitTest \
-            :app:lintDebug \
             :app:assembleRelease \
             --console=plain
-
-      # Every finding on one line each, since a warning now fails the build and
-      # the full report is mostly explanation. Information too: the version
-      # checks are downgraded to it rather than switched off, and this is where
-      # they get read. `if: always()`, because the run that matters most is the
-      # one where lint failed.
-      - name: Show the lint findings
-        if: always()
-        run: |
-          report=app/build/reports/lint-results-debug.txt
-          [ -f "$report" ] || exit 0
-          grep -E '^/.*(Warning|Error|Information):' "$report" \
-            | sed "s|$PWD/||" || true
-          tail -1 "$report"
 
       # The check the upgrade path rests on. An app can only be replaced by a
       # build signed with the same key, so a release signed with something else
@@ -307,14 +287,91 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  # Every check lint has, on the app and on :ui (checkDependencies in
+  # app/build.gradle.kts), with warnings failing the build. There is no
+  # baseline file: the backlog was cleared rather than frozen.
+  #
+  # A job of its own so it runs beside the build rather than inside it; see
+  # the note on the android job. It compiles the app's sources again, which
+  # costs less than the two minutes it took off that job's length.
+  lint:
+    name: Lint the app
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cache Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Lint
+        run: ./gradlew :app:lintDebug --console=plain
+
+      # Every finding on one line each, since a warning now fails the build and
+      # the full report is mostly explanation. Information too: the version
+      # checks are downgraded to it rather than switched off, and this is where
+      # they get read. `if: always()`, because the run that matters most is the
+      # one where lint failed.
+      - name: Show the lint findings
+        if: always()
+        run: |
+          report=app/build/reports/lint-results-debug.txt
+          [ -f "$report" ] || exit 0
+          grep -E '^/.*(Warning|Error|Information):' "$report" \
+            | sed "s|$PWD/||" || true
+          tail -1 "$report"
+
+  # The rolling release, from main only, once the build and lint have both
+  # passed. Its own job because lint is no longer in the build's: inside it,
+  # the publish step could not wait for a job running beside it, and the
+  # promise that a build failing lint is never published would have gone
+  # quietly. The APK is the one the build job checked -- its signature and its
+  # size -- passed across as the artifact it uploads anyway.
+  publish:
+    name: Publish the app
+    if: github.ref == 'refs/heads/main'
+    needs: [android, lint]
+    runs-on: ubuntu-latest
+
+    # Needed to publish the release. The repository default is read-only; a
+    # workflow may request more for itself.
+    permissions:
+      contents: write
+
+    steps:
+      # Whole history, not the default single commit: the release carries a
+      # changelog, and a changelog is a range of commits.
+      #
+      # This once sat on the Kotlin job instead, which reads no history at
+      # all, so the publishing ran at depth 1. At that depth the commit named
+      # by the previous `latest.json` is not in the clone, the `git cat-file
+      # -e` guard below fails, and the range is never taken: every release
+      # published took the one-entry fallback.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Where the build left it, so the step below reads the path it always
+      # has.
+      - name: Download the APK
+        uses: actions/download-artifact@v4
+        with:
+          name: wardrobapp-${{ github.run_number }}-${{ github.sha }}
+          path: app/build/outputs/apk/release
+
       # Publishes to a rolling `nightly` release so the download URL never
       # changes. Recreated rather than updated so the tag follows main instead
       # of pointing at whichever commit first created it.
       - name: Publish APK to the rolling release
-        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
-          SIGNED: ${{ steps.signing.outputs.signed }}
+          SIGNED: ${{ needs.android.outputs.signed }}
         run: |
           cp app/build/outputs/apk/release/app-release.apk wardrobapp.apk
 
