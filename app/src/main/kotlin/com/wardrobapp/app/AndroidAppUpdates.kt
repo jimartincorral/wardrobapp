@@ -32,7 +32,17 @@ private const val TIMEOUT_MS = 15_000
 /** Enough for a document of a few dozen changelog lines, and not enough to be a payload. */
 private const val MAX_MANIFEST_CHARS = 128 * 1024
 
-/** An APK this app's size is around 20 MB; this is room to grow and a bound. */
+/**
+ * The most this app will download as a build of itself: room to grow, and a
+ * bound on what it writes to its own disk.
+ *
+ * Compiled into every build, so a published build larger than this cannot be
+ * installed by any phone, and raising it helps only the builds after the one
+ * that raises it -- which is why CI reads it from this line and refuses to
+ * publish an APK over it. The app is a few tens of megabytes; the style model,
+ * which once took a build to 229 MB, is downloaded separately and on request
+ * (StyleModelDownload). Keep the expression on one line: CI evaluates it.
+ */
 private const val MAX_APK_BYTES = 200L * 1024L * 1024L
 
 private const val MAX_REDIRECTS = 5
@@ -259,46 +269,51 @@ class AndroidAppUpdates(private val context: Context) {
         }
     }
 
-    /**
-     * Request an address, following redirects only to hosts this project releases from.
-     *
-     * The check is applied to every hop, including the first, so an address that
-     * arrives from anywhere is refused before the request that would follow it.
-     */
-    private fun request(url: String): HttpURLConnection {
-        var target = url
-        var redirects = 0
+    private fun request(url: String): HttpURLConnection = requestTrusted(context, url)
+}
 
-        while (true) {
-            if (!isTrustedDownload(target)) {
-                throw IOException(context.getString(R.string.error_update_untrusted))
-            }
+/**
+ * Request an address, following redirects only to hosts this project releases
+ * from: the builds of this app, and the style model (StyleModelDownload). Both
+ * are files this app will run, and both come from the same releases, so both
+ * go through the one door.
+ *
+ * The check is applied to every hop, including the first, so an address that
+ * arrives from anywhere is refused before the request that would follow it.
+ */
+internal fun requestTrusted(context: Context, url: String): HttpURLConnection {
+    var target = url
+    var redirects = 0
 
-            val connection = (URL(target).openConnection() as HttpURLConnection).apply {
-                instanceFollowRedirects = false
-                connectTimeout = TIMEOUT_MS
-                readTimeout = TIMEOUT_MS
-                setRequestProperty("User-Agent", USER_AGENT)
-            }
+    while (true) {
+        if (!isTrustedDownload(target)) {
+            throw IOException(context.getString(R.string.error_update_untrusted))
+        }
 
-            val location = if (connection.responseCode in 300..399) {
-                connection.getHeaderField("Location")
-            } else {
-                null
-            }
+        val connection = (URL(target).openConnection() as HttpURLConnection).apply {
+            instanceFollowRedirects = false
+            connectTimeout = TIMEOUT_MS
+            readTimeout = TIMEOUT_MS
+            setRequestProperty("User-Agent", USER_AGENT)
+        }
 
-            if (location.isNullOrBlank()) return connection
+        val location = if (connection.responseCode in 300..399) {
+            connection.getHeaderField("Location")
+        } else {
+            null
+        }
 
-            connection.disconnect()
-            if (++redirects > MAX_REDIRECTS) {
-                throw IOException(context.getString(R.string.error_update_redirects))
-            }
+        if (location.isNullOrBlank()) return connection
 
-            target = try {
-                URL(URL(target), location).toString()
-            } catch (_: MalformedURLException) {
-                throw IOException(context.getString(R.string.error_update_untrusted))
-            }
+        connection.disconnect()
+        if (++redirects > MAX_REDIRECTS) {
+            throw IOException(context.getString(R.string.error_update_redirects))
+        }
+
+        target = try {
+            URL(URL(target), location).toString()
+        } catch (_: MalformedURLException) {
+            throw IOException(context.getString(R.string.error_update_untrusted))
         }
     }
 }

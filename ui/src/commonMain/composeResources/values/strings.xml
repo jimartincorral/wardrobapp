@@ -251,6 +251,18 @@
     <string name="property_style">Style</string>
     <!-- Inspiration: photos of looks the reader likes, which the Home Assistant
          app's style model learns from. -->
+    <string name="inspiration_model_notice">Until then, the looks you save here won't change your suggestions.</string>
+    <string name="settings_section_style_model">Style from photos</string>
+    <string name="style_model_title">Style from photos</string>
+    <string name="style_model_explain">To read each garment's style from its photo, and to learn from the looks you save, this phone needs a style model of %1$s MB. It is downloaded once, from this app's own releases, and stays on your phone. Your photos never leave it.</string>
+    <string name="style_model_explain_paired">Home Assistant already reads your photos and sends what it finds here when you sync. Download the style model (%1$s MB) only if you want this phone to do it on its own.</string>
+    <string name="style_model_download">Download (%1$s MB)</string>
+    <string name="style_model_metered">You're on mobile data.</string>
+    <string name="style_model_downloading">Downloading the style model…</string>
+    <string name="style_model_ready">Style model downloaded (%1$s MB). Your garments' styles are read on this phone.</string>
+    <string name="style_model_remove">Remove the style model</string>
+    <string name="style_model_failed">The download stopped.</string>
+    <string name="style_model_failed_reason">The download stopped: %1$s</string>
     <string name="inspiration_title">Looks I like</string>
     <string name="inspiration_intro">Add photos of outfits you like, from anywhere. The suggestions lean towards outfits that look like them.</string>
     <string name="inspiration_add">Add a look</string>

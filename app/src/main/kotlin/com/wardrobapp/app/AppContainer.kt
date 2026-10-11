@@ -179,10 +179,22 @@ class AppContainer(context: Context) {
      * phone that is never paired gets them too. One of each for the process:
      * the model is the heaviest thing the app loads, and two passes over one
      * wardrobe would embed the same photos twice.
+     *
+     * The model itself is not in the app: it is 85 MB, downloaded only when
+     * somebody asks for it, from Settings or the looks screen. Until then the
+     * encoder answers nothing and the pass does nothing.
      */
-    val styleEncoder = AndroidStyleEncoder(context) { name ->
-        java.io.File(files.imagesDir, name).takeIf { it.isFile }
-    }
+    val styleModel: StyleModelDownload = StyleModelDownload(
+        context = context,
+        scope = appScope,
+        onReady = { styleIndex.refresh() },
+        beforeRemove = { styleEncoder.release() },
+    )
+    val styleEncoder = AndroidStyleEncoder(
+        context = context,
+        photoFile = { name -> java.io.File(files.imagesDir, name).takeIf { it.isFile } },
+        modelFile = styleModel::file,
+    )
     val styleIndex = PhoneStyleIndex(appScope, styleEncoder, StyleQueries(database), garments, garmentWrites)
 
     init {

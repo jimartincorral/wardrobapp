@@ -37,6 +37,8 @@
     <string name="error_update_refused">The download was refused (%1$d).</string>
     <string name="error_update_too_large">That download is far larger than a build of this app, so it was stopped.</string>
     <string name="error_update_redirects">That download kept being redirected, so it was stopped.</string>
+    <string name="error_style_model_corrupt">What arrived was not the style model it should have been, so it was deleted. Try again.</string>
+    <string name="error_style_model_network">The connection dropped. Try again on a steadier network.</string>
     <string name="error_update_incomplete">The download did not finish, so nothing was installed.</string>
     <string name="error_update_unverified">This build was published without a checksum, so it was not fetched. Try again later.</string>
     <string name="error_update_mismatch">The download is not the build it was meant to be, so nothing was installed. Try again later.</string>
