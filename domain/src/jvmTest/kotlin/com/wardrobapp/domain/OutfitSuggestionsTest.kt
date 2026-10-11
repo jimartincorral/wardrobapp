@@ -390,6 +390,66 @@ class OutfitSuggestionsTest {
         }
     }
 
+    private val withKnitwear = wardrobe + listOf(
+        garment("sweater", "tops", "Sweater", color = "#7F8C8D"),
+        garment("hoodie", "tops", "Hoodie", color = "#2C3E50"),
+    )
+
+    private fun tops(outfit: ScoredOutfit) = outfit.garments.filter { it.category == "tops" }
+
+    @Test
+    fun `a sweater always has something underneath it`() {
+        // A sweater was a top like any other, so an outfit could be a sweater,
+        // jeans and boots with nothing under the wool.
+        val knitted = manyOutfits(garments = withKnitwear).filter { outfit ->
+            tops(outfit).any { it.subcategory in setOf("Sweater", "Hoodie") }
+        }
+
+        assertTrue(knitted.isNotEmpty(), "no sweater was ever suggested, so this proves nothing")
+        for (outfit in knitted) {
+            val types = tops(outfit).map { it.subcategory }
+            assertEquals(2, types.size, "${outfit.name} has tops $types")
+            assertTrue(
+                types.any { it in setOf("T-Shirt", "Shirt", "Blouse") },
+                "${outfit.name} has nothing under its sweater: $types",
+            )
+        }
+    }
+
+    @Test
+    fun `a top that is not a sweater is worn on its own`() {
+        for (outfit in manyOutfits(garments = withKnitwear)) {
+            val types = tops(outfit).map { it.subcategory }
+            // Dresses have no top at all, and are not what this is about.
+            if (types.isNotEmpty() && types.none { it == "Sweater" || it == "Hoodie" }) {
+                assertEquals(1, types.size, "${outfit.name} has two tops and no sweater: $types")
+            }
+        }
+    }
+
+    @Test
+    fun `a sweater with nothing to go under it is still worn`() {
+        val onlyKnitwear = withKnitwear.filterNot { it.category == "tops" && it.subcategory !in setOf("Sweater", "Hoodie") }
+
+        val outfits = manyOutfits(garments = onlyKnitwear)
+
+        assertTrue(outfits.any { outfit -> tops(outfit).isNotEmpty() }, "a wardrobe of sweaters suggested no separates")
+    }
+
+    @Test
+    fun `a seeded sweater gets something underneath too`() {
+        val sweater = withKnitwear.single { it.id == "sweater" }
+        val suggestions = buildSuggestions(
+            context(garments = withKnitwear),
+            GenerateSuggestionsOptions(count = 4, seedGarments = listOf(sweater)),
+        )
+
+        assertTrue(suggestions.isNotEmpty())
+        for (outfit in suggestions) {
+            assertEquals(2, tops(outfit).size, "${outfit.name} has tops ${tops(outfit).map { it.subcategory }}")
+        }
+    }
+
     @Test
     fun `a wardrobe with no shoes in it still suggests something`() {
         // The weights move the odds, they do not exclude: a template that cannot

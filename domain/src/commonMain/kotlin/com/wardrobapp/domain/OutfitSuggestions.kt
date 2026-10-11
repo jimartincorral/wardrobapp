@@ -152,6 +152,52 @@ private fun finishingCandidates(
 }
 
 /**
+ * Tops that are worn over another one, and the tops worn under them.
+ *
+ * A sweater was a top like any other, and a top was one garment, so an outfit
+ * could be a sweater, trousers and shoes with nothing between the wool and the
+ * skin -- which is how almost nobody wears one, and was the first thing a
+ * reader noticed once every outfit had the same shape. A hoodie is the same
+ * kind of garment. Neither is moved to the layer slot: a sweater under a coat
+ * is the commonest winter outfit there is, and the layer slot holds one
+ * garment.
+ *
+ * Underneath, the tops whose job is to be worn next to the skin and seen at
+ * the collar: not a crop top, which is cut to be seen on its own, and not a
+ * thermal, which nobody sees and the suggestion would only be telling them to
+ * put on a vest.
+ */
+private val TOPS_WORN_OVER_ANOTHER = setOf("Sweater", "Hoodie")
+private val TOPS_WORN_UNDERNEATH = setOf("T-Shirt", "Shirt", "Polo", "Blouse", "Tank Top")
+
+private fun Garment.isType(types: Set<String>) = effectiveSubcategories.any { it in types }
+
+/**
+ * What could go under the outfit's sweater, or nothing when it needs nothing.
+ *
+ * Nothing when there is no sweater, or something already under it (a seeded
+ * shirt). Otherwise the tops worn underneath that suit the season and the
+ * sweater's kind of day, and if none suits, any of them: a T-shirt under a
+ * work sweater is a smaller fault than bare skin. Empty when the wardrobe has
+ * none at all, and the sweater is worn as it is.
+ */
+private fun underTopCandidates(
+    selected: List<Garment>,
+    tops: List<Garment>,
+    currentSeason: Season,
+    preferences: SuggestionPreferences?,
+): List<Garment> {
+    val over = selected.firstOrNull { it.category == "tops" && it.isType(TOPS_WORN_OVER_ANOTHER) } ?: return emptyList()
+    if (selected.any { it.category == "tops" && it.isType(TOPS_WORN_UNDERNEATH) }) return emptyList()
+
+    val underneath = tops.filter { it.category == "tops" && it.isType(TOPS_WORN_UNDERNEATH) }
+    val suitable = underneath.filter {
+        matchesSeason(it, currentSeason, preferences?.seasons) && canShareADay(it, over)
+    }
+    return suitable.ifEmpty { underneath }
+}
+
+/**
  * Draw a base, in proportion to its weight.
  *
  * One call to [random], as the template draw it replaces was: the epsilon-greedy
@@ -838,28 +884,8 @@ fun buildSuggestions(
         val selected = seedGarments.toMutableList()
         val usedGarmentIds = seedGarments.map { it.id }.toMutableSet()
 
-        for (slot in base.slots + FINISHING_SLOTS) {
-            // A seeded garment already fills its slot. Without this the loop
-            // filled it again -- seeding a top produced outfits containing two
-            // tops, because usedGarmentIds blocks repeating a garment but not
-            // repeating a slot.
-            if (seedSlots.contains(slot)) continue
-
-            val pool = (bySlot[slot] ?: emptyList<Garment>())
-                .filter { !usedGarmentIds.contains(it.id) }
-            val available = if (slot in base.slots) {
-                pool
-            } else {
-                finishingCandidates(
-                    slot,
-                    pool,
-                    base = selected.filter { garment -> garmentSlots(garment).any { it in base.slots } },
-                    currentSeason = currentSeason,
-                    preferences = preferences,
-                )
-            }
-            if (available.isEmpty()) continue
-
+        // Choose one of [available] for the outfit so far, and wear it.
+        fun wear(available: List<Garment>) {
             // The epsilon draw happens before the branch and both branches draw
             // exactly once, so the random sequence does not depend on which one
             // is taken.
@@ -883,6 +909,46 @@ fun buildSuggestions(
 
             selected.add(picked)
             usedGarmentIds.add(picked.id)
+        }
+
+        fun baseGarments() = selected.filter { garment -> garmentSlots(garment).any { it in base.slots } }
+
+        for (slot in base.slots) {
+            // A seeded garment already fills its slot. Without this the loop
+            // filled it again -- seeding a top produced outfits containing two
+            // tops, because usedGarmentIds blocks repeating a garment but not
+            // repeating a slot.
+            if (seedSlots.contains(slot)) continue
+
+            val available = (bySlot[slot] ?: emptyList<Garment>())
+                .filter { !usedGarmentIds.contains(it.id) }
+            if (available.isNotEmpty()) wear(available)
+        }
+
+        // Something under the sweater, before anything goes over it; see
+        // underTopCandidates. Asked of what was chosen and what was seeded
+        // alike, so a sweater the reader started from gets one too.
+        val underneath = underTopCandidates(
+            selected,
+            (bySlot[OutfitSlot.TOPS] ?: emptyList<Garment>()).filter { !usedGarmentIds.contains(it.id) },
+            currentSeason,
+            preferences,
+        )
+        if (underneath.isNotEmpty()) wear(underneath)
+
+        for (slot in FINISHING_SLOTS) {
+            if (seedSlots.contains(slot)) continue
+
+            val pool = (bySlot[slot] ?: emptyList<Garment>())
+                .filter { !usedGarmentIds.contains(it.id) }
+            val available = finishingCandidates(
+                slot,
+                pool,
+                base = baseGarments(),
+                currentSeason = currentSeason,
+                preferences = preferences,
+            )
+            if (available.isNotEmpty()) wear(available)
         }
 
         if (selected.isEmpty()) continue
