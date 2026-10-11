@@ -105,7 +105,8 @@ class WardrobeCoverageTest {
      * A tie rather than a winner, and deliberately so: with tops and bottoms and
      * nothing else, one pair of shoes and one jacket each complete the same four
      * outfits. Asserting that shoes lead on their own would be asserting that
-     * `templateWeight` had leaked into the counting.
+     * the engine's habit of putting shoes on everything had leaked into the
+     * counting.
      */
     @Test
     fun `shoes and a layer are the biggest gaps in a wardrobe with neither`() {
