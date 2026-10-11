@@ -90,14 +90,27 @@ jobs:
       # WebAssembly, the same files on every architecture. The production
       # bundle is the slow part -- Binaryen's optimiser -- and doing it once
       # natively is much faster than twice under emulation.
+      #
+      # And only when it will be published. A run that publishes nothing --
+      # every pull request, and every push to main that leaves the version
+      # alone -- builds the bundle without the optimiser's passes
+      # (wardrobapp.quickWasm, explained in web/build.gradle.kts): seconds
+      # instead of nearly seven minutes, for images that are built only to
+      # prove they build. The release run is the one place the full
+      # optimiser runs, so the bundle people download is as small as before.
       - name: Build the server and the browser app
-        run: ./gradlew :server:installDist :web:wasmJsBrowserDistribution --console=plain
+        run: |
+          quick=''
+          if [ "$PUBLISH" != 'true' ]; then
+            quick='-Pwardrobapp.quickWasm=true'
+          fi
+          # $quick unquoted on purpose: empty means no argument at all.
+          ./gradlew :server:installDist :web:wasmJsBrowserDistribution $quick --console=plain
         env:
           ANDROID_HOME: ""
           ANDROID_SDK_ROOT: ""
+          PUBLISH: ${{ steps.publish.outputs.publish }}
 
-      # Emulation only so the arm64 image's build steps can run; there is
-      # nothing to compile in it.
       # What each version of the app changed for the browser, for its What's
       # new: the Release-Note trailers since the app existed, grouped by the
       # version bump that first shipped each (see web_history in the script).
@@ -109,6 +122,8 @@ jobs:
           python3 scripts/release-notes.py "$first" HEAD --web-history \
             > server/build/install/wardrobapp-server/release-notes.json
 
+      # Emulation only so the arm64 image's build steps can run; there is
+      # nothing to compile in it.
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
