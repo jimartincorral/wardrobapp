@@ -2,11 +2,9 @@ package com.wardrobapp.server
 
 import com.wardrobapp.data.GarmentQueries
 import com.wardrobapp.data.GarmentWrites
+import com.wardrobapp.data.StyleIndexer
 import com.wardrobapp.data.StyleQueries
 import com.wardrobapp.data.isoTimestamp
-import com.wardrobapp.data.toStoredImageRef
-import com.wardrobapp.domain.mergeStructuredTags
-import com.wardrobapp.domain.splitStructuredTags
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
@@ -71,50 +69,29 @@ class StyleIndex(
         throw e.cause ?: e
     }
 
-    private fun pass(): Int {
-        var embedded = 0
-        val computed = style.embeddedPhotos()
-        for (garment in garments.allGarments(GarmentQueries.Filters(availableOnly = false))) {
-            val photo = toStoredImageRef(garment.displayImage)
-            if (photo.isEmpty() || computed[garment.id] == photo) continue
-            val file = photos.file(photo) ?: continue
-            val vector = try {
-                encoder.embed(file.readBytes())
-            } catch (e: Exception) {
-                // A photo the model cannot read is left for the next time; a
-                // vector of nothing would be worse than none. Said in the
-                // log, since a photo that never embeds is otherwise silent.
-                println("Could not embed $photo for garment ${garment.id}: ${e.message}")
-                continue
-            }
-            style.putEmbedding(garment.id, photo, encoder.model, vector, now())
-            embedded++
-
-            val (customTags, seasons, set) = splitStructuredTags(garment.tags)
-            if (set.isEmpty) {
-                val read = encoder.anchors.attributesFor(vector)
-                if (!read.isEmpty) {
-                    garmentWrites.update(
-                        garment.id,
-                        GarmentWrites.GarmentEdit(tags = mergeStructuredTags(customTags, seasons, read)),
-                        now = now(),
-                    )
+    /** The pass itself is :data's, which the phone runs too; this side brings the photos and the thread. */
+    private val indexer = StyleIndexer(
+        style = style,
+        garments = garments,
+        garmentWrites = garmentWrites,
+        model = encoder.model,
+        anchors = encoder.anchors,
+        embedPhoto = { photo ->
+            photos.file(photo)?.let { file ->
+                try {
+                    encoder.embed(file.readBytes())
+                } catch (e: Exception) {
+                    // Said in the log, since a photo that never embeds is
+                    // otherwise silent; the pass leaves it for the next time.
+                    println("Could not embed $photo: ${e.message}")
+                    null
                 }
             }
-        }
-        for (look in style.inspirationsToEmbed()) {
-            val file = photos.file(toStoredImageRef(look.imageUri)) ?: continue
-            val vector = try {
-                encoder.embed(file.readBytes())
-            } catch (e: Exception) {
-                println("Could not embed look ${look.id}: ${e.message}")
-                continue
-            }
-            style.putInspirationVector(look.id, encoder.model, vector)
-            embedded++
-        }
-        return embedded
-    }
+        },
+        now = ::now,
+    )
+
+    private fun pass(): Int = indexer.pass()
 
     private fun now() = isoTimestamp(System.currentTimeMillis())
 

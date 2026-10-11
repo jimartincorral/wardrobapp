@@ -1,3 +1,5 @@
+import java.net.URI
+import java.security.MessageDigest
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // The Compose app. The only module that needs the Android SDK, which is why
@@ -95,6 +97,11 @@ android {
     // safe default.
     androidResources {
         generateLocaleConfig = true
+        // The style model is read straight out of the APK, memory-mapped, which
+        // only works for an asset stored as it is. Compressing it would save
+        // little anyway -- 8-bit weights look like noise to deflate -- and would
+        // mean inflating 87 MB into memory or onto disk on first use.
+        noCompress.add("onnx")
     }
 
     lint {
@@ -264,6 +271,74 @@ kotlin {
     }
 }
 
+/**
+ * The style model and its anchors, fetched into the APK's assets.
+ *
+ * The same two files the Home Assistant app carries, from the same release
+ * and checked against the same digests (server/build.gradle.kts): the phone
+ * and the server must embed a photo the same way, since their vectors are
+ * compared after every sync. A new export is a new release tag and new
+ * digests, in both build files at once.
+ *
+ * Downloaded rather than committed for the reason the server gives: the
+ * repository would carry every version of 87 MB forever. Into the build
+ * directory, once, and again only after a clean.
+ */
+@CacheableTask
+abstract class DownloadStyleAssets : DefaultTask() {
+    @get:Input
+    abstract val release: Property<String>
+
+    /** Each file's name, and the SHA-256 it must have. */
+    @get:Input
+    abstract val digests: MapProperty<String, String>
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun download() {
+        val directory = outputDirectory.get().asFile
+        directory.mkdirs()
+        for ((name, sha256) in digests.get()) {
+            val target = File(directory, name)
+            val partial = File(directory, "$name.part")
+            val url = "${release.get()}/$name"
+            URI(url).toURL().openStream().use { input ->
+                partial.outputStream().use { output -> input.copyTo(output) }
+            }
+            val digest = MessageDigest.getInstance("SHA-256")
+                .digest(partial.readBytes())
+                .joinToString("") { "%02x".format(it) }
+            if (digest != sha256) {
+                partial.delete()
+                throw GradleException("$url is not the file chosen: SHA-256 $digest, expected $sha256.")
+            }
+            target.delete()
+            partial.renameTo(target) || throw GradleException("Could not move $name into $directory.")
+        }
+    }
+}
+
+val downloadStyleAssets by tasks.registering(DownloadStyleAssets::class) {
+    release.set("https://github.com/jimartincorral/wardrobapp/releases/download/style-model-v1")
+    digests.set(
+        mapOf(
+            "style-image-vitb32-int8.onnx" to "3c4250fe483e4e36f272f95ba122b603226ece047bd791cb1266265ae5a78b5b",
+            "style-anchors.json" to "a2129312f64762b2932eb6c71f37a552b5bcb7a83feb90c130158ac21e843243",
+        ),
+    )
+    outputDirectory.set(layout.buildDirectory.dir("generated/style-assets"))
+}
+
+// Every variant's assets, through the variant API rather than a source set
+// directory, so the merge knows to run the download first.
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(downloadStyleAssets, DownloadStyleAssets::outputDirectory)
+    }
+}
+
 dependencies {
     implementation(project(":presentation"))
     // The screens, as they move to Compose Multiplatform.
@@ -324,6 +399,10 @@ dependencies {
     // viewfinder to write, and the same Play services the line above already
     // needs. A phone without it pairs by typing, or through its camera app.
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+
+    // Runs the style model; see AndroidStyleEncoder. The version the server
+    // runs (server/build.gradle.kts), so the two read the model the same way.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.30.0")
 
     // OAuth for Drive backups: the authorization request, PKCE, the token
     // exchange and the refresh. Not hand-rolled, unlike the rest of this app's

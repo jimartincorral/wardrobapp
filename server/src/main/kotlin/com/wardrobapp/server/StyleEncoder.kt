@@ -3,11 +3,9 @@ package com.wardrobapp.server
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import com.wardrobapp.domain.Fit
-import com.wardrobapp.domain.Formality
-import com.wardrobapp.domain.GarmentAttributes
-import com.wardrobapp.domain.Pattern
-import com.wardrobapp.domain.Weight
+import com.wardrobapp.data.StyleAnchors
+import com.wardrobapp.data.centreSquare
+import com.wardrobapp.data.clipInput
 import com.wardrobapp.domain.normalized
 import java.awt.Image
 import java.awt.image.BufferedImage
@@ -20,8 +18,6 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /**
  * Seeing what a garment looks like: a photo to a vector, and a vector to the
@@ -36,7 +32,8 @@ import kotlinx.serialization.json.Json
  * StyleTaste in :domain scores outfits by, and what lets a photo of a look
  * from outside the wardrobe say anything at all.
  *
- * The attributes come from [StyleAnchors]: the text half's embedding of
+ * The attributes come from [StyleAnchors], in :data with everything else
+ * the phone runs too: the text half's embedding of
  * sentences like "a photo of formal evening wear", written by the same
  * export. A garment is formal if its vector sits nearer that anchor than
  * the casual one; the text model itself never runs here, which saves a
@@ -108,7 +105,7 @@ class StyleEncoder(
          */
         fun at(model: File?, anchors: File?): StyleEncoder? {
             if (model == null || anchors == null || !model.isFile || !anchors.isFile) return null
-            val loaded = StyleAnchors.load(anchors)
+            val loaded = StyleAnchors.parse(anchors.readText())
             return StyleEncoder(loaded) { OnnxImageEncoder(model) }
         }
 
@@ -121,27 +118,16 @@ class StyleEncoder(
          * aliased into a pattern.
          */
         internal fun modelInput(image: BufferedImage, size: Int, anchors: StyleAnchors): FloatArray {
-            val scale = size.toDouble() / minOf(image.width, image.height)
-            val width = maxOf(size, Math.round(image.width * scale).toInt())
-            val height = maxOf(size, Math.round(image.height * scale).toInt())
-            val scaled = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+            // The square and the normalisation are :data's, shared with the
+            // phone; the scaling is ImageIO's, which the phone does its own way.
+            val (scaledSize, square) = centreSquare(image.width, image.height, size)
+            val scaled = BufferedImage(scaledSize.width, scaledSize.height, BufferedImage.TYPE_INT_RGB)
             scaled.createGraphics().apply {
-                drawImage(image.getScaledInstance(width, height, Image.SCALE_AREA_AVERAGING), 0, 0, null)
+                drawImage(image.getScaledInstance(scaledSize.width, scaledSize.height, Image.SCALE_AREA_AVERAGING), 0, 0, null)
                 dispose()
             }
-            val left = (width - size) / 2
-            val top = (height - size) / 2
-            val pixels = scaled.getRGB(left, top, size, size, null, 0, size)
-
-            val plane = size * size
-            val input = FloatArray(3 * plane)
-            for ((index, pixel) in pixels.withIndex()) {
-                for (channel in 0..2) {
-                    val value = (pixel shr (16 - 8 * channel) and 0xFF) / 255f
-                    input[channel * plane + index] = (value - anchors.mean[channel]) / anchors.deviation[channel]
-                }
-            }
-            return input
+            val pixels = scaled.getRGB(square.left, square.top, size, size, null, 0, size)
+            return clipInput(pixels, size, anchors)
         }
     }
 }
@@ -184,87 +170,5 @@ class OnnxImageEncoder(model: File) : ImageEncoder {
     override fun close() {
         session.close()
         options.close()
-    }
-}
-
-/**
- * The anchors the export wrote: for each attribute, a unit vector per value,
- * plus how the model wants its pictures prepared.
- */
-class StyleAnchors(
-    val model: String,
-    val imageSize: Int,
-    val mean: FloatArray,
-    val deviation: FloatArray,
-    val dimensions: Int,
-    val formality: Map<Formality, FloatArray>,
-    val pattern: Map<Pattern, FloatArray>,
-    val fit: Map<Fit, FloatArray>,
-    val weight: Map<Weight, FloatArray>,
-    val statement: Map<Boolean, FloatArray>,
-) {
-    /**
-     * What [vector] suggests, attribute by attribute: the nearest anchor,
-     * where it beats the runner-up by [LEAST_MARGIN] of cosine; unset where
-     * the model cannot tell. Cosines between CLIP's text and image embeddings
-     * sit in a narrow band -- a few hundredths separate a clear call from a
-     * toss-up -- which is what the margin is sized to.
-     */
-    fun attributesFor(vector: FloatArray): GarmentAttributes = GarmentAttributes(
-        formality = nearest(formality, vector),
-        pattern = nearest(pattern, vector),
-        fit = nearest(fit, vector),
-        weight = nearest(weight, vector),
-        statement = nearest(statement, vector),
-    )
-
-    private fun <T> nearest(anchors: Map<T, FloatArray>, vector: FloatArray): T? {
-        if (anchors.size < 2) return null
-        val ranked = anchors.entries.map { (value, anchor) -> value to cosine(anchor, vector) }.sortedByDescending { it.second }
-        val (best, bestScore) = ranked[0]
-        return if (bestScore - ranked[1].second >= LEAST_MARGIN) best else null
-    }
-
-    private fun cosine(a: FloatArray, b: FloatArray): Float {
-        var total = 0f
-        for (i in a.indices) total += a[i] * b[i]
-        return total
-    }
-
-    @Serializable
-    private class Document(
-        val model: String,
-        val imageSize: Int,
-        val mean: List<Float>,
-        val deviation: List<Float>,
-        val dimensions: Int,
-        val anchors: Map<String, Map<String, List<Float>>>,
-    )
-
-    companion object {
-        /** By how much the nearest anchor must beat the next for the attribute to be written. */
-        const val LEAST_MARGIN = 0.01f
-
-        fun load(file: File): StyleAnchors = parse(file.readText())
-
-        fun parse(json: String): StyleAnchors {
-            val document = Json { ignoreUnknownKeys = true }.decodeFromString(Document.serializer(), json)
-            fun <T> table(name: String, values: List<T>, tag: (T) -> String): Map<T, FloatArray> {
-                val anchors = document.anchors[name].orEmpty()
-                return values.mapNotNull { value -> anchors[tag(value)]?.let { value to it.toFloatArray() } }.toMap()
-            }
-            return StyleAnchors(
-                model = document.model,
-                imageSize = document.imageSize,
-                mean = document.mean.toFloatArray(),
-                deviation = document.deviation.toFloatArray(),
-                dimensions = document.dimensions,
-                formality = table("formality", Formality.entries) { it.tag },
-                pattern = table("pattern", Pattern.entries) { it.tag },
-                fit = table("fit", Fit.entries) { it.tag },
-                weight = table("weight", Weight.entries) { it.tag },
-                statement = table("statement", listOf(true, false)) { if (it) "yes" else "no" },
-            )
-        }
     }
 }

@@ -2,10 +2,12 @@ package com.wardrobapp.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wardrobapp.data.InspirationRecord
 import com.wardrobapp.data.StyleQueries
 import com.wardrobapp.presentation.DatabaseInspirationSource
 import com.wardrobapp.presentation.InspirationScreenModel
 import com.wardrobapp.presentation.InspirationScreenState
+import com.wardrobapp.presentation.InspirationSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -14,25 +16,32 @@ import kotlinx.coroutines.launch
  * The looks a reader likes, on the phone: the same screen model the browser
  * runs, over the phone's own database and photo directory.
  *
- * The phone has no style model, so a look saved here is only a photo and a
- * row until the next sync, when Home Assistant embeds it and its vector comes
- * back. Which is why adding or removing one asks for a sync: the point of a
- * look is to move the suggestions, and the sooner the server sees it the
- * sooner they move. A phone that is not paired keeps the looks all the same
- * -- they will go the day it pairs -- and PhoneSync declines the sync itself,
- * so nothing here needs to know.
+ * The phone embeds a look itself, with the model bundled in the app (see
+ * PhoneStyleIndex), so a look moves the phone's suggestions whether or not it
+ * is paired with Home Assistant. Adding or removing one also asks for a sync,
+ * so a paired Home Assistant has it too; PhoneSync declines that sync on a
+ * phone that is not paired, so nothing here needs to know.
  */
 class InspirationViewModel(private val container: AppContainer) : ViewModel() {
 
-    private val model = InspirationScreenModel(
-        scope = viewModelScope,
-        source = DatabaseInspirationSource(
-            style = StyleQueries(container.database),
-            imageDirectory = container.imageDirectory,
-            deletePhoto = container.photos::delete,
-            io = Dispatchers.IO,
-        ),
+    private val stored = DatabaseInspirationSource(
+        style = StyleQueries(container.database),
+        imageDirectory = container.imageDirectory,
+        deletePhoto = container.photos::delete,
+        io = Dispatchers.IO,
     )
+
+    /**
+     * The phone's looks, with one thing added: a look is embedded as soon as
+     * its row exists. After the add rather than on the tap, since the pass
+     * looks for rows and a pass that ran first would find none.
+     */
+    private val source = object : InspirationSource by stored {
+        override suspend fun add(photo: String): InspirationRecord =
+            stored.add(photo).also { container.styleIndex.refresh() }
+    }
+
+    private val model = InspirationScreenModel(scope = viewModelScope, source = source)
 
     val state: StateFlow<InspirationScreenState> = model.state
 

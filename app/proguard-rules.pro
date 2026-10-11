@@ -27,6 +27,12 @@
 -dontwarn java.lang.management.ManagementFactory
 -dontwarn java.lang.management.RuntimeMXBean
 
+# ONNX Runtime, for the style model. Its native library builds Java objects --
+# tensors, sessions, the exceptions it throws -- by class and constructor name
+# through JNI, which R8 cannot see; a renamed class is a crash the first time
+# the model runs, and only in the release build, since debug is not minified.
+-keep class ai.onnxruntime.** { *; }
+
 # The line numbers in a crash report, which are worth more than the few kilobytes
 # the table costs.
 -keepattributes SourceFile,LineNumberTable

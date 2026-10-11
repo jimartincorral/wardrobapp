@@ -1,5 +1,6 @@
 package com.wardrobapp.server
 
+import com.wardrobapp.data.StyleAnchors
 import com.wardrobapp.api.Routes
 import com.wardrobapp.api.ServerException
 import com.wardrobapp.api.ServerFeatures

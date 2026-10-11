@@ -1190,7 +1190,6 @@ class MainActivity : AppCompatActivity() {
             factory = viewModelFactory { initializer { OutfitsViewModel(container) } }
         )
         val state by model.state.collectAsStateWithLifecycle()
-        val syncStatus by container.sync.status.collectAsStateWithLifecycle()
 
         RefreshOnReturn(model::refresh)
 
@@ -1225,10 +1224,10 @@ class MainActivity : AppCompatActivity() {
             onOutfitOpened = onOutfitOpened,
             onBuildRequested = onBuildRequested,
             onTrainRequested = onTrainRequested,
-            // Only once paired: a look does nothing until Home Assistant has
-            // embedded it, and a button that leads to a screen whose photos
-            // change nothing would be a promise the phone cannot keep.
-            onInspirationRequested = if (syncStatus.paired) onInspirationRequested else null,
+            // Always: the phone embeds a look itself now, with the model the
+            // app carries, so a look moves the suggestions with or without
+            // Home Assistant.
+            onInspirationRequested = onInspirationRequested,
         )
     }
 

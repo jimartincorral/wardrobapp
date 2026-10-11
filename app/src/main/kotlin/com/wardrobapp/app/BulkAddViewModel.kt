@@ -47,4 +47,16 @@ class BulkAddViewModel(container: AppContainer) : ViewModel() {
     fun onSaveRequested() = model.onSaveRequested()
     fun onSkipRequested() = model.onSkipRequested()
     fun onErrorDismissed() = model.onErrorDismissed()
+
+    /**
+     * Whatever this screen saved -- a new garment, a new photo -- has no
+     * vector yet. Asked for as the screen goes, saved or not, since a pass
+     * with nothing to do costs two queries and this way the save path needs
+     * to know nothing about the style model.
+     */
+    private val styleIndex = container.styleIndex
+
+    override fun onCleared() {
+        styleIndex.refresh()
+    }
 }
