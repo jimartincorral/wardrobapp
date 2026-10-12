@@ -282,6 +282,9 @@ private fun LazyListScope.draftItems(
             Chips(GARMENT_CATEGORIES.map { it.id }, setOf(draft.category), { categoryLabel(it) }) {
                 onCategorySelected(it)
             }
+            // No wait shown: each photo is read as it joins the queue, mostly
+            // long before it reaches the screen.
+            ReadFromPhoto(reading = false, read = draft.typeRead && !draft.typeChosen)
         }
     }
 
@@ -766,6 +769,9 @@ private fun LazyListScope.expandedDraftItems(
             Chips(GARMENT_CATEGORIES.map { it.id }, setOf(draft.category), { categoryLabel(it) }) {
                 onCategorySelected(it)
             }
+            // No wait shown: each photo is read as it joins the queue, mostly
+            // long before it reaches the screen.
+            ReadFromPhoto(reading = false, read = draft.typeRead && !draft.typeChosen)
         }
     }
 

@@ -144,14 +144,20 @@ val downloadBackgroundModel by tasks.registering {
 // style-model.yml as a release of this repository, which is where they are
 // fetched from -- by digest, for the reason the background model is. A new
 // export is a new release tag, and new digests here.
+//
+// The anchors from a later release than the model, as app/build.gradle.kts
+// explains: style-model-v2 only added anchors for garment types, and the
+// model stays the one every stored vector was made with.
 val styleRelease = "https://github.com/jimartincorral/wardrobapp/releases/download/style-model-v1"
+val styleAnchorsRelease = "https://github.com/jimartincorral/wardrobapp/releases/download/style-model-v2"
 val styleModel = layout.buildDirectory.file("models/style-image-vitb32-int8.onnx")
 val styleAnchors = layout.buildDirectory.file("models/style-anchors.json")
 
 val downloadStyleModel by tasks.registering {
     val modelSha256 = "3c4250fe483e4e36f272f95ba122b603226ece047bd791cb1266265ae5a78b5b"
-    val anchorsSha256 = "a2129312f64762b2932eb6c71f37a552b5bcb7a83feb90c130158ac21e843243"
+    val anchorsSha256 = "fb10733d4bf48be1d35155dc2be8b9853690c9cc3cd9e976032f647c82b90dd9"
     inputs.property("release", styleRelease)
+    inputs.property("anchorsRelease", styleAnchorsRelease)
     inputs.property("modelSha256", modelSha256)
     inputs.property("anchorsSha256", anchorsSha256)
     outputs.files(styleModel, styleAnchors)
@@ -160,7 +166,7 @@ val downloadStyleModel by tasks.registering {
         val model = styleModel.get().asFile
         val anchors = styleAnchors.get().asFile
         downloadVerified("$styleRelease/${model.name}", modelSha256, model, "style model")
-        downloadVerified("$styleRelease/${anchors.name}", anchorsSha256, anchors, "style anchors")
+        downloadVerified("$styleAnchorsRelease/${anchors.name}", anchorsSha256, anchors, "style anchors")
     }
 }
 

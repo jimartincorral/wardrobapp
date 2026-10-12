@@ -495,6 +495,8 @@
     <!-- Taking a photo, and reading a colour off one -->
     <string name="form_take_photo">Take Photo</string>
     <string name="form_detecting_colors">Reading colors from photo…</string>
+    <string name="form_reading_photo">Reading what the photo shows…</string>
+    <string name="form_read_from_photo">Filled in from the photo — tap to change.</string>
     <string name="error_no_camera">No camera app answered, so no photo was taken.</string>
     <string name="error_crop_failed">That photo could not be cropped, so it was not added.</string>
 

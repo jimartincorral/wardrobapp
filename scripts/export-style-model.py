@@ -7,8 +7,9 @@ This writes that half as an ONNX file ONNX Runtime can run on a Pi, quantised
 to 8-bit weights (a third of the size, within a hair of the same answers), and
 a JSON of "anchors": the text half's embedding of a few sentences per
 attribute value -- "a photo of formal evening wear", "a photo of a striped
-garment" -- so the server can read formality, pattern, fit and weight off a
-photo by nearest anchor without running the text model at all. The text model
+garment" -- and per garment type -- "a photo of a pair of chinos" -- so the
+server can read type, formality, pattern, fit and weight off a photo by
+nearest anchor without running the text model at all. The text model
 needs a tokenizer the server does not have; a few hundred numbers in a JSON
 file need nothing.
 
@@ -16,6 +17,13 @@ Run by .github/workflows/style-model.yml, once, which attaches both files to
 a release of this repository; server/build.gradle.kts downloads them from
 there by digest. Run it again only to change the model or the prompts, and
 bump the release tag when you do: the digests are pinned.
+
+Changing only the prompts changes only the anchors, and only the anchors
+should be re-pinned: the model keeps coming from the release that first
+published it. An export is not promised to be byte-for-byte the same twice,
+and a model with new bytes would send every phone that downloaded the old
+one to download 85 MB again, and leave the vectors already stored beside
+ones made by a slightly different model.
 """
 
 import hashlib
@@ -76,6 +84,92 @@ ANCHORS = {
     "statement": {
         "yes": ["a statement piece", "a bold eye-catching garment", "a striking standout garment"],
         "no": ["a basic wardrobe staple", "a plain everyday basic", "an understated simple garment"],
+    },
+    # One entry per garment type, keyed by the label a garment row stores --
+    # domain/.../GarmentCatalogue.kt's GARMENT_CATEGORIES, word for word, since
+    # the app files a photo under whichever key its vector is nearest and reads
+    # the key back as the type. A label missing here is a type the model never
+    # suggests; one spelled differently is ignored by the app altogether.
+    #
+    # The phrasings name the thing as a shop would, and two or three ways,
+    # because CLIP knows "a pair of trainers" better than it knows "Athletic",
+    # and the four dress lengths say "dress" since "a photo of a midi" is a
+    # photo of nothing in particular.
+    "type": {
+        "T-Shirt": ["a t-shirt", "a short-sleeved tee", "a crew-neck t-shirt"],
+        "Blouse": ["a blouse", "a women's blouse", "a silky blouse"],
+        "Shirt": ["a button-up shirt", "a collared shirt", "a dress shirt"],
+        "Tank Top": ["a tank top", "a sleeveless vest top", "a camisole"],
+        "Sweater": ["a sweater", "a knitted jumper", "a pullover"],
+        "Hoodie": ["a hoodie", "a hooded sweatshirt", "a zip-up hoodie"],
+        "Crop Top": ["a crop top", "a cropped top", "a short cropped t-shirt"],
+        "Polo": ["a polo shirt", "a pique polo shirt"],
+        "Jeans": ["a pair of jeans", "denim jeans", "blue jeans"],
+        "Pants": ["a pair of trousers", "tailored trousers", "dress pants"],
+        "Shorts": ["a pair of shorts", "casual shorts", "denim shorts"],
+        "Skirt": ["a skirt", "a pleated skirt", "a pencil skirt"],
+        "Leggings": ["a pair of leggings", "black leggings"],
+        "Sweatpants": ["a pair of sweatpants", "jogging bottoms", "joggers"],
+        "Chinos": ["a pair of chinos", "chino trousers", "cotton chinos"],
+        "Mini": ["a mini dress", "a short dress"],
+        "Midi": ["a midi dress", "a knee-length dress"],
+        "Maxi": ["a maxi dress", "a long floor-length dress"],
+        "Cocktail": ["a cocktail dress", "an evening party dress"],
+        "Sundress": ["a sundress", "a light summer dress", "a strappy summer dress"],
+        "Jumpsuit": ["a jumpsuit", "a one-piece jumpsuit"],
+        "Romper": ["a romper", "a playsuit"],
+        "Blazer": ["a blazer", "a suit jacket", "a tailored blazer"],
+        "Overshirt": ["an overshirt", "a shirt jacket", "a heavy flannel overshirt"],
+        "Vest": ["a waistcoat", "a suit vest", "a sleeveless gilet"],
+        "Poncho": ["a poncho", "a knitted poncho"],
+        "Cape": ["a cape", "a cloak"],
+        "Jacket": ["a jacket", "a denim jacket", "a bomber jacket"],
+        "Coat": ["a coat", "a wool overcoat", "a trench coat"],
+        "Cardigan": ["a cardigan", "a button-up knitted cardigan"],
+        "Windbreaker": ["a windbreaker", "a light rain jacket", "a nylon shell jacket"],
+        "Parka": ["a parka", "a hooded winter parka", "a padded parka"],
+        "Sneakers": ["a pair of sneakers", "white trainers", "canvas sneakers"],
+        "Boots": ["a pair of boots", "leather ankle boots", "chelsea boots"],
+        "Sandals": ["a pair of sandals", "strappy sandals", "flip-flops"],
+        "Heels": ["a pair of high heels", "stiletto pumps", "heeled shoes"],
+        "Flats": ["a pair of ballet flats", "flat shoes"],
+        "Loafers": ["a pair of loafers", "leather loafers", "penny loafers"],
+        "Athletic": ["a pair of running shoes", "sports trainers", "athletic shoes"],
+        "Hat": ["a hat", "a baseball cap", "a beanie"],
+        "Scarf": ["a scarf", "a knitted winter scarf", "a wool scarf"],
+        "Foulard": ["a silk foulard", "a silk neckerchief", "a printed silk square scarf"],
+        "Belt": ["a belt", "a leather belt"],
+        "Bag": ["a bag", "a handbag", "a backpack"],
+        "Wallet": ["a wallet", "a leather wallet", "a purse for cards"],
+        "Gloves": ["a pair of gloves", "leather gloves", "winter gloves"],
+        "Earrings": ["a pair of earrings", "earrings"],
+        "Necklaces": ["a necklace", "a pendant necklace", "a chain necklace"],
+        "Bracelets": ["a bracelet", "a bangle"],
+        "Rings": ["a ring", "a gold ring"],
+        "Jewelry": ["jewellery", "a piece of jewelry", "a jewellery set"],
+        "Watch": ["a wristwatch", "a watch"],
+        "Eyewear": ["a pair of glasses", "prescription spectacles", "eyeglasses"],
+        "Sunglasses": ["a pair of sunglasses", "dark sunglasses"],
+        "Tie": ["a necktie", "a tie", "a silk tie"],
+        "Sports Bra": ["a sports bra", "a workout bra"],
+        "Workout Top": ["a workout top", "a gym t-shirt", "a running top"],
+        "Workout Shorts": ["a pair of workout shorts", "running shorts", "gym shorts"],
+        "Yoga Pants": ["a pair of yoga pants", "workout leggings"],
+        "Track Suit": ["a tracksuit", "a track jacket and pants"],
+        "Bra": ["a bra", "a lace bra"],
+        "Briefs": ["a pair of briefs", "underwear briefs", "knickers"],
+        "Boxers": ["a pair of boxer shorts", "boxers"],
+        "Bodysuit": ["a bodysuit", "a fitted bodysuit"],
+        "Shapewear": ["shapewear", "a shaping slip"],
+        "Socks": ["a pair of socks", "socks"],
+        "Tights": ["a pair of tights", "pantyhose"],
+        "Thermal": ["a thermal base layer", "thermal underwear"],
+        "Pajama Set": ["a pajama set", "pyjamas", "matching sleepwear"],
+        "Pajama Top": ["a pajama top", "a pyjama shirt"],
+        "Pajama Bottoms": ["a pair of pajama bottoms", "pyjama trousers"],
+        "Nightgown": ["a nightgown", "a nightdress"],
+        "Robe": ["a bathrobe", "a dressing gown", "a robe"],
+        "Lounge Set": ["a lounge set", "a matching loungewear set"],
     },
 }
 

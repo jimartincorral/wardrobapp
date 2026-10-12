@@ -1,5 +1,7 @@
 package com.wardrobapp.presentation
 
+import com.wardrobapp.domain.GarmentReading
+import com.wardrobapp.domain.ReadType
 import java.io.IOException
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -29,6 +31,8 @@ class BulkAddScreenModelTest {
             if (failCut) throw IOException()
             return "$photo.nobg"
         }
+        override suspend fun read(photo: String): GarmentReading? =
+            if (photo.endsWith("boots.jpg")) GarmentReading(type = ReadType("shoes", "Boots")) else null
     }
 
     private class FakeSource : BulkAddSource {
@@ -158,5 +162,19 @@ class BulkAddScreenModelTest {
 
         assertFalse(model.state.value.removingBackground)
         assertEquals(ErrorFallback.BACKGROUND_NOT_REMOVED, model.state.value.errorFallback)
+    }
+
+    @Test
+    fun `each queued photo is read for its type as it arrives`() = runTest {
+        val source = FakeSource()
+        val model = BulkAddScreenModel(this, FakePhotos(), source)
+
+        model.onPhotosPicked(listOf("shirt.jpg", "boots.jpg"))
+        advanceUntilIdle()
+
+        val queue = model.state.value.queue
+        assertEquals(BulkAddState.DEFAULT_CATEGORY, queue.drafts[0].category)
+        assertEquals("shoes", queue.drafts[1].category)
+        assertEquals(listOf("Boots"), queue.drafts[1].subcategories)
     }
 }

@@ -4,7 +4,9 @@ import com.wardrobapp.data.StyleAnchors
 import com.wardrobapp.api.Routes
 import com.wardrobapp.api.ServerException
 import com.wardrobapp.api.ServerFeatures
+import com.wardrobapp.api.NotFoundException
 import com.wardrobapp.domain.Formality
+import com.wardrobapp.domain.ReadType
 import com.wardrobapp.domain.GarmentAttributes
 import com.wardrobapp.presentation.GarmentFormState
 import io.ktor.client.call.body
@@ -61,7 +63,8 @@ class StyleTest {
          "anchors": {
            "formality": {"formal": [1, 0, 0, 0], "casual": [0, 1, 0, 0], "lounge": [0, 0, 1, 0]},
            "pattern": {"solid": [0, 0, 0, 1], "print": [0, 0, 0, 1]},
-           "weight": {"light": [0.1, 0.1, 0.1, 0.9]}
+           "weight": {"light": [0.1, 0.1, 0.1, 0.9]},
+           "type": {"Boots": [1, 0, 0, 0], "Jeans": [0, 0, 1, 0], "T-Shirt": [0, 1, 0, 0]}
          }}
     """.trimIndent()
 
@@ -158,6 +161,22 @@ class StyleTest {
         assertTrue(inspirations.looks().isEmpty())
         assertTrue(wardrobe.styleQueries.inspirationVectors().isEmpty())
         assertFalse(File(photoDirectory, look.imageUri.substringAfterLast('/')).exists(), "the look's photo stayed")
+    }
+
+    @Test
+    fun `a photo is read for its type and attributes before it is any garment's`() = serverTest(style = encoder()) {
+        val reading = photos.read(uploadPhoto(photo(Color(220, 20, 20)))).toReading()
+
+        assertEquals(ReadType("shoes", "Boots"), reading.type)
+        assertEquals(Formality.FORMAL, reading.attributes.formality)
+
+        assertFailsWith<NotFoundException> { photos.read("photos/nothing-here.jpg") }
+    }
+
+    @Test
+    fun `a server without the model reads no photos`() = serverTest {
+        val failure = assertFailsWith<ServerException> { photos.read(uploadPhoto(photo(Color.RED))) }
+        assertEquals(501, failure.status)
     }
 
     @Test

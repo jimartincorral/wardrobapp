@@ -158,6 +158,13 @@ object Routes {
     const val PHOTO_CUT_OUT = "api/photos/{name}/cut-out"
 
     /**
+     * POST, no body: what the style model reads off the stored photo -- its
+     * type and attributes -- as a [PhotoReading]. Only where [ServerFeatures]
+     * says the server learns style; elsewhere, 501.
+     */
+    const val PHOTO_READING = "api/photos/{name}/reading"
+
+    /**
      * GET: the photo itself. Outside `api/` because it is what an image's `src`
      * points at, and the references the garment rows hold become this once the
      * server reads them -- see the server's image directory.
@@ -181,6 +188,7 @@ object Routes {
     fun outfitUnarchive(id: String) = OUTFIT_UNARCHIVE.with("id", id)
     fun photo(name: String) = PHOTO.with("name", name)
     fun photoCutOut(name: String) = PHOTO_CUT_OUT.with("name", name)
+    fun photoReading(name: String) = PHOTO_READING.with("name", name)
 
     private fun String.with(parameter: String, value: String) =
         replace("{$parameter}", value.encodeURLPathPart())

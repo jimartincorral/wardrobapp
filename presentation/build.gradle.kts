@@ -163,4 +163,12 @@ tasks.withType<Test>().configureEach {
     inputs.file(releaseNotesScript)
         .withPropertyName("releaseNotesScript")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+
+    // The script that writes the style model's anchors, for StyleAnchorTypesTest,
+    // which holds its table of garment types to the catalogue's.
+    val styleExportScript = rootProject.file("scripts/export-style-model.py")
+    systemProperty("styleExportScript", styleExportScript.absolutePath)
+    inputs.file(styleExportScript)
+        .withPropertyName("styleExportScript")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }

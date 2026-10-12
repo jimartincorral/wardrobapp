@@ -3,6 +3,8 @@ package com.wardrobapp.presentation
 import com.wardrobapp.data.DuplicateGarment
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.DuplicateCandidate
+import com.wardrobapp.domain.GarmentReading
+import com.wardrobapp.domain.ReadType
 import com.wardrobapp.domain.GarmentImportException
 import com.wardrobapp.domain.ImportFailureReason
 import com.wardrobapp.domain.ImportParser
@@ -32,6 +34,16 @@ class GarmentFormScreenModelTest {
         override suspend fun cutOut(photo: String): String {
             cutGate?.await()
             return "$photo.nobg"
+        }
+
+        /** What each photo reads as; a photo not here reads as nothing. */
+        val readings = mutableMapOf<String, GarmentReading>()
+        var readGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+        val read = mutableListOf<String>()
+        override suspend fun read(photo: String): GarmentReading? {
+            read += photo
+            readGate?.await()
+            return readings[photo]
         }
     }
 
@@ -294,5 +306,72 @@ class GarmentFormScreenModelTest {
         form.onSaveRequested()
 
         assertEquals(ErrorTitle.SAVE, form.state.value.errorTitle)
+    }
+
+    @Test
+    fun `a picked photo is read for its type, and its cut-out read again`() = runTest {
+        val photos = FakePhotos().apply {
+            readings["stored/a.jpg"] = GarmentReading(type = ReadType("tops", null))
+            readings["stored/a.jpg.nobg"] = GarmentReading(type = ReadType("tops", "Polo"), brand = "Lacoste")
+        }
+        val form = model(photos = photos)
+        advanceUntilIdle()
+
+        form.onPhotoPicked("a.jpg")
+        advanceUntilIdle()
+        assertEquals("tops", form.state.value.form.category)
+        assertEquals(emptyList(), form.state.value.form.subcategories)
+
+        form.onRemoveBackground()
+        advanceUntilIdle()
+        assertEquals(listOf("Polo"), form.state.value.form.subcategories)
+        assertEquals("Lacoste", form.state.value.form.brand)
+        assertTrue(form.state.value.form.typeRead)
+        assertEquals(false, form.state.value.readingPhoto)
+    }
+
+    @Test
+    fun `a reading of a photo no longer on show is dropped`() = runTest {
+        val photos = FakePhotos().apply {
+            readGate = kotlinx.coroutines.CompletableDeferred()
+            readings["stored/a.jpg"] = GarmentReading(type = ReadType("shoes", "Boots"))
+        }
+        val form = model(photos = photos)
+        advanceUntilIdle()
+
+        form.onPhotoPicked("a.jpg")
+        advanceUntilIdle()
+        assertTrue(form.state.value.readingPhoto)
+        form.onPhotoPicked("b.jpg")
+        advanceUntilIdle()
+        photos.readGate!!.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("tops", form.state.value.form.category, "boots were read off a photo nobody is looking at")
+        assertEquals(false, form.state.value.readingPhoto)
+    }
+
+    @Test
+    fun `a type tapped before the reading lands is kept, and an edit is never read`() = runTest {
+        val photos = FakePhotos().apply {
+            readGate = kotlinx.coroutines.CompletableDeferred()
+            readings["stored/a.jpg"] = GarmentReading(type = ReadType("shoes", "Boots"))
+            readings["stored/new.jpg"] = GarmentReading(type = ReadType("shoes", "Boots"))
+        }
+        val adding = model(photos = photos)
+        advanceUntilIdle()
+        adding.onPhotoPicked("a.jpg")
+        advanceUntilIdle()
+        adding.onCategorySelected("bottoms")
+        photos.readGate!!.complete(Unit)
+        advanceUntilIdle()
+        assertEquals("bottoms", adding.state.value.form.category)
+
+        photos.read.clear()
+        val editing = model(photos = photos, garmentId = "g1")
+        advanceUntilIdle()
+        editing.onPhotoPicked("new.jpg")
+        advanceUntilIdle()
+        assertEquals(emptyList(), photos.read)
     }
 }

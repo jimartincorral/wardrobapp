@@ -285,6 +285,10 @@ class WireTypesTest {
                 seasons = listOf(Season.entries.last()),
                 brand = "Acme",
                 colorPalette = listOf("#000080", "#ffffff"),
+                attributes = GarmentAttributes(pattern = Pattern.STRIPES),
+                tags = listOf("denim"),
+                typeChosen = true,
+                typeRead = true,
             ),
         )
         add(
@@ -301,6 +305,9 @@ class WireTypesTest {
                 colorsChosen = true,
                 size = "32",
                 attributes = GarmentAttributes(formality = Formality.SMART, statement = true),
+                typeChosen = true,
+                attributesChosen = true,
+                typeRead = true,
             ),
         )
         add(

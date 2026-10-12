@@ -43,8 +43,9 @@ kotlin {
             api(project(":presentation"))
             // Ktor's client, because it is the HTTP client that runs in a
             // browser compiled from Kotlin and the server is Ktor too. 3.1, the
-            // line built on Kotlin 2.1.20 -- this build's compiler -- so nothing
-            // here was compiled by a newer Kotlin than the one reading it.
+            // line built on Kotlin 2.1.20 -- older than this build's compiler,
+            // which is the safe direction: nothing here was compiled by a newer
+            // Kotlin than the one reading it.
             api("io.ktor:ktor-client-core:3.1.3")
             implementation("io.ktor:ktor-client-content-negotiation:3.1.3")
             implementation("io.ktor:ktor-serialization-kotlinx-json:3.1.3")

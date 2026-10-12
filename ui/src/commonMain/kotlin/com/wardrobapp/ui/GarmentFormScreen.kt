@@ -102,6 +102,8 @@ import com.wardrobapp.ui.resources.filter_section_type
 import com.wardrobapp.ui.resources.filter_size
 import com.wardrobapp.ui.resources.form_add_photo
 import com.wardrobapp.ui.resources.form_detecting_colors
+import com.wardrobapp.ui.resources.form_read_from_photo
+import com.wardrobapp.ui.resources.form_reading_photo
 import com.wardrobapp.ui.resources.form_remove_photo
 import com.wardrobapp.ui.resources.form_remove_tag
 import com.wardrobapp.ui.resources.form_save_add
@@ -318,6 +320,7 @@ fun GarmentFormScreen(
                     Chips(GARMENT_CATEGORIES.map { it.id }, setOf(form.category), { categoryLabel(it) }) {
                         onCategorySelected(it)
                     }
+                    ReadFromPhoto(reading = state.readingPhoto, read = form.typeRead && !form.typeChosen)
                 }
             }
 
@@ -586,6 +589,7 @@ private fun ExpandedGarmentForm(
                         Chips(GARMENT_CATEGORIES.map { it.id }, setOf(form.category), { categoryLabel(it) }) {
                             onCategorySelected(it)
                         }
+                        ReadFromPhoto(reading = state.readingPhoto, read = form.typeRead && !form.typeChosen)
                     }
 
                     garmentCategory(form.category)?.let { category ->
@@ -1272,6 +1276,38 @@ private fun DetectingColors() {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 12.dp),
+        )
+    }
+}
+
+/**
+ * Under the category, what the photo has to do with it: a wait while it is
+ * read, then a line saying the type was filled in from it, until somebody
+ * taps one. Under the category rather than by the photo because that is
+ * where the answer appears -- a type changing by itself is otherwise a thing
+ * that happened to the form, not something the app did -- and gone once a
+ * type is tapped, since it is then nobody's guess.
+ */
+@Composable
+internal fun ReadFromPhoto(reading: Boolean, read: Boolean) {
+    when {
+        reading -> Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 8.dp),
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp))
+            Text(
+                stringResource(Res.string.form_reading_photo),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
+        read -> Text(
+            stringResource(Res.string.form_read_from_photo),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
         )
     }
 }

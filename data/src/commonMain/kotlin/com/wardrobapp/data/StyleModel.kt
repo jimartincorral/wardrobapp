@@ -2,7 +2,10 @@ package com.wardrobapp.data
 
 import com.wardrobapp.domain.Fit
 import com.wardrobapp.domain.Formality
+import com.wardrobapp.domain.GARMENT_CATEGORIES
 import com.wardrobapp.domain.GarmentAttributes
+import com.wardrobapp.domain.GarmentReading
+import com.wardrobapp.domain.ReadType
 import com.wardrobapp.domain.Pattern
 import com.wardrobapp.domain.Weight
 import com.wardrobapp.domain.mergeStructuredTags
@@ -48,6 +51,12 @@ class StyleAnchors(
     val fit: Map<Fit, FloatArray>,
     val weight: Map<Weight, FloatArray>,
     val statement: Map<Boolean, FloatArray>,
+    /**
+     * An anchor per garment type, keyed by the label a garment row stores
+     * ("Chinos", "Tank Top"). Empty in an anchors file written before types
+     * were asked for, which then simply reads no type.
+     */
+    val types: Map<String, FloatArray> = emptyMap(),
 ) {
     /**
      * What [vector] suggests, attribute by attribute: the nearest anchor,
@@ -63,6 +72,32 @@ class StyleAnchors(
         weight = nearest(weight, vector),
         statement = nearest(statement, vector),
     )
+
+    /**
+     * The garment type [vector] is a photo of, as far as the model can tell.
+     *
+     * Seventy-odd types are a much harder question than five formalities, and
+     * the model is not equally sure of all of it: it tells a shoe from a shirt
+     * at a glance and a Midi from a Maxi barely at all. So it is asked twice.
+     * The nearest type is the answer when it beats the runner-up by the same
+     * margin the attributes need; when it does not, the category alone is,
+     * provided the best anchor in it beats the best in every other category by
+     * that margin -- "some kind of top" is still a field filled in. Failing
+     * both, nothing: the form keeps whatever it was going to show.
+     */
+    fun typeFor(vector: FloatArray): ReadType? {
+        if (types.size < 2) return null
+        val ranked = types.entries.map { (label, anchor) -> label to cosine(anchor, vector) }.sortedByDescending { it.second }
+        val (best, bestScore) = ranked[0]
+        val category = CATEGORY_OF[best] ?: return null
+        if (bestScore - ranked[1].second >= LEAST_MARGIN) return ReadType(category, best)
+        val bestElsewhere = ranked.firstOrNull { CATEGORY_OF[it.first] != category }?.second ?: return ReadType(category, null)
+        return if (bestScore - bestElsewhere >= LEAST_MARGIN) ReadType(category, null) else null
+    }
+
+    /** Everything the model reads off [vector] at once: the type and the attributes. */
+    fun readingFor(vector: FloatArray): GarmentReading =
+        GarmentReading(type = typeFor(vector), attributes = attributesFor(vector))
 
     private fun <T> nearest(anchors: Map<T, FloatArray>, vector: FloatArray): T? {
         if (anchors.size < 2) return null
@@ -93,6 +128,10 @@ class StyleAnchors(
 
         private val json = Json { ignoreUnknownKeys = true }
 
+        /** Each stored type label's category, for a type the model named. */
+        private val CATEGORY_OF: Map<String, String> =
+            GARMENT_CATEGORIES.flatMap { category -> category.subcategories.map { it to category.id } }.toMap()
+
         fun parse(text: String): StyleAnchors {
             val document = json.decodeFromString(Document.serializer(), text)
             fun <T> table(name: String, values: List<T>, tag: (T) -> String): Map<T, FloatArray> {
@@ -110,6 +149,9 @@ class StyleAnchors(
                 fit = table("fit", Fit.entries) { it.tag },
                 weight = table("weight", Weight.entries) { it.tag },
                 statement = table("statement", listOf(true, false)) { if (it) "yes" else "no" },
+                // Only the types this build knows: a type a newer export has and
+                // this catalogue does not would be an answer the form cannot show.
+                types = table("type", CATEGORY_OF.keys.toList()) { it },
             )
         }
     }

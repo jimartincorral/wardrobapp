@@ -1,5 +1,10 @@
 package com.wardrobapp.presentation
 
+import com.wardrobapp.domain.Fit
+import com.wardrobapp.domain.GarmentAttributes
+import com.wardrobapp.domain.GarmentReading
+import com.wardrobapp.domain.Pattern
+import com.wardrobapp.domain.ReadType
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.seasonsForSubcategories
 import kotlin.test.Test
@@ -370,5 +375,77 @@ class GarmentFormTest {
 
         assertEquals(emptyList(), form.subcategories)
         assertEquals(listOf(GarmentFormState.DEFAULT_COLOR), form.colorPalette)
+    }
+
+    private val parka = GarmentReading(
+        type = ReadType("outerwear", "Parka"),
+        attributes = GarmentAttributes(pattern = Pattern.SOLID, fit = Fit.RELAXED),
+        material = "fleece",
+        brand = "Patagonia",
+    )
+
+    @Test
+    fun `a reading fills in a form nobody has touched`() {
+        val form = GarmentFormState().withReading(parka, ::seasonsForSubcategories)
+
+        assertEquals("outerwear", form.category)
+        assertEquals(listOf("Parka"), form.subcategories)
+        assertEquals(seasonsForSubcategories(listOf("Parka")), form.seasons)
+        assertEquals(GarmentAttributes(pattern = Pattern.SOLID, fit = Fit.RELAXED), form.attributes)
+        assertEquals(listOf("fleece"), form.tags)
+        assertEquals("Patagonia", form.brand)
+        assertTrue(form.typeRead)
+    }
+
+    @Test
+    fun `a reading changes nothing anybody chose or typed`() {
+        val chosen = GarmentFormState(
+            category = "tops",
+            subcategories = listOf("Sweater"),
+            seasons = listOf(Season.SUMMER),
+            attributes = GarmentAttributes(fit = Fit.FITTED),
+            tags = listOf("wool"),
+            brand = "COS",
+            typeChosen = true,
+            attributesChosen = true,
+        )
+
+        val form = chosen.withReading(parka, ::seasonsForSubcategories)
+
+        assertEquals(chosen, form)
+    }
+
+    @Test
+    fun `a second reading replaces the first one's type, and the seasons that type implied`() {
+        val coat = GarmentReading(type = ReadType("outerwear", "Coat"))
+        val first = GarmentFormState().withReading(parka, ::seasonsForSubcategories)
+
+        val second = first.withReading(GarmentReading(type = ReadType("tops", "T-Shirt")), ::seasonsForSubcategories)
+        assertEquals(listOf("T-Shirt"), second.subcategories)
+        assertEquals(seasonsForSubcategories(listOf("T-Shirt")), second.seasons)
+
+        // Seasons somebody changed are theirs, whatever the type turns out to be.
+        val adjusted = first.copy(seasons = listOf(Season.SPRING))
+        assertEquals(listOf(Season.SPRING), adjusted.withReading(coat, ::seasonsForSubcategories).seasons)
+    }
+
+    @Test
+    fun `a category alone leaves the type empty, and a material is added once`() {
+        val shoes = GarmentReading(type = ReadType("shoes", null), material = "leather")
+        val form = GarmentFormState(subcategories = listOf("Polo"), tags = listOf("Suede"))
+            .withReading(shoes, ::seasonsForSubcategories)
+
+        assertEquals("shoes", form.category)
+        assertEquals(emptyList(), form.subcategories)
+        assertEquals(listOf("Suede"), form.tags, "a material was already named")
+    }
+
+    @Test
+    fun `a gap's type is what was asked for, so a reading does not replace it`() {
+        val form = GarmentFormState()
+            .prefilledFor("shoes", "Loafers", "#8B4513", ::seasonsForSubcategories)
+            .withReading(GarmentReading(type = ReadType("shoes", "Boots")), ::seasonsForSubcategories)
+
+        assertEquals(listOf("Loafers"), form.subcategories)
     }
 }

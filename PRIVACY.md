@@ -52,10 +52,13 @@ involved: the request goes from your phone to that site.
 **Backing up to Google Drive, if you connect it.** Optional, and off until you
 press the button. See the section below.
 
-**Background removal.** Cutting a garment out of its background runs on your
-device, using a model that Google Play services provides. The photo itself is not
-uploaded; Play services may fetch the model itself over the network, which is
-Google's process rather than this app's.
+**Background removal, and reading a garment's photo.** Cutting a garment out of
+its background runs on your device, using a model that Google Play services
+provides. On phones that have Gemini Nano, the app also asks it what a new
+garment's photo shows (its type, pattern, material and so on), through Android's
+AICore, which runs it on the device too. Neither uploads the photo. Play services
+and AICore may fetch or update their models over the network, which is Google's
+process rather than this app's.
 
 **Syncing with Home Assistant, if you pair the phone.** Off until you pair it,
 under Settings → Home Assistant, with the code shown in the Wardrobapp app in

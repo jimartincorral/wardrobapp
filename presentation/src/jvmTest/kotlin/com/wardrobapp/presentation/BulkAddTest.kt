@@ -1,5 +1,9 @@
 package com.wardrobapp.presentation
 
+import com.wardrobapp.domain.GarmentAttributes
+import com.wardrobapp.domain.GarmentReading
+import com.wardrobapp.domain.Pattern
+import com.wardrobapp.domain.ReadType
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.seasonsForSubcategories
 import kotlin.test.Test
@@ -205,5 +209,29 @@ class BulkAddTest {
         assertEquals("Acme", state.drafts[0].brand)
         assertEquals(BulkAddState.DEFAULT_CATEGORY, state.drafts[1].category)
         assertEquals("", state.drafts[1].brand)
+    }
+
+    @Test
+    fun `a reading lands on the photo it was of, and not on a type somebody tapped`() {
+        val reading = GarmentReading(
+            type = ReadType("bottoms", "Jeans"),
+            attributes = GarmentAttributes(pattern = Pattern.SOLID),
+            material = "denim",
+        )
+        val state = queueOf("a.jpg", "b.jpg")
+            .withReading("b.jpg", reading, ::seasonsForSubcategories)
+
+        val b = state.drafts[1]
+        assertEquals("bottoms", b.category)
+        assertEquals(listOf("Jeans"), b.subcategories)
+        assertEquals(seasonsForSubcategories(listOf("Jeans")), b.seasons)
+        assertEquals(Pattern.SOLID, b.attributes.pattern)
+        assertEquals(listOf("denim"), b.tags)
+        assertTrue(b.typeRead)
+        assertEquals(BulkAddState.DEFAULT_CATEGORY, state.current?.category, "another photo's reading")
+
+        val tapped = queueOf("a.jpg").withCategory("shoes").withReading("a.jpg", reading, ::seasonsForSubcategories)
+        assertEquals("shoes", tapped.current?.category)
+        assertEquals(Pattern.SOLID, tapped.current?.attributes?.pattern, "nothing here chooses attributes")
     }
 }
