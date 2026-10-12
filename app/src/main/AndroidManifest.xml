@@ -22,6 +22,14 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!--
+        Gemini Nano's library asks for Android 8; the app runs from 7. Let in
+        rather than raising the app's own minimum, because it is used only where
+        the phone has Gemini Nano, which no phone on 7 has: GeminiNano checks the
+        version before touching any of it. See the dependency in build.gradle.kts.
+    -->
+    <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt,com.google.mlkit.genai.common" />
+
+    <!--
         Handing a downloaded build to Android's installer.
 
         This app is not on an app store: it is published as an APK on a GitHub

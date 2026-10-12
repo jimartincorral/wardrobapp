@@ -5,6 +5,7 @@ import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.StyleIndexer
 import com.wardrobapp.data.StyleQueries
 import com.wardrobapp.data.isoTimestamp
+import com.wardrobapp.domain.GarmentReading
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
@@ -67,6 +68,18 @@ class StyleIndex(
         worker.submit(Callable { pass() }).get()
     } catch (e: ExecutionException) {
         throw e.cause ?: e
+    }
+
+    /**
+     * What the model reads off a stored photo before it is any garment's: the
+     * type and attributes the browser's form fills itself in with. Blocking
+     * for a second or two on the encoder's thread, which the index's passes
+     * share, so a reading waits for a photo being embedded and not the other
+     * way round. Null for a photo that is not there.
+     */
+    fun read(photo: String): GarmentReading? {
+        val file = photos.file(photo) ?: return null
+        return encoder.anchors.readingFor(encoder.embed(file.readBytes()))
     }
 
     /** The pass itself is :data's, which the phone runs too; this side brings the photos and the thread. */

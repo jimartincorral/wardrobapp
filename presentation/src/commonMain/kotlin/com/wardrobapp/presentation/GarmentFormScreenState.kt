@@ -66,6 +66,12 @@ data class GarmentFormScreenState(
      * reason: it is its own wait with its own thing to say about it.
      */
     val detectingColor: Boolean = false,
+    /**
+     * True while the photo is being read for its type and the rest -- seconds
+     * on a phone asking Gemini Nano, or the Home Assistant app its style
+     * model, against the blink a colour takes, so it says so on its own.
+     */
+    val readingPhoto: Boolean = false,
 ) {
     /**
      * URL import, as the form sees it.

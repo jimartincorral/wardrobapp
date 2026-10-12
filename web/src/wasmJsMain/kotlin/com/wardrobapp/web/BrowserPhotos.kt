@@ -3,6 +3,7 @@ package com.wardrobapp.web
 import com.wardrobapp.api.HttpPhotos
 import com.wardrobapp.data.PHOTO_JPEG_QUALITY
 import com.wardrobapp.data.storedPhotoSize
+import com.wardrobapp.domain.GarmentReading
 import com.wardrobapp.presentation.PhotoWork
 import com.wardrobapp.presentation.dominantGarmentColors
 import io.ktor.http.ContentType
@@ -42,7 +43,11 @@ import org.w3c.files.get
  * not (see BackgroundRemover in :server), and PhotoTools offers it only where
  * the server says it can.
  */
-class BrowserPhotoWork(private val photos: HttpPhotos) : PhotoWork<File> {
+class BrowserPhotoWork(
+    private val photos: HttpPhotos,
+    /** Whether the server has the style model to read a photo with; see ServerFeatures. */
+    private val learnsStyle: () -> Boolean = { false },
+) : PhotoWork<File> {
 
     override suspend fun store(photo: File): String {
         val image = decode(photo)
@@ -69,6 +74,14 @@ class BrowserPhotoWork(private val photos: HttpPhotos) : PhotoWork<File> {
     }
 
     override suspend fun cutOut(photo: String): String = photos.cutOut(photo)
+
+    // The server's style model, where it has one: the browser has no model of
+    // its own, and the photo is on the server already.
+    override suspend fun read(photo: String): GarmentReading? = if (!learnsStyle()) null else try {
+        photos.read(photo).toReading()
+    } catch (_: Exception) {
+        null
+    }
 
     private companion object {
         /** The phone's COLOR_SAMPLE_WIDTH, for the reason given there. */

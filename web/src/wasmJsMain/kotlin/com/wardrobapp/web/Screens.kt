@@ -76,6 +76,13 @@ import com.wardrobapp.ui.ProfileSection
 
 /** Every screen's source, answered by the server this page came from. */
 class WebSources(http: HttpClient) {
+    /**
+     * Whether the server has the style model, once the page has asked
+     * (ServerFeatures); until then, no. Here so the photo work can ask it
+     * without being rebuilt when the answer comes.
+     */
+    var learnsStyle: Boolean = false
+
     val home = HttpHomeSource(http)
     val wardrobe = HttpWardrobeSource(http)
     val outfits = HttpOutfitsSource(http)
@@ -86,7 +93,7 @@ class WebSources(http: HttpClient) {
     val garmentForm = HttpGarmentFormSource(http)
     val importer = HttpGarmentImporter(http)
     val bulkAdd = HttpBulkAddSource(http)
-    val photos = BrowserPhotoWork(HttpPhotos(http))
+    val photos = BrowserPhotoWork(HttpPhotos(http)) { learnsStyle }
     val inspirations = HttpInspirationSource(http)
     val server = HttpStorageSource(http)
     val settings = WebSettingsSource(server)

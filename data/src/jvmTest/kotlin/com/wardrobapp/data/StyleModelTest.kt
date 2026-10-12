@@ -1,6 +1,7 @@
 package com.wardrobapp.data
 
 import com.wardrobapp.domain.Formality
+import com.wardrobapp.domain.ReadType
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -35,6 +36,38 @@ class StyleModelTest {
         assertNull(anchors.attributesFor(floatArrayOf(0.5f, 0.5f)).formality, "a tie was called")
         // One anchor is no choice at all.
         assertNull(anchors.attributesFor(floatArrayOf(1f, 0f)).pattern)
+    }
+
+    /**
+     * Three types in three dimensions: two tops, nearly the same direction,
+     * and a shoe well away from both.
+     */
+    private val typed = StyleAnchors.parse(
+        """{"model": "test", "imageSize": 2, "mean": [0.5, 0.5, 0.5], "deviation": [0.25, 0.25, 0.25], "dimensions": 3,
+            "anchors": {"type": {"T-Shirt": [1, 0, 0], "Polo": [0.995, 0.0998, 0], "Sneakers": [0, 0, 1], "Kilt": [0, 1, 0]}}}""",
+    )
+
+    @Test
+    fun `a clear type is the type, and a toss-up inside a category is still the category`() {
+        assertEquals(ReadType("shoes", "Sneakers"), typed.typeFor(floatArrayOf(0f, 0f, 1f)))
+        assertEquals(ReadType("tops", "T-Shirt"), typed.typeFor(floatArrayOf(0.8f, -0.6f, 0f)))
+        // Between the T-shirt and the polo, which are a hundredth apart from
+        // here: no type, but nothing else is near, so a top.
+        assertEquals(ReadType("tops", null), typed.typeFor(floatArrayOf(0.998f, 0.05f, 0f)))
+    }
+
+    @Test
+    fun `a toss-up between categories names nothing, and a type this build lacks is never read`() {
+        assertNull(typed.typeFor(floatArrayOf(0.7071f, 0f, 0.7071f)))
+        // Straight at the anchor for a type not in the catalogue: it was never
+        // read, so the nearest it has is a toss-up of everything.
+        assertEquals(setOf("T-Shirt", "Polo", "Sneakers"), typed.types.keys)
+    }
+
+    @Test
+    fun `an anchors file from before types reads no type, and the attributes as before`() {
+        assertNull(anchors.typeFor(floatArrayOf(0.9f, 0.1f)))
+        assertEquals(Formality.FORMAL, anchors.readingFor(floatArrayOf(0.9f, 0.1f)).attributes.formality)
     }
 
     @Test

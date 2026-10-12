@@ -3,6 +3,7 @@ package com.wardrobapp.server
 import com.wardrobapp.api.ApiFailure
 import com.wardrobapp.api.Flag
 import com.wardrobapp.api.ImportRequest
+import com.wardrobapp.api.PhotoReading
 import com.wardrobapp.api.Rating
 import com.wardrobapp.api.Routes
 import com.wardrobapp.api.SavedGarment
@@ -344,6 +345,19 @@ private fun Route.photos() {
     // of work on its IO dispatcher rather than the threads answering requests.
     post(Routes.PHOTO_CUT_OUT) {
         call.respond(HttpStatusCode.Created, StoredPhoto(wardrobe.garmentDetail.cutOut(call.parameters["name"].orEmpty())))
+    }
+
+    // The browser's form asks this as soon as a photo is in, to fill in what
+    // the garment is; see PhotoWork.read. 501 without the model, as a look is,
+    // and on the IO dispatcher, since embedding takes a second or two.
+    post(Routes.PHOTO_READING) {
+        val style = wardrobe.style ?: throw StyleUnavailable()
+        val reading = withContext(Dispatchers.IO) { style.read(call.parameters["name"].orEmpty()) }
+        if (reading == null) {
+            call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
+        } else {
+            call.respond(PhotoReading.of(reading))
+        }
     }
 
     get(Routes.PHOTO_FILE) {

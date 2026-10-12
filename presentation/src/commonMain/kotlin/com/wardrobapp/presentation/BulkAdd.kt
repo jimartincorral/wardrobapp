@@ -1,5 +1,8 @@
 package com.wardrobapp.presentation
 
+import com.wardrobapp.domain.GarmentAttributes
+import com.wardrobapp.domain.GarmentReading
+import com.wardrobapp.domain.MATERIALS
 import com.wardrobapp.domain.Season
 import kotlinx.serialization.Serializable
 
@@ -53,6 +56,19 @@ data class BulkAddState(
         val seasons: List<Season> = emptyList(),
         val brand: String = "",
         val colorPalette: List<String> = listOf(GarmentFormState.DEFAULT_COLOR),
+        /**
+         * What the photo was read as, beyond its type: nothing on this screen
+         * shows or changes these, which is the point of reading them -- a
+         * garment catalogued here in two taps still arrives with a pattern
+         * and a fit, and its own form is where to correct them.
+         */
+        val attributes: GarmentAttributes = GarmentAttributes.NONE,
+        /** Tags read off the photo -- its material, so far -- since nothing here takes typed ones. */
+        val tags: List<String> = emptyList(),
+        /** Whether the category or type was tapped, so a reading leaves them alone; see GarmentFormState.typeChosen. */
+        val typeChosen: Boolean = false,
+        /** Whether the category and type on show were read off the photo; see GarmentFormState.typeRead. */
+        val typeRead: Boolean = false,
     ) {
         /** What to draw, and what to read colours from: the cut-out where there is one. */
         val displayUri: String get() = cutoutUri.ifEmpty { imageUri }
@@ -98,7 +114,7 @@ data class BulkAddState(
 
     /** A category for the draft on screen. Its types go with it: a type belongs to a category. */
     fun withCategory(category: String): BulkAddState =
-        editingCurrent { it.copy(category = category, subcategories = emptyList()) }
+        editingCurrent { it.copy(category = category, subcategories = emptyList(), typeChosen = true) }
 
     /**
      * Toggle a type on the draft on screen, filling in the seasons it implies.
@@ -112,7 +128,7 @@ data class BulkAddState(
         seasonsFor: (List<String>) -> List<Season>,
     ): BulkAddState = editingCurrent { draft ->
         val next = draft.subcategories.toggled(subcategory)
-        draft.copy(subcategories = next, seasons = seasonsFor(next))
+        draft.copy(subcategories = next, seasons = seasonsFor(next), typeChosen = true)
     }
 
     fun withBrand(brand: String): BulkAddState = editingCurrent { it.copy(brand = brand) }
@@ -139,6 +155,38 @@ data class BulkAddState(
             },
         )
     }
+
+    /**
+     * Apply what was read off a photo, keyed on that photo as colours are and
+     * for the same reason.
+     *
+     * The form's rule (GarmentFormState.withReading), as far as this screen has
+     * the fields for it: the type only while nobody has tapped one, the brand
+     * only into an empty field, a material only once. The attributes are
+     * applied whenever there are some, since nothing here lets anybody choose
+     * them, and seasons follow the type the way they do when one is tapped.
+     */
+    fun withReading(
+        readFrom: String,
+        reading: GarmentReading,
+        seasonsFor: (List<String>) -> List<Season>,
+    ): BulkAddState = copy(
+        drafts = drafts.map { draft ->
+            if (draft.displayUri != readFrom) return@map draft
+            var next = draft
+            val type = reading.type
+            if (type != null && !draft.typeChosen) {
+                val types = listOfNotNull(type.subcategory)
+                next = next.copy(category = type.category, subcategories = types, seasons = seasonsFor(types), typeRead = true)
+            }
+            if (!reading.attributes.isEmpty) next = next.copy(attributes = reading.attributes)
+            val material = reading.material
+            if (material != null && next.tags.none { it in MATERIALS }) next = next.copy(tags = next.tags + material)
+            val brand = reading.brand
+            if (brand != null && next.brand.isBlank()) next = next.copy(brand = brand)
+            next
+        },
+    )
 
     /**
      * A photo re-cropped.

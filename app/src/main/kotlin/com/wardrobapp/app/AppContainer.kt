@@ -197,6 +197,13 @@ class AppContainer(context: Context) {
     )
     val styleIndex = PhoneStyleIndex(appScope, styleEncoder, StyleQueries(database), garments, garmentWrites)
 
+    /**
+     * Gemini Nano, on the phones that have it: what a garment's photo shows,
+     * read on the phone (PhonePhotoWork.read). One for the process, since it
+     * remembers whether the phone has the model at all.
+     */
+    val geminiNano = GeminiNano()
+
     init {
         // A sync can bring garments, new photos and looks, none of them with
         // a vector from this phone. Read once on start too, which is the

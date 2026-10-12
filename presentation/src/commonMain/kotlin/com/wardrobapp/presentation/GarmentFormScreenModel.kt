@@ -137,7 +137,7 @@ class GarmentFormScreenModel<Picked>(
     fun onCategorySelected(category: String) = edit {
         // A type belongs to a category, so changing the category drops the type
         // rather than leaving one that no longer applies.
-        it.copy(category = category, subcategories = emptyList())
+        it.copy(category = category, subcategories = emptyList(), typeChosen = true)
     }
 
     fun onSubcategoryToggled(subcategory: String) = edit { form ->
@@ -145,6 +145,7 @@ class GarmentFormScreenModel<Picked>(
         // withSubcategories fills them in only while none have been chosen, so an
         // explicit choice is never overwritten.
         form.withSubcategories(form.subcategories.toggled(subcategory), ::seasonsForSubcategories)
+            .copy(typeChosen = true)
     }
 
     fun onSeasonToggled(season: Season) = edit { it.copy(seasons = it.seasons.toggled(season)) }
@@ -157,7 +158,7 @@ class GarmentFormScreenModel<Picked>(
 
     fun onTagsChanged(tags: List<String>) = edit { it.copy(tags = tags) }
 
-    fun onAttributesChanged(attributes: GarmentAttributes) = edit { it.copy(attributes = attributes) }
+    fun onAttributesChanged(attributes: GarmentAttributes) = edit { it.copy(attributes = attributes, attributesChosen = true) }
 
     fun onPhotoSelected(index: Int) = edit { it.copy(selectedImageIndex = index) }
 
@@ -206,6 +207,7 @@ class GarmentFormScreenModel<Picked>(
                     created.add(stored)
                     _state.update { it.copy(saving = false, form = it.form.withImage(stored), duplicates = emptyList()) }
                     detectColors()
+                    readPhoto()
                 }
                 .onFailure { e ->
                     _state.update {
@@ -301,6 +303,7 @@ class GarmentFormScreenModel<Picked>(
                     }
                     // An import brings photos of the garment like any other route in.
                     detectColors()
+                    readPhoto()
                 }
                 .onFailure { error ->
                     failImport(
@@ -394,6 +397,53 @@ class GarmentFormScreenModel<Picked>(
         }
     }
 
+    // ---- reading what the photo shows ------------------------------------------
+
+    /** How many readings are under way; see readPhoto. */
+    private var readsRunning = 0
+
+    /**
+     * Read the selected photo's type, attributes, material and brand into the
+     * form, wherever nobody has said anything yet.
+     *
+     * [detectColors]' twin, at the same three moments and for the same reasons
+     * -- a photo arrives, or a cut-out makes a better one of it -- with the same
+     * guard against a photo that changed while it ran. Only when adding: an
+     * existing garment's type and attributes are what was saved, the same way
+     * its colours are, and a photo added to it later is a photo of the same
+     * garment, not a question about what it is.
+     *
+     * Silent about failure too. A phone without Gemini Nano and without the
+     * style model reads nothing, and the form is exactly what it was.
+     */
+    private fun readPhoto() {
+        if (isEditing) return
+        val photo = _state.value.form.displayedPreviewUri()
+        if (photo.isNullOrEmpty()) return
+
+        readsRunning++
+        _state.update { it.copy(readingPhoto = true) }
+
+        scope.launch {
+            val reading = attempt { photos.read(photo) }.getOrNull()
+            // Counted rather than flagged: a cut-out made while the original
+            // is still being read starts a second reading, and the first one
+            // landing must not say the wait is over.
+            readsRunning--
+
+            _state.update { state ->
+                state.copy(
+                    readingPhoto = readsRunning > 0,
+                    form = if (reading != null && state.form.displayedPreviewUri() == photo) {
+                        state.form.withReading(reading, ::seasonsForSubcategories)
+                    } else {
+                        state.form
+                    },
+                )
+            }
+        }
+    }
+
     // ---- background removal --------------------------------------------------
 
     /**
@@ -430,6 +480,7 @@ class GarmentFormScreenModel<Picked>(
                     // garment's own pixels are left in it, so its colours are worth
                     // reading again.
                     detectColors()
+                    readPhoto()
                 }
                 .onFailure { e ->
                     _state.update {
@@ -568,6 +619,11 @@ class GarmentFormScreenModel<Picked>(
                                 // made, so nothing detects over them -- including a
                                 // background removed on a garment being edited.
                                 colorsChosen = true,
+                                // So are its type and attributes, which matters
+                                // less than it sounds: nothing reads the photo of
+                                // a garment being edited (see readPhoto).
+                                typeChosen = true,
+                                attributesChosen = true,
                                 size = record.size ?: "",
                             ).normalized(),
                         )

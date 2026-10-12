@@ -1,9 +1,11 @@
 package com.wardrobapp.presentation
 
+import com.wardrobapp.domain.GarmentReading
+
 /**
  * The photo work the two screens that add garments share: storing what was
- * picked, throwing a stored photo away, reading its colours, and cutting the
- * garment out of its background.
+ * picked, throwing a stored photo away, reading its colours and what it is,
+ * and cutting the garment out of its background.
  *
  * Generic over what a picked photo *is*, for the reason SettingsSource is
  * generic over archives: on the phone it is a `content://` URI from the system
@@ -29,4 +31,16 @@ interface PhotoWork<Picked> {
 
     /** Cut the garment in a stored photo out of its background; the cut-out's reference. */
     suspend fun cutOut(photo: String): String
+
+    /**
+     * What a stored photo shows -- its type, its attributes, maybe its material
+     * and brand -- or null when nothing here can tell.
+     *
+     * Best effort in every way. The phone asks Gemini Nano where the phone has
+     * it and its own style model where that is downloaded, and the browser
+     * asks the Home Assistant app's; any of them may be missing, and a reading
+     * is only ever a starting point for the form. A default of null, so a
+     * platform, or a test, with nothing to read photos with need not say so.
+     */
+    suspend fun read(photo: String): GarmentReading? = null
 }

@@ -441,6 +441,18 @@ dependencies {
     // needs. A phone without it pairs by typing, or through its camera app.
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 
+    // Gemini Nano, through Android's AICore, on the phones that have it: what a
+    // garment's photo shows, read on the phone; see GeminiNano. A thin client --
+    // the model is AICore's and already on the phone, so this adds nothing like
+    // the style model's 85 MB to the APK. Beta, and the newest beta, because it
+    // is the first that works with the Gemini Nano on the newest phones.
+    //
+    // It needs Android 8 and the app runs from 7, so the manifest lets it in
+    // (tools:overrideLibrary) and GeminiNano never touches it below 8. Raising
+    // the app's own minimum instead would cost the phones on 7 for a form
+    // field, and turn every version check in the app into a lint error.
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
+
     // Runs the style model; see AndroidStyleEncoder. The version the server
     // runs (server/build.gradle.kts), so the two read the model the same way.
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.30.0")

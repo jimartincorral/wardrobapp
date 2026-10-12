@@ -1,5 +1,8 @@
 package com.wardrobapp.api
 
+import com.wardrobapp.domain.GarmentAttributes
+import com.wardrobapp.domain.GarmentReading
+import com.wardrobapp.domain.ReadType
 import com.wardrobapp.domain.ImportFailureReason
 import com.wardrobapp.domain.UnsafeUrlReason
 import com.wardrobapp.presentation.BackgroundEdit
@@ -86,6 +89,31 @@ data class ServerFeatures(
      */
     val learnsStyle: Boolean = false,
 )
+
+/**
+ * What the server's style model read off a photo; see Routes.PHOTO_READING.
+ * Flat rather than a GarmentReading, which is not serializable and carries a
+ * material and a brand the style model can never read.
+ */
+@Serializable
+data class PhotoReading(
+    val category: String? = null,
+    val subcategory: String? = null,
+    val attributes: GarmentAttributes = GarmentAttributes.NONE,
+) {
+    fun toReading(): GarmentReading = GarmentReading(
+        type = category?.let { ReadType(it, subcategory) },
+        attributes = attributes,
+    )
+
+    companion object {
+        fun of(reading: GarmentReading) = PhotoReading(
+            category = reading.type?.category,
+            subcategory = reading.type?.subcategory,
+            attributes = reading.attributes,
+        )
+    }
+}
 
 /** Where an uploaded photo was stored, in the form a garment row refers to it by. */
 @Serializable

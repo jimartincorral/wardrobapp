@@ -398,7 +398,7 @@ class DatabaseBulkAddSource(
                     subcategories = draft.subcategories,
                     // Seasons are stored as tags, the way the form stores them and
                     // the way every reader downstream expects to find them.
-                    tags = mergeStructuredTags(emptyList(), draft.seasons),
+                    tags = mergeStructuredTags(draft.tags, draft.seasons, draft.attributes),
                     brand = draft.brand.ifBlank { null },
                     colorPrimary = draft.colorPalette.first(),
                     colorSecondary = draft.colorPalette.getOrNull(1),

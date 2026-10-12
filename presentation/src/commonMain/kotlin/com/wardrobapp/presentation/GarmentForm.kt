@@ -1,6 +1,8 @@
 package com.wardrobapp.presentation
 
 import com.wardrobapp.domain.GarmentAttributes
+import com.wardrobapp.domain.GarmentReading
+import com.wardrobapp.domain.MATERIALS
 import com.wardrobapp.domain.Season
 import kotlinx.serialization.Serializable
 
@@ -50,6 +52,23 @@ data class GarmentFormState(
      * server, from ever improving on it.
      */
     val attributes: GarmentAttributes = GarmentAttributes.NONE,
+    /**
+     * Whether the category and type are somebody's choice, so a reading of the
+     * photo leaves them alone. The same idea as [colorsChosen], for the same
+     * reason: a new garment starts as a top because the form has to start
+     * somewhere, and that is nobody's answer. True from a tap on either, from a
+     * gap's description, and from an existing garment's load.
+     */
+    val typeChosen: Boolean = false,
+    /** Whether [attributes] are somebody's choice; see [typeChosen]. */
+    val attributesChosen: Boolean = false,
+    /**
+     * Whether the category and type on show were read off the photo, so the
+     * screen can say where they came from -- a filled-in field nobody filled in
+     * is otherwise a puzzle, and a wrong one is easier to correct when it is
+     * plainly a guess.
+     */
+    val typeRead: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_COLOR = "#000000"
@@ -186,6 +205,10 @@ data class GarmentFormState(
         colorPalette = listOfNotNull(colour?.takeIf { it.isNotBlank() })
             .ifEmpty { listOf(DEFAULT_COLOR) },
         colorsChosen = false,
+        // Unlike the colour, the type is what was asked for: "a pair of brown
+        // loafers" photographed is still loafers, and if the photo is read as
+        // boots the reader is likelier wrong than the gap.
+        typeChosen = true,
     )
         .withSubcategories(listOfNotNull(subcategory?.takeIf { it.isNotBlank() }), seasonsFor)
         .normalized()
@@ -271,6 +294,51 @@ data class GarmentFormState(
      */
     fun withDetectedColors(colors: List<String>): GarmentFormState =
         if (colorsChosen || colors.isEmpty()) this else copy(colorPalette = colors)
+
+    /**
+     * Apply what was read off the photo, or the page it came from, to whatever
+     * nobody has said anything about yet.
+     *
+     * The reading is a starting point, the way detected colours are, and it
+     * follows their rule field by field: the type only while [typeChosen] is
+     * false, the attributes only while [attributesChosen] is, the brand only
+     * into an empty field, and a material only where the tags name none. A
+     * second reading -- of the cut-out, which shows the garment better --
+     * replaces the type and attributes the first one filled, since neither was
+     * anybody's choice; a brand or material already there stays, because by
+     * then nothing tells one somebody typed from one that was read.
+     *
+     * Seasons follow a read type the way they follow a tapped one, with one
+     * difference: seasons that are exactly what the previous type implied were
+     * never chosen either, so a new type replaces them. Seasons somebody
+     * changed are anything else, and stay.
+     */
+    fun withReading(reading: GarmentReading, seasonsFor: (List<String>) -> List<Season>): GarmentFormState {
+        var next = this
+        val type = reading.type
+        if (type != null && !typeChosen) {
+            val types = listOfNotNull(type.subcategory)
+            val impliedBefore = seasonsFor(subcategories)
+            next = next.copy(
+                category = type.category,
+                subcategories = types,
+                seasons = if (seasons.isEmpty() || seasons == impliedBefore) seasonsFor(types) else seasons,
+                typeRead = true,
+            )
+        }
+        if (!reading.attributes.isEmpty && !attributesChosen) {
+            next = next.copy(attributes = reading.attributes)
+        }
+        val material = reading.material
+        if (material != null && next.tags.none { it.lowercase() in MATERIALS }) {
+            next = next.copy(tags = next.tags + material)
+        }
+        val brand = reading.brand
+        if (brand != null && next.brand.isBlank()) {
+            next = next.copy(brand = brand)
+        }
+        return next
+    }
 
     /**
      * Apply an imported preview, keeping a brand already typed. An import is a

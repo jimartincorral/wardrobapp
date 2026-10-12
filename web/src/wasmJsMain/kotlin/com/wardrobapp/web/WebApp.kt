@@ -134,6 +134,7 @@ fun WebApp(http: HttpClient, profile: ProfileControls) {
     LaunchedEffect(http) {
         try {
             features = http.get(Routes.FEATURES).body()
+            sources.learnsStyle = features.learnsStyle
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {

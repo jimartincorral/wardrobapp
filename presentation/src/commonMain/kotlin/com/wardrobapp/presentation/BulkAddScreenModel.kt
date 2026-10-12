@@ -86,6 +86,21 @@ class BulkAddScreenModel<Picked>(
                 _state.update { it.copy(queue = it.queue.withDetectedColors(readFrom, detected)) }
             }
         }
+        readPhoto(readFrom)
+    }
+
+    /**
+     * Read a photo's type and the rest in the background, at every moment its
+     * colours are read -- the same new pixels, the same question -- and applied
+     * the same way, by photo; see [BulkAddState.withReading]. It is here that a
+     * reading saves the most: a drawer of photos, each one otherwise a type to
+     * find and tap.
+     */
+    private fun readPhoto(readFrom: String) {
+        scope.launch {
+            val reading = attempt { photos.read(readFrom) }.getOrNull() ?: return@launch
+            _state.update { it.copy(queue = it.queue.withReading(readFrom, reading, ::seasonsForSubcategories)) }
+        }
     }
 
     fun onCategorySelected(category: String) =

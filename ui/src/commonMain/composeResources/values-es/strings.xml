@@ -434,6 +434,8 @@
     <!-- Taking a photo, and reading a colour off one -->
     <string name="form_take_photo">Hacer foto</string>
     <string name="form_detecting_colors">Leyendo los colores de la foto…</string>
+    <string name="form_reading_photo">Leyendo qué muestra la foto…</string>
+    <string name="form_read_from_photo">Rellenado a partir de la foto — toca para cambiarlo.</string>
     <string name="error_no_camera">Ninguna aplicación de cámara ha respondido, así que no se ha hecho ninguna foto.</string>
     <string name="error_crop_failed">No se ha podido recortar esa foto, así que no se ha añadido.</string>
 

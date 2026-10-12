@@ -341,4 +341,8 @@ class HttpPhotos(private val http: HttpClient) {
      */
     suspend fun cutOut(photo: String): String =
         http.post(Routes.photoCutOut(toStoredImageRef(photo))).body<StoredPhoto>().ref
+
+    /** What the server's style model reads off a stored photo, by any form of its reference. */
+    suspend fun read(photo: String): PhotoReading =
+        http.post(Routes.photoReading(toStoredImageRef(photo))).body()
 }
