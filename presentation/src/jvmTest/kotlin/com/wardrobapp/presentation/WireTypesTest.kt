@@ -321,6 +321,7 @@ class WireTypesTest {
             ),
         )
         add(InspirationRecord(id = "l1", imageUri = "photos/look.jpg", createdAt = "2026-01-02T03:04:05.000Z"))
+        add(LookPiece(category = "shoes", subcategory = "Loafers", color = "#8B4513"))
         add(SyncInspiration("l2", "look2.jpg", "2026-01-02T03:04:05.000Z", null, null))
         add(SyncEmbedding("g2", "two.jpg", "clip", listOf(0f, 1f)))
         add(

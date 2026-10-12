@@ -3,6 +3,7 @@ package com.wardrobapp.presentation
 import com.wardrobapp.data.AnalyticsQueries
 import com.wardrobapp.data.Duplicates
 import com.wardrobapp.data.GarmentQueries
+import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.Gaps
 import com.wardrobapp.data.Suggestions
@@ -553,3 +554,51 @@ class DatabaseInspirationSource(
         }
     }
 }
+
+/**
+ * A look, taken apart, over the phone's own database: the look and its kept
+ * reading from StyleQueries, the wardrobe and outfits from theirs. Reading the
+ * photo is handed in ([readLook]), because only the phone can, and only where
+ * it has Gemini Nano.
+ */
+class DatabaseLookSource(
+    private val style: StyleQueries,
+    private val garments: GarmentQueries,
+    private val outfitWrites: OutfitWrites,
+    private val imageDirectory: String,
+    private val readLook: suspend (InspirationRecord) -> List<LookPiece>?,
+    private val io: CoroutineDispatcher,
+) : LookSource {
+
+    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+    private val piecesSerializer = kotlinx.serialization.builtins.ListSerializer(LookPiece.serializer())
+
+    override suspend fun look(id: String): InspirationRecord? = withContext(io) {
+        style.inspiration(id)?.let { it.copy(imageUri = resolveImageRef(it.imageUri, imageDirectory)) }
+    }
+
+    override suspend fun storedPieces(id: String): List<LookPiece>? = withContext(io) {
+        // A reading that no longer parses -- written by a later build, say --
+        // is as good as none, and the look is read again.
+        style.lookPieces(id)?.let { runCatching { json.decodeFromString(piecesSerializer, it) }.getOrNull() }
+    }
+
+    override suspend fun read(look: InspirationRecord): List<LookPiece>? = readLook(look)
+
+    override suspend fun keepPieces(id: String, pieces: List<LookPiece>) {
+        withContext(io) { style.putLookPieces(id, json.encodeToString(piecesSerializer, pieces), nowTimestamp()) }
+    }
+
+    override suspend fun wardrobe(): List<GarmentRecord> = withContext(io) { garments.allGarments() }
+
+    override suspend fun vectors(id: String): Pair<FloatArray?, Map<String, FloatArray>> = withContext(io) {
+        style.inspirationVector(id) to style.embeddings()
+    }
+
+    override suspend fun saveOutfit(name: String, garmentIds: List<String>): String = withContext(io) {
+        val id = newRowId()
+        outfitWrites.insert(id = id, name = name, garmentIds = garmentIds, isSuggested = false, now = nowTimestamp())
+        id
+    }
+}
+

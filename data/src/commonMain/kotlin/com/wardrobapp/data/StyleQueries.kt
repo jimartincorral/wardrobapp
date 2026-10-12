@@ -74,8 +74,37 @@ class StyleQueries(private val driver: SqlDriver) {
             ?.let { jsString(it["image_uri"]) }
             ?: return null
         driver.execute("UPDATE inspirations SET deleted_at = ?, updated_at = ?, vector = NULL WHERE id = ?", listOf(now, now, id))
+        driver.execute("DELETE FROM look_pieces WHERE look_id = ?", listOf(id))
         return photo
     }
+
+    /**
+     * The pieces Gemini Nano read in a look, as the JSON LookPiece lists are
+     * stored in, or null when it has not been read.
+     *
+     * A table of its own rather than a column on `inspirations`, and never
+     * synced: the reading is the phone's, made by a model only some phones
+     * have, and a field a Home Assistant app one version behind does not know
+     * would make it refuse the look. Kept so a look is read once -- seconds of
+     * the model's time -- rather than every time it is opened.
+     */
+    fun lookPieces(id: String): String? = driver
+        .query("SELECT pieces FROM look_pieces WHERE look_id = ?", listOf(id))
+        .firstOrNull()
+        ?.let { jsString(it["pieces"]) }
+
+    fun putLookPieces(id: String, pieces: String, now: String) {
+        driver.execute(
+            "INSERT OR REPLACE INTO look_pieces (look_id, pieces, read_at) VALUES (?, ?, ?)",
+            listOf(id, pieces, now),
+        )
+    }
+
+    /** One look's vector, or null when it has none yet. */
+    fun inspirationVector(id: String): FloatArray? = driver
+        .query("SELECT vector FROM inspirations WHERE id = ? AND deleted_at IS NULL AND vector IS NOT NULL", listOf(id))
+        .firstOrNull()
+        ?.let { unpackVector(it["vector"]) }
 
     /** The looks that have no vector yet. */
     fun inspirationsToEmbed(): List<InspirationRecord> = driver

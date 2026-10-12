@@ -1,0 +1,101 @@
+package com.wardrobapp.presentation
+
+import com.wardrobapp.data.GarmentRecord
+import com.wardrobapp.data.InspirationRecord
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+class LookScreenModelTest {
+
+    private class FakeSource : LookSource {
+        var look: InspirationRecord? = InspirationRecord("l1", "look.jpg", "2026-01-01T00:00:00.000Z")
+        var kept: List<LookPiece>? = null
+        var answer: List<LookPiece>? = listOf(
+            LookPiece("tops", "Shirt", "#FFFFFF"),
+            LookPiece("bottoms", "Jeans", "#000080"),
+            LookPiece("shoes", "Loafers", "#8B4513"),
+        )
+        var reads = 0
+        val saved = mutableListOf<Pair<String, List<String>>>()
+        var wardrobe: List<GarmentRecord> = listOf(
+            testGarment("shirt", "tops", "Shirt").copy(colorPrimary = "#FFFFFF", colorPalette = listOf("#FFFFFF")),
+            testGarment("jeans", "bottoms", "Jeans").copy(colorPrimary = "#000080", colorPalette = listOf("#000080")),
+        )
+
+        override suspend fun look(id: String) = look?.takeIf { it.id == id }
+        override suspend fun storedPieces(id: String) = kept
+        override suspend fun read(look: InspirationRecord): List<LookPiece>? {
+            reads++
+            return answer
+        }
+        override suspend fun keepPieces(id: String, pieces: List<LookPiece>) {
+            kept = pieces
+        }
+        override suspend fun wardrobe() = wardrobe
+        override suspend fun vectors(id: String) = null to emptyMap<String, FloatArray>()
+        override suspend fun saveOutfit(name: String, garmentIds: List<String>): String {
+            saved += name to garmentIds
+            return "o1"
+        }
+    }
+
+    @Test
+    fun `a look is read once, kept, and rebuilt from the wardrobe`() = runTest {
+        val source = FakeSource()
+        val first = LookScreenModel(this, source, "l1")
+        advanceUntilIdle()
+
+        val rows = first.state.value.rows
+        assertEquals(listOf("shirt", "jeans", null), rows.map { it.garment?.id })
+        assertEquals(source.answer, source.kept)
+        assertTrue(first.state.value.canSave)
+
+        LookScreenModel(this, source, "l1")
+        advanceUntilIdle()
+        assertEquals(1, source.reads, "the kept reading was not used")
+    }
+
+    @Test
+    fun `a look read as nothing says so, and reading again asks again`() = runTest {
+        val source = FakeSource().apply { answer = null }
+        val model = LookScreenModel(this, source, "l1")
+        advanceUntilIdle()
+        assertTrue(model.state.value.unread)
+        assertFalse(model.state.value.canSave)
+
+        source.answer = listOf(LookPiece("tops", "Shirt", "#FFFFFF"))
+        source.kept = listOf(LookPiece("shoes", "Boots", null))
+        model.onRetry()
+        advanceUntilIdle()
+        assertFalse(model.state.value.unread)
+        assertEquals("tops", model.state.value.rows.single().piece.category, "a retry reads the photo, not what was kept")
+    }
+
+    @Test
+    fun `what the wardrobe has of the look is saved as an outfit named like any other`() = runTest {
+        val source = FakeSource()
+        val model = LookScreenModel(this, source, "l1")
+        advanceUntilIdle()
+
+        model.onSaveRequested()
+        advanceUntilIdle()
+
+        assertEquals(listOf("Shirt + Jeans" to listOf("shirt", "jeans")), source.saved)
+        assertEquals("o1", model.state.value.savedOutfitId)
+        model.onSavedOutfitOpened()
+        assertNull(model.state.value.savedOutfitId)
+    }
+
+    @Test
+    fun `a look that is gone says so`() = runTest {
+        val source = FakeSource().apply { look = null }
+        val model = LookScreenModel(this, source, "l1")
+        advanceUntilIdle()
+        assertTrue(model.state.value.missing)
+    }
+}

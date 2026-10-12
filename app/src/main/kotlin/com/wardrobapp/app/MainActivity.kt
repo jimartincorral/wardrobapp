@@ -32,6 +32,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -90,6 +91,7 @@ import com.wardrobapp.ui.OnboardingScreen
 import com.wardrobapp.ui.OutfitDetailScreen
 import com.wardrobapp.ui.OutfitEditScreen
 import com.wardrobapp.ui.InspirationScreen
+import com.wardrobapp.ui.LookScreen
 import com.wardrobapp.ui.OutfitsScreen
 import com.wardrobapp.ui.PhoneSyncSection
 import com.wardrobapp.ui.RestoreDialog
@@ -487,13 +489,7 @@ class MainActivity : AppCompatActivity() {
                                     // the form would open on the right type in the
                                     // wrong colour, which is the kind of wrong that
                                     // looks like a bad recommendation.
-                                    onGapAddRequested = { wanted ->
-                                        navigator.navigate(
-                                            "$GARMENT_ADD?$WANTED_CATEGORY=${Uri.encode(wanted.category)}" +
-                                                "&$WANTED_TYPE=${Uri.encode(wanted.subcategory.orEmpty())}" +
-                                                "&$WANTED_COLOUR=${Uri.encode(wanted.colorPrimary)}"
-                                        )
-                                    },
+                                    onGapAddRequested = { wanted -> navigator.openAddFor(wanted) },
                                     // A number counted here, shown as the garments
                                     // behind it. What each link means is
                                     // `WardrobeQuery.showing`'s business.
@@ -568,6 +564,14 @@ class MainActivity : AppCompatActivity() {
 
                         composable(INSPIRATION) {
                             Inspiration(container = container, navigator = navigator)
+                        }
+
+                        composable("$LOOK/{$LOOK_ID}") { backStackEntry ->
+                            Look(
+                                container = container,
+                                lookId = backStackEntry.arguments?.getString(LOOK_ID).orEmpty(),
+                                navigator = navigator,
+                            )
                         }
 
                         composable("$OUTFIT_EDIT/{$OUTFIT_ID}") { backStackEntry ->
@@ -897,9 +901,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Whether this phone can take a look apart, asked once: only Gemini
+        // Nano can, and without it a look stays the photo it always was.
+        val readsLooks by produceState(initialValue = false, container) { value = container.geminiNano.isAvailable() }
+
         InspirationScreen(
             state = state,
             onBack = { navigator.popBackStack() },
+            onOpen = if (readsLooks) ({ id -> navigator.navigate("$LOOK/${Uri.encode(id)}") }) else null,
             onAddRequested = {
                 model.onAddStarted()
                 picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -918,6 +927,50 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
             },
+        )
+    }
+
+    /**
+     * One look, taken apart and rebuilt from the wardrobe; see LookViewModel.
+     * A missing piece opens the add form the way a gap does, and a saved
+     * outfit opens in place of this screen, which has done its job.
+     */
+    @Composable
+    private fun Look(container: AppContainer, lookId: String, navigator: NavHostController) {
+        val model: LookViewModel = viewModel(
+            factory = viewModelFactory { initializer { LookViewModel(container, lookId) } }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        LaunchedEffect(state.savedOutfitId) {
+            val outfitId = state.savedOutfitId ?: return@LaunchedEffect
+            model.onSavedOutfitOpened()
+            navigator.navigate("$OUTFIT/${Uri.encode(outfitId)}") {
+                popUpTo("$LOOK/{$LOOK_ID}") { inclusive = true }
+            }
+        }
+
+        LookScreen(
+            state = state,
+            onBack = { navigator.popBackStack() },
+            onReadAgain = model::onRetry,
+            onAddMissing = { wanted -> navigator.openAddFor(wanted) },
+            onGarmentOpened = { navigator.openGarment(it) },
+            onSave = model::onSaveRequested,
+        )
+    }
+
+    /**
+     * The add form, filled in as [wanted] describes: a gap's garment, or a
+     * look's missing piece. Encoded because a colour is a hex and `#` ends a
+     * URL otherwise -- the form would open on the right type in the wrong
+     * colour, which is the kind of wrong that looks like a bad recommendation.
+     */
+    private fun NavHostController.openAddFor(wanted: PhantomGarment) {
+        navigate(
+            "$GARMENT_ADD?$WANTED_CATEGORY=${Uri.encode(wanted.category)}" +
+                "&$WANTED_TYPE=${Uri.encode(wanted.subcategory.orEmpty())}" +
+                "&$WANTED_COLOUR=${Uri.encode(wanted.colorPrimary)}"
         )
     }
 
@@ -1836,6 +1889,10 @@ class MainActivity : AppCompatActivity() {
 
         /** The looks a reader likes, reached from the outfits tab; likewise not a tab. */
         const val INSPIRATION = "inspiration"
+
+        /** One look, taken apart: "look/{lookId}". */
+        const val LOOK = "look"
+        const val LOOK_ID = "lookId"
 
         /**
          * The first-launch flow.

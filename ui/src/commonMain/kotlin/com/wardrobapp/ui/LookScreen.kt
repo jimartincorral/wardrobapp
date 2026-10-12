@@ -1,0 +1,205 @@
+package com.wardrobapp.ui
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.wardrobapp.domain.PhantomGarment
+import com.wardrobapp.presentation.LookRow
+import com.wardrobapp.presentation.LookScreenState
+import com.wardrobapp.presentation.paletteColorFor
+import com.wardrobapp.ui.resources.Res
+import com.wardrobapp.ui.resources.action_back
+import com.wardrobapp.ui.resources.gap_add
+import com.wardrobapp.ui.resources.gap_want
+import com.wardrobapp.ui.resources.look_gone
+import com.wardrobapp.ui.resources.look_intro
+import com.wardrobapp.ui.resources.look_none_owned
+import com.wardrobapp.ui.resources.look_read_again
+import com.wardrobapp.ui.resources.look_reading
+import com.wardrobapp.ui.resources.look_save
+import com.wardrobapp.ui.resources.look_saving
+import com.wardrobapp.ui.resources.look_title
+import com.wardrobapp.ui.resources.look_unread
+import org.jetbrains.compose.resources.stringResource
+
+/**
+ * A saved look, taken apart: its photo, then one row per piece worn in it --
+ * named as a gap is ("Navy blazer"), beside the garment in the wardrobe that
+ * comes closest, or a line saying there is none and a button to add one.
+ * Under them, a button to keep what the wardrobe has of the look as an outfit.
+ *
+ * Phone only, and only where the phone has Gemini Nano: it is what reads the
+ * pieces. The rows are not editable -- swapping a garment is the saved
+ * outfit's own screen's job, and doing it here would be a second outfit
+ * editor -- and a piece read wrongly is answered by reading the look again.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LookScreen(
+    state: LookScreenState,
+    onBack: () -> Unit,
+    onReadAgain: () -> Unit,
+    onAddMissing: (PhantomGarment) -> Unit,
+    onGarmentOpened: (String) -> Unit,
+    onSave: () -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(Res.string.look_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
+                    }
+                },
+            )
+        },
+    ) { insets ->
+        if (state.missing) {
+            Box(modifier = Modifier.fillMaxSize().padding(insets), contentAlignment = Alignment.Center) {
+                Text(stringResource(Res.string.look_gone), style = MaterialTheme.typography.bodyLarge)
+            }
+            return@Scaffold
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(insets).testTag(LOOK_ROWS),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            state.look?.let { look ->
+                item {
+                    GarmentPhoto(
+                        uri = look.imageUri,
+                        cutout = false,
+                        modifier = Modifier.fillMaxWidth().widthIn(max = 480.dp).aspectRatio(3f / 4f),
+                    )
+                }
+            }
+
+            when {
+                state.loading -> item {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        if (state.reading) {
+                            Text(
+                                stringResource(Res.string.look_reading),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(start = 12.dp),
+                            )
+                        }
+                    }
+                }
+
+                state.unread || state.error != null -> item {
+                    Column {
+                        Text(
+                            state.error ?: stringResource(Res.string.look_unread),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TextButton(onClick = onReadAgain) { Text(stringResource(Res.string.look_read_again)) }
+                    }
+                }
+
+                else -> {
+                    item {
+                        Text(
+                            stringResource(Res.string.look_intro),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    items(state.rows) { row ->
+                        PieceRow(row, onAddMissing = onAddMissing, onGarmentOpened = onGarmentOpened)
+                    }
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Button(
+                                onClick = onSave,
+                                enabled = state.canSave,
+                                modifier = Modifier.fillMaxWidth().testTag(LOOK_SAVE),
+                            ) {
+                                Text(stringResource(if (state.saving) Res.string.look_saving else Res.string.look_save))
+                            }
+                            TextButton(onClick = onReadAgain) { Text(stringResource(Res.string.look_read_again)) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One piece: what the look has, and what the wardrobe has for it. Named the
+ * way a gap names what it wants, because a piece the wardrobe lacks is one --
+ * which is why its button opens the same add form a gap does.
+ */
+@Composable
+private fun PieceRow(row: LookRow, onAddMissing: (PhantomGarment) -> Unit, onGarmentOpened: (String) -> Unit) {
+    val piece = row.piece
+    val type = typeLabel(piece.category, piece.subcategory)
+    val colourName = piece.color?.let { paletteColorFor(it) }?.first?.let { paletteLabel(it) }
+    val title = if (colourName != null) stringResource(Res.string.gap_want, colourName, type) else type
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        val garment = row.garment
+        if (garment != null) {
+            GarmentPhoto(
+                garment = garment,
+                modifier = Modifier.size(72.dp).clickable { onGarmentOpened(garment.id) },
+                contentDescription = title,
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            if (garment == null) {
+                Text(
+                    stringResource(Res.string.look_none_owned),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (garment == null) {
+            TextButton(onClick = { onAddMissing(piece.asWanted()) }) { Text(stringResource(Res.string.gap_add)) }
+        }
+    }
+}
+
+const val LOOK_ROWS = "look-rows"
+const val LOOK_SAVE = "look-save"

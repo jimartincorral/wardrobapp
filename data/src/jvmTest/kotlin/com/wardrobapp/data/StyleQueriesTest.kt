@@ -111,4 +111,26 @@ class StyleQueriesTest {
         assertContentEquals(byteArrayOf(0, 0, 0x80.toByte(), 0x3F), packed)
         assertContentEquals(floatArrayOf(1f), StyleQueries.unpackVector(packed))
     }
+
+    @Test
+    fun `a look's reading is kept, replaced, and forgotten with the look`() {
+        style.addInspiration("l1", "look.jpg", "2026-01-01T00:00:00.000Z")
+        assertNull(style.lookPieces("l1"))
+
+        style.putLookPieces("l1", "[1]", "t1")
+        style.putLookPieces("l1", "[2]", "t2")
+        assertEquals("[2]", style.lookPieces("l1"))
+
+        style.deleteInspiration("l1", "t3")
+        assertNull(style.lookPieces("l1"))
+    }
+
+    @Test
+    fun `one look's vector is read on its own`() {
+        style.addInspiration("l1", "look.jpg", "2026-01-01T00:00:00.000Z")
+        assertNull(style.inspirationVector("l1"))
+        style.putInspirationVector("l1", "m", floatArrayOf(0.5f, 0.5f))
+        assertContentEquals(floatArrayOf(0.5f, 0.5f), style.inspirationVector("l1"))
+    }
 }
+
