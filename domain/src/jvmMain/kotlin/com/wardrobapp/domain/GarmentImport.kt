@@ -112,10 +112,17 @@ fun extractGarmentImportDataFromHtml(html: String, pageUrl: String): ImportedGar
         hostnameToBrand(pageUrl),
     )
 
+    val description = firstNonEmpty(
+        structured.description,
+        metaContent(metaTags, "property", "og:description"),
+        metaContent(metaTags, "name", "description"),
+    )
+
     return ImportedGarmentData(
         sourceUrl = safeImportUrl(pageUrl),
         title = title?.let { decodeHtmlEntities(it) },
         brand = brand?.let { prettifyBrand(it) },
+        details = pageDetails(description, structured.facts),
         imageUrls = images.toList(),
         warnings = warnings,
         parser = resolveParser(parserSources),
@@ -159,12 +166,17 @@ private data class StructuredData(
     val brand: String?,
     val images: List<String>,
     val warnings: List<ImportWarning>,
+    val description: String? = null,
+    /** The product's material, colour and category, where it names them, as the shop words them. */
+    val facts: List<String> = emptyList(),
 )
 
 private fun extractJsonLdProductData(html: String, pageUrl: String): StructuredData {
     val warnings = mutableListOf<ImportWarning>()
     var title: String? = null
     var brand: String? = null
+    var description: String? = null
+    val facts = mutableListOf<String>()
     val images = mutableListOf<String>()
 
     for (match in JSON_LD_SCRIPT.findAll(html)) {
@@ -185,6 +197,10 @@ private fun extractJsonLdProductData(html: String, pageUrl: String): StructuredD
 
             title = title ?: stringOrNull(node["name"])
             brand = brand ?: extractBrand(node["brand"])
+            description = description ?: stringOrNull(node["description"])
+            if (facts.isEmpty()) {
+                facts += listOf("material", "color", "category").flatMap { key -> extractTexts(node[key]) }
+            }
 
             for (imageUrl in normalizeImageUrls(extractImageValues(node["image"]), pageUrl)) {
                 if (imageUrl !in images) images += imageUrl
@@ -192,7 +208,7 @@ private fun extractJsonLdProductData(html: String, pageUrl: String): StructuredD
         }
     }
 
-    return StructuredData(title, brand, images, warnings)
+    return StructuredData(title, brand, images, warnings, description, facts)
 }
 
 /**
@@ -230,6 +246,46 @@ private fun extractBrand(value: JsonElement?): String? = when (value) {
     is JsonArray -> value.firstNotNullOfOrNull { extractBrand(it) }
     is JsonObject -> stringOrNull(value["name"]) ?: stringOrNull(value["@id"])
     else -> asString(value)
+}
+
+/**
+ * Text values -- a material, a colour, a category -- written as a string, a
+ * list of strings, or a node with a name, which is how schema.org lets a shop
+ * write any of them.
+ */
+private fun extractTexts(value: JsonElement?): List<String> = when (value) {
+    is JsonArray -> value.flatMap { extractTexts(it) }
+    is JsonObject -> listOfNotNull(stringOrNull(value["name"]))
+    else -> listOfNotNull(stringOrNull(value))
+}
+
+/** Tags, which a description written for a web page sometimes carries. */
+private val HTML_TAG = Regex("<[^>]+>")
+
+/**
+ * The longest a page's description is kept: enough for the sentence that says
+ * what the garment is and what it is made of, which comes first on every shop
+ * page there is, and not a page of washing instructions and returns policy to
+ * hand a model that reads all of it.
+ */
+private const val MAX_DETAILS_CHARS = 1_500
+
+/**
+ * What a page says about the garment in words, beyond its title: its
+ * description, then whatever the shop states outright -- "Material: cotton",
+ * "Category: Trousers" -- as one plain string, or null when it says nothing.
+ *
+ * Kept for reading the garment's type and material off the page
+ * (PhotoWork.readPage) and for nothing else, so it is cleaned only as far as
+ * reading needs: tags and entities out, whitespace collapsed, length capped.
+ */
+private fun pageDetails(description: String?, facts: List<String>): String? {
+    val parts = listOfNotNull(description) + facts
+    if (parts.isEmpty()) return null
+    val text = parts.joinToString(". ") { part ->
+        decodeHtmlEntities(part.replace(HTML_TAG, " ")).replace(WHITESPACE, " ").trim()
+    }.trim()
+    return text.take(MAX_DETAILS_CHARS).takeIf { it.isNotBlank() }
 }
 
 /** Image values, which schema.org allows in as many shapes as a brand. */

@@ -2,6 +2,7 @@ package com.wardrobapp.presentation
 
 import com.wardrobapp.data.DuplicateGarment
 import com.wardrobapp.data.GarmentRecord
+import com.wardrobapp.domain.GarmentReading
 import com.wardrobapp.domain.DuplicateCandidate
 import com.wardrobapp.domain.GarmentImportException
 import com.wardrobapp.domain.ImportedGarmentPreview
@@ -288,9 +289,14 @@ class GarmentFormScreenModel<Picked>(
             attempt { importer.import(url) }
                 .onSuccess { preview ->
                     created.addAll(preview.downloadedImageUris)
+                    // The page first: what the shop says the garment is beats
+                    // what its photo looks like, and every reading of the photos
+                    // after this fills only what the page left open.
+                    pageReading = if (isEditing) null else attempt { photos.readPage(preview.title, preview.details) }.getOrNull()
                     _state.update {
                         it.copy(
-                            form = it.form.withImportedPreview(preview.downloadedImageUris, preview.brand),
+                            form = it.form.withImportedPreview(preview.downloadedImageUris, preview.brand)
+                                .let { form -> pageReading?.let { page -> form.withReading(page, ::seasonsForSubcategories) } ?: form },
                             duplicates = emptyList(),
                             urlImport = it.urlImport.copy(
                                 running = false,
@@ -403,6 +409,13 @@ class GarmentFormScreenModel<Picked>(
     private var readsRunning = 0
 
     /**
+     * What the shop page the garment was imported from says about it, kept so
+     * that each reading of its photos only adds to it; null for a garment not
+     * imported. See runImport.
+     */
+    private var pageReading: GarmentReading? = null
+
+    /**
      * Read the selected photo's type, attributes, material and brand into the
      * form, wherever nobody has said anything yet.
      *
@@ -435,7 +448,7 @@ class GarmentFormScreenModel<Picked>(
                 state.copy(
                     readingPhoto = readsRunning > 0,
                     form = if (reading != null && state.form.displayedPreviewUri() == photo) {
-                        state.form.withReading(reading, ::seasonsForSubcategories)
+                        state.form.withReading(pageReading?.orElse(reading) ?: reading, ::seasonsForSubcategories)
                     } else {
                         state.form
                     },

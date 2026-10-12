@@ -114,6 +114,7 @@ fun importGarmentFromUrl(
         downloadedImageUris = downloaded,
         warnings = warnings,
         parser = extracted.parser,
+        details = extracted.details,
     )
 }
 

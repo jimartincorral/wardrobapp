@@ -374,4 +374,26 @@ class GarmentFormScreenModelTest {
         advanceUntilIdle()
         assertEquals(emptyList(), photos.read)
     }
+
+    @Test
+    fun `an import is read from its page first, and its photo only fills what the page left open`() = runTest {
+        val photos = FakePhotos().apply {
+            readings["stored/import-1.jpg"] = GarmentReading(
+                type = ReadType("outerwear", "Coat"),
+                attributes = com.wardrobapp.domain.GarmentAttributes(pattern = com.wardrobapp.domain.Pattern.SOLID),
+            )
+        }
+        val form = model(photos = photos)
+        advanceUntilIdle()
+
+        // FakeImporter's page is titled "Jacket"; the default reading of its
+        // words finds that, and the photo's "Coat" does not replace it.
+        form.onImportUrlChanged("https://shop.example/jacket")
+        form.onImportRequested()
+        advanceUntilIdle()
+
+        assertEquals("outerwear", form.state.value.form.category)
+        assertEquals(listOf("Jacket"), form.state.value.form.subcategories)
+        assertEquals(com.wardrobapp.domain.Pattern.SOLID, form.state.value.form.attributes.pattern)
+    }
 }

@@ -203,6 +203,20 @@ fun parseGarmentReading(answer: String): GarmentReading {
 private fun <T> List<T>.named(value: String, tag: (T) -> String): T? = find { normalised(tag(it)) == normalised(value) }
 
 /**
+ * The lines a reader is asked to answer with, each from the list
+ * [parseGarmentReading] will check it against: shared by the question about a
+ * photo and the one about a shop page, so the two cannot drift.
+ */
+private fun StringBuilder.appendReadingLines() {
+    appendLine("type: one of ${GARMENT_TYPE_PROMPT_NAMES.joinToString(", ")}")
+    appendLine("pattern: one of ${Pattern.entries.joinToString(", ") { it.tag }}")
+    appendLine("formality: one of ${Formality.entries.joinToString(", ") { it.tag }}")
+    appendLine("fit: one of ${Fit.entries.joinToString(", ") { it.tag }}")
+    appendLine("weight: one of ${Weight.entries.joinToString(", ") { it.tag }}")
+    appendLine("material: one of ${MATERIALS.joinToString(", ")}, or none if you cannot tell")
+}
+
+/**
  * The question put to Gemini Nano about a garment's photo, asking for exactly
  * the lines [parseGarmentReading] reads, each from the list it will check it
  * against.
@@ -215,11 +229,138 @@ private fun <T> List<T>.named(value: String, tag: (T) -> String): T? = find { no
 val GARMENT_READING_PROMPT: String = buildString {
     appendLine("Describe the one item of clothing, footwear or accessory in this photo.")
     appendLine("Reply with exactly these seven lines and nothing else:")
-    appendLine("type: one of ${GARMENT_TYPE_PROMPT_NAMES.joinToString(", ")}")
-    appendLine("pattern: one of ${Pattern.entries.joinToString(", ") { it.tag }}")
-    appendLine("formality: one of ${Formality.entries.joinToString(", ") { it.tag }}")
-    appendLine("fit: one of ${Fit.entries.joinToString(", ") { it.tag }}")
-    appendLine("weight: one of ${Weight.entries.joinToString(", ") { it.tag }}")
-    appendLine("material: one of ${MATERIALS.joinToString(", ")}, or none if you cannot tell")
+    appendReadingLines()
     append("brand: the brand name only if it is clearly printed on the item, otherwise none")
+}
+
+/**
+ * The longest a page's text is put to a model: the start of a description is
+ * where a shop says what the thing is, and a small model asked to read further
+ * is slower and no surer.
+ */
+private const val MAX_PAGE_PROMPT_CHARS = 1_200
+
+/**
+ * The question put to Gemini Nano about a shop's product page: its title and
+ * what it says about the garment, asking for the same lines as a photo minus
+ * the brand, which the page's own markup has already given more reliably than
+ * a model reading prose would.
+ */
+fun garmentPagePrompt(title: String?, details: String?): String = buildString {
+    appendLine("This is a clothing product as a shop describes it.")
+    if (!title.isNullOrBlank()) appendLine("Title: ${title.trim()}")
+    if (!details.isNullOrBlank()) appendLine("Description: ${details.trim().take(MAX_PAGE_PROMPT_CHARS)}")
+    appendLine("Reply with exactly these six lines about the product and nothing else:")
+    appendReadingLines()
+}.trimEnd()
+
+/**
+ * Other words shops use for a type, as the stored label they mean. Only the
+ * common ones, and only where the catalogue's own word is not what a shop in
+ * English writes -- "trousers" for Pants above all.
+ */
+private val TYPE_SYNONYMS: Map<String, String> = mapOf(
+    "trousers" to "Pants",
+    "trouser" to "Pants",
+    "trainers" to "Sneakers",
+    "trainer" to "Sneakers",
+    "jumper" to "Sweater",
+    "pullover" to "Sweater",
+    "tee" to "T-Shirt",
+    "polo shirt" to "Polo",
+    "joggers" to "Sweatpants",
+    "camisole" to "Tank Top",
+    "waistcoat" to "Vest",
+    "gilet" to "Vest",
+    "pyjamas" to "Pajama Set",
+    "dressing gown" to "Robe",
+    "bathrobe" to "Robe",
+    "playsuit" to "Romper",
+    "handbag" to "Bag",
+    "backpack" to "Bag",
+    "cap" to "Hat",
+    "beanie" to "Hat",
+    "necklace" to "Necklaces",
+    "bracelet" to "Bracelets",
+    "ring" to "Rings",
+    "glasses" to "Eyewear",
+    // The catalogue's plural labels in the singular a product title often
+    // uses ("Chelsea Boot"). Not by stripping an "s" from every label, which
+    // would make "Shorts" find the "short" of "short-sleeved shirt".
+    "boot" to "Boots",
+    "sneaker" to "Sneakers",
+    "sandal" to "Sandals",
+    "loafer" to "Loafers",
+    "legging" to "Leggings",
+    "glove" to "Gloves",
+    "earring" to "Earrings",
+)
+
+/**
+ * Labels that are not a type when a shop page uses them as a word: "athletic
+ * fit chinos" are chinos, a "maxi skirt" is a skirt, a "thermal jacket" a
+ * jacket. Read only through their longer names ("Maxi Dress") or not at all.
+ */
+private val TOO_COMMON_TO_READ = setOf("Athletic", "Mini", "Midi", "Maxi", "Cocktail", "Thermal")
+
+private val CATEGORY_OF_LABEL: Map<String, String> =
+    GARMENT_CATEGORIES.flatMap { category -> category.subcategories.map { it to category.id } }.toMap()
+
+/** Every phrase a page might name a type by -- labels, their prompt names, synonyms -- longest first. */
+private val TYPE_PHRASES: List<Pair<Regex, ReadType>> = buildList {
+    for (category in GARMENT_CATEGORIES) {
+        for (label in category.subcategories) {
+            val type = ReadType(category.id, label)
+            if (label !in TOO_COMMON_TO_READ) add(label to type)
+            val promptName = garmentTypePromptName(category.id, label)
+            if (promptName != label) add(promptName to type)
+        }
+    }
+    for ((word, label) in TYPE_SYNONYMS) add(word to ReadType(CATEGORY_OF_LABEL.getValue(label), label))
+    // A dress of no particular length is still a dress.
+    add("dress" to ReadType("dresses", null))
+}
+    .distinctBy { it.first.lowercase() }
+    .sortedByDescending { it.first.length }
+    .map { (phrase, type) -> phraseRegex(phrase) to type }
+
+/**
+ * [phrase] as a whole-word pattern, a space or hyphen inside it matching
+ * either or neither, and a plural "s" or "es" allowed on the end -- so
+ * "T-Shirt" finds "t-shirts" and "tshirt", and "Shirt" does not find "shirts"
+ * inside "overshirts".
+ */
+private fun phraseRegex(phrase: String): Regex {
+    val words = phrase.lowercase().split(' ', '-').filter { it.isNotEmpty() }.map { Regex.escape(it) }
+    return Regex("\\b${words.joinToString("[\\s-]?")}(?:e?s)?\\b", RegexOption.IGNORE_CASE)
+}
+
+/**
+ * What a shop page's words say about the garment, read without any model: the
+ * type its title names, else its description, and the material either names.
+ *
+ * The browser's reading of a page, and the phone's when it has no Gemini Nano
+ * to ask. Only as good as plain matching is -- English pages only, and only
+ * types a shop calls by a name listed here -- which is still most product
+ * titles, since a product title is mostly the name of the thing: "Slim Fit
+ * Chinos", "Linen Shirt". The longest name found wins, so "polo shirt" is a
+ * polo and not a shirt; an earlier one wins between equals.
+ */
+fun readPageText(title: String?, details: String?): GarmentReading {
+    fun typeIn(text: String?): ReadType? {
+        if (text.isNullOrBlank()) return null
+        return TYPE_PHRASES.firstOrNull { (pattern, _) -> pattern.containsMatchIn(text) }?.second
+    }
+    fun materialIn(text: String?): String? {
+        if (text.isNullOrBlank()) return null
+        val lower = text.lowercase()
+        return MATERIALS
+            .mapNotNull { material -> Regex("\\b${Regex.escape(material)}\\b").find(lower)?.let { material to it.range.first } }
+            .minByOrNull { it.second }
+            ?.first
+    }
+    return GarmentReading(
+        type = typeIn(title) ?: typeIn(details),
+        material = materialIn(title) ?: materialIn(details),
+    )
 }
