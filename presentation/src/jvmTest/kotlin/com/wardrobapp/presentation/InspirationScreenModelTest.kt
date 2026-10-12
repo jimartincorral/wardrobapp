@@ -75,4 +75,36 @@ class InspirationScreenModelTest {
         model.onAddAbandoned()
         assertFalse(model.state.value.adding)
     }
+
+    @Test
+    fun `a photo picked after the add began is added, and the button lets go`() = runTest(StandardTestDispatcher()) {
+        // The order both platforms call in: the tap marks the screen busy
+        // while the picker is open, and the stored photo arrives after.
+        val source = FakeSource()
+        val model = model(source)
+        advanceUntilIdle()
+
+        model.onAddStarted()
+        model.onPhotoStored("photos/two.jpg")
+        advanceUntilIdle()
+
+        assertEquals(listOf("add photos/two.jpg"), source.calls)
+        assertEquals(listOf("l2", "l1"), model.state.value.looks.map { it.id })
+        assertFalse(model.state.value.adding)
+    }
+
+    @Test
+    fun `a photo stored twice before the first is added is added once`() = runTest(StandardTestDispatcher()) {
+        val source = FakeSource()
+        val model = model(source)
+        advanceUntilIdle()
+
+        model.onAddStarted()
+        model.onPhotoStored("photos/two.jpg")
+        model.onPhotoStored("photos/two.jpg")
+        advanceUntilIdle()
+
+        assertEquals(listOf("add photos/two.jpg"), source.calls)
+    }
 }
+
