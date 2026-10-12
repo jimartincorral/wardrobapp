@@ -65,14 +65,26 @@ class InspirationScreenModel(
         }
     }
 
+    /**
+     * Whether a look is being written, which is what a second stored photo
+     * must wait out -- not [InspirationScreenState.adding], which is what the
+     * screen shows and is already true by the time a photo is stored:
+     * [onAddStarted] sets it as the picker opens. Guarding on that dropped
+     * every photo anybody picked, and left the button saying "Adding…" for
+     * good.
+     */
+    private var storing = false
+
     /** Called with the stored reference once the platform has stored a picked photo. */
     fun onPhotoStored(photo: String) {
-        if (_state.value.adding) return
+        if (storing) return
+        storing = true
         _state.update { it.copy(adding = true, error = null) }
         scope.launch {
             attempt { source.add(photo) }
                 .onSuccess { look -> _state.update { it.copy(adding = false, looks = listOf(look) + it.looks) } }
                 .onFailure { e -> _state.update { it.copy(adding = false, error = e.readableMessage()) } }
+            storing = false
         }
     }
 
