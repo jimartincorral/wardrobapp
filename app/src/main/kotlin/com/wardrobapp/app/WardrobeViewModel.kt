@@ -31,6 +31,10 @@ class WardrobeViewModel(container: AppContainer) : ViewModel() {
         scope = viewModelScope,
         source = DatabaseWardrobeSource(container.garments, Dispatchers.IO),
         settings = container.wardrobeView,
+        // A search in plain words, read by Gemini Nano where the phone has
+        // it; answered null at once where it does not, and the words are then
+        // read by plain matching alone. Never a download from here.
+        askNano = { prompt -> container.geminiNano.ask(null, prompt, ASK_TOKENS) },
     )
 
     val state: StateFlow<WardrobeScreenState> = model.state
@@ -50,5 +54,9 @@ class WardrobeViewModel(container: AppContainer) : ViewModel() {
     fun onSortToggled() = model.onSortToggled()
     fun onFiltersCleared() = model.onFiltersCleared()
     fun onQueryRequested(query: WardrobeQuery) = model.onQueryRequested(query)
+    fun onUnderstandRequested() = model.onUnderstandRequested()
     fun refresh() = model.refresh()
 }
+
+/** Room for six short "filter: value" lines, which is all a search is read as. */
+private const val ASK_TOKENS = 80

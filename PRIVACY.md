@@ -56,7 +56,11 @@ press the button. See the section below.
 its background runs on your device, using a model that Google Play services
 provides. On phones that have Gemini Nano, the app also asks it what a new
 garment's photo shows (its type, pattern, material and so on), through Android's
-AICore, which runs it on the device too. Neither uploads the photo. Play services
+AICore, which runs it on the device too — and, when you use them, what a saved
+look, a photo of what you are wearing, or a photo taken in a shop shows, and
+what a search typed into the wardrobe asks for. Neither uploads the photo or
+the search. A photo of what you are wearing or of something in a shop is kept
+only while its screen is open, and deleted after. Play services
 and AICore may fetch or update their models over the network, which is Google's
 process rather than this app's.
 

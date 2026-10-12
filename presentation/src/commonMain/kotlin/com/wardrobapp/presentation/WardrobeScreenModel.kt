@@ -44,6 +44,13 @@ class WardrobeScreenModel(
     private val scope: CoroutineScope,
     private val source: WardrobeSource,
     private val settings: WardrobeViewSettings,
+    /**
+     * A question put to Gemini Nano, answered in its words, or null where it
+     * cannot answer: the phone's, for reading a search in plain words (see
+     * WardrobeAsk.kt). Null by default, and in the browser, where the words
+     * are read by plain matching alone.
+     */
+    private val askNano: (suspend (prompt: String) -> String?)? = null,
 ) {
     private val _state = MutableStateFlow(
         WardrobeScreenState(view = settings.view, caption = settings.caption),
@@ -97,7 +104,42 @@ class WardrobeScreenModel(
         _state.update { it.copy(filtersExpanded = !it.filtersExpanded) }
     }
 
-    fun onSearchChanged(search: String) = typed { it.copy(search = search) }
+    fun onSearchChanged(search: String) {
+        if (_state.value.notUnderstood) _state.update { it.copy(notUnderstood = false) }
+        typed { it.copy(search = search) }
+    }
+
+    /**
+     * Turn what is typed in the search box into the filters it describes
+     * (WardrobeAsk.kt): Gemini Nano's reading where there is one, plain
+     * matching for whatever it left open, and a brand only as the wardrobe
+     * writes it -- which is why every brand in it is read first, retired
+     * garments' included, through the same source as the list.
+     *
+     * A search nothing could be made of stays as it was, and the screen says
+     * so; the reader's words are not thrown away for a guess.
+     */
+    fun onUnderstandRequested() {
+        val request = _state.value.query.searchTerm ?: return
+        if (_state.value.understanding) return
+        pendingReload?.cancel()
+        _state.update { it.copy(understanding = true, notUnderstood = false) }
+        scope.launch {
+            val ask = attempt {
+                val brands = source.garments(WardrobeQuery(includeRetired = true))
+                    .mapNotNull { garment -> garment.brand?.trim()?.ifEmpty { null } }
+                    .distinct()
+                val byNano = askNano?.invoke(wardrobeAskPrompt(request))?.let(::parseWardrobeAsk) ?: WardrobeAsk()
+                byNano.orElse(readWardrobeAsk(request, brands)).withBrandFrom(brands)
+            }.getOrNull()
+            if (ask == null || ask.isEmpty) {
+                _state.update { it.copy(understanding = false, notUnderstood = true) }
+            } else {
+                _state.update { it.copy(understanding = false, query = it.query.answering(ask)) }
+                reload()
+            }
+        }
+    }
 
     // Brands and sizes are tapped now rather than typed, so they go through
     // `narrow` like every other chip: there is nothing to debounce about a tap.

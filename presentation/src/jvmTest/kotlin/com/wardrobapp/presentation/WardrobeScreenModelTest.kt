@@ -112,4 +112,47 @@ class WardrobeScreenModelTest {
         assertFalse(model.state.value.loading)
         assertEquals("locked", model.state.value.error)
     }
+
+    @Test
+    fun `a search in plain words becomes the filters it describes, and the box is emptied`() = runTest {
+        val source = FakeSource()
+        val prompts = mutableListOf<String>()
+        val model = WardrobeScreenModel(this, source, MemorySettings(), askNano = { prompt ->
+            prompts += prompt
+            "season: winter\noccasion: formal"
+        })
+        advanceUntilIdle()
+        model.onSortToggled()
+        advanceUntilIdle()
+
+        model.onSearchChanged("something warm in navy for a wedding")
+        assertEquals(true, model.state.value.offersUnderstanding)
+        model.onUnderstandRequested()
+        advanceUntilIdle()
+
+        val query = model.state.value.query
+        assertEquals("", query.search)
+        assertEquals(com.wardrobapp.domain.Season.WINTER, query.season)
+        assertEquals(com.wardrobapp.domain.Occasion.FORMAL, query.occasion)
+        assertEquals("#000080", query.color, "the colour Nano left open was not read from the words")
+        assertEquals(GarmentSort.OLDEST, query.sort, "the reader's sort was dropped with the old filters")
+        assertEquals(query, source.asked.last(), "the list was not read again for the new filters")
+        assertEquals(1, prompts.size)
+    }
+
+    @Test
+    fun `a search nothing can be made of is left as typed, and says so`() = runTest {
+        val model = WardrobeScreenModel(this, FakeSource(), MemorySettings())
+        advanceUntilIdle()
+
+        model.onSearchChanged("the one from the party")
+        model.onUnderstandRequested()
+        advanceUntilIdle()
+
+        assertEquals("the one from the party", model.state.value.query.search)
+        assertEquals(true, model.state.value.notUnderstood)
+
+        model.onSearchChanged("the one")
+        assertFalse(model.state.value.notUnderstood)
+    }
 }

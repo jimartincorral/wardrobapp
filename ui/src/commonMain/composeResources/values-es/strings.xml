@@ -259,6 +259,9 @@
     <string name="shopping_goes_with_nothing">Aún no tienes nada que combine con esto.</string>
     <string name="shopping_bought">Lo he comprado: añadirlo</string>
     <string name="shopping_another">Comprobar otra cosa</string>
+    <string name="wardrobe_understand">Convertir en filtros</string>
+    <string name="wardrobe_understanding">Leyendo tu búsqueda…</string>
+    <string name="wardrobe_not_understood">No se han podido sacar filtros de eso. Prueba a nombrar un tipo, un color, una temporada o una ocasión.</string>
     <string name="form_section_style">Estilo</string>
     <string name="form_style_hint">Si se deja en blanco, decide el tipo de prenda.</string>
     <string name="attribute_formality">Formalidad</string>

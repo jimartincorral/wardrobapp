@@ -309,6 +309,9 @@
     <string name="shopping_goes_with_nothing">Nothing you have goes with it yet.</string>
     <string name="shopping_bought">I bought it — add it</string>
     <string name="shopping_another">Check something else</string>
+    <string name="wardrobe_understand">Turn this into filters</string>
+    <string name="wardrobe_understanding">Reading your search…</string>
+    <string name="wardrobe_not_understood">Couldn't make filters of that. Try naming a type, a colour, a season or an occasion.</string>
     <!-- A garment's style attributes, which the outfit suggestions learn over.
          The hint says what an unset one means. -->
     <string name="form_section_style">Style</string>
