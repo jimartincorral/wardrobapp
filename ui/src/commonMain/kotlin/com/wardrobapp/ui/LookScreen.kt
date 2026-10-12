@@ -13,12 +13,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,7 @@ import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_back
 import com.wardrobapp.ui.resources.gap_add
 import com.wardrobapp.ui.resources.gap_want
+import com.wardrobapp.ui.resources.look_closest_owned
 import com.wardrobapp.ui.resources.look_gone
 import com.wardrobapp.ui.resources.look_intro
 import com.wardrobapp.ui.resources.look_none_owned
@@ -150,8 +152,14 @@ fun LookScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    items(state.rows) { row ->
-                        PieceRow(row, onAddMissing = onAddMissing, onGarmentOpened = onGarmentOpened)
+                    itemsIndexed(state.rows) { index, row ->
+                        // A rule between pieces, not around them: each row is a
+                        // name, a photo and a button, and without one the eye
+                        // cannot tell which photo answers which name.
+                        Column {
+                            if (index > 0) HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp))
+                            PieceRow(row, onAddMissing = onAddMissing, onGarmentOpened = onGarmentOpened)
+                        }
                     }
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -211,30 +219,32 @@ private fun PieceRow(row: LookRow, onAddMissing: (PhantomGarment) -> Unit, onGar
     val colourName = piece.color?.let { paletteColorFor(it) }?.first?.let { paletteLabel(it) }
     val title = if (colourName != null) stringResource(Res.string.gap_want, colourName, type) else type
 
+    // What to show beside the name: the garment that stands in for the piece,
+    // else the nearest thing there is, marked as such.
+    val shown = row.garment ?: row.closest
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        val garment = row.garment
-        if (garment != null) {
+        if (shown != null) {
             GarmentPhoto(
-                garment = garment,
-                modifier = Modifier.size(72.dp).clickable { onGarmentOpened(garment.id) },
+                garment = shown,
+                modifier = Modifier.size(72.dp).clickable { onGarmentOpened(shown.id) },
                 contentDescription = title,
             )
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            if (garment == null) {
+            if (row.garment == null) {
                 Text(
-                    stringResource(Res.string.look_none_owned),
+                    stringResource(if (row.closest != null) Res.string.look_closest_owned else Res.string.look_none_owned),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-        if (garment == null) {
+        if (row.garment == null) {
             TextButton(onClick = { onAddMissing(piece.asWanted()) }) { Text(stringResource(Res.string.gap_add)) }
         }
     }

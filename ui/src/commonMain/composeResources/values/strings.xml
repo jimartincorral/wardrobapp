@@ -277,6 +277,7 @@
     <string name="look_read_again">Read again</string>
     <string name="look_gone">This look isn't here any more.</string>
     <string name="look_none_owned">You don't have one.</string>
+    <string name="look_closest_owned">You don't have one. This is the closest you have.</string>
     <string name="look_save">Save as an outfit</string>
     <string name="look_saving">Saving…</string>
     <string name="look_open">Rebuild this look from my wardrobe</string>

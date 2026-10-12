@@ -227,6 +227,7 @@
     <string name="look_read_again">Volver a leer</string>
     <string name="look_gone">Este look ya no está.</string>
     <string name="look_none_owned">No tienes ninguna.</string>
+    <string name="look_closest_owned">No tienes ninguna. Esto es lo más parecido que tienes.</string>
     <string name="look_save">Guardar como conjunto</string>
     <string name="look_saving">Guardando…</string>
     <string name="look_open">Recrear este look con mi armario</string>

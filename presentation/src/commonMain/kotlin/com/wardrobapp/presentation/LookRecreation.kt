@@ -58,6 +58,10 @@ private val UNREAD_CATEGORIES = setOf("underwear")
  */
 val LOOK_PIECES_PROMPT: String = buildString {
     appendLine("List each item of clothing, footwear and accessory the person in this photo is wearing.")
+    // Asked outright because the first look read on a phone came back with
+    // black sunglasses nobody in it was wearing: a small model asked for a
+    // list fills it out unless told what not to put on it.
+    appendLine("Only list items you can clearly see in the photo; leave out anything you are guessing at.")
     appendLine("Write one item per line, as: type | colour")
     appendLine("type is one of: ${GARMENT_TYPE_PROMPT_NAMES.joinToString(", ")}")
     appendLine("colour is one of: ${GARMENT_COLORS.joinToString(", ") { colorWord(it.first) }}")
@@ -107,8 +111,30 @@ fun parseLookPieces(answer: String): List<LookPiece> {
     return pieces
 }
 
-/** One piece of a look and what the wardrobe has for it, or null when it has nothing close. */
-data class LookRow(val piece: LookPiece, val garment: GarmentRecord?)
+/**
+ * One piece of a look and what the wardrobe has for it: [garment] when
+ * something stands in for it (and goes into the outfit the look is saved
+ * as), otherwise [closest], the nearest thing there is -- a black skirt for a
+ * pink one -- shown so the reader can judge for themselves, but not saved
+ * as the look, since it is not what the look is.
+ */
+data class LookRow(val piece: LookPiece, val garment: GarmentRecord?, val closest: GarmentRecord? = null)
+
+/**
+ * Accessories close enough to stand as the nearest thing to each other when
+ * the wardrobe lacks the type itself: glasses for sunglasses, a foulard for a
+ * scarf, one piece of jewellery for another. Any other accessory is no kind
+ * of answer -- a belt is not the nearest thing to sunglasses, just the only
+ * accessory there is -- so nothing is shown.
+ */
+private val RELATED_ACCESSORIES: List<Set<String>> = listOf(
+    setOf("Sunglasses", "Eyewear"),
+    setOf("Scarf", "Foulard"),
+    setOf("Jewelry", "Necklaces", "Bracelets", "Rings", "Earrings"),
+    setOf("Bag", "Wallet"),
+)
+
+private fun accessoriesLike(type: String): Set<String> = RELATED_ACCESSORIES.firstOrNull { type in it } ?: setOf(type)
 
 /**
  * How far apart, in CIELAB ΔE (CIE76, as colorDistance measures), a garment's
@@ -175,7 +201,43 @@ fun recreateLook(
         best?.let { used += it.id }
     }
 
-    return pieces.mapIndexed { index, piece -> LookRow(piece, matched[index]) }
+    // Then, for each piece nothing stood in for, the nearest thing anyway:
+    // the same category, any colour, a related accessory at most -- and not a
+    // garment already answering another piece, or the same skirt would be the
+    // match for one row and the nearest thing for the next.
+    val nearest = arrayOfNulls<GarmentRecord>(pieces.size)
+    for (index in order) {
+        if (matched[index] != null) continue
+        val piece = pieces[index]
+        nearest[index] = garments
+            .asSequence()
+            .filter { it.isAvailable && it.id !in used && it.category == piece.category }
+            .filter { garment ->
+                piece.subcategory == null || piece.category != "accessories" ||
+                    garment.effectiveSubcategories.any { it in accessoriesLike(piece.subcategory) }
+            }
+            .maxByOrNull { garment -> nearness(piece, garment, lookVector, garmentVectors[garment.id]) }
+            ?.also { used += it.id }
+    }
+
+    return pieces.mapIndexed { index, piece -> LookRow(piece, matched[index], nearest[index]) }
+}
+
+/**
+ * How near [garment] comes to [piece] when nothing stands in for it: the
+ * same type first, then the closest colour, however far, then the look's
+ * style. No colour is too far here; that is what makes it the nearest thing
+ * rather than a match.
+ */
+private fun nearness(piece: LookPiece, garment: GarmentRecord, lookVector: FloatArray?, garmentVector: FloatArray?): Double {
+    val typeScore = if (piece.subcategory != null && piece.subcategory in garment.effectiveSubcategories) 1.0 else 0.0
+    val colourScore = piece.color?.let { wanted -> garment.palette.maxOfOrNull { colorSimilarity(wanted, it) } } ?: 0.0
+    val styleScore = if (lookVector != null && garmentVector != null && lookVector.size == garmentVector.size) {
+        lookVector.indices.sumOf { (lookVector[it] * garmentVector[it]).toDouble() }
+    } else {
+        0.0
+    }
+    return typeScore + colourScore + STYLE_WEIGHT * styleScore
 }
 
 /** How well [garment] stands in for [piece]; null when it cannot at all. */

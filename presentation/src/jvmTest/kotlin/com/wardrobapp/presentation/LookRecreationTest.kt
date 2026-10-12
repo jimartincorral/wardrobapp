@@ -122,4 +122,46 @@ class LookRecreationTest {
     @Suppress("TestFunctionName")
     private fun PhantomGarmentOf(category: String, subcategory: String?, colour: String) =
         com.wardrobapp.domain.PhantomGarment(category, subcategory, colour)
+
+    @Test
+    fun `a piece nothing answers shows the nearest thing there is, which is not saved as the look`() {
+        val wardrobe = listOf(
+            garment("black-skirt", "bottoms", "Skirt", black),
+            garment("jeans", "bottoms", "Jeans", "#87CEEB"),
+            garment("glasses", "accessories", "Eyewear", black),
+            garment("belt", "accessories", "Belt", black),
+        )
+        val rows = recreateLook(
+            listOf(
+                LookPiece("bottoms", "Skirt", "#FF69B4"),
+                LookPiece("accessories", "Sunglasses", black),
+                LookPiece("accessories", "Hat", black),
+            ),
+            wardrobe,
+        )
+
+        assertNull(rows[0].garment, "black is no stand-in for pink")
+        assertEquals("black-skirt", rows[0].closest?.id, "but a skirt is nearer a skirt than jeans are")
+        assertEquals("glasses", rows[1].closest?.id, "glasses are the nearest thing to sunglasses")
+        assertNull(rows[2].closest, "a belt is not the nearest thing to a hat")
+    }
+
+    @Test
+    fun `a garment answering one piece is not the nearest thing to another`() {
+        val wardrobe = listOf(garment("navy-skirt", "bottoms", "Skirt", navy))
+        val rows = recreateLook(
+            listOf(LookPiece("bottoms", "Skirt", navy), LookPiece("bottoms", "Skirt", "#FF69B4")),
+            wardrobe,
+        )
+
+        assertEquals("navy-skirt", rows[0].garment?.id)
+        assertNull(rows[1].garment)
+        assertNull(rows[1].closest)
+    }
+
+    @Test
+    fun `the question asks for what is clearly there`() {
+        assertTrue("clearly see" in LOOK_PIECES_PROMPT)
+    }
 }
+
