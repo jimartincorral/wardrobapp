@@ -11,10 +11,14 @@ import com.wardrobapp.presentation.LookPiece
 import com.wardrobapp.presentation.LookReader
 import com.wardrobapp.presentation.LookScreenModel
 import com.wardrobapp.presentation.LookScreenState
+import com.wardrobapp.presentation.LookSource
+import com.wardrobapp.presentation.WORN_LOOK_ID
+import com.wardrobapp.presentation.WornPhotoSource
 import com.wardrobapp.presentation.parseLookPieces
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Room for eight short "type | colour" lines, which is all a look is read as. */
@@ -25,10 +29,20 @@ private const val LOOK_TOKENS = 160
  * phone's database, with Gemini Nano reading the look's photo. Opened on any
  * phone; one where Gemini Nano is not ready says so on the screen, with the
  * download AICore offers, rather than leaving the look untappable.
+ *
+ * With [wornPhoto], the same over a photo of what somebody is wearing rather
+ * than a saved look (WornPhotoSource): stored only so it could be read
+ * upright, and deleted once the screen is done with it, since the outfit it
+ * is saved as is what is worth keeping. A photo left behind by a process that
+ * died first is the unreferenced-photo sweep's.
  */
-class LookViewModel(private val container: AppContainer, lookId: String) : ViewModel() {
+class LookViewModel(
+    private val container: AppContainer,
+    lookId: String,
+    private val wornPhoto: String? = null,
+) : ViewModel() {
 
-    private val source = DatabaseLookSource(
+    private val saved = DatabaseLookSource(
         style = StyleQueries(container.database),
         garments = container.garments,
         outfitWrites = container.outfitWrites,
@@ -41,7 +55,13 @@ class LookViewModel(private val container: AppContainer, lookId: String) : ViewM
         io = Dispatchers.IO,
     )
 
-    private val model = LookScreenModel(scope = viewModelScope, source = source, lookId = lookId)
+    private val source: LookSource = wornPhoto?.let { WornPhotoSource(saved, it) } ?: saved
+
+    private val model = LookScreenModel(
+        scope = viewModelScope,
+        source = source,
+        lookId = if (wornPhoto != null) WORN_LOOK_ID else lookId,
+    )
 
     val state: StateFlow<LookScreenState> = model.state
 
@@ -49,6 +69,10 @@ class LookViewModel(private val container: AppContainer, lookId: String) : ViewM
     fun onSaveRequested() = model.onSaveRequested()
     fun onSavedOutfitOpened() = model.onSavedOutfitOpened()
     fun onDownloadReader() = model.onDownloadReader()
+
+    override fun onCleared() {
+        wornPhoto?.let { photo -> container.appScope.launch(Dispatchers.IO) { container.photos.delete(photo) } }
+    }
 
     private suspend fun read(look: InspirationRecord): List<LookPiece>? = withContext(Dispatchers.IO) {
         val picture = container.photos.bitmapFor(look.imageUri.toUri())?.let(::pictureForNano) ?: return@withContext null

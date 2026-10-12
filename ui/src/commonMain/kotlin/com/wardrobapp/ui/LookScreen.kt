@@ -56,6 +56,15 @@ import com.wardrobapp.ui.resources.look_save
 import com.wardrobapp.ui.resources.look_saving
 import com.wardrobapp.ui.resources.look_title
 import com.wardrobapp.ui.resources.look_unread
+import com.wardrobapp.ui.resources.worn_closest_owned
+import com.wardrobapp.ui.resources.worn_intro
+import com.wardrobapp.ui.resources.worn_none_owned
+import com.wardrobapp.ui.resources.worn_reader_downloadable
+import com.wardrobapp.ui.resources.worn_reader_downloading
+import com.wardrobapp.ui.resources.worn_reader_unavailable
+import com.wardrobapp.ui.resources.worn_reading
+import com.wardrobapp.ui.resources.worn_title
+import com.wardrobapp.ui.resources.worn_unread
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -65,9 +74,14 @@ import org.jetbrains.compose.resources.stringResource
  * Under them, a button to keep what the wardrobe has of the look as an outfit.
  *
  * Phone only, since Gemini Nano is what reads the pieces; where it is not
- * ready the screen says why (ReaderNotice) instead of the rows. The rows are not editable -- swapping a garment is the saved
- * outfit's own screen's job, and doing it here would be a second outfit
- * editor -- and a piece read wrongly is answered by reading the look again.
+ * ready the screen says why (ReaderNotice) instead of the rows. The rows are
+ * not editable -- swapping a garment is the saved outfit's own screen's job,
+ * and doing it here would be a second outfit editor -- and a piece read
+ * wrongly is answered by reading the look again.
+ *
+ * The same screen answers a photo of what somebody is wearing (WornPhotoSource),
+ * worded for it when [wearing]: the pieces are theirs, so one the wardrobe
+ * has no match for is a garment not added yet rather than one to go and find.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,11 +94,13 @@ fun LookScreen(
     onSave: () -> Unit,
     /** Ask Android to download Gemini Nano, when the screen says it can. */
     onDownloadReader: () -> Unit = {},
+    /** Whether the photo is of what the reader is wearing, rather than a saved look. */
+    wearing: Boolean = false,
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(Res.string.look_title)) },
+                title = { Text(stringResource(if (wearing) Res.string.worn_title else Res.string.look_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(Res.string.action_back))
@@ -121,7 +137,7 @@ fun LookScreen(
                         CircularProgressIndicator(modifier = Modifier.size(20.dp))
                         if (state.reading) {
                             Text(
-                                stringResource(Res.string.look_reading),
+                                stringResource(if (wearing) Res.string.worn_reading else Res.string.look_reading),
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(start = 12.dp),
                             )
@@ -130,13 +146,13 @@ fun LookScreen(
                 }
 
                 state.reader != LookReader.READY -> item {
-                    ReaderNotice(state.reader, onDownloadReader)
+                    ReaderNotice(state.reader, wearing, onDownloadReader)
                 }
 
                 state.unread || state.error != null -> item {
                     Column {
                         Text(
-                            state.error ?: stringResource(Res.string.look_unread),
+                            state.error ?: stringResource(if (wearing) Res.string.worn_unread else Res.string.look_unread),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -147,7 +163,7 @@ fun LookScreen(
                 else -> {
                     item {
                         Text(
-                            stringResource(Res.string.look_intro),
+                            stringResource(if (wearing) Res.string.worn_intro else Res.string.look_intro),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -158,7 +174,7 @@ fun LookScreen(
                         // cannot tell which photo answers which name.
                         Column {
                             if (index > 0) HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp))
-                            PieceRow(row, onAddMissing = onAddMissing, onGarmentOpened = onGarmentOpened)
+                            PieceRow(row, wearing, onAddMissing = onAddMissing, onGarmentOpened = onGarmentOpened)
                         }
                     }
                     item {
@@ -186,14 +202,14 @@ fun LookScreen(
  * because a look that did nothing when tapped told nobody anything.
  */
 @Composable
-private fun ReaderNotice(reader: LookReader, onDownload: () -> Unit) {
+private fun ReaderNotice(reader: LookReader, wearing: Boolean, onDownload: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag(LOOK_READER)) {
         Text(
             stringResource(
                 when (reader) {
-                    LookReader.DOWNLOADABLE -> Res.string.look_reader_downloadable
-                    LookReader.DOWNLOADING -> Res.string.look_reader_downloading
-                    else -> Res.string.look_reader_unavailable
+                    LookReader.DOWNLOADABLE -> if (wearing) Res.string.worn_reader_downloadable else Res.string.look_reader_downloadable
+                    LookReader.DOWNLOADING -> if (wearing) Res.string.worn_reader_downloading else Res.string.look_reader_downloading
+                    else -> if (wearing) Res.string.worn_reader_unavailable else Res.string.look_reader_unavailable
                 },
             ),
             style = MaterialTheme.typography.bodyMedium,
@@ -213,7 +229,12 @@ private fun ReaderNotice(reader: LookReader, onDownload: () -> Unit) {
  * which is why its button opens the same add form a gap does.
  */
 @Composable
-private fun PieceRow(row: LookRow, onAddMissing: (PhantomGarment) -> Unit, onGarmentOpened: (String) -> Unit) {
+private fun PieceRow(
+    row: LookRow,
+    wearing: Boolean,
+    onAddMissing: (PhantomGarment) -> Unit,
+    onGarmentOpened: (String) -> Unit,
+) {
     val piece = row.piece
     val type = typeLabel(piece.category, piece.subcategory)
     val colourName = piece.color?.let { paletteColorFor(it) }?.first?.let { paletteLabel(it) }
@@ -238,7 +259,14 @@ private fun PieceRow(row: LookRow, onAddMissing: (PhantomGarment) -> Unit, onGar
             Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             if (row.garment == null) {
                 Text(
-                    stringResource(if (row.closest != null) Res.string.look_closest_owned else Res.string.look_none_owned),
+                    stringResource(
+                        when {
+                            wearing && row.closest != null -> Res.string.worn_closest_owned
+                            wearing -> Res.string.worn_none_owned
+                            row.closest != null -> Res.string.look_closest_owned
+                            else -> Res.string.look_none_owned
+                        },
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

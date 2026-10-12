@@ -156,5 +156,24 @@ class LookScreenModelTest {
         assertEquals(LookReader.DOWNLOADING, model.state.value.reader)
         assertEquals(0, source.reads)
     }
-}
 
+    @Test
+    fun `a photo of what was worn is read, matched, and kept only in memory`() = runTest {
+        val wardrobe = FakeSource().apply { look = null }
+        val source = WornPhotoSource(wardrobe, "selfie.jpg")
+        val model = LookScreenModel(this, source, WORN_LOOK_ID)
+        advanceUntilIdle()
+
+        assertEquals("selfie.jpg", model.state.value.look?.imageUri)
+        assertEquals(listOf("shirt", "jeans", null), model.state.value.rows.map { it.garment?.id })
+        assertNull(wardrobe.kept, "a worn photo's reading went into the database's keeping")
+
+        model.onSaveRequested()
+        advanceUntilIdle()
+        assertEquals(listOf("shirt", "jeans"), wardrobe.saved.single().second)
+
+        LookScreenModel(this, source, WORN_LOOK_ID)
+        advanceUntilIdle()
+        assertEquals(1, wardrobe.reads, "the same photo, opened again, was read again")
+    }
+}

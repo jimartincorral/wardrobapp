@@ -285,6 +285,18 @@
     <string name="look_reader_download">Download Gemini Nano</string>
     <string name="look_reader_downloading">Android is downloading Gemini Nano. This look is read as soon as it's ready.</string>
     <string name="look_reader_unavailable">Taking a look apart needs Gemini Nano, which isn't available on this phone right now. Your saved looks still steer your suggestions.</string>
+    <string name="worn_title">What you're wearing</string>
+    <string name="worn_open">What I'm wearing</string>
+    <string name="worn_take_photo">Take a photo</string>
+    <string name="worn_choose_photo">Choose a photo</string>
+    <string name="worn_intro">Each piece you're wearing, and the garment in your wardrobe it looks like.</string>
+    <string name="worn_reading">Reading the photo…</string>
+    <string name="worn_unread">Couldn't make out what you're wearing in this photo.</string>
+    <string name="worn_none_owned">Not in your wardrobe yet.</string>
+    <string name="worn_closest_owned">Not in your wardrobe yet. This is the closest you have.</string>
+    <string name="worn_reader_downloadable">Gemini Nano reads the photo, here on your phone, and Android hasn't downloaded it for this app yet. Android fetches it and keeps it up to date.</string>
+    <string name="worn_reader_downloading">Android is downloading Gemini Nano. The photo is read as soon as it's ready.</string>
+    <string name="worn_reader_unavailable">Reading what you're wearing needs Gemini Nano, which isn't available on this phone right now.</string>
     <!-- A garment's style attributes, which the outfit suggestions learn over.
          The hint says what an unset one means. -->
     <string name="form_section_style">Style</string>
