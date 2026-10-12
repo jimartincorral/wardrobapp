@@ -106,9 +106,9 @@ import com.wardrobapp.ui.resources.outfits_title
 import com.wardrobapp.ui.resources.inspiration_title
 import com.wardrobapp.ui.resources.taste_training_title
 import com.wardrobapp.ui.resources.outfits_use_whole_wardrobe
-import com.wardrobapp.ui.resources.worn_choose_photo
+import com.wardrobapp.ui.resources.photo_choose
 import com.wardrobapp.ui.resources.worn_open
-import com.wardrobapp.ui.resources.worn_take_photo
+import com.wardrobapp.ui.resources.photo_take
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -565,14 +565,14 @@ private fun WornButton(onWornPhotoRequested: (fromCamera: Boolean) -> Unit, modi
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
-                text = { Text(stringResource(Res.string.worn_take_photo)) },
+                text = { Text(stringResource(Res.string.photo_take)) },
                 onClick = {
                     open = false
                     onWornPhotoRequested(true)
                 },
             )
             DropdownMenuItem(
-                text = { Text(stringResource(Res.string.worn_choose_photo)) },
+                text = { Text(stringResource(Res.string.photo_choose)) },
                 onClick = {
                     open = false
                     onWornPhotoRequested(false)

@@ -1,7 +1,9 @@
 package com.wardrobapp.data
 
+import com.wardrobapp.domain.Garment
 import com.wardrobapp.domain.GenerateSuggestionsOptions
 import com.wardrobapp.domain.OutfitReason
+import com.wardrobapp.domain.PhantomGarment
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.RatedExample
 import com.wardrobapp.domain.StyleLookup
@@ -88,19 +90,8 @@ class Suggestions(
         // deleted garment lands here, which is why it is not an error.
         val seed = seedGarmentId?.let { id -> available.firstOrNull { it.id == id } ?: return emptyList() }
 
-        val history = outfits.ratedHistory()
-        val embeddings = style?.embeddings().orEmpty()
         val scored = buildSuggestions(
-            SuggestionContext(
-                garments = available.map { it.toDomain() },
-                getPairScore = outfits.pairScores(),
-                learned = outfits.learnedPreferences(),
-                currentSeason = currentSeason,
-                random = random,
-                taste = tasteModel(history),
-                style = if (embeddings.isEmpty()) null else StyleLookup { embeddings[it] },
-                styleTaste = styleTaste(history, embeddings),
-            ),
+            context(available.map { it.toDomain() }, currentSeason, random),
             if (seed == null) options else options.copy(seedGarments = listOf(seed.toDomain())),
         )
 
@@ -115,6 +106,56 @@ class Suggestions(
                 garments = outfit.garments.mapNotNull { byId[it.id] },
             )
         }
+    }
+
+    /**
+     * Outfits built around a garment the reader does not own yet -- one they
+     * are thinking of buying -- from what they do own; [wanted] itself is left
+     * out of each, which is what the screen draws its own photo in place of.
+     *
+     * The gap analysis's trick (see outfitsAbove in :domain): the phantom goes
+     * into the pool as well as the seed, since the engine reads which outfit
+     * shapes it can fill from the pool, and the seed is what makes it appear
+     * in every one. Unlike a gap, nothing is measured against a bar: the
+     * question is not whether it beats the wardrobe but what it would be worn
+     * with, and an empty answer is an answer -- nothing owned goes with it.
+     */
+    fun suggestAround(
+        wanted: PhantomGarment,
+        currentSeason: Season,
+        random: () -> Double,
+        count: Int,
+    ): List<SuggestedOutfit> {
+        val available = garments.allGarments(GarmentQueries.Filters(availableOnly = true))
+        val byId = available.associateBy { it.id }
+        val phantom = wanted.asGarment()
+        return buildSuggestions(
+            context(available.map { it.toDomain() } + phantom, currentSeason, random),
+            GenerateSuggestionsOptions(count = count, seedGarments = listOf(phantom)),
+        ).map { outfit ->
+            SuggestedOutfit(
+                name = outfit.name,
+                score = outfit.score,
+                reasons = outfit.reasons,
+                garments = outfit.garments.mapNotNull { byId[it.id] },
+            )
+        }
+    }
+
+    /** What the engine is told about the reader, over [pool]. */
+    private fun context(pool: List<Garment>, currentSeason: Season, random: () -> Double): SuggestionContext {
+        val history = outfits.ratedHistory()
+        val embeddings = style?.embeddings().orEmpty()
+        return SuggestionContext(
+            garments = pool,
+            getPairScore = outfits.pairScores(),
+            learned = outfits.learnedPreferences(),
+            currentSeason = currentSeason,
+            random = random,
+            taste = tasteModel(history),
+            style = if (embeddings.isEmpty()) null else StyleLookup { embeddings[it] },
+            styleTaste = styleTaste(history, embeddings),
+        )
     }
 
     /**

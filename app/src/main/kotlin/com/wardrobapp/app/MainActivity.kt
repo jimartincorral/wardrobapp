@@ -92,6 +92,7 @@ import com.wardrobapp.ui.OnboardingScreen
 import com.wardrobapp.ui.OutfitDetailScreen
 import com.wardrobapp.ui.OutfitEditScreen
 import com.wardrobapp.ui.InspirationScreen
+import com.wardrobapp.ui.ShoppingCheckScreen
 import com.wardrobapp.ui.LookScreen
 import com.wardrobapp.ui.OutfitsScreen
 import com.wardrobapp.ui.PhoneSyncSection
@@ -497,6 +498,7 @@ class MainActivity : AppCompatActivity() {
                                     // `WardrobeQuery.showing`'s business.
                                     onLinkRequested = { openWardrobe(WardrobeQuery.showing(it)) },
                                     onGarmentOpened = { navigator.openGarment(it) },
+                                    onShoppingCheckRequested = { navigator.navigate(SHOPPING_CHECK) },
                                 )
                             }
                         }
@@ -574,6 +576,10 @@ class MainActivity : AppCompatActivity() {
                                 lookId = backStackEntry.arguments?.getString(LOOK_ID).orEmpty(),
                                 navigator = navigator,
                             )
+                        }
+
+                        composable(SHOPPING_CHECK) {
+                            ShoppingCheck(container = container, navigator = navigator)
                         }
 
                         composable("$WORN/{$WORN_PHOTO}") { backStackEntry ->
@@ -1648,6 +1654,7 @@ class MainActivity : AppCompatActivity() {
         onLinkRequested: (WardrobeLink?) -> Unit,
         onGarmentOpened: (String) -> Unit,
         onGapAddRequested: (PhantomGarment) -> Unit,
+        onShoppingCheckRequested: () -> Unit,
     ) {
         val model: StatisticsViewModel = viewModel(
             factory = viewModelFactory { initializer { StatisticsViewModel(container) } }
@@ -1668,6 +1675,47 @@ class MainActivity : AppCompatActivity() {
             onSectionTapped = model::onSectionTapped,
             onGapAddRequested = onGapAddRequested,
             onRetry = model::refresh,
+            // Always, on the phone: with neither Gemini Nano nor the style
+            // model a photo is read as nothing, and the screen says so.
+            onShoppingCheckRequested = onShoppingCheckRequested,
+        )
+    }
+
+    /**
+     * Before you buy; see ShoppingCheckViewModel. The photo is not cropped --
+     * a shop's photo is whatever it is -- and either picker hands it straight
+     * to the model, which stores, reads and checks it.
+     */
+    @Composable
+    private fun ShoppingCheck(container: AppContainer, navigator: NavHostController) {
+        val model: ShoppingCheckViewModel = viewModel(
+            factory = viewModelFactory { initializer { ShoppingCheckViewModel(container) } }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        val picker = rememberLauncherForActivityResult(
+            ActivityResultContracts.PickVisualMedia()
+        ) { uri -> uri?.let(model::onPhotoPicked) }
+        val destination = remember { cameraDestination() }
+        val camera = rememberLauncherForActivityResult(
+            ActivityResultContracts.TakePicture()
+        ) { taken -> if (taken) model.onPhotoPicked(destination) }
+        val choose = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+
+        ShoppingCheckScreen(
+            state = state,
+            onBack = { navigator.popBackStack() },
+            onTakePhoto = {
+                // A phone with no camera app has the gallery still.
+                try {
+                    camera.launch(destination)
+                } catch (_: ActivityNotFoundException) {
+                    choose()
+                }
+            },
+            onChoosePhoto = choose,
+            onBought = { wanted -> navigator.openAddFor(wanted) },
+            onGarmentOpened = { navigator.openGarment(it) },
         )
     }
 
@@ -1944,6 +1992,9 @@ class MainActivity : AppCompatActivity() {
         /** One look, taken apart: "look/{lookId}". */
         const val LOOK = "look"
         const val LOOK_ID = "lookId"
+
+        /** Before you buy: a photo from a shop, checked against the wardrobe. Reached from statistics. */
+        const val SHOPPING_CHECK = "shopping-check"
 
         /** A photo of what somebody is wearing, taken apart the same way: "worn/{wornPhoto}". */
         const val WORN = "worn"
