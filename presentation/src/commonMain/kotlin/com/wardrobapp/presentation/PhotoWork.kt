@@ -1,6 +1,7 @@
 package com.wardrobapp.presentation
 
 import com.wardrobapp.domain.GarmentReading
+import com.wardrobapp.domain.readPageText
 
 /**
  * The photo work the two screens that add garments share: storing what was
@@ -43,4 +44,17 @@ interface PhotoWork<Picked> {
      * platform, or a test, with nothing to read photos with need not say so.
      */
     suspend fun read(photo: String): GarmentReading? = null
+
+    /**
+     * What an imported shop page's words say about the garment: its [title]
+     * and its description and stated facts ([details], see
+     * ImportedGarmentPreview.details), or null when they say nothing.
+     *
+     * Plain matching by default (readPageText), which is the browser's answer
+     * and the fallback everywhere; the phone asks Gemini Nano first where it
+     * has it. A page is read before its photos, and what it says is preferred
+     * to what they show: "Slim Fit Chinos" is the shop telling you.
+     */
+    suspend fun readPage(title: String?, details: String?): GarmentReading? =
+        readPageText(title, details).takeUnless { it.isEmpty }
 }

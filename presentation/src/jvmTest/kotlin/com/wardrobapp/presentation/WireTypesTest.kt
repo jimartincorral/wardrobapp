@@ -227,6 +227,7 @@ class WireTypesTest {
                 downloadedImageUris = listOf("photos/a.jpg"),
                 warnings = warnings,
                 parser = ImportParser.entries.last(),
+                details = "Relaxed fit. Material: linen",
             ),
         )
         addAll(warnings)

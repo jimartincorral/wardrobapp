@@ -294,4 +294,43 @@ class GarmentImportTest {
         assertTrue("12" in warnings[1].englishMessage() && "6" in warnings[1].englishMessage())
         assertTrue("2" in warnings[2].englishMessage())
     }
+
+    @Test
+    fun `a page's description and stated facts are kept as plain text to read the garment from`() {
+        val extracted = extract(
+            """
+            <html><head>
+            <meta property="og:description" content="Not this one" />
+            <script type="application/ld+json">
+            {"@type":"Product","name":"Overshirt","image":"https://cdn.example.com/o.jpg",
+             "description":"<p>A relaxed overshirt in brushed&nbsp;cotton.</p>",
+             "material":"100% cotton","color":["Navy"],"category":{"name":"Shirts &amp; Overshirts"}}
+            </script>
+            </head><body></body></html>
+            """.trimIndent()
+        )
+
+        assertEquals(
+            "A relaxed overshirt in brushed cotton.. 100% cotton. Navy. Shirts & Overshirts",
+            extracted.details,
+        )
+    }
+
+    @Test
+    fun `without JSON the page's own description is the details, and with neither there are none`() {
+        val described = extract(
+            """<html><head><meta name="description" content="Slim chinos in stretch cotton." /></head></html>""",
+        )
+        assertEquals("Slim chinos in stretch cotton.", described.details)
+
+        val bare = extract("""<html><head><title>Shop</title></head></html>""")
+        assertEquals(null, bare.details)
+    }
+
+    @Test
+    fun `a long description is cut short`() {
+        val long = "word ".repeat(1_000)
+        val extracted = extract("""<html><head><meta property="og:description" content="$long" /></head></html>""")
+        assertTrue(extracted.details!!.length <= 1_500)
+    }
 }

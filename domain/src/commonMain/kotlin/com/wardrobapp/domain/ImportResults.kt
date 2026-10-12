@@ -102,6 +102,8 @@ data class ImportedGarmentData(
     val imageUrls: List<String>,
     val warnings: List<ImportWarning>,
     val parser: ImportParser,
+    /** The page's description and the facts it states, as text to read the garment's type and material from. */
+    val details: String? = null,
 )
 
 /**
@@ -223,4 +225,10 @@ data class ImportedGarmentPreview(
     val downloadedImageUris: List<String>,
     val warnings: List<ImportWarning>,
     val parser: ImportParser,
+    /**
+     * What the page says about the garment beyond its title; see
+     * ImportedGarmentData.details. Defaulted, so a preview from a server
+     * that does not send it still reads.
+     */
+    val details: String? = null,
 )

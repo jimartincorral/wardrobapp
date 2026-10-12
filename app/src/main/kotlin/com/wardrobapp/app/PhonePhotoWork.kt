@@ -12,7 +12,9 @@ import com.wardrobapp.data.resolveImageRef
 import com.wardrobapp.data.toStoredImageRef
 import com.wardrobapp.domain.GARMENT_READING_PROMPT
 import com.wardrobapp.domain.GarmentReading
+import com.wardrobapp.domain.garmentPagePrompt
 import com.wardrobapp.domain.parseGarmentReading
+import com.wardrobapp.domain.readPageText
 import com.wardrobapp.presentation.PhotoWork
 import com.wardrobapp.presentation.dominantGarmentColors
 import java.util.UUID
@@ -64,6 +66,20 @@ class PhonePhotoWork(private val container: AppContainer) : PhotoWork<Uri> {
             container.styleEncoder.embed(toStoredImageRef(photo))?.let(anchors::readingFor)
         }
         (byNano ?: GarmentReading.NONE).orElse(byModel).takeUnless { it.isEmpty }
+    }
+
+    /**
+     * Gemini Nano's reading of the page's words where the phone has it, with
+     * plain matching (readPageText) filling whatever it left open -- and
+     * plain matching alone where it does not. Nano first because it reads a
+     * sentence rather than looking for a word in it: "a relaxed overshirt in
+     * brushed cotton twill" is an overshirt, not a shirt, and relaxed.
+     */
+    override suspend fun readPage(title: String?, details: String?): GarmentReading? {
+        if (title.isNullOrBlank() && details.isNullOrBlank()) return null
+        val byNano = container.geminiNano.ask(null, garmentPagePrompt(title, details), READING_TOKENS)
+            ?.let(::parseGarmentReading)
+        return (byNano ?: GarmentReading.NONE).orElse(readPageText(title, details)).takeUnless { it.isEmpty }
     }
 
     private suspend fun readWithNano(photo: String): GarmentReading? {

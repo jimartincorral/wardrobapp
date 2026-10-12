@@ -134,4 +134,43 @@ class GarmentReadingTest {
         for (material in MATERIALS) assertTrue(material in GARMENT_READING_PROMPT, "$material is not offered")
         for (fit in Fit.entries) assertTrue(fit.tag in GARMENT_READING_PROMPT)
     }
+
+    @Test
+    fun `a page's title names its type, the longest name winning`() {
+        assertEquals(ReadType("bottoms", "Chinos"), readPageText("Slim Fit Chinos", null).type)
+        assertEquals(ReadType("tops", "Shirt"), readPageText("Linen Shirt", null).type)
+        assertEquals(ReadType("tops", "Polo"), readPageText("Classic Polo Shirt", null).type)
+        assertEquals(ReadType("tops", "T-Shirt"), readPageText("Organic tshirts, 3-pack", null).type)
+        assertEquals(ReadType("bottoms", "Pants"), readPageText("Pleated wool trousers", null).type)
+        assertEquals(ReadType("shoes", "Boots"), readPageText("Chelsea Boot", null).type)
+        assertEquals(ReadType("dresses", "Midi"), readPageText("Satin Midi Dress", null).type)
+        assertEquals(ReadType("dresses", null), readPageText("The Weekend Dress", null).type)
+    }
+
+    @Test
+    fun `words that are not types are not read as them`() {
+        assertEquals(ReadType("bottoms", "Chinos"), readPageText("Athletic Fit Chinos", null).type)
+        assertEquals(ReadType("bottoms", "Skirt"), readPageText("Maxi skirt", null).type)
+        assertEquals(ReadType("tops", "Shirt"), readPageText("Short-sleeved shirt", null).type)
+        assertEquals(ReadType("midlayer", "Overshirt"), readPageText("Corduroy overshirt", null).type)
+        assertNull(readPageText("Gift card", null).type)
+    }
+
+    @Test
+    fun `the title is read first, then the description, for the type and the material`() {
+        val reading = readPageText("The Everyday", "A relaxed hoodie in brushed cotton fleece.")
+        assertEquals(ReadType("tops", "Hoodie"), reading.type)
+        assertEquals("cotton", reading.material, "the first material named")
+        assertEquals("linen", readPageText("Linen Shirt", "Made with cotton thread").material)
+        assertTrue(readPageText(null, null).isEmpty)
+    }
+
+    @Test
+    fun `the page prompt carries the page and asks for the same lines, bar the brand`() {
+        val prompt = garmentPagePrompt("Linen Shirt", "Relaxed fit.")
+        assertTrue("Title: Linen Shirt" in prompt)
+        assertTrue("Description: Relaxed fit." in prompt)
+        assertTrue("type: one of" in prompt && "material: one of" in prompt)
+        assertTrue("brand:" !in prompt)
+    }
 }
