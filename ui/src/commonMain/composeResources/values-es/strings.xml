@@ -230,6 +230,10 @@
     <string name="look_save">Guardar como conjunto</string>
     <string name="look_saving">Guardando…</string>
     <string name="look_open">Recrear este look con mi armario</string>
+    <string name="look_reader_downloadable">Gemini Nano desmonta el look aquí, en tu móvil, y Android aún no lo ha descargado para esta app. Android lo descarga y lo mantiene al día.</string>
+    <string name="look_reader_download">Descargar Gemini Nano</string>
+    <string name="look_reader_downloading">Android está descargando Gemini Nano. El look se leerá en cuanto esté listo.</string>
+    <string name="look_reader_unavailable">Para desmontar un look hace falta Gemini Nano, que ahora no está disponible en este móvil. Tus looks guardados siguen orientando tus sugerencias.</string>
     <string name="form_section_style">Estilo</string>
     <string name="form_style_hint">Si se deja en blanco, decide el tipo de prenda.</string>
     <string name="attribute_formality">Formalidad</string>
