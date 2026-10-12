@@ -567,8 +567,15 @@ class DatabaseLookSource(
     private val outfitWrites: OutfitWrites,
     private val imageDirectory: String,
     private val readLook: suspend (InspirationRecord) -> List<LookPiece>?,
+    private val readerStatus: suspend () -> LookReader,
+    private val fetchReader: suspend () -> LookReader,
     private val io: CoroutineDispatcher,
 ) : LookSource {
+
+    override suspend fun reader(): LookReader = readerStatus()
+
+    override suspend fun downloadReader(): LookReader = fetchReader()
+
 
     private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
     private val piecesSerializer = kotlinx.serialization.builtins.ListSerializer(LookPiece.serializer())

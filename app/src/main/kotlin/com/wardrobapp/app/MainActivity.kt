@@ -32,7 +32,6 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -901,14 +900,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Whether this phone can take a look apart, asked once: only Gemini
-        // Nano can, and without it a look stays the photo it always was.
-        val readsLooks by produceState(initialValue = false, container) { value = container.geminiNano.isAvailable() }
-
         InspirationScreen(
             state = state,
             onBack = { navigator.popBackStack() },
-            onOpen = if (readsLooks) ({ id -> navigator.navigate("$LOOK/${Uri.encode(id)}") }) else null,
+            // Always, on the phone: the look's screen says whether Gemini Nano
+            // can take it apart and offers the download when it cannot yet. A
+            // look that silently did nothing when tapped was the first report.
+            onOpen = { id -> navigator.navigate("$LOOK/${Uri.encode(id)}") },
             onAddRequested = {
                 model.onAddStarted()
                 picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -957,6 +955,7 @@ class MainActivity : AppCompatActivity() {
             onAddMissing = { wanted -> navigator.openAddFor(wanted) },
             onGarmentOpened = { navigator.openGarment(it) },
             onSave = model::onSaveRequested,
+            onDownloadReader = model::onDownloadReader,
         )
     }
 

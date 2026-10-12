@@ -280,6 +280,10 @@
     <string name="look_save">Save as an outfit</string>
     <string name="look_saving">Saving…</string>
     <string name="look_open">Rebuild this look from my wardrobe</string>
+    <string name="look_reader_downloadable">Gemini Nano takes a look apart, here on your phone, and Android hasn't downloaded it for this app yet. Android fetches it and keeps it up to date.</string>
+    <string name="look_reader_download">Download Gemini Nano</string>
+    <string name="look_reader_downloading">Android is downloading Gemini Nano. This look is read as soon as it's ready.</string>
+    <string name="look_reader_unavailable">Taking a look apart needs Gemini Nano, which isn't available on this phone right now. Your saved looks still steer your suggestions.</string>
     <!-- A garment's style attributes, which the outfit suggestions learn over.
          The hint says what an unset one means. -->
     <string name="form_section_style">Style</string>

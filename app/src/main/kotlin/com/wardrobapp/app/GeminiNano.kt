@@ -28,9 +28,10 @@ private const val TAG = "GeminiNano"
  * on the phone; nothing is sent anywhere. Only some phones have it -- recent
  * Pixels and a list of others Google keeps -- and on the rest every question is
  * answered null at once, which every caller takes as "read nothing". The app
- * never asks AICore to fetch the model: a phone that has Gemini Nano has it for
- * its own features already, and one that would have to download it for a field
- * on a form is better served by the style model the app downloads itself.
+ * asks AICore to fetch the model only from a button that says so (the look
+ * screen's): a phone can have Gemini Nano for its own features and still
+ * answer DOWNLOADABLE to an app that has not asked for it before, and nothing
+ * on a garment form should start a download nobody tapped for.
  *
  * The answers are only ever text, and only ever trusted as far as the parsers
  * that read them allow -- each one is held to the app's own vocabulary
@@ -54,11 +55,16 @@ class GeminiNano {
     private val lock = Mutex()
 
     /**
-     * Whether the model can answer on this phone; null until asked. Asked once
-     * per process, since whether a phone has Gemini Nano does not change
-     * while the app is open -- and when it does, a restart finds it.
+     * What AICore said, kept only when it is final for this process: here
+     * (AVAILABLE) or never here (UNAVAILABLE, no client). DOWNLOADABLE and
+     * DOWNLOADING are asked again every time, because they change while the
+     * app is open; remembering them is what left looks unopenable on a phone
+     * that had Gemini Nano but had not been given it for this app yet.
      */
-    private var available: Boolean? = null
+    private var known: Status? = null
+
+    /** Where Gemini Nano stands for this app on this phone. */
+    enum class Status { AVAILABLE, DOWNLOADABLE, DOWNLOADING, UNAVAILABLE }
 
     private val model: GenerativeModel? by lazy {
         // The Prompt API needs Android 8; the app runs from 7. The manifest
@@ -76,24 +82,52 @@ class GeminiNano {
         }
     }
 
-    /** Whether Gemini Nano can answer here, asking AICore the first time. */
-    suspend fun isAvailable(): Boolean = lock.withLock { availableLocked() }
+    /** Whether Gemini Nano can answer here now. */
+    suspend fun isAvailable(): Boolean = status() == Status.AVAILABLE
 
-    private suspend fun availableLocked(): Boolean {
-        available?.let { return it }
-        val client = model ?: return false.also { available = false }
-        val answer = try {
-            client.checkStatus() == FeatureStatus.AVAILABLE
+    /** Where Gemini Nano stands, asking AICore unless the answer is final. */
+    suspend fun status(): Status = lock.withLock { statusLocked() }
+
+    private suspend fun statusLocked(): Status {
+        known?.let { return it }
+        val client = model ?: return Status.UNAVAILABLE.also { known = it }
+        val status = try {
+            when (client.checkStatus()) {
+                FeatureStatus.AVAILABLE -> Status.AVAILABLE
+                FeatureStatus.DOWNLOADABLE -> Status.DOWNLOADABLE
+                FeatureStatus.DOWNLOADING -> Status.DOWNLOADING
+                else -> Status.UNAVAILABLE.also { known = it }
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             // AICore not finished setting itself up (606), not installed, not
-            // bound (601): all of them mean "not now", and not now is no.
+            // bound (601): "not now", and asked again next time.
             Log.w(TAG, "Gemini Nano's status could not be read: $e")
-            false
+            Status.UNAVAILABLE
         }
-        available = answer
-        return answer
+        if (status == Status.AVAILABLE) known = status
+        Log.i(TAG, "Gemini Nano is $status")
+        return status
+    }
+
+    /**
+     * Ask AICore to fetch Gemini Nano for this app, and wait for it; where it
+     * stands afterwards. AICore does the downloading and decides when and over
+     * what network, which is why this is only ever asked for from a button
+     * that says so. Not under the lock: it can take minutes, and nothing else
+     * here can answer meanwhile anyway.
+     */
+    suspend fun download(): Status {
+        val client = model ?: return Status.UNAVAILABLE
+        try {
+            client.download().collect { Log.i(TAG, "Gemini Nano download: $it") }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Gemini Nano could not be downloaded: $e")
+        }
+        return status()
     }
 
     /**
@@ -108,7 +142,7 @@ class GeminiNano {
      * set on the newest Gemini Nano, and the default is the right one anyway.
      */
     suspend fun ask(image: Bitmap?, prompt: String, maxTokens: Int): String? = lock.withLock {
-        if (!availableLocked()) return@withLock null
+        if (statusLocked() != Status.AVAILABLE) return@withLock null
         val client = model ?: return@withLock null
         try {
             val request = if (image != null) {

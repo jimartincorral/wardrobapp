@@ -42,6 +42,16 @@ class LookScreenModelTest {
             saved += name to garmentIds
             return "o1"
         }
+
+        var reader = LookReader.READY
+        var afterDownload = LookReader.READY
+        var downloads = 0
+        override suspend fun reader() = reader
+        override suspend fun downloadReader(): LookReader {
+            downloads++
+            reader = afterDownload
+            return reader
+        }
     }
 
     @Test
@@ -98,4 +108,53 @@ class LookScreenModelTest {
         advanceUntilIdle()
         assertTrue(model.state.value.missing)
     }
+
+    @Test
+    fun `a look the phone cannot read yet says why, and reads once the reader is downloaded`() = runTest {
+        val source = FakeSource().apply { reader = LookReader.DOWNLOADABLE }
+        val model = LookScreenModel(this, source, "l1")
+        advanceUntilIdle()
+
+        assertEquals(LookReader.DOWNLOADABLE, model.state.value.reader)
+        assertEquals(0, source.reads, "a photo was put to a reader that is not there")
+        assertFalse(model.state.value.unread, "no reader is not the same as a look read as nothing")
+
+        model.onDownloadReader()
+        advanceUntilIdle()
+
+        assertEquals(1, source.downloads)
+        assertEquals(LookReader.READY, model.state.value.reader)
+        assertEquals(listOf("shirt", "jeans", null), model.state.value.rows.map { it.garment?.id })
+    }
+
+    @Test
+    fun `a phone without the reader says so, but a look read before still opens`() = runTest {
+        val source = FakeSource().apply { reader = LookReader.UNAVAILABLE }
+        val unread = LookScreenModel(this, source, "l1")
+        advanceUntilIdle()
+        assertEquals(LookReader.UNAVAILABLE, unread.state.value.reader)
+
+        source.kept = listOf(LookPiece("tops", "Shirt", "#FFFFFF"))
+        val kept = LookScreenModel(this, source, "l1")
+        advanceUntilIdle()
+        assertEquals(LookReader.READY, kept.state.value.reader)
+        assertEquals("shirt", kept.state.value.rows.single().garment?.id)
+    }
+
+    @Test
+    fun `a download that does not finish leaves the screen saying where it stands`() = runTest {
+        val source = FakeSource().apply {
+            reader = LookReader.DOWNLOADABLE
+            afterDownload = LookReader.DOWNLOADING
+        }
+        val model = LookScreenModel(this, source, "l1")
+        advanceUntilIdle()
+
+        model.onDownloadReader()
+        advanceUntilIdle()
+
+        assertEquals(LookReader.DOWNLOADING, model.state.value.reader)
+        assertEquals(0, source.reads)
+    }
 }
+

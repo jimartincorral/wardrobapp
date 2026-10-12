@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wardrobapp.domain.PhantomGarment
+import com.wardrobapp.presentation.LookReader
 import com.wardrobapp.presentation.LookRow
 import com.wardrobapp.presentation.LookScreenState
 import com.wardrobapp.presentation.paletteColorFor
@@ -44,6 +45,10 @@ import com.wardrobapp.ui.resources.look_gone
 import com.wardrobapp.ui.resources.look_intro
 import com.wardrobapp.ui.resources.look_none_owned
 import com.wardrobapp.ui.resources.look_read_again
+import com.wardrobapp.ui.resources.look_reader_download
+import com.wardrobapp.ui.resources.look_reader_downloadable
+import com.wardrobapp.ui.resources.look_reader_downloading
+import com.wardrobapp.ui.resources.look_reader_unavailable
 import com.wardrobapp.ui.resources.look_reading
 import com.wardrobapp.ui.resources.look_save
 import com.wardrobapp.ui.resources.look_saving
@@ -57,8 +62,8 @@ import org.jetbrains.compose.resources.stringResource
  * comes closest, or a line saying there is none and a button to add one.
  * Under them, a button to keep what the wardrobe has of the look as an outfit.
  *
- * Phone only, and only where the phone has Gemini Nano: it is what reads the
- * pieces. The rows are not editable -- swapping a garment is the saved
+ * Phone only, since Gemini Nano is what reads the pieces; where it is not
+ * ready the screen says why (ReaderNotice) instead of the rows. The rows are not editable -- swapping a garment is the saved
  * outfit's own screen's job, and doing it here would be a second outfit
  * editor -- and a piece read wrongly is answered by reading the look again.
  */
@@ -71,6 +76,8 @@ fun LookScreen(
     onAddMissing: (PhantomGarment) -> Unit,
     onGarmentOpened: (String) -> Unit,
     onSave: () -> Unit,
+    /** Ask Android to download Gemini Nano, when the screen says it can. */
+    onDownloadReader: () -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -120,6 +127,10 @@ fun LookScreen(
                     }
                 }
 
+                state.reader != LookReader.READY -> item {
+                    ReaderNotice(state.reader, onDownloadReader)
+                }
+
                 state.unread || state.error != null -> item {
                     Column {
                         Text(
@@ -156,6 +167,34 @@ fun LookScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Why the look has not been taken apart, when the reason is Gemini Nano:
+ * downloadable, with the button that asks Android for it; downloading, with
+ * a wait; or not on this phone, said plainly. Said rather than hidden,
+ * because a look that did nothing when tapped told nobody anything.
+ */
+@Composable
+private fun ReaderNotice(reader: LookReader, onDownload: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag(LOOK_READER)) {
+        Text(
+            stringResource(
+                when (reader) {
+                    LookReader.DOWNLOADABLE -> Res.string.look_reader_downloadable
+                    LookReader.DOWNLOADING -> Res.string.look_reader_downloading
+                    else -> Res.string.look_reader_unavailable
+                },
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        when (reader) {
+            LookReader.DOWNLOADABLE -> Button(onClick = onDownload) { Text(stringResource(Res.string.look_reader_download)) }
+            LookReader.DOWNLOADING -> CircularProgressIndicator(modifier = Modifier.size(20.dp))
+            else -> Unit
         }
     }
 }
@@ -203,3 +242,4 @@ private fun PieceRow(row: LookRow, onAddMissing: (PhantomGarment) -> Unit, onGar
 
 const val LOOK_ROWS = "look-rows"
 const val LOOK_SAVE = "look-save"
+const val LOOK_READER = "look-reader"
