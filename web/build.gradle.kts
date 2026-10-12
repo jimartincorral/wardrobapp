@@ -1,5 +1,5 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
-import org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenExec
+import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenExec
 
 // The browser app: the screens in :ui, driven by the screen models in
 // :presentation, answered by the Home Assistant server through :api's sources.
@@ -20,7 +20,7 @@ repositories {
 kotlin {
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
-        moduleName = "wardrobapp"
+        outputModuleName = "wardrobapp"
         browser {
             commonWebpackConfig {
                 outputFileName = "wardrobapp.js"

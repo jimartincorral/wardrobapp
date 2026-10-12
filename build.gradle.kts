@@ -35,12 +35,19 @@ buildscript {
     }
 }
 
+// Kotlin 2.2, because Gemini Nano's library (com.google.mlkit:genai-prompt, in
+// :app) and the standard library it brings are compiled by Kotlin 2.3, and a
+// compiler reads metadata at most one minor version newer than itself: 2.1.20
+// refused every class in them. 2.2 rather than 2.3 because it is the smallest
+// step that reads them, and everything else here -- Compose Multiplatform 1.7,
+// Ktor 3.1, coroutines 1.9 -- was built by an older compiler, which a newer one
+// always reads.
 plugins {
-    kotlin("multiplatform") version "2.1.20" apply false
-    kotlin("jvm") version "2.1.20" apply false
-    kotlin("android") version "2.1.20" apply false
-    kotlin("plugin.serialization") version "2.1.20" apply false
-    id("org.jetbrains.kotlin.plugin.compose") version "2.1.20" apply false
+    kotlin("multiplatform") version "2.2.21" apply false
+    kotlin("jvm") version "2.2.21" apply false
+    kotlin("android") version "2.2.21" apply false
+    kotlin("plugin.serialization") version "2.2.21" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "2.2.21" apply false
     // Compose Multiplatform. 1.7, one line behind the newest, deliberately: see
     // ui/build.gradle.kts.
     id("org.jetbrains.compose") version "1.7.3" apply false
