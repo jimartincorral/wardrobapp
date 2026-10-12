@@ -89,6 +89,9 @@ private val COLOR_BY_WORD: Map<String, String> = buildMap {
     }
 }
 
+/** The palette hex [words] name -- "navy", "light blue", "grey" -- or null when the palette has no such colour. */
+internal fun paletteColorNamed(words: String): String? = COLOR_BY_WORD[letters(words)]
+
 /**
  * The pieces Gemini Nano listed, read as leniently as their shape allows and
  * as strictly as their content does: bullets, numbering and stray words are

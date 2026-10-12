@@ -1,6 +1,7 @@
 package com.wardrobapp.app
 
 import android.content.ActivityNotFoundException
+import android.util.Log
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Uri
@@ -60,6 +61,7 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.wardrobapp.data.backupFilename
 import com.wardrobapp.domain.PhantomGarment
+import com.wardrobapp.presentation.WORN_LOOK_ID
 import com.wardrobapp.presentation.AppDestination
 import com.wardrobapp.presentation.BULK_ADD_MINIMUM
 import com.wardrobapp.presentation.BulkAddState
@@ -90,6 +92,7 @@ import com.wardrobapp.ui.OnboardingScreen
 import com.wardrobapp.ui.OutfitDetailScreen
 import com.wardrobapp.ui.OutfitEditScreen
 import com.wardrobapp.ui.InspirationScreen
+import com.wardrobapp.ui.ShoppingCheckScreen
 import com.wardrobapp.ui.LookScreen
 import com.wardrobapp.ui.OutfitsScreen
 import com.wardrobapp.ui.PhoneSyncSection
@@ -465,6 +468,7 @@ class MainActivity : AppCompatActivity() {
                                     onBuildRequested = { navigator.navigate(OUTFIT_BUILD) },
                                     onTrainRequested = { navigator.navigate(TASTE_TRAINING) },
                                     onInspirationRequested = { navigator.navigate(INSPIRATION) },
+                                    onWornPhotoStored = { navigator.navigate("$WORN/${Uri.encode(it)}") },
                                 )
                             }
                         }
@@ -494,6 +498,7 @@ class MainActivity : AppCompatActivity() {
                                     // `WardrobeQuery.showing`'s business.
                                     onLinkRequested = { openWardrobe(WardrobeQuery.showing(it)) },
                                     onGarmentOpened = { navigator.openGarment(it) },
+                                    onShoppingCheckRequested = { navigator.navigate(SHOPPING_CHECK) },
                                 )
                             }
                         }
@@ -570,6 +575,19 @@ class MainActivity : AppCompatActivity() {
                                 container = container,
                                 lookId = backStackEntry.arguments?.getString(LOOK_ID).orEmpty(),
                                 navigator = navigator,
+                            )
+                        }
+
+                        composable(SHOPPING_CHECK) {
+                            ShoppingCheck(container = container, navigator = navigator)
+                        }
+
+                        composable("$WORN/{$WORN_PHOTO}") { backStackEntry ->
+                            Look(
+                                container = container,
+                                lookId = WORN_LOOK_ID,
+                                navigator = navigator,
+                                wornPhoto = backStackEntry.arguments?.getString(WORN_PHOTO).orEmpty(),
                             )
                         }
 
@@ -931,12 +949,13 @@ class MainActivity : AppCompatActivity() {
     /**
      * One look, taken apart and rebuilt from the wardrobe; see LookViewModel.
      * A missing piece opens the add form the way a gap does, and a saved
-     * outfit opens in place of this screen, which has done its job.
+     * outfit opens in place of this screen, which has done its job. With
+     * [wornPhoto], the photo of what somebody is wearing instead of a look.
      */
     @Composable
-    private fun Look(container: AppContainer, lookId: String, navigator: NavHostController) {
+    private fun Look(container: AppContainer, lookId: String, navigator: NavHostController, wornPhoto: String? = null) {
         val model: LookViewModel = viewModel(
-            factory = viewModelFactory { initializer { LookViewModel(container, lookId) } }
+            factory = viewModelFactory { initializer { LookViewModel(container, lookId, wornPhoto) } }
         )
         val state by model.state.collectAsStateWithLifecycle()
 
@@ -944,7 +963,7 @@ class MainActivity : AppCompatActivity() {
             val outfitId = state.savedOutfitId ?: return@LaunchedEffect
             model.onSavedOutfitOpened()
             navigator.navigate("$OUTFIT/${Uri.encode(outfitId)}") {
-                popUpTo("$LOOK/{$LOOK_ID}") { inclusive = true }
+                popUpTo(if (wornPhoto != null) "$WORN/{$WORN_PHOTO}" else "$LOOK/{$LOOK_ID}") { inclusive = true }
             }
         }
 
@@ -956,6 +975,7 @@ class MainActivity : AppCompatActivity() {
             onGarmentOpened = { navigator.openGarment(it) },
             onSave = model::onSaveRequested,
             onDownloadReader = model::onDownloadReader,
+            wearing = wornPhoto != null,
         )
     }
 
@@ -1040,6 +1060,7 @@ class MainActivity : AppCompatActivity() {
             onOccasionTapped = model::onOccasionTapped,
             onColorTapped = model::onColorTapped,
             onRetiredToggled = model::onRetiredToggled,
+            onUnderstandRequested = model::onUnderstandRequested,
             onViewSelected = model::onViewSelected,
             onCaptionSelected = model::onCaptionSelected,
         )
@@ -1282,11 +1303,35 @@ class MainActivity : AppCompatActivity() {
         onBuildRequested: () -> Unit,
         onTrainRequested: () -> Unit,
         onInspirationRequested: () -> Unit,
+        /** A photo of what somebody is wearing has been stored, as this reference; see Look. */
+        onWornPhotoStored: (String) -> Unit,
     ) {
         val model: OutfitsViewModel = viewModel(
             factory = viewModelFactory { initializer { OutfitsViewModel(container) } }
         )
         val state by model.state.collectAsStateWithLifecycle()
+
+        // A photo of what is being worn, from either place, stored before it
+        // is read: storing is what turns it upright (a camera's photo is often
+        // sideways with a tag saying so, which Gemini Nano would not read) and
+        // gives it a reference that outlives the picker's permission. Not
+        // cropped: the whole of somebody is the point.
+        val scope = rememberCoroutineScope()
+        val work = remember(container) { PhonePhotoWork(container) }
+        val storeWorn: (Uri) -> Unit = { uri ->
+            scope.launch {
+                runCatching { work.store(uri) }
+                    .onSuccess(onWornPhotoStored)
+                    .onFailure { Log.w("WornPhoto", "The photo of what is worn could not be stored: $it") }
+            }
+        }
+        val wornPicker = rememberLauncherForActivityResult(
+            ActivityResultContracts.PickVisualMedia()
+        ) { uri -> uri?.let(storeWorn) }
+        val wornDestination = remember { cameraDestination() }
+        val wornCamera = rememberLauncherForActivityResult(
+            ActivityResultContracts.TakePicture()
+        ) { taken -> if (taken) storeWorn(wornDestination) }
 
         RefreshOnReturn(model::refresh)
 
@@ -1325,6 +1370,20 @@ class MainActivity : AppCompatActivity() {
             // app carries, so a look moves the suggestions with or without
             // Home Assistant.
             onInspirationRequested = onInspirationRequested,
+            // Always, as a look's screen is: the screen it opens says whether
+            // Gemini Nano can read the photo, and offers the download if not.
+            onWornPhotoRequested = { fromCamera ->
+                if (fromCamera) {
+                    // A phone with no camera app has the gallery still.
+                    try {
+                        wornCamera.launch(wornDestination)
+                    } catch (_: ActivityNotFoundException) {
+                        wornPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                } else {
+                    wornPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }
+            },
         )
     }
 
@@ -1596,6 +1655,7 @@ class MainActivity : AppCompatActivity() {
         onLinkRequested: (WardrobeLink?) -> Unit,
         onGarmentOpened: (String) -> Unit,
         onGapAddRequested: (PhantomGarment) -> Unit,
+        onShoppingCheckRequested: () -> Unit,
     ) {
         val model: StatisticsViewModel = viewModel(
             factory = viewModelFactory { initializer { StatisticsViewModel(container) } }
@@ -1616,6 +1676,47 @@ class MainActivity : AppCompatActivity() {
             onSectionTapped = model::onSectionTapped,
             onGapAddRequested = onGapAddRequested,
             onRetry = model::refresh,
+            // Always, on the phone: with neither Gemini Nano nor the style
+            // model a photo is read as nothing, and the screen says so.
+            onShoppingCheckRequested = onShoppingCheckRequested,
+        )
+    }
+
+    /**
+     * Before you buy; see ShoppingCheckViewModel. The photo is not cropped --
+     * a shop's photo is whatever it is -- and either picker hands it straight
+     * to the model, which stores, reads and checks it.
+     */
+    @Composable
+    private fun ShoppingCheck(container: AppContainer, navigator: NavHostController) {
+        val model: ShoppingCheckViewModel = viewModel(
+            factory = viewModelFactory { initializer { ShoppingCheckViewModel(container) } }
+        )
+        val state by model.state.collectAsStateWithLifecycle()
+
+        val picker = rememberLauncherForActivityResult(
+            ActivityResultContracts.PickVisualMedia()
+        ) { uri -> uri?.let(model::onPhotoPicked) }
+        val destination = remember { cameraDestination() }
+        val camera = rememberLauncherForActivityResult(
+            ActivityResultContracts.TakePicture()
+        ) { taken -> if (taken) model.onPhotoPicked(destination) }
+        val choose = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+
+        ShoppingCheckScreen(
+            state = state,
+            onBack = { navigator.popBackStack() },
+            onTakePhoto = {
+                // A phone with no camera app has the gallery still.
+                try {
+                    camera.launch(destination)
+                } catch (_: ActivityNotFoundException) {
+                    choose()
+                }
+            },
+            onChoosePhoto = choose,
+            onBought = { wanted -> navigator.openAddFor(wanted) },
+            onGarmentOpened = { navigator.openGarment(it) },
         )
     }
 
@@ -1892,6 +1993,13 @@ class MainActivity : AppCompatActivity() {
         /** One look, taken apart: "look/{lookId}". */
         const val LOOK = "look"
         const val LOOK_ID = "lookId"
+
+        /** Before you buy: a photo from a shop, checked against the wardrobe. Reached from statistics. */
+        const val SHOPPING_CHECK = "shopping-check"
+
+        /** A photo of what somebody is wearing, taken apart the same way: "worn/{wornPhoto}". */
+        const val WORN = "worn"
+        const val WORN_PHOTO = "wornPhoto"
 
         /**
          * The first-launch flow.

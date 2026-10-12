@@ -1,6 +1,8 @@
 package com.wardrobapp.data
 
 import com.wardrobapp.domain.GenerateSuggestionsOptions
+import com.wardrobapp.domain.PHANTOM_GARMENT_ID
+import com.wardrobapp.domain.PhantomGarment
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.SuggestionPreferences
 import kotlin.test.AfterTest
@@ -208,6 +210,30 @@ class SuggestionsTest {
         assertTrue(
             around.all { outfit -> outfit.garments.any { it.id == "shoes-1" } },
             "an outfit was built around a garment it does not contain",
+        )
+    }
+
+    @Test
+    fun `builds outfits around a garment not owned yet, from what is owned`() {
+        // The shopping check: a blazer seen in a shop, worn with what is in the
+        // wardrobe. The blazer is in every outfit the engine built and in none
+        // that comes back, since it has no record -- the screen draws the
+        // shop's photo in its place.
+        givenWardrobe()
+        addGarment("retired-shirt", "tops", "Polo", available = false)
+
+        val around = subject.suggestAround(
+            PhantomGarment("outerwear", "Blazer", "#000080"),
+            Season.FALL,
+            sequence(),
+            count = 3,
+        )
+
+        assertTrue(around.isNotEmpty(), "nothing was built around the blazer")
+        assertTrue(around.all { it.garments.isNotEmpty() }, "an outfit came back with nothing owned in it")
+        assertTrue(
+            around.flatMap { it.garments }.none { it.id == PHANTOM_GARMENT_ID || it.id == "retired-shirt" },
+            "the blazer itself, or a retired garment, came back as something owned",
         )
     }
 

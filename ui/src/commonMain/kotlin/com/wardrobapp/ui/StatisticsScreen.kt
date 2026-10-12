@@ -127,6 +127,7 @@ import com.wardrobapp.ui.resources.statistics_sort_count
 import com.wardrobapp.ui.resources.statistics_sort_name
 import com.wardrobapp.ui.resources.statistics_subtitle
 import com.wardrobapp.ui.resources.statistics_title
+import com.wardrobapp.ui.resources.shopping_title
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -155,6 +156,7 @@ fun gapTag(slot: OutfitSlot) = "statistics-gap-$slot"
  * the test can scroll first -- the same reason the wardrobe's list is tagged.
  */
 const val STATISTICS_PAGE = "statistics-page"
+const val STATISTICS_SHOPPING_ACTION = "statistics-shopping-action"
 
 /**
  * What the wardrobe is made of, and how long the things you stop wearing lasted.
@@ -184,9 +186,30 @@ fun StatisticsScreen(
     onSectionTapped: (StatisticsSection) -> Unit,
     onGapAddRequested: (PhantomGarment) -> Unit,
     onRetry: () -> Unit,
+    /**
+     * Open the shopping check (ShoppingCheckScreen), or null where nothing can
+     * read a photo -- the browser -- and then the way in is not drawn. Here,
+     * beside what the wardrobe is missing, because both are the app's answer
+     * to "should I buy this?": one asked by the app, one by the reader.
+     */
+    onShoppingCheckRequested: (() -> Unit)? = null,
 ) {
     // No back arrow: this is a tab now, not a screen reached from one.
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(Res.string.statistics_title)) }) }) { insets ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(Res.string.statistics_title)) },
+                actions = {
+                    onShoppingCheckRequested?.let { open ->
+                        TextButton(onClick = open, modifier = Modifier.testTag(STATISTICS_SHOPPING_ACTION)) {
+                            Icon(Glyph.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text(stringResource(Res.string.shopping_title), modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                },
+            )
+        },
+    ) { insets ->
         val view = state.view
 
         when {

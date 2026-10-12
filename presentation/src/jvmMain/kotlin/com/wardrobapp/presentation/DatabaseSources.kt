@@ -6,6 +6,7 @@ import com.wardrobapp.data.GarmentQueries
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.GarmentWrites
 import com.wardrobapp.data.Gaps
+import com.wardrobapp.data.SuggestedOutfit
 import com.wardrobapp.data.Suggestions
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.OutfitQueries
@@ -19,6 +20,7 @@ import com.wardrobapp.data.resolveImageRef
 import com.wardrobapp.data.toStoredImageRef
 import com.wardrobapp.domain.DuplicateCandidate
 import com.wardrobapp.domain.GenerateSuggestionsOptions
+import com.wardrobapp.domain.PhantomGarment
 import com.wardrobapp.domain.ImageFetcher
 import com.wardrobapp.domain.ImportedGarmentPreview
 import com.wardrobapp.domain.PageFetcher
@@ -609,3 +611,30 @@ class DatabaseLookSource(
     }
 }
 
+
+/**
+ * The shopping check over the phone's database: the garments in use, and the
+ * engine building around a garment that is not one of them. Random draws,
+ * as the suggestions screen's are -- a second check of the same photo showing
+ * other outfits is variety, not a contradiction, since the outfits are
+ * examples rather than a verdict.
+ */
+class DatabaseShoppingCheckSource(
+    private val garments: GarmentQueries,
+    private val suggestions: Suggestions,
+    private val io: CoroutineDispatcher,
+) : ShoppingCheckSource {
+
+    override suspend fun wardrobe(): List<GarmentRecord> = withContext(io) {
+        garments.allGarments(GarmentQueries.Filters(availableOnly = true))
+    }
+
+    override suspend fun outfitsWith(wanted: PhantomGarment): List<SuggestedOutfit> = withContext(io) {
+        suggestions.suggestAround(
+            wanted,
+            currentSeason = seasonOfMonth(Calendar.getInstance().get(Calendar.MONTH)),
+            random = { Random.nextDouble() },
+            count = SHOPPING_CHECK_OUTFITS,
+        )
+    }
+}

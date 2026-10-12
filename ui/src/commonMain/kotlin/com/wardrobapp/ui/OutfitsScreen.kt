@@ -28,6 +28,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -104,6 +106,9 @@ import com.wardrobapp.ui.resources.outfits_title
 import com.wardrobapp.ui.resources.inspiration_title
 import com.wardrobapp.ui.resources.taste_training_title
 import com.wardrobapp.ui.resources.outfits_use_whole_wardrobe
+import com.wardrobapp.ui.resources.photo_choose
+import com.wardrobapp.ui.resources.worn_open
+import com.wardrobapp.ui.resources.photo_take
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -123,6 +128,7 @@ const val OUTFIT_TRAIN_ACTION = "outfit-train-action"
 
 /** The way to the looks the reader likes, for a test to find. */
 const val OUTFIT_INSPIRATION_ACTION = "outfit-inspiration-action"
+const val OUTFIT_WORN_ACTION = "outfit-worn-action"
 
 const val OUTFIT_REASONS = "outfit-reasons"
 
@@ -207,6 +213,12 @@ fun OutfitsScreen(
      */
     onInspirationRequested: (() -> Unit)? = null,
     /**
+     * Make an outfit from a photo of what the reader is wearing, from the
+     * camera (true) or the gallery (false); null where nothing can read one --
+     * the browser -- and then the way in is not drawn. See WornPhotoSource.
+     */
+    onWornPhotoRequested: ((fromCamera: Boolean) -> Unit)? = null,
+    /**
      * The garments in saved outfits, by id, for the desktop's saved list to draw
      * their photos from. A saved outfit is stored as the ids of what is in it,
      * and the phone's row is words only; on a desktop there is room for the
@@ -256,6 +268,7 @@ fun OutfitsScreen(
             onBuildRequested = onBuildRequested,
             onTrainRequested = onTrainRequested,
             onInspirationRequested = onInspirationRequested,
+            onWornPhotoRequested = onWornPhotoRequested,
         )
         return
     }
@@ -321,6 +334,8 @@ fun OutfitsScreen(
             item { TrainButton(onTrainRequested, Modifier.fillMaxWidth()) }
 
             onInspirationRequested?.let { item { InspirationButton(it, Modifier.fillMaxWidth()) } }
+
+            onWornPhotoRequested?.let { item { WornButton(it, Modifier.fillMaxWidth()) } }
 
             state.error?.let { error ->
                 item {
@@ -531,6 +546,39 @@ private fun InspirationButton(onInspirationRequested: () -> Unit, modifier: Modi
     TextButton(onClick = onInspirationRequested, modifier = modifier.testTag(OUTFIT_INSPIRATION_ACTION)) {
         Icon(Icons.Filled.Favorite, contentDescription = null, modifier = Modifier.size(18.dp))
         Text(stringResource(Res.string.inspiration_title), modifier = Modifier.padding(start = 8.dp))
+    }
+}
+
+/**
+ * The way to an outfit from a photo of what the reader has on; see
+ * WornPhotoSource. A menu of two rather than straight to the camera, because
+ * the mirror selfie is as often already in the gallery as about to be taken --
+ * and the gallery picker offers no camera, nor the camera a gallery.
+ */
+@Composable
+private fun WornButton(onWornPhotoRequested: (fromCamera: Boolean) -> Unit, modifier: Modifier = Modifier) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }, modifier = modifier.testTag(OUTFIT_WORN_ACTION)) {
+            Icon(Glyph.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(stringResource(Res.string.worn_open), modifier = Modifier.padding(start = 8.dp))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.photo_take)) },
+                onClick = {
+                    open = false
+                    onWornPhotoRequested(true)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.photo_choose)) },
+                onClick = {
+                    open = false
+                    onWornPhotoRequested(false)
+                },
+            )
+        }
     }
 }
 
@@ -903,6 +951,7 @@ private fun ExpandedOutfits(
     onBuildRequested: () -> Unit,
     onTrainRequested: () -> Unit,
     onInspirationRequested: (() -> Unit)?,
+    onWornPhotoRequested: ((fromCamera: Boolean) -> Unit)?,
 ) {
     Scaffold(
         topBar = {
@@ -978,6 +1027,7 @@ private fun ExpandedOutfits(
 
                 across { TrainButton(onTrainRequested, Modifier.wrapContentWidth(Alignment.Start)) }
                 onInspirationRequested?.let { across { InspirationButton(it, Modifier.wrapContentWidth(Alignment.Start)) } }
+                onWornPhotoRequested?.let { across { WornButton(it, Modifier.wrapContentWidth(Alignment.Start)) } }
 
                 state.error?.let { error ->
                     across {

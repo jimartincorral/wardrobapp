@@ -49,7 +49,20 @@ data class WardrobeScreenState(
      * it out per frame would recompute it on every scroll.
      */
     val facets: WardrobeFacets = WardrobeFacets(),
+    /** True while a search in plain words is being turned into filters. */
+    val understanding: Boolean = false,
+    /** The last search turned into filters came to nothing; cleared by typing. */
+    val notUnderstood: Boolean = false,
 ) {
+    /**
+     * Whether to offer turning the search into filters: once it is more than
+     * one word, since one word is what the search box already finds -- "zara",
+     * "jeans" -- and a sentence is what it cannot.
+     */
+    val offersUnderstanding: Boolean
+        get() = understanding || notUnderstood ||
+            (query.searchTerm?.split(Regex("\\s+"))?.size ?: 0) >= 2
+
     /** True only when the wardrobe really is empty, not when a read failed. */
     val isEmpty: Boolean get() = !loading && error == null && garments.isEmpty()
 

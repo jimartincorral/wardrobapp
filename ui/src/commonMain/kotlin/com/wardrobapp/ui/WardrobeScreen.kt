@@ -140,6 +140,9 @@ import com.wardrobapp.ui.resources.garment_count
 import com.wardrobapp.ui.resources.home_add_garment
 import com.wardrobapp.ui.resources.sort_newest
 import com.wardrobapp.ui.resources.sort_oldest
+import com.wardrobapp.ui.resources.wardrobe_not_understood
+import com.wardrobapp.ui.resources.wardrobe_understand
+import com.wardrobapp.ui.resources.wardrobe_understanding
 import com.wardrobapp.ui.resources.wardrobe_add_options
 import com.wardrobapp.ui.resources.wardrobe_empty
 import com.wardrobapp.ui.resources.wardrobe_no_match_filters
@@ -163,6 +166,7 @@ import org.jetbrains.compose.resources.stringResource
 
 /** The scrolling body of the wardrobe, for tests that need to reach past the fold. */
 const val WARDROBE_LIST = "wardrobe-list"
+const val WARDROBE_UNDERSTAND = "wardrobe-understand"
 
 /**
  * One filter chip, by the value it carries.
@@ -252,10 +256,13 @@ fun WardrobeScreen(
     /** Whether the desktop's filter panel is showing. The phone's sheet is [WardrobeScreenState.filtersExpanded]. */
     filterPanelOpen: Boolean = true,
     onFilterPanelToggled: () -> Unit = {},
+    /** Turn the search, typed in plain words, into the filters it describes; see WardrobeAsk. */
+    onUnderstandRequested: () -> Unit = {},
 ) {
     if (isExpanded()) {
         ExpandedWardrobe(
             state = state,
+            onUnderstandRequested = onUnderstandRequested,
             selectedGarmentId = selectedGarmentId,
             detailPane = detailPane,
             filterPanelOpen = filterPanelOpen,
@@ -359,6 +366,10 @@ fun WardrobeScreen(
                     onValueChange = onSearchChanged,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
                 )
+            }
+
+            if (state.offersUnderstanding) {
+                fullWidth { Understand(state, onUnderstandRequested, Modifier.padding(horizontal = 8.dp)) }
             }
 
             if (applied.isNotEmpty()) {
@@ -490,6 +501,39 @@ private fun SortAction(sort: GarmentSort, onTap: () -> Unit) {
             Glyph.SwapVert,
             contentDescription = stringResource(Res.string.wardrobe_sort_current, current),
         )
+    }
+}
+
+/**
+ * Under a search of more than one word: the offer to turn it into filters,
+ * the wait while that happens (seconds, with Gemini Nano), or the line saying
+ * nothing could be made of it. A button rather than doing it as the reader
+ * types, because it replaces every filter in force -- that is a thing to ask
+ * for, not a thing to happen on a pause in typing.
+ */
+@Composable
+private fun Understand(state: WardrobeScreenState, onUnderstandRequested: () -> Unit, modifier: Modifier = Modifier) {
+    when {
+        state.understanding -> Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.padding(vertical = 8.dp)) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            Text(
+                stringResource(Res.string.wardrobe_understanding),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+
+        state.notUnderstood -> Text(
+            stringResource(Res.string.wardrobe_not_understood),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = modifier.padding(vertical = 8.dp),
+        )
+
+        else -> TextButton(onClick = onUnderstandRequested, modifier = modifier.testTag(WARDROBE_UNDERSTAND)) {
+            Icon(Glyph.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(stringResource(Res.string.wardrobe_understand), modifier = Modifier.padding(start = 8.dp))
+        }
     }
 }
 
@@ -1622,6 +1666,7 @@ internal fun Modifier.selectionOutline(color: Color, corner: Dp): Modifier = dra
 @Composable
 private fun ExpandedWardrobe(
     state: WardrobeScreenState,
+    onUnderstandRequested: () -> Unit,
     selectedGarmentId: String?,
     detailPane: (@Composable () -> Unit)?,
     filterPanelOpen: Boolean,
@@ -1735,6 +1780,10 @@ private fun ExpandedWardrobe(
                             modifier = Modifier.padding(start = 16.dp),
                         )
                     }
+                }
+
+                if (state.offersUnderstanding) {
+                    Understand(state, onUnderstandRequested, Modifier.padding(start = 4.dp, bottom = 8.dp))
                 }
 
                 if (applied.isNotEmpty()) {

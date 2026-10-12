@@ -324,6 +324,7 @@ class Screens(
             onOccasionTapped = model::onOccasionTapped,
             onColorTapped = model::onColorTapped,
             onRetiredToggled = model::onRetiredToggled,
+            onUnderstandRequested = model::onUnderstandRequested,
             onViewSelected = model::onViewSelected,
             onCaptionSelected = model::onCaptionSelected,
             selectedGarmentId = selected,
