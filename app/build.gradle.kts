@@ -57,12 +57,19 @@ val DEBUG_DRIVE_CLIENT_ID =
 // digests the Home Assistant app pins in server/build.gradle.kts -- the phone
 // and the server must embed a photo alike, since their vectors are compared
 // after every sync -- so a new export changes both build files at once.
+//
+// Two releases, not one: the anchors come from a later export than the model.
+// style-model-v2 added an anchor per garment type and changed nothing else, so
+// only its anchors are taken. Its model would be a re-export of the same
+// weights, not promised to be the same bytes, and pinning it would send every
+// phone that already downloaded 85 MB to download them again for nothing.
 val styleRelease = "https://github.com/jimartincorral/wardrobapp/releases/download/style-model-v1"
+val styleAnchorsRelease = "https://github.com/jimartincorral/wardrobapp/releases/download/style-model-v2"
 val styleModelFile = "style-image-vitb32-int8.onnx"
 val styleModelSha256 = "3c4250fe483e4e36f272f95ba122b603226ece047bd791cb1266265ae5a78b5b"
 val styleModelBytes = 89_313_414L
 val styleAnchorsFile = "style-anchors.json"
-val styleAnchorsSha256 = "a2129312f64762b2932eb6c71f37a552b5bcb7a83feb90c130158ac21e843243"
+val styleAnchorsSha256 = "fb10733d4bf48be1d35155dc2be8b9853690c9cc3cd9e976032f647c82b90dd9"
 
 val releaseStoreFile: String? = providers.gradleProperty("WARDROBAPP_STORE_FILE").orNull
 val releaseStorePassword: String? = providers.gradleProperty("WARDROBAPP_STORE_PASSWORD").orNull
@@ -367,7 +374,7 @@ abstract class DownloadStyleAssets : DefaultTask() {
 }
 
 val downloadStyleAssets by tasks.registering(DownloadStyleAssets::class) {
-    release.set(styleRelease)
+    release.set(styleAnchorsRelease)
     digests.set(mapOf(styleAnchorsFile to styleAnchorsSha256))
     outputDirectory.set(layout.buildDirectory.dir("generated/style-assets"))
 }
