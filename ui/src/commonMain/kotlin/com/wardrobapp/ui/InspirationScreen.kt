@@ -1,5 +1,6 @@
 package com.wardrobapp.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,6 +43,7 @@ import com.wardrobapp.ui.resources.inspiration_intro
 import com.wardrobapp.ui.resources.inspiration_remove
 import com.wardrobapp.ui.resources.inspiration_retry
 import com.wardrobapp.ui.resources.inspiration_title
+import com.wardrobapp.ui.resources.look_open
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -55,8 +57,9 @@ import org.jetbrains.compose.resources.stringResource
  * as photos, not cut-outs, since they are whole looks and the style model
  * saw them whole.
  *
- * A wide window gets more columns, not a second pane: there is nothing to
- * say about a look beside it.
+ * A wide window gets more columns, not a second pane: what there is to say
+ * about one look -- what it is made of, on a phone that can read that -- is a
+ * screen of its own (LookScreen), opened by tapping it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +76,12 @@ fun InspirationScreen(
      * nothing to say -- always in the browser, whose server reads every look.
      */
     modelNotice: (@Composable () -> Unit)? = null,
+    /**
+     * Open a look to see it rebuilt from the wardrobe (LookScreen), or null
+     * where nothing can read a look's pieces -- the browser, and a phone
+     * without Gemini Nano -- and a look is then only a photo.
+     */
+    onOpen: ((String) -> Unit)? = null,
 ) {
     Scaffold(
         topBar = {
@@ -143,10 +152,17 @@ fun InspirationScreen(
 
             items(state.looks, key = { it.id }) { look ->
                 Box {
+                    val openLabel = stringResource(Res.string.look_open)
                     GarmentPhoto(
                         uri = look.imageUri,
                         cutout = false,
-                        modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(3f / 4f)
+                            .then(
+                                if (onOpen == null) Modifier else Modifier.clickable(onClickLabel = openLabel) { onOpen(look.id) },
+                            )
+                            .testTag(inspirationTileTag(look.id)),
                     )
                     FilledTonalIconButton(
                         onClick = { onRemove(look.id) },
@@ -166,6 +182,9 @@ fun InspirationScreen(
 
 const val INSPIRATION_GRID = "inspiration-grid"
 const val INSPIRATION_ADD = "inspiration-add"
+
+/** One look's photo, for a test to tap. */
+fun inspirationTileTag(id: String) = "inspiration-tile-$id"
 
 /** The remove button on one look, for a test to tap. */
 fun inspirationRemoveTag(id: String) = "inspiration-remove-$id"

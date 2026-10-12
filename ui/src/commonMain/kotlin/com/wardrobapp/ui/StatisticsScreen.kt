@@ -926,7 +926,7 @@ private fun DuplicateRow(group: DuplicateGarmentGroup, onGarmentOpened: (String)
  * worth naming once.
  */
 @Composable
-private fun typeLabel(category: String, subcategory: String?): String =
+internal fun typeLabel(category: String, subcategory: String?): String =
     subcategory?.takeIf { it.isNotBlank() }?.let { garmentTypeLabel(it) }
         ?: categoryLabel(category)
 

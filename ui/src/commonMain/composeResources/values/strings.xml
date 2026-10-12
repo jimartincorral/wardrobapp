@@ -270,6 +270,16 @@
     <string name="inspiration_empty">No looks yet. Add a photo of an outfit you would wear.</string>
     <string name="inspiration_remove">Remove this look</string>
     <string name="inspiration_retry">Try again</string>
+    <string name="look_title">This look</string>
+    <string name="look_intro">Each piece in the look, and what in your wardrobe comes closest.</string>
+    <string name="look_reading">Reading the look…</string>
+    <string name="look_unread">Couldn't make out what's being worn in this look.</string>
+    <string name="look_read_again">Read again</string>
+    <string name="look_gone">This look isn't here any more.</string>
+    <string name="look_none_owned">You don't have one.</string>
+    <string name="look_save">Save as an outfit</string>
+    <string name="look_saving">Saving…</string>
+    <string name="look_open">Rebuild this look from my wardrobe</string>
     <!-- A garment's style attributes, which the outfit suggestions learn over.
          The hint says what an unset one means. -->
     <string name="form_section_style">Style</string>

@@ -115,6 +115,12 @@ object WardrobeSchema {
       deleted_at TEXT,
       model TEXT,
       vector BLOB
+    );
+
+    CREATE TABLE IF NOT EXISTS look_pieces (
+      look_id TEXT PRIMARY KEY,
+      pieces TEXT NOT NULL,
+      read_at TEXT NOT NULL
     );"""
 
     /**

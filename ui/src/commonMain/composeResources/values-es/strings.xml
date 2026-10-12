@@ -220,6 +220,16 @@
     <string name="inspiration_empty">Aún no hay looks. Añade una foto de un atuendo que te pondrías.</string>
     <string name="inspiration_remove">Quitar este look</string>
     <string name="inspiration_retry">Reintentar</string>
+    <string name="look_title">Este look</string>
+    <string name="look_intro">Cada prenda del look, y lo que en tu armario más se le acerca.</string>
+    <string name="look_reading">Leyendo el look…</string>
+    <string name="look_unread">No se ha podido distinguir qué se lleva en este look.</string>
+    <string name="look_read_again">Volver a leer</string>
+    <string name="look_gone">Este look ya no está.</string>
+    <string name="look_none_owned">No tienes ninguna.</string>
+    <string name="look_save">Guardar como conjunto</string>
+    <string name="look_saving">Guardando…</string>
+    <string name="look_open">Recrear este look con mi armario</string>
     <string name="form_section_style">Estilo</string>
     <string name="form_style_hint">Si se deja en blanco, decide el tipo de prenda.</string>
     <string name="attribute_formality">Formalidad</string>

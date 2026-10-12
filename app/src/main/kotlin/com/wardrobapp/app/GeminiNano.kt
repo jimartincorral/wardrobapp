@@ -1,7 +1,12 @@
 package com.wardrobapp.app
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Rect
 import android.os.Build
+import androidx.core.graphics.createBitmap
 import android.util.Log
 import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.prompt.Generation
@@ -128,3 +133,29 @@ class GeminiNano {
         }
     }
 }
+
+/** How big a picture Gemini Nano is shown; see pictureForNano. */
+private const val NANO_PICTURE_SIZE = 768
+
+/**
+ * [photo] as Gemini Nano is shown it: at most [NANO_PICTURE_SIZE] on its
+ * longer side, laid on white. Smaller because the model sees a few hundred
+ * pixels whatever it is handed, and a full photo is only memory. On white
+ * because a cut-out is mostly transparent, and transparency handed to a model
+ * is black or undefined: a garment on white is the product photo it has seen
+ * most, and a photo with no transparency is unchanged by it. [photo] is
+ * recycled; the picture is new.
+ */
+internal fun pictureForNano(photo: Bitmap): Bitmap {
+    val scale = minOf(1f, NANO_PICTURE_SIZE.toFloat() / maxOf(photo.width, photo.height))
+    val width = (photo.width * scale).toInt().coerceAtLeast(1)
+    val height = (photo.height * scale).toInt().coerceAtLeast(1)
+    val picture = createBitmap(width, height)
+    Canvas(picture).apply {
+        drawColor(Color.WHITE)
+        drawBitmap(photo, null, Rect(0, 0, width, height), Paint(Paint.FILTER_BITMAP_FLAG))
+    }
+    photo.recycle()
+    return picture
+}
+
