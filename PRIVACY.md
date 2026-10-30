@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Wardrobapp**
-Last updated: 8 October 2026
+Last updated: 30 October 2026
 
 Wardrobapp is a local-first wardrobe and outfit planner. There is no account to
 create, no server run by its developer, and nothing about you is collected,
@@ -37,12 +37,22 @@ None of it is sent anywhere by default. Uninstalling the app removes all of it.
 
 ## When the app uses the network
 
-Six occasions, and no others. All but the first happen only because you asked
+Seven occasions, and no others. All but the first happen only because you asked
 for them.
 
 **Checking for a new version.** The app fetches a small file from its own GitHub
 release page to see whether a newer build exists. GitHub can see that some device
 asked for that file, including its IP address, as any web request reveals.
+
+**Downloading the style model, if you ask for it.** Reading a garment's style
+from its photo, and learning from the looks you save, takes an 85 MB model that
+is not part of the app. If you tap **Download** for it, in Settings or on the
+looks screen, the app fetches it from this project's GitHub releases, and uses
+it only once its size and SHA-256 match the ones built into the app. GitHub can
+see that request, including your IP address, as with the update check. The
+model then runs on your phone: no photo is sent anywhere to be read. It is kept
+outside your backups, and **Remove the style model** deletes it. A phone paired
+with Home Assistant does not need it, because Home Assistant runs the same model.
 
 **Importing a garment from a web page.** If you paste or share a product link, the
 app fetches that page directly from your device to read its title and picture. The
