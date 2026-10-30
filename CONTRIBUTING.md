@@ -292,7 +292,7 @@ the optimised one the image ships, takes several.
 ### Signing
 
 Published builds are signed with a **private release key**, held by the maintainer and
-given to CI as four repository secrets. Its certificate is
+given to CI as four secrets of the `release` environment. Its certificate is
 
 ```
 CN=jimartincorral, C=ES
@@ -309,7 +309,8 @@ apksigner verify --print-certs wardrobapp.apk
 
 `keytool` prints the same fingerprint colon-separated and uppercase; it is the same
 number. CI asserts it on every release: with a keystore configured the signing check
-inverts, and an APK still carrying the public debug key fails the build.
+inverts, and an APK still carrying the public debug key fails the build. A build of
+`main` that was not given the key is not published at all.
 
 Every build published before 28 August 2026 — including all of them from before this
 was a Kotlin app — carried the **public Android debug key** from Expo’s project
@@ -342,7 +343,9 @@ means never being able to upgrade an installed app again:
 keytool -genkeypair -v -keystore wardrobapp-release.keystore -alias wardrobapp -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-Then add four repository secrets (Settings → Secrets and variables → Actions):
+Then create an environment called `release` (Settings → Environments → New
+environment), set its **Deployment branches and tags** to the `main` branch only, and
+add four secrets to it — to the environment, not to the repository:
 
 | Secret | Value |
 | --- | --- |
@@ -350,6 +353,14 @@ Then add four repository secrets (Settings → Secrets and variables → Actions
 | `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
 | `ANDROID_KEY_ALIAS` | the key alias (`wardrobapp` above) |
 | `ANDROID_KEY_PASSWORD` | the key password |
+
+Environment secrets rather than repository secrets because of who can read them. CI
+runs on every branch push and pull request, and each of those runs that branch's own
+build scripts; a repository secret is handed to all of them, so anybody who could push
+a branch could have a `build.gradle.kts` send the key somewhere — or rewrite the
+workflow to. An environment limited to `main` hands its secrets to `main` alone, and
+`ci.yml` asks for it only there. Branch builds sign with `app/debug.keystore`, and are
+never published.
 
 CI decodes the keystore and passes the rest to Gradle as
 `ORG_GRADLE_PROJECT_WARDROBAPP_*` properties. The same four work locally, either as

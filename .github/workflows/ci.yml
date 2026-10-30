@@ -10,6 +10,12 @@ on:
     branches: [main, 'claude/**']
   workflow_dispatch:
 
+# Read-only unless a job asks for more, which only the publishing does. Said
+# here rather than left to the repository's setting, so a fork or a changed
+# default cannot widen what every branch's build scripts run with.
+permissions:
+  contents: read
+
 concurrency:
   # `ref_name` rather than `ref`, so that the push and the pull request for one
   # branch land in the same group and the second cancels the first. They did not
@@ -82,6 +88,24 @@ jobs:
     name: Build the app
     runs-on: ubuntu-latest
 
+    # The release key, from the `release` environment, and only for a push to
+    # main. Every other run -- a branch, a pull request -- gets no environment,
+    # and so no key, and signs with the committed one instead.
+    #
+    # It used to be every run. The key was decoded on any branch push and any
+    # pull request from this repository, ahead of a Gradle build that runs that
+    # branch's own build scripts -- so anybody, or any agent, who could push a
+    # branch could have a build.gradle.kts send the key somewhere, and that key
+    # is all that stands between a phone and an update somebody else signed.
+    # The `if` on the decoding step below keeps the key out of branch builds
+    # as the workflow is written; the environment is what keeps it out of a
+    # branch that rewrites the workflow, since an environment limited to main
+    # hands its secrets to nothing else. That half is a setting rather than a
+    # line here: the four ANDROID_* secrets belong to the environment, under
+    # Settings -> Environments -> release, with its deployment branches set to
+    # main, and not to the repository. CONTRIBUTING.md says how.
+    environment: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'release' || '' }}
+
     # For the publish job, which uploads what this built and has to say how it
     # was signed.
     outputs:
@@ -101,10 +125,11 @@ jobs:
       - name: Cache Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # Signing is opt-in on the secret. Without it the release build is signed
-      # with the committed `app/debug.keystore` -- the key every published build
-      # of this app has carried, which is what keeps a release an upgrade of the
-      # app people have installed rather than a collision with it. See the
+      # Signing with the release key happens only on main (see `environment`
+      # above) and only when the secret is there. Without it the release build
+      # is signed with the committed `app/debug.keystore`, which is how a
+      # branch, a pull request or a fork still assembles -- and a build that is
+      # never published, since the publish job refuses one. See the
       # `signingConfigs` block in app/build.gradle.kts.
       #
       # Ahead of the build rather than after the tests, which is where it used to
@@ -114,6 +139,8 @@ jobs:
       # running it before the build finds out whether there is anything to sign.
       - name: Decode the release keystore
         id: signing
+        # See `environment` above: not on a branch, whatever secrets it can see.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -122,7 +149,7 @@ jobs:
         run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
             echo 'signed=false' >> "$GITHUB_OUTPUT"
-            echo '::notice::No ANDROID_KEYSTORE_BASE64 secret is set, so this build is signed with the committed public key -- which is what the installed app is signed with.'
+            echo '::warning::No ANDROID_KEYSTORE_BASE64 secret reached this build of main, so it is signed with the committed debug key and will not be published.'
             exit 0
           fi
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > app/release.keystore
@@ -184,8 +211,8 @@ jobs:
       # Either way the expected fingerprint is read out of a keystore rather than
       # written down here, so the check and the key cannot drift apart.
       #
-      # With no keystore configured the APK must carry the committed debug key --
-      # the one the installed base already trusts. With one configured it must
+      # With no keystore configured the APK must carry the committed debug key,
+      # the fallback every branch build uses. With one configured it must
       # carry that keystore's key: not simply "not the debug key", which a build
       # signed with any third key would also satisfy while being just as
       # uninstallable.
@@ -345,6 +372,24 @@ jobs:
       contents: write
 
     steps:
+      # First, before anything is downloaded or deleted: a build signed with
+      # the committed key is not published. It used to be, with a note saying
+      # so, which made sense while that key was the one phones held. Since
+      # August 2026 they hold the release key, so a main build without it --
+      # the secrets deleted, renamed, or moved to the `release` environment
+      # without the job being given it -- is an APK every installed phone
+      # refuses, published over the one they could install, and signed with a
+      # key anybody can sign with. Failing here leaves the last good release
+      # where it is.
+      - name: Refuse to publish a build without the release key
+        env:
+          SIGNED: ${{ needs.android.outputs.signed }}
+        run: |
+          if [ "$SIGNED" != 'true' ]; then
+            echo '::error::This build was signed with the committed debug key, not the release key, so it is not published: no installed phone would accept it. Check the ANDROID_* secrets in the release environment.'
+            exit 1
+          fi
+
       # Whole history, not the default single commit: the release carries a
       # changelog, and a changelog is a range of commits.
       #
@@ -371,25 +416,18 @@ jobs:
       - name: Publish APK to the rolling release
         env:
           GH_TOKEN: ${{ github.token }}
-          SIGNED: ${{ needs.android.outputs.signed }}
         run: |
           cp app/build/outputs/apk/release/app-release.apk wardrobapp.apk
 
+          # Always the release key: the first step of this job sees to that.
           {
             echo "Automatic build of main — run #${GITHUB_RUN_NUMBER}, commit ${GITHUB_SHA}."
             echo
             echo "Installs over the version already on the phone, keeping the wardrobe."
             echo
-            if [ "$SIGNED" = 'true' ]; then
-              echo "Signed with the project's own release key. If the install is refused,"
-              echo "the phone is holding a build signed with the older public key: back up"
-              echo "from inside the app, uninstall, install this, restore."
-            else
-              echo "**Signed with a public key** — the one every build of this app has"
-              echo "carried. It is what makes the upgrade work, and it means anybody could"
-              echo "sign a build claiming to be this one, so trust the source rather than"
-              echo "the signature."
-            fi
+            echo "Signed with the project's own release key. If the install is refused,"
+            echo "the phone is holding a build signed with the older public key: back up"
+            echo "from inside the app, uninstall, install this, restore."
           } > release-notes.md
 
           # What the app reads to know a newer build exists. Published beside
