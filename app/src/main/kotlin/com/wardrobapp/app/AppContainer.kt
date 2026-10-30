@@ -236,7 +236,7 @@ class AppContainer(context: Context) {
      *
      * The second pass is the one that needs the database, and it is why this lives
      * here rather than on the store: what is referenced is a question only the
-     * wardrobe can answer. Every garment is asked, retired ones included --
+     * wardrobe can answer. Every saved look is asked, and every garment, retired ones included --
      * `availableOnly = false` rather than the default, which means available only.
      * Sweeping a retired garment's photos would take away exactly the thing that
      * makes retiring reversible.
@@ -250,9 +250,16 @@ class AppContainer(context: Context) {
         // backup made before cut-outs were framed, has a way to catch up.
         val framed = photos.frameLooseCutouts(onProgress)
 
+        // Garments are not the only thing in the photo directory. The looks
+        // saved under the outfit ideas are stored there too, through the same
+        // PhotoStore, and for a while this list was garments alone -- so
+        // Optimize storage deleted every look more than an hour old, and on a
+        // phone with no Home Assistant to bring them back, for good. Deleted
+        // looks are left out on purpose: deleting one already deletes its photo.
         val referenced = garments
             .allGarments(GarmentQueries.Filters(availableOnly = false))
-            .flatMap { it.displayImageUris + it.displayNoBgImageUris }
+            .flatMap { it.displayImageUris + it.displayNoBgImageUris } +
+            StyleQueries(database).inspirations().map { it.imageUri }
 
         return shrunk.and(framed).and(photos.deleteUnreferenced(referenced, onProgress = onProgress))
     }

@@ -1,6 +1,7 @@
 package com.wardrobapp.app
 
 import com.wardrobapp.data.GarmentWrites
+import com.wardrobapp.data.StyleQueries
 import com.wardrobapp.data.wardrobeFilesIn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -92,6 +93,22 @@ class PhotoSweepTest {
         val summary = container.tidyPhotos { _, _ -> }
 
         assertTrue("a retired garment's photo was swept", retired.exists())
+        assertEquals(0, summary.deleted)
+    }
+
+    @Test
+    fun `a saved look keeps its photo`() {
+        // Looks live in the same directory as garments' photos, and the sweep
+        // once asked only the garments: every look older than an hour went the
+        // first time somebody tapped Optimize storage.
+        val container = AppContainer(context)
+        val look = settled("look.jpg")
+
+        StyleQueries(container.database).addInspiration("look-1", "look.jpg", "2026-01-01T00:00:00.000Z")
+
+        val summary = container.tidyPhotos { _, _ -> }
+
+        assertTrue("a saved look's photo was swept", look.exists())
         assertEquals(0, summary.deleted)
     }
 
