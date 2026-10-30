@@ -586,11 +586,49 @@ class ArchiveRestoreTest {
 
     // ---- the legacy formats ------------------------------------------------
 
-    private fun legacyPayload(version: Int, garmentId: String = "legacy-garment"): String {
+    private fun legacyPayload(
+        version: Int,
+        garmentId: String = "legacy-garment",
+        encoder: Base64.Encoder = Base64.getEncoder(),
+    ): String {
         val built = File(workDir, "legacy.db")
         writeWardrobeDatabase(built, garmentId)
-        val database = Base64.getEncoder().encodeToString(built.readBytes())
+        // JSON-escaped, since a MIME encoder's line breaks are not allowed raw
+        // inside a JSON string.
+        val database = encoder.encodeToString(built.readBytes()).replace("\r", "\\r").replace("\n", "\\n")
         return """{"version":$version,"created_at":"2026-01-01","database":"$database"}"""
+    }
+
+    @Test
+    fun `reads a legacy payload however its base64 was written`() {
+        // The decoder was java.util.Base64's MIME one until it turned out not to
+        // exist on Android 7, and its replacement has to accept everything that
+        // did: lines broken every 76 characters, and no padding at the end.
+        for ((name, encoder) in listOf(
+            "wrapped" to Base64.getMimeEncoder(),
+            "unpadded" to Base64.getEncoder().withoutPadding(),
+        )) {
+            givenLiveWardrobe()
+
+            restore(zipOf(mapOf(LEGACY_PAYLOAD_NAME to legacyPayload(1, "from-$name", encoder).toByteArray())))
+
+            assertEquals(listOf("from-$name"), garmentIdsInLiveDatabase(), name)
+        }
+    }
+
+    @Test
+    fun `refuses a legacy payload whose database is not base64, changing nothing`() {
+        givenLiveWardrobe()
+        // One character: not even a byte's worth, which no decoder, however
+        // forgiving about line breaks and padding, can read.
+        val payload = """{"version":1,"created_at":"2026-01-01","database":"Q"}"""
+
+        val error = assertFailsWith<UnrestorableArchiveException> {
+            restore(zipOf(mapOf(LEGACY_PAYLOAD_NAME to payload.toByteArray())))
+        }
+
+        assertEquals(UnrestorableReason.NotBase64, error.reason)
+        assertWardrobeUntouched()
     }
 
     @Test

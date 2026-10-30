@@ -6,7 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import java.io.File
 import java.io.InputStream
-import java.util.Base64
+import kotlin.io.encoding.Base64
 import java.util.zip.ZipInputStream
 
 /**
@@ -424,8 +424,19 @@ internal fun parseLegacyPayload(text: String): LegacyPayload {
 
 private fun JsonArray?.orEmpty(): List<kotlinx.serialization.json.JsonElement> = this ?: emptyList()
 
+/**
+ * Kotlin's decoder rather than java.util.Base64, which arrived in Android 8:
+ * this app supports 7, where a v1 archive's restore died on a class the phone
+ * did not have. Configured to accept what the Java MIME decoder this replaced
+ * accepted -- line breaks and anything else outside the alphabet skipped, and
+ * the padding optional -- since a payload that restored yesterday has to
+ * restore today. AndroidOnlyApisTest in :presentation keeps java.util.Base64
+ * out of the modules the phone runs.
+ */
+private val LEGACY_BASE64 = Base64.Mime.withPadding(Base64.PaddingOption.PRESENT_OPTIONAL)
+
 private fun decodeBase64(text: String): ByteArray = try {
-    Base64.getMimeDecoder().decode(text)
+    LEGACY_BASE64.decode(text)
 } catch (_: IllegalArgumentException) {
     throw UnrestorableArchiveException(UnrestorableReason.NotBase64)
 }

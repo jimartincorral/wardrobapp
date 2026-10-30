@@ -15,7 +15,6 @@ import io.ktor.serialization.ContentConvertException
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.nio.channels.UnresolvedAddressException
-import java.nio.file.FileSystemException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -119,6 +118,17 @@ private const val SOCKET_TIMEOUT_MS = 60_000L
  * with something that is not this API, and the thing to do about it is the
  * same, check the address. A local file failing is not the network, though,
  * however much it is an IOException, so it keeps its own words.
+ *
+ * FileNotFoundException is the local file's whole case, because everything
+ * this phone writes goes through java.io.File. There was a second, for
+ * java.nio.file's FileSystemException, and it was the one thing here that
+ * could not be: that package arrived in Android 8, this app supports 7, and
+ * an `is` against a class the runtime does not have throws
+ * NoClassDefFoundError rather than answering false. Every failure that got
+ * as far as that line -- any refused connection, any timeout -- crashed the
+ * app on Android 7 instead of reaching Settings, and opening a paired phone
+ * away from home was enough. AndroidOnlyApisTest in :presentation keeps the
+ * package out of the modules the phone runs.
  */
 fun syncFailureOf(error: Throwable): SyncFailure = when (error) {
     is ServerException -> when (error.status) {
@@ -131,7 +141,7 @@ fun syncFailureOf(error: Throwable): SyncFailure = when (error) {
     is SerializationException,
     is ContentConvertException,
     -> SyncFailure.Unreachable
-    is FileNotFoundException, is FileSystemException -> SyncFailure.Other(error.message ?: error.javaClass.simpleName)
+    is FileNotFoundException -> SyncFailure.Other(error.message ?: error.javaClass.simpleName)
     is IOException -> SyncFailure.Unreachable
     else -> SyncFailure.Other(error.message ?: error.javaClass.simpleName)
 }

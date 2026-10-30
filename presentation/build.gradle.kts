@@ -164,6 +164,18 @@ tasks.withType<Test>().configureEach {
         .withPropertyName("releaseNotesScript")
         .withPathSensitivity(PathSensitivity.RELATIVE)
 
+    // The code the phone runs that lint does not read, for AndroidOnlyApisTest:
+    // the JVM halves of the pure modules, which :app takes as plain jars. Lint's
+    // NewApi check stops at :app and :ui, so a Java class newer than the app's
+    // minSdk compiles here, passes CI, and fails on the phone.
+    val phoneSources = listOf("domain", "data", "api", "presentation")
+        .flatMap { listOf(rootProject.file("$it/src/commonMain/kotlin"), rootProject.file("$it/src/jvmMain/kotlin")) } +
+        rootProject.file("net/src/main/kotlin")
+    systemProperty("phoneSourceDirs", phoneSources.joinToString(File.pathSeparator) { it.absolutePath })
+    inputs.files(phoneSources)
+        .withPropertyName("phoneSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+
     // The script that writes the style model's anchors, for StyleAnchorTypesTest,
     // which holds its table of garment types to the catalogue's.
     val styleExportScript = rootProject.file("scripts/export-style-model.py")
