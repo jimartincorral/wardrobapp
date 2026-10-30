@@ -148,7 +148,15 @@ data class SyncReport(
      * arrives, and whatever a restore settles can be settled now.
      */
     val arrived: Boolean = false,
+    /**
+     * Photos the server would not take, by name: too large, or not what their
+     * name says. Their garments and looks synced without them; see sendPhotos.
+     */
+    val refusedPhotos: List<String> = emptyList(),
 )
+
+private const val PAYLOAD_TOO_LARGE = 413
+private const val UNSUPPORTED_MEDIA_TYPE = 415
 
 /**
  * One phone's syncing: its wardrobe, its photos, and a client pointed at the
@@ -198,15 +206,7 @@ class WardrobeSyncClient(
             setBody(ours)
         }.body<SyncAnswer>()
 
-        var uploaded = 0
-        for (name in answer.missingPhotos) {
-            val bytes = photos.read(name) ?: continue
-            http.put(SyncRoutes.photo(name)) {
-                contentType(ContentType.Application.OctetStream)
-                setBody(bytes)
-            }
-            uploaded++
-        }
+        val sent = sendPhotos(answer.missingPhotos)
 
         val result = withContext(io) { store.mergeWith(answer.merged) }
         for (name in result.photosNoLongerUsed) photos.delete(name)
@@ -228,7 +228,8 @@ class WardrobeSyncClient(
         val styled = if (style != null) syncStyle(style) else StyleSynced()
 
         return SyncReport(
-            uploaded = uploaded + styled.uploaded,
+            uploaded = sent.uploaded + styled.uploaded,
+            refusedPhotos = sent.refused + styled.refused,
             downloaded = downloaded + styled.downloaded,
             changed = result.changedAnything || downloaded > 0 || styled.changed,
             arrived = ours.garments.isEmpty() && result.merged.garments.isNotEmpty(),
@@ -236,7 +237,50 @@ class WardrobeSyncClient(
     }
 
     /** What the style exchange moved, for the report; see [syncStyle]. */
-    private class StyleSynced(val uploaded: Int = 0, val downloaded: Int = 0, val changed: Boolean = false)
+    private class StyleSynced(
+        val uploaded: Int = 0,
+        val downloaded: Int = 0,
+        val changed: Boolean = false,
+        val refused: List<String> = emptyList(),
+    )
+
+    private class PhotosSent(val uploaded: Int, val refused: List<String>)
+
+    /**
+     * Send the server the photos it asked for, past any it will not take.
+     *
+     * The server refuses a photo for what it is -- over its size limit (413),
+     * or not the JPEG, PNG or WebP its name says (415) -- and for nothing
+     * else at this route, so either answer is about that one photo. It used to
+     * end the sync, and since the photos go before this side merges, the sync
+     * ended before anything came back: one photo the server would never take
+     * and the phone went on sending its own changes while receiving nobody
+     * else's, every sync, for good, behind an error that said nothing about a
+     * photo. Now the garment syncs without it, the way it does when a photo
+     * has not arrived yet, and the server asks for it again next time.
+     *
+     * Only those two. Any other failure -- the network, the pairing, a full
+     * disk on the server -- is not this photo's, would fail the next one too,
+     * and still ends the sync with its own message.
+     */
+    private suspend fun sendPhotos(names: List<String>): PhotosSent {
+        var uploaded = 0
+        val refused = mutableListOf<String>()
+        for (name in names) {
+            val bytes = photos.read(name) ?: continue
+            try {
+                http.put(SyncRoutes.photo(name)) {
+                    contentType(ContentType.Application.OctetStream)
+                    setBody(bytes)
+                }
+                uploaded++
+            } catch (e: ServerException) {
+                if (e.status != PAYLOAD_TOO_LARGE && e.status != UNSUPPORTED_MEDIA_TYPE) throw e
+                refused += name
+            }
+        }
+        return PhotosSent(uploaded, refused)
+    }
 
     /**
      * The style exchange, after the wardrobe's: send the looks and which
@@ -262,15 +306,7 @@ class WardrobeSyncClient(
             return StyleSynced()
         }
 
-        var uploaded = 0
-        for (name in answer.missingPhotos) {
-            val bytes = photos.read(name) ?: continue
-            http.put(SyncRoutes.photo(name)) {
-                contentType(ContentType.Application.OctetStream)
-                setBody(bytes)
-            }
-            uploaded++
-        }
+        val sent = sendPhotos(answer.missingPhotos)
 
         val merge = withContext(io) { style.mergeInspirations(answer.inspirations) }
         for (name in merge.photosNoLongerUsed) photos.delete(name)
@@ -289,7 +325,8 @@ class WardrobeSyncClient(
 
         withContext(io) { style.putEmbeddings(answer.embeddings) }
         return StyleSynced(
-            uploaded = uploaded,
+            uploaded = sent.uploaded,
+            refused = sent.refused,
             downloaded = downloaded,
             changed = merge.changedAnything || downloaded > 0 || answer.embeddings.isNotEmpty(),
         )

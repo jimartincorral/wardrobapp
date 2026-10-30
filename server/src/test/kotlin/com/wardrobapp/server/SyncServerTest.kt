@@ -288,6 +288,37 @@ class SyncServerTest {
     }
 
     @Test
+    fun `a photo the server will not take does not stop the sync`() = syncTest {
+        // The case that used to stall a phone for good: the photos go up before
+        // the answer is merged, so a refusal ended the sync before anything came
+        // down, and the server went on asking for the same photo every time.
+        phone.photos.write("misnamed.jpg", png())
+        phone.garments.add("misnamed-garment", "misnamed.jpg")
+        phone.photos.write("fine.jpg", jpeg(seed = 1))
+        phone.garments.add("fine-garment", "fine.jpg")
+
+        val serverPhoto = server.photos.store(jpeg(seed = 2))
+        server.garmentForm.save(
+            garmentId = null,
+            form = GarmentFormState(imageUris = listOf(serverPhoto), bgRemovedUris = listOf(""), category = "bottoms", colorPalette = listOf("#000000"), colorsChosen = true),
+            previouslyStored = emptyList(),
+        )
+
+        val report = sync()
+
+        assertEquals(listOf("misnamed.jpg"), report.refusedPhotos)
+        assertEquals(1, report.uploaded)
+        // Both garments reached the server, the refused photo's without it...
+        assertNotNull(server.garmentForm.garment("misnamed-garment"))
+        assertNull(server.photos.file("misnamed.jpg"))
+        assertNotNull(server.photos.file("fine.jpg"))
+        // ...and the server's own garment reached the phone, which is the half
+        // that used to stop.
+        assertTrue(SyncStore(phone.database).snapshot().garments.any { it.category == "bottoms" })
+        assertEquals(1, report.downloaded)
+    }
+
+    @Test
     fun `resetting the code unpairs the phone`() = syncTest {
         val old = server.syncSecret.current()
         assertEquals(ServerVersion("0.2.0", 9), syncer(old).check())
