@@ -9,7 +9,6 @@ import com.wardrobapp.data.clipInput
 import com.wardrobapp.domain.normalized
 import java.awt.Image
 import java.awt.image.BufferedImage
-import java.io.ByteArrayInputStream
 import java.io.File
 import java.nio.FloatBuffer
 import java.util.concurrent.Callable
@@ -17,7 +16,6 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
-import javax.imageio.ImageIO
 
 /**
  * Seeing what a garment looks like: a photo to a vector, and a vector to the
@@ -67,7 +65,9 @@ class StyleEncoder(
     fun embed(photo: ByteArray): FloatArray = onWorker {
         closing?.cancel(false)
         try {
-            val image = ImageIO.read(ByteArrayInputStream(photo))
+            // Bounded by the size of what comes out, not by what the photo's
+            // header claims; see decodeAtMost.
+            val image = decodeAtMost(photo, BackgroundRemover.MAX_SIDE)
                 ?: throw IllegalArgumentException("That photo could not be read.")
             val model = encoder ?: openEncoder().also { encoder = it }
             val raw = model.embed(modelInput(image, model.size, anchors))

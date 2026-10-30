@@ -59,6 +59,13 @@ fun frameLooseCutouts(directory: File): Int {
     var framed = 0
     for (file in cutouts) {
         try {
+            // Measured before it is decoded, as BackgroundRemover measures a
+            // photo: a cut-out is framed at its own size, so one whose header
+            // claims more than a cut-out can be -- synced from a phone under a
+            // cut-out's name, say -- would be decoded whole, and could be a
+            // gigabyte. It is left as it is, like one that will not decode.
+            val (width, height) = BackgroundRemover.dimensionsOf(file.readBytes()) ?: continue
+            if (width > BackgroundRemover.MAX_SIDE || height > BackgroundRemover.MAX_SIDE) continue
             val image = ImageIO.read(file) ?: continue
             val result = framedAroundGarment(image) ?: continue
 

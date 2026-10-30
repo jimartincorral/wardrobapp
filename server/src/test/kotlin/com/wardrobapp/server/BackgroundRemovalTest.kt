@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import javax.imageio.ImageIO
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -171,6 +172,61 @@ class BackgroundRemovalTest {
 
         assertEquals(120 to 80, BackgroundRemover.dimensionsOf(photo()))
         assertEquals(null, BackgroundRemover.dimensionsOf(byteArrayOf(1, 2, 3)))
+    }
+
+    @Test
+    fun `a photo is decoded no larger than asked, whatever its header claims`() {
+        // The style encoder's decode. A wide PNG stands in for the one that
+        // claims twenty thousand pixels a side: what matters is that what
+        // comes out is bounded, not how large the test can afford to go.
+        val wide = BufferedImage(5000, 40, BufferedImage.TYPE_INT_RGB)
+        val bytes = ByteArrayOutputStream().use { ImageIO.write(wide, "png", it); it.toByteArray() }
+
+        val decoded = decodeAtMost(bytes, 1000)!!
+
+        assertTrue(decoded.width <= 1000 && decoded.height <= 1000, "${decoded.width} by ${decoded.height}")
+        assertEquals(null, decodeAtMost(byteArrayOf(1, 2, 3), 1000))
+    }
+
+    @Test
+    fun `a photo within the bound is decoded exactly as ImageIO decodes it`() {
+        // The phone embeds the same photos and the two sides' vectors are
+        // compared, so bounding the decode must not move an ordinary photo by
+        // a pixel.
+        val bytes = photo()
+        val bounded = decodeAtMost(bytes, BackgroundRemover.MAX_SIDE)!!
+        val plain = ImageIO.read(ByteArrayInputStream(bytes))
+
+        assertEquals(plain.width to plain.height, bounded.width to bounded.height)
+        for (y in 0 until plain.height) {
+            for (x in 0 until plain.width) {
+                assertEquals(plain.getRGB(x, y), bounded.getRGB(x, y), "($x, $y)")
+            }
+        }
+    }
+
+    @Test
+    fun `a cut-out larger than any cut-out can be is not framed`() {
+        // Framing decodes the whole cut-out, at its own size, so one whose
+        // header claims more than BackgroundRemover ever writes is left alone
+        // rather than decoded.
+        val directory = Files.createTempDirectory("cutouts").toFile()
+        try {
+            val huge = BufferedImage(BackgroundRemover.MAX_SIDE + 1, 8, BufferedImage.TYPE_INT_ARGB)
+            huge.createGraphics().apply {
+                color = Color(150, 20, 30)
+                fillRect(0, 2, 40, 4)
+                dispose()
+            }
+            val file = File(directory, "huge_nobg.png")
+            ImageIO.write(huge, "png", file)
+            val before = file.readBytes()
+
+            assertEquals(0, frameLooseCutouts(directory))
+            assertContentEquals(before, file.readBytes())
+        } finally {
+            directory.deleteRecursively()
+        }
     }
 
     @Test
