@@ -8,6 +8,7 @@ import com.wardrobapp.presentation.BackgroundEdit
 import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.presentation.GarmentFormState
 import com.wardrobapp.presentation.HomeCounts
+import com.wardrobapp.presentation.ArchivedGarments
 import com.wardrobapp.presentation.WardrobeQuery
 import io.ktor.client.request.get
 import io.ktor.client.statement.readRawBytes
@@ -87,13 +88,31 @@ class GarmentRoutesTest {
     }
 
     @Test
+    fun `the browser can ask for the archived garments alone`() = serverTest {
+        // Across the wire, because the query is the browser's: the home screen's
+        // "Archived" tile sends it, and a server that read it as "show these
+        // too" would hand back the whole wardrobe -- the bug this came in as.
+        val worn = addGarment(brand = "Worn")
+        val archived = addGarment(brand = "Archived")
+        garmentDetail.setInUse(archived.id, false)
+
+        assertEquals(listOf(worn.id), wardrobeList.garments(WardrobeQuery()).map { it.id })
+        assertEquals(listOf(archived.id), wardrobeList.garments(WardrobeQuery(archived = ArchivedGarments.ONLY)).map { it.id })
+        assertEquals(
+            setOf(worn.id, archived.id),
+            wardrobeList.garments(WardrobeQuery(archived = ArchivedGarments.INCLUDED)).map { it.id }.toSet(),
+        )
+    }
+
+    @Test
     fun `a garment retired and then deleted takes its photo with it`() = serverTest {
         val garment = addGarment()
 
         garmentDetail.setInUse(garment.id, false)
         assertEquals(HomeCounts(items = 0, archived = 1, rated = 0), home.counts())
         assertEquals(emptyList(), wardrobeList.garments(WardrobeQuery()))
-        assertEquals(listOf(garment.id), wardrobeList.garments(WardrobeQuery(includeRetired = true)).map { it.id })
+        assertEquals(listOf(garment.id), wardrobeList.garments(WardrobeQuery(archived = ArchivedGarments.INCLUDED)).map { it.id })
+        assertEquals(listOf(garment.id), wardrobeList.garments(WardrobeQuery(archived = ArchivedGarments.ONLY)).map { it.id })
 
         garmentDetail.delete(garment.id)
         assertNull(garmentDetail.garment(garment.id))

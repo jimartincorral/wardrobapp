@@ -247,9 +247,10 @@ private fun RowScope.Counts(state: HomeScreenState, onWardrobeRequested: () -> U
     // or has failed.
     // Both open the wardrobe, because a number you are looking at
     // is the obvious way in to the things it counts. Archived opens
-    // it showing retired garments: the plain wardrobe hides every
-    // one of them, so a link that did not ask for them would answer
-    // a tap on "12 archived" with a list containing none of them.
+    // it on the archived garments and nothing else: the plain
+    // wardrobe hides every one of them, and showing them alongside
+    // the rest -- which it did -- answered a tap on "12 archived"
+    // with the whole wardrobe and the twelve somewhere in it.
     Count(
         label = stringResource(Res.string.home_items),
         value = state.countText(state.items),

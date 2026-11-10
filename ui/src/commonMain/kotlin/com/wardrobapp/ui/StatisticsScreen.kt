@@ -449,12 +449,15 @@ private fun Body(
 /** The three tiles that count garments, and so lead to them. */
 @Composable
 private fun RowScope.CountTiles(view: StatisticsView, onLinkRequested: (WardrobeLink?) -> Unit) {
-    // All three count garments, so all three lead to them. Retired asks for
-    // retired garments, since the plain wardrobe shows none.
+    // All three count garments, so all three lead to them, and each to exactly
+    // the garments it counts: the total to all of them, archived included; in use
+    // to the plain wardrobe; archived to the archived ones alone. The last two
+    // used to share a link that showed everything, so "Archived: 3" opened on the
+    // whole wardrobe with the three somewhere in it.
     Tile(
         label = stringResource(Res.string.statistics_items),
         value = view.items,
-        onClick = { onLinkRequested(WardrobeLink.Retired) },
+        onClick = { onLinkRequested(WardrobeLink.Everything) },
         modifier = Modifier.weight(1f),
     )
     Tile(
@@ -466,7 +469,7 @@ private fun RowScope.CountTiles(view: StatisticsView, onLinkRequested: (Wardrobe
     Tile(
         label = stringResource(Res.string.statistics_retired),
         value = view.retired,
-        onClick = { onLinkRequested(WardrobeLink.Retired) },
+        onClick = { onLinkRequested(WardrobeLink.Archived) },
         modifier = Modifier.weight(1f),
     )
 }

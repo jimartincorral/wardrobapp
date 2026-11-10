@@ -50,7 +50,6 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -106,6 +105,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.presentation.ArchivedGarments
 import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.GarmentSort
 import com.wardrobapp.presentation.WARDROBE_VIEW_CHOICES
@@ -124,8 +124,11 @@ import com.wardrobapp.ui.resources.action_retry
 import com.wardrobapp.ui.resources.bulk_add_menu
 import com.wardrobapp.ui.resources.error_wardrobe_unreadable
 import com.wardrobapp.ui.resources.filter_brand
-import com.wardrobapp.ui.resources.filter_include_retired
+import com.wardrobapp.ui.resources.filter_applied_archived_included
+import com.wardrobapp.ui.resources.filter_archived_included
+import com.wardrobapp.ui.resources.filter_archived_only
 import com.wardrobapp.ui.resources.filter_remove
+import com.wardrobapp.ui.resources.filter_section_archived
 import com.wardrobapp.ui.resources.filter_section_category
 import com.wardrobapp.ui.resources.filter_section_colour
 import com.wardrobapp.ui.resources.filter_section_occasion
@@ -238,7 +241,7 @@ fun WardrobeScreen(
     onSeasonTapped: (Season) -> Unit,
     onOccasionTapped: (Occasion) -> Unit,
     onColorTapped: (String) -> Unit,
-    onRetiredToggled: () -> Unit,
+    onArchivedTapped: (ArchivedGarments) -> Unit,
     onViewSelected: (WardrobeView) -> Unit,
     onCaptionSelected: (GarmentCaption) -> Unit,
     /**
@@ -280,7 +283,7 @@ fun WardrobeScreen(
             onSeasonTapped = onSeasonTapped,
             onOccasionTapped = onOccasionTapped,
             onColorTapped = onColorTapped,
-            onRetiredToggled = onRetiredToggled,
+            onArchivedTapped = onArchivedTapped,
             onViewSelected = onViewSelected,
             onCaptionSelected = onCaptionSelected,
         )
@@ -337,7 +340,7 @@ fun WardrobeScreen(
             onColorTapped = onColorTapped,
             onBrandTapped = onBrandTapped,
             onSizeTapped = onSizeTapped,
-            onRetiredToggled = onRetiredToggled,
+            onArchivedTapped = onArchivedTapped,
             onSortToggled = onSortToggled,
         )
 
@@ -426,7 +429,7 @@ fun WardrobeScreen(
             onSeasonTapped = onSeasonTapped,
             onOccasionTapped = onOccasionTapped,
             onColorTapped = onColorTapped,
-            onRetiredToggled = onRetiredToggled,
+            onArchivedTapped = onArchivedTapped,
         )
     }
 }
@@ -637,7 +640,7 @@ private fun appliedFilters(
     onColorTapped: (String) -> Unit,
     onBrandTapped: (String) -> Unit,
     onSizeTapped: (String) -> Unit,
-    onRetiredToggled: () -> Unit,
+    onArchivedTapped: (ArchivedGarments) -> Unit,
     onSortToggled: () -> Unit,
 ): List<AppliedFilter> = buildList {
     query.category?.let { add(AppliedFilter(categoryLabel(it)) { onCategoryTapped(it) }) }
@@ -647,8 +650,14 @@ private fun appliedFilters(
     query.color?.let { add(AppliedFilter(colorLabel(it)) { onColorTapped(it) }) }
     query.brand.trim().takeIf { it.isNotEmpty() }?.let { add(AppliedFilter(it) { onBrandTapped(it) }) }
     query.size.trim().takeIf { it.isNotEmpty() }?.let { add(AppliedFilter(it) { onSizeTapped(it) }) }
-    if (query.includeRetired) {
-        add(AppliedFilter(stringResource(Res.string.filter_include_retired), onRetiredToggled))
+    // Named for what the list holds rather than for the chip that chose it: "Include"
+    // alone, out of its section, would not say what was being included.
+    when (query.archived) {
+        ArchivedGarments.HIDDEN -> Unit
+        ArchivedGarments.INCLUDED ->
+            add(AppliedFilter(stringResource(Res.string.filter_applied_archived_included)) { onArchivedTapped(query.archived) })
+        ArchivedGarments.ONLY ->
+            add(AppliedFilter(stringResource(Res.string.filter_archived_only)) { onArchivedTapped(query.archived) })
     }
     if (query.sort != GarmentSort.NEWEST) {
         add(AppliedFilter(stringResource(Res.string.sort_oldest), onSortToggled))
@@ -1110,7 +1119,7 @@ private fun FilterSheet(
     onSeasonTapped: (Season) -> Unit,
     onOccasionTapped: (Occasion) -> Unit,
     onColorTapped: (String) -> Unit,
-    onRetiredToggled: () -> Unit,
+    onArchivedTapped: (ArchivedGarments) -> Unit,
 ) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -1184,7 +1193,7 @@ private fun FilterSheet(
                 onSeasonTapped = onSeasonTapped,
                 onOccasionTapped = onOccasionTapped,
                 onColorTapped = onColorTapped,
-                onRetiredToggled = onRetiredToggled,
+                onArchivedTapped = onArchivedTapped,
             )
         }
 
@@ -1229,7 +1238,7 @@ private fun FilterSheet(
 }
 
 /**
- * Every dimension the wardrobe can be narrowed by, and the retired switch.
+ * Every dimension the wardrobe can be narrowed by, archived garments last.
  *
  * Out of [FilterSheet] so the desktop's filter panel draws the same sections in the
  * same order from the same facets: two copies of this list is how one of them ends
@@ -1248,7 +1257,7 @@ private fun FilterChoices(
     onSeasonTapped: (Season) -> Unit,
     onOccasionTapped: (Occasion) -> Unit,
     onColorTapped: (String) -> Unit,
-    onRetiredToggled: () -> Unit,
+    onArchivedTapped: (ArchivedGarments) -> Unit,
 ) {
         // A row is left out entirely when the wardrobe has nothing to put in it
         // -- a heading over an empty line is worse than no heading.
@@ -1351,19 +1360,26 @@ private fun FilterChoices(
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(checked = query.includeRetired, onCheckedChange = { onRetiredToggled() })
-            Text(
-                // The reason this exists: without it a retired garment cannot be
-                // found again, so it cannot be un-retired either.
-                stringResource(Res.string.filter_include_retired),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(start = 4.dp),
-            )
+        // Always offered, even with nothing archived, and last: the reason it exists
+        // is that without it an archived garment cannot be found again, so it cannot
+        // be unarchived either. Two chips rather than the checkbox this was, because
+        // there are two different things to ask for -- these among the rest, or
+        // these alone -- and "neither" is the plain wardrobe, the way no season
+        // chosen is every season.
+        FilterSection(stringResource(Res.string.filter_section_archived), wrap) {
+            FilterPill(
+                stringResource(Res.string.filter_archived_included),
+                // Prefixed, so the tag cannot meet a season or an occasion of the same name.
+                "archived-${ArchivedGarments.INCLUDED.name}",
+                query.archived == ArchivedGarments.INCLUDED,
+            ) { onArchivedTapped(ArchivedGarments.INCLUDED) }
+            FilterPill(
+                stringResource(Res.string.filter_archived_only),
+                "archived-${ArchivedGarments.ONLY.name}",
+                query.archived == ArchivedGarments.ONLY,
+            ) { onArchivedTapped(ArchivedGarments.ONLY) }
         }
+        Spacer(modifier = Modifier.height(8.dp))
 }
 
 /**
@@ -1684,7 +1700,7 @@ private fun ExpandedWardrobe(
     onSeasonTapped: (Season) -> Unit,
     onOccasionTapped: (Occasion) -> Unit,
     onColorTapped: (String) -> Unit,
-    onRetiredToggled: () -> Unit,
+    onArchivedTapped: (ArchivedGarments) -> Unit,
     onViewSelected: (WardrobeView) -> Unit,
     onCaptionSelected: (GarmentCaption) -> Unit,
 ) {
@@ -1724,7 +1740,7 @@ private fun ExpandedWardrobe(
             onColorTapped = onColorTapped,
             onBrandTapped = onBrandTapped,
             onSizeTapped = onSizeTapped,
-            onRetiredToggled = onRetiredToggled,
+            onArchivedTapped = onArchivedTapped,
             onSortToggled = onSortToggled,
         )
 
@@ -1753,7 +1769,7 @@ private fun ExpandedWardrobe(
                         onSeasonTapped = onSeasonTapped,
                         onOccasionTapped = onOccasionTapped,
                         onColorTapped = onColorTapped,
-                        onRetiredToggled = onRetiredToggled,
+                        onArchivedTapped = onArchivedTapped,
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                 }
@@ -1808,21 +1824,26 @@ private fun ExpandedWardrobe(
                         items(state.garments, key = { it.id }) { garment ->
                             val selected = garment.id == selectedGarmentId
 
+                            // Faded, so a grid showing archived garments
+                            // alongside the rest still says which are which
+                            // without opening each one. Not when they are all
+                            // there is: there is nothing to tell them apart from,
+                            // and a whole grid at sixty percent reads as disabled.
+                            val faded = !garment.isAvailable && state.query.archived != ArchivedGarments.ONLY
+                            val fade = Modifier.alpha(if (faded) 0.6f else 1f)
+
                             if (grid) {
                                 GarmentCell(
                                     garment,
                                     caption = state.caption,
                                     selected = selected,
-                                    // Faded, so a grid showing retired garments
-                                    // alongside the rest still says which are which
-                                    // without opening each one.
-                                    modifier = Modifier.alpha(if (garment.isAvailable) 1f else 0.6f),
+                                    modifier = fade,
                                 ) { onGarmentOpened(garment.id) }
                             } else {
                                 GarmentRow(
                                     garment,
                                     selected = selected,
-                                    modifier = Modifier.alpha(if (garment.isAvailable) 1f else 0.6f),
+                                    modifier = fade,
                                 ) { onGarmentOpened(garment.id) }
                             }
                         }
@@ -1871,7 +1892,7 @@ private fun FilterPanel(
     onSeasonTapped: (Season) -> Unit,
     onOccasionTapped: (Occasion) -> Unit,
     onColorTapped: (String) -> Unit,
-    onRetiredToggled: () -> Unit,
+    onArchivedTapped: (ArchivedGarments) -> Unit,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -1921,7 +1942,7 @@ private fun FilterPanel(
                     onSeasonTapped = onSeasonTapped,
                     onOccasionTapped = onOccasionTapped,
                     onColorTapped = onColorTapped,
-                    onRetiredToggled = onRetiredToggled,
+                    onArchivedTapped = onArchivedTapped,
                 )
             }
         }

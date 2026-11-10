@@ -89,6 +89,22 @@ class WardrobeScreenModelTest {
     }
 
     @Test
+    fun `the archived chips ask the source for what they say`() = runTest {
+        val source = FakeSource()
+        val model = WardrobeScreenModel(this, source, MemorySettings())
+        advanceUntilIdle()
+
+        model.onArchivedTapped(ArchivedGarments.ONLY)
+        advanceUntilIdle()
+        assertEquals(ArchivedGarments.ONLY, source.asked.last().archived)
+
+        // The chosen chip tapped again is the plain wardrobe, as for any chip.
+        model.onArchivedTapped(ArchivedGarments.ONLY)
+        advanceUntilIdle()
+        assertEquals(ArchivedGarments.HIDDEN, source.asked.last().archived)
+    }
+
+    @Test
     fun `a link's query replaces the current one`() = runTest {
         val source = FakeSource()
         val model = WardrobeScreenModel(this, source, MemorySettings())
@@ -96,11 +112,11 @@ class WardrobeScreenModelTest {
         model.onCategoryTapped("tops")
         advanceUntilIdle()
 
-        model.onQueryRequested(WardrobeQuery(includeRetired = true))
+        model.onQueryRequested(WardrobeQuery(archived = ArchivedGarments.ONLY))
         advanceUntilIdle()
 
         assertNull(source.asked.last().category)
-        assertEquals(true, source.asked.last().includeRetired)
+        assertEquals(ArchivedGarments.ONLY, source.asked.last().archived)
     }
 
     @Test

@@ -157,9 +157,9 @@ class DatabaseWardrobeSource(
             .allGarments(
                 GarmentQueries.Filters(
                     category = query.category,
-                    // Null would mean available-only. Only asked for when the list
-                    // is showing retired garments too.
-                    availableOnly = if (query.includeRetired) false else null,
+                    // Null would mean available-only, which is the plain wardrobe.
+                    availableOnly = if (query.archived == ArchivedGarments.HIDDEN) null else false,
+                    unavailableOnly = query.archived == ArchivedGarments.ONLY,
                     search = query.searchTerm,
                 ),
             )

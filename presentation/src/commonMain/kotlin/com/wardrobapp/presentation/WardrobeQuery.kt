@@ -30,14 +30,19 @@ data class WardrobeQuery(
     val size: String = "",
     val color: String? = null,
     /**
-     * Whether retired garments are shown.
+     * Whether archived garments are hidden, shown among the rest, or all there is.
      *
      * Not in the React Native app, and the reason it is here: nothing there ever
-     * asks for them, so a retired garment cannot be found again and the "wearing
-     * this again" action on its detail screen cannot be reached. Retiring is a
+     * asks for them, so an archived garment cannot be found again and the
+     * "unarchive" action on its detail screen cannot be reached. Archiving is a
      * one-way door. Being able to ask for them is what makes it reversible.
+     *
+     * Three states rather than the yes-or-no it started as, because "show them
+     * too" answered the wrong question. Somebody tapping "12 archived" wants those
+     * twelve, and was handed the whole wardrobe with the twelve somewhere in it --
+     * which is how this came back as a bug report.
      */
-    val includeRetired: Boolean = false,
+    val archived: ArchivedGarments = ArchivedGarments.HIDDEN,
 ) {
 
     /**
@@ -45,7 +50,7 @@ data class WardrobeQuery(
      *
      * Counts a typed-but-blank box as nothing, and counts the sort only when it is
      * not the default -- the same nine the React Native screen counts, plus
-     * showing retired garments, which is as much a departure from the plain list
+     * archived garments either way, each as much a departure from the plain list
      * as any of the others.
      */
     val activeFilterCount: Int
@@ -59,7 +64,7 @@ data class WardrobeQuery(
             color,
             search.trim().ifEmpty { null },
             sort.takeIf { it != GarmentSort.NEWEST },
-            true.takeIf { includeRetired },
+            archived.takeIf { it != ArchivedGarments.HIDDEN },
         ).count { it != null }
 
     /** True when the list is showing something other than the whole wardrobe. */
@@ -109,10 +114,13 @@ data class WardrobeQuery(
             is WardrobeLink.Type -> WardrobeQuery(category = link.category, subcategory = link.name)
             is WardrobeLink.Colour -> WardrobeQuery(color = link.value)
             is WardrobeLink.Brand -> WardrobeQuery(brand = link.name)
-            // The one link that asks for retired garments. It comes from a number
-            // that counts exactly the garments the plain wardrobe hides, so
-            // without this it would open on a list holding none of them.
-            WardrobeLink.Retired -> WardrobeQuery(includeRetired = true)
+            // The two links that ask for archived garments. "Archived" counts
+            // exactly the garments the plain wardrobe hides, so it opens on those
+            // and nothing else -- with the rest shown too, the number tapped and
+            // the length of the list disagreed, which is the rule above broken.
+            // "Everything" counts both, so it shows both.
+            WardrobeLink.Archived -> WardrobeQuery(archived = ArchivedGarments.ONLY)
+            WardrobeLink.Everything -> WardrobeQuery(archived = ArchivedGarments.INCLUDED)
         }
     }
 
@@ -155,6 +163,33 @@ data class WardrobeQuery(
 
     fun withSortToggled(): WardrobeQuery =
         copy(sort = if (sort == GarmentSort.NEWEST) GarmentSort.OLDEST else GarmentSort.NEWEST)
+
+    /**
+     * Pick how archived garments are shown, or tap the current choice to hide them.
+     *
+     * The same toggle every other chip is, which is why [ArchivedGarments.HIDDEN]
+     * has no chip of its own: it is what none selected means, as no season
+     * selected means every season.
+     */
+    fun withArchived(value: ArchivedGarments): WardrobeQuery =
+        copy(archived = if (archived == value) ArchivedGarments.HIDDEN else value)
+}
+
+/**
+ * How the wardrobe treats archived garments.
+ *
+ * Not `@Serializable`, for the same reason [GarmentSort] is not: an enum inside a
+ * serializable class is serialized by name without being asked.
+ */
+enum class ArchivedGarments {
+    /** The plain wardrobe: the things still worn. */
+    HIDDEN,
+
+    /** Everything, archived and not, which is what finding one by its brand needs. */
+    INCLUDED,
+
+    /** Only the archived ones, which is what "12 archived" is a count of. */
+    ONLY,
 }
 
 /**
@@ -182,6 +217,8 @@ sealed interface WardrobeLink {
     data class Colour(val value: String) : WardrobeLink
     /** As the wearer typed it. */
     data class Brand(val name: String) : WardrobeLink
-    /** Garments no longer worn, which nothing else in the app shows. */
-    data object Retired : WardrobeLink
+    /** Archived garments and only those, which nothing else in the app shows. */
+    data object Archived : WardrobeLink
+    /** Every garment, archived or not: what a total counts. */
+    data object Everything : WardrobeLink
 }

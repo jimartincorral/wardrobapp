@@ -20,6 +20,15 @@ class GarmentQueries(
         /** Null means "available only", matching the TypeScript's default. */
         val availableOnly: Boolean? = null,
         val search: String? = null,
+        /**
+         * Only the garments no longer in use, whatever [availableOnly] says.
+         *
+         * A flag of its own rather than a third value squeezed into
+         * [availableOnly], whose null-means-true reading is the TypeScript's and
+         * is relied on by every caller that passes nothing. The TypeScript had no
+         * way to ask for these alone; the wardrobe's "archived" count needs one.
+         */
+        val unavailableOnly: Boolean = false,
     )
 
     fun allGarments(filters: Filters = Filters()): List<GarmentRecord> {
@@ -33,7 +42,9 @@ class GarmentQueries(
 
         // `!= false` rather than `== true`: absent means available-only, which is
         // what the TypeScript's `available_only !== false` does.
-        if (filters.availableOnly != false) {
+        if (filters.unavailableOnly) {
+            sql.append(" AND is_available = 0")
+        } else if (filters.availableOnly != false) {
             sql.append(" AND is_available = 1")
         }
 

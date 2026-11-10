@@ -106,7 +106,7 @@ class WardrobeScreenTest {
                 onSeasonTapped = {},
                 onOccasionTapped = {},
                 onColorTapped = onColorTapped,
-                onRetiredToggled = {},
+                onArchivedTapped = {},
                 onViewSelected = onViewSelected,
                 onCaptionSelected = onCaptionSelected,
             )
@@ -204,14 +204,14 @@ class WardrobeScreenTest {
     @Test
     fun `the last of the filters can be reached too`() {
         // The other half of the same bug. This row is the bottom of the panel, and
-        // the only way to see a retired garment again -- so the panel running off
-        // the screen made retiring a one-way door for a second time.
+        // the only way to see an archived garment again -- so the panel running off
+        // the screen made archiving a one-way door for a second time.
         show(wardrobe(filtersExpanded = true))
 
         compose.onNodeWithTag(WARDROBE_FILTER_SHEET)
-            .performScrollToNode(hasText("Include things I no longer wear"))
+            .performScrollToNode(hasText("Only archived"))
 
-        compose.onNodeWithText("Include things I no longer wear").assertIsDisplayed()
+        compose.onNodeWithText("Only archived").assertIsDisplayed()
     }
 
     @Test
@@ -413,6 +413,6 @@ class WardrobeScreenTest {
         show(wardrobe(filtersExpanded = false))
 
         compose.onNodeWithText("Brand 01").assertIsDisplayed()
-        compose.onNodeWithText("Include things I no longer wear").assertDoesNotExist()
+        compose.onNodeWithText("Only archived").assertDoesNotExist()
     }
 }

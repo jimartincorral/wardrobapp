@@ -56,9 +56,10 @@ together yet. Tap any number to see the garments behind it.
 **Find things quickly.** Filter the wardrobe by any brand, size or colour you
 own. View it as a list, or as a grid of two, three or four photos across.
 
-**Retire clothes without losing them.** Mark a garment **No longer wearing
-this** and it stops appearing in the wardrobe and in outfit ideas, but stays in
-your history and statistics.
+**Archive clothes without losing them.** Mark a garment **Archive this
+garment** and it stops appearing in the wardrobe and in outfit ideas, but stays
+in your history and statistics. Tap **Archived** on the home screen to see the
+archived ones on their own, and unarchive any of them from there.
 
 ## Getting the Android app
 

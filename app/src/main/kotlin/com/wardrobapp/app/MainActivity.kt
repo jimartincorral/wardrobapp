@@ -412,11 +412,11 @@ class MainActivity : AppCompatActivity() {
                                         onBulkAddRequested = { navigator.navigate(GARMENT_BULK_ADD) },
                                         onTrainRequested = { navigator.navigate(TASTE_TRAINING) },
                                         // The plain wardrobe for what is in use, and the
-                                        // wardrobe with retired garments shown for the
-                                        // number that counts exactly those.
+                                        // archived garments alone for the number that
+                                        // counts exactly those.
                                         onWardrobeRequested = { openWardrobe(WardrobeQuery.showing(null)) },
                                         onArchivedRequested = {
-                                            openWardrobe(WardrobeQuery.showing(WardrobeLink.Retired))
+                                            openWardrobe(WardrobeQuery.showing(WardrobeLink.Archived))
                                         },
                                         // Tabs are switched to, not pushed: pushing one
                                         // would stack a second copy of a screen the bar
@@ -1059,7 +1059,7 @@ class MainActivity : AppCompatActivity() {
             onSeasonTapped = model::onSeasonTapped,
             onOccasionTapped = model::onOccasionTapped,
             onColorTapped = model::onColorTapped,
-            onRetiredToggled = model::onRetiredToggled,
+            onArchivedTapped = model::onArchivedTapped,
             onUnderstandRequested = model::onUnderstandRequested,
             onViewSelected = model::onViewSelected,
             onCaptionSelected = model::onCaptionSelected,

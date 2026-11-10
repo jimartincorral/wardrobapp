@@ -135,6 +135,28 @@ class GarmentQueriesTest {
     }
 
     @Test
+    fun `can be asked for the unavailable garments alone`() {
+        // What the home screen's "archived" count opens on. It has to agree with
+        // unavailableCount(), or the number tapped and the list it opens differ.
+        eachSchema { schema, driver, queries ->
+            driver.insertGarment(id = "keep", isAvailable = 1)
+            driver.insertGarment(id = "gone", isAvailable = 0)
+
+            val alone = queries.allGarments(GarmentQueries.Filters(unavailableOnly = true))
+            assertEquals(listOf("gone"), alone.map { it.id }, "$schema: unavailableOnly should hold only the unavailable")
+            assertEquals(queries.unavailableCount(), alone.size.toLong(), "$schema: and as many as are counted")
+
+            // Whatever availableOnly says: the flag answers a different question,
+            // and a caller passing both is asking for these.
+            assertEquals(
+                listOf("gone"),
+                queries.allGarments(GarmentQueries.Filters(availableOnly = true, unavailableOnly = true)).map { it.id },
+                "$schema: unavailableOnly wins over availableOnly",
+            )
+        }
+    }
+
+    @Test
     fun `returns newest first`() {
         eachSchema { schema, driver, queries ->
             driver.insertGarment(id = "old", createdAt = "2026-01-01T00:00:00.000Z")

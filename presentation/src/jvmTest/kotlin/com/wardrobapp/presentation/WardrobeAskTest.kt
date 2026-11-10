@@ -61,13 +61,13 @@ class WardrobeAskTest {
 
     @Test
     fun `an answer replaces the old filters but keeps how the list is sorted and what it includes`() {
-        val before = WardrobeQuery(search = "navy chinos", size = "M", sort = GarmentSort.OLDEST, includeRetired = true)
+        val before = WardrobeQuery(search = "navy chinos", size = "M", sort = GarmentSort.OLDEST, archived = ArchivedGarments.ONLY)
         val after = before.answering(WardrobeAsk(category = "bottoms", subcategory = "Chinos", color = "#000080"))
 
         assertEquals(
             WardrobeQuery(
                 sort = GarmentSort.OLDEST,
-                includeRetired = true,
+                archived = ArchivedGarments.ONLY,
                 category = "bottoms",
                 subcategory = "Chinos",
                 color = "#000080",

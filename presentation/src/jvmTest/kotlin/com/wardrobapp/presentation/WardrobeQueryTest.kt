@@ -37,7 +37,8 @@ class WardrobeQueryTest {
         assertEquals(1, WardrobeQuery(size = "M").activeFilterCount)
         assertEquals(1, WardrobeQuery(color = "navy").activeFilterCount)
         assertEquals(1, WardrobeQuery(search = "wool").activeFilterCount)
-        assertEquals(1, WardrobeQuery(includeRetired = true).activeFilterCount)
+        assertEquals(1, WardrobeQuery(archived = ArchivedGarments.INCLUDED).activeFilterCount)
+        assertEquals(1, WardrobeQuery(archived = ArchivedGarments.ONLY).activeFilterCount)
     }
 
     @Test
@@ -47,7 +48,7 @@ class WardrobeQueryTest {
             season = Season.WINTER,
             brand = "Uniqlo",
             search = "wool",
-            includeRetired = true,
+            archived = ArchivedGarments.ONLY,
         )
         assertEquals(5, query.activeFilterCount)
         assertTrue(query.isNarrowed)
@@ -140,7 +141,7 @@ class WardrobeQueryTest {
             brand = "Uniqlo",
             size = "M",
             color = "navy",
-            includeRetired = true,
+            archived = ArchivedGarments.ONLY,
         )
 
         assertEquals(WardrobeQuery(), query.cleared())
@@ -201,7 +202,8 @@ class WardrobeQueryTest {
             WardrobeLink.Type("shoes", "Boots"),
             WardrobeLink.Colour("#000080"),
             WardrobeLink.Brand("Uniqlo"),
-            WardrobeLink.Retired,
+            WardrobeLink.Archived,
+            WardrobeLink.Everything,
         )
 
         for (link in links) {
@@ -217,7 +219,31 @@ class WardrobeQueryTest {
         assertEquals("tops", WardrobeQuery.showing(WardrobeLink.Category("tops")).category)
         assertEquals("#000080", WardrobeQuery.showing(WardrobeLink.Colour("#000080")).color)
         assertEquals("Uniqlo", WardrobeQuery.showing(WardrobeLink.Brand("Uniqlo")).brand)
-        assertTrue(WardrobeQuery.showing(WardrobeLink.Retired).includeRetired)
+        assertEquals(ArchivedGarments.ONLY, WardrobeQuery.showing(WardrobeLink.Archived).archived)
+        assertEquals(ArchivedGarments.INCLUDED, WardrobeQuery.showing(WardrobeLink.Everything).archived)
+    }
+
+    @Test
+    fun `the archived count opens on the archived garments and nothing else`() {
+        // The bug report this came from: "Archived" on the home screen opened the
+        // whole wardrobe with the archived ones mixed in, so the list was longer
+        // than the number tapped. A total is the one count that wants both.
+        assertEquals(ArchivedGarments.ONLY, WardrobeQuery.showing(WardrobeLink.Archived).archived)
+        assertEquals(ArchivedGarments.HIDDEN, WardrobeQuery.showing(null).archived)
+    }
+
+    @Test
+    fun `an archived chip toggles like every other, and none chosen is the plain wardrobe`() {
+        val only = WardrobeQuery().withArchived(ArchivedGarments.ONLY)
+        assertEquals(ArchivedGarments.ONLY, only.archived)
+
+        // Picking the other chip moves the choice rather than adding to it.
+        val included = only.withArchived(ArchivedGarments.INCLUDED)
+        assertEquals(ArchivedGarments.INCLUDED, included.archived)
+
+        // And tapping the chosen one again lets go of it.
+        assertEquals(ArchivedGarments.HIDDEN, included.withArchived(ArchivedGarments.INCLUDED).archived)
+        assertFalse(included.withArchived(ArchivedGarments.INCLUDED).isNarrowed)
     }
 
     @Test
