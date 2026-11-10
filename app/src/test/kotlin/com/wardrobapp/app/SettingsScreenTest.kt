@@ -101,14 +101,14 @@ class SettingsScreenTest {
     fun `a wardrobe nobody has retired anything from says nothing about it`() {
         show(loaded(retired = 0))
 
-        compose.onNodeWithText("No longer in use").assertDoesNotExist()
+        compose.onNodeWithText("Archived").assertDoesNotExist()
     }
 
     @Test
     fun `a wardrobe with retired garments says so`() {
         show(loaded(retired = 3))
 
-        compose.onNodeWithText("No longer in use").assertIsDisplayed()
+        compose.onNodeWithText("Archived").assertIsDisplayed()
     }
 
     @Test

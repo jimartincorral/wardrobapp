@@ -20,6 +20,7 @@ import com.wardrobapp.api.speakWardrobe
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.presentation.GarmentFormState
 import com.wardrobapp.presentation.GarmentImporter
+import com.wardrobapp.presentation.ArchivedGarments
 import com.wardrobapp.presentation.WardrobeQuery
 import io.ktor.client.HttpClient
 import io.ktor.http.ContentType
@@ -89,7 +90,7 @@ class ServerUnderTest(val http: HttpClient, val wardrobe: ServerWardrobe, val da
         return everything().single { it.id !in before }
     }
 
-    suspend fun everything(): List<GarmentRecord> = wardrobeList.garments(WardrobeQuery(includeRetired = true))
+    suspend fun everything(): List<GarmentRecord> = wardrobeList.garments(WardrobeQuery(archived = ArchivedGarments.INCLUDED))
 }
 
 fun serverTest(

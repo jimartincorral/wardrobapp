@@ -113,7 +113,7 @@ class WardrobeScreenModel(
      * Turn what is typed in the search box into the filters it describes
      * (WardrobeAsk.kt): Gemini Nano's reading where there is one, plain
      * matching for whatever it left open, and a brand only as the wardrobe
-     * writes it -- which is why every brand in it is read first, retired
+     * writes it -- which is why every brand in it is read first, archived
      * garments' included, through the same source as the list.
      *
      * A search nothing could be made of stays as it was, and the screen says
@@ -126,7 +126,7 @@ class WardrobeScreenModel(
         _state.update { it.copy(understanding = true, notUnderstood = false) }
         scope.launch {
             val ask = attempt {
-                val brands = source.garments(WardrobeQuery(includeRetired = true))
+                val brands = source.garments(WardrobeQuery(archived = ArchivedGarments.INCLUDED))
                     .mapNotNull { garment -> garment.brand?.trim()?.ifEmpty { null } }
                     .distinct()
                 val byNano = askNano?.invoke(wardrobeAskPrompt(request))?.let(::parseWardrobeAsk) ?: WardrobeAsk()
@@ -157,7 +157,7 @@ class WardrobeScreenModel(
 
     fun onColorTapped(color: String) = narrow { it.withColor(color) }
 
-    fun onRetiredToggled() = narrow { it.copy(includeRetired = !it.includeRetired) }
+    fun onArchivedTapped(choice: ArchivedGarments) = narrow { it.withArchived(choice) }
 
     /**
      * Draw the same wardrobe differently.

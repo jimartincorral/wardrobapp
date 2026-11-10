@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.presentation.ArchivedGarments
 import com.wardrobapp.presentation.DatabaseWardrobeSource
 import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.WardrobeQuery
@@ -48,7 +49,7 @@ class WardrobeViewModel(container: AppContainer) : ViewModel() {
     fun onSeasonTapped(season: Season) = model.onSeasonTapped(season)
     fun onOccasionTapped(occasion: Occasion) = model.onOccasionTapped(occasion)
     fun onColorTapped(color: String) = model.onColorTapped(color)
-    fun onRetiredToggled() = model.onRetiredToggled()
+    fun onArchivedTapped(choice: ArchivedGarments) = model.onArchivedTapped(choice)
     fun onViewSelected(choice: WardrobeView) = model.onViewSelected(choice)
     fun onCaptionSelected(choice: GarmentCaption) = model.onCaptionSelected(choice)
     fun onSortToggled() = model.onSortToggled()

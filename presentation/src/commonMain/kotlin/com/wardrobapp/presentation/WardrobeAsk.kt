@@ -62,12 +62,15 @@ data class WardrobeAsk(
 /**
  * The wardrobe filtered as [ask] says, from scratch: the search box emptied,
  * since what it held is now the chips, and every other filter dropped, since
- * a new sentence is a new question. The sort and whether retired garments are
- * shown stay, being how the reader likes the list rather than what is in it.
+ * a new sentence is a new question. The sort and whether archived garments are
+ * shown stay: the sort is how the reader likes the list rather than what is in
+ * it, and a sentence typed while looking at the archived ones is a search among
+ * them -- dropping back to the plain wardrobe would answer it from the wrong
+ * pile.
  */
 fun WardrobeQuery.answering(ask: WardrobeAsk): WardrobeQuery = WardrobeQuery(
     sort = sort,
-    includeRetired = includeRetired,
+    archived = archived,
     category = ask.category,
     subcategory = ask.subcategory?.takeIf { ask.category != null },
     color = ask.color,

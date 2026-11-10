@@ -27,6 +27,7 @@ import com.wardrobapp.data.ArchivePreview
 import com.wardrobapp.data.BackupSummary
 import com.wardrobapp.data.MaintenanceSummary
 import com.wardrobapp.domain.PhantomGarment
+import com.wardrobapp.presentation.ArchivedGarments
 import com.wardrobapp.presentation.UndoHost
 import com.wardrobapp.presentation.showsTasteTraining
 import com.wardrobapp.presentation.TasteTrainingScreenModel
@@ -239,7 +240,7 @@ class Screens(
             },
             onAddRequested = { navigator.open(Destination.GarmentAdd()) },
             onWardrobeRequested = { openWardrobe(WardrobeQuery.showing(null), null) },
-            onArchivedRequested = { openWardrobe(WardrobeQuery.showing(WardrobeLink.Retired), null) },
+            onArchivedRequested = { openWardrobe(WardrobeQuery.showing(WardrobeLink.Archived), null) },
             onOutfitsRequested = { navigator.switchTo(Destination.Outfits) },
             onStatisticsRequested = { navigator.switchTo(Destination.Statistics) },
             onSettingsRequested = { navigator.switchTo(Destination.Settings) },
@@ -323,7 +324,7 @@ class Screens(
             onSeasonTapped = model::onSeasonTapped,
             onOccasionTapped = model::onOccasionTapped,
             onColorTapped = model::onColorTapped,
-            onRetiredToggled = model::onRetiredToggled,
+            onArchivedTapped = model::onArchivedTapped,
             onUnderstandRequested = model::onUnderstandRequested,
             onViewSelected = model::onViewSelected,
             onCaptionSelected = model::onCaptionSelected,
@@ -412,7 +413,7 @@ class Screens(
         }
 
         // The photos the desktop's saved list draws its thumbnails from, which a
-        // saved outfit does not carry: every garment, retired ones included,
+        // saved outfit does not carry: every garment, archived ones included,
         // since an outfit saved last year may hold something no longer worn.
         // Read again whenever the saved list changes, so an outfit kept from a
         // suggestion a moment ago has its pictures.
@@ -422,7 +423,7 @@ class Screens(
             if (!expanded) return@LaunchedEffect
             val wanted = state.saved.flatMap { it.garmentIds }.toSet()
             if (wanted.isEmpty() || wanted.all { it in photos }) return@LaunchedEffect
-            runCatching { sources.wardrobe.garments(WardrobeQuery(includeRetired = true)) }
+            runCatching { sources.wardrobe.garments(WardrobeQuery(archived = ArchivedGarments.INCLUDED)) }
                 .onSuccess { garments -> photos = garments.associateBy { it.id } }
         }
 

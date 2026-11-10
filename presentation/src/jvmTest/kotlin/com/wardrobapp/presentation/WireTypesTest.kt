@@ -248,7 +248,7 @@ class WireTypesTest {
                 brand = "Acme",
                 size = "M",
                 color = "#112233",
-                includeRetired = true,
+                archived = ArchivedGarments.entries.last(),
             ),
         )
         add(

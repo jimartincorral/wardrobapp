@@ -203,8 +203,8 @@ class StatisticsScreenTest {
             )
         )
 
-        scrollTo("Nothing retired yet")
-        compose.onNodeWithText("Nothing retired yet", substring = true).assertIsDisplayed()
+        scrollTo("Nothing archived yet")
+        compose.onNodeWithText("Nothing archived yet", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -452,7 +452,7 @@ class StatisticsScreenTest {
         )
 
         scrollTo("Loafers")
-        compose.onNodeWithText("You retired your Boots and nothing replaced it.").assertIsDisplayed()
+        compose.onNodeWithText("You archived your Boots and nothing replaced it.").assertIsDisplayed()
     }
 
     /**
