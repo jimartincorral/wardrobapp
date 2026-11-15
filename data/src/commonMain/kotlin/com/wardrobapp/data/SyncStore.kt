@@ -206,6 +206,12 @@ class SyncStore(private val driver: SqlDriver) {
             )
         }
 
+        // A garment can arrive filed where its type used to be, from a phone
+        // or a Home Assistant app that has not been updated since the type
+        // moved. Moved as it lands, and stamped, so the next sync carries the
+        // move back to wherever it came from; see GarmentMoves.
+        GarmentMoves.applyTo(driver)
+
         noLongerUsed.filter { it.isNotEmpty() }.distinct()
     }
 

@@ -185,5 +185,10 @@ object WardrobeSchema {
         for (statement in INDEX_STATEMENTS) {
             driver.execute(statement)
         }
+
+        // Rows, not structure: garments still filed where their type used to
+        // be. Here because this is what runs on every open, the one after a
+        // restore of an older backup included; see GarmentMoves.
+        GarmentMoves.applyTo(driver)
     }
 }

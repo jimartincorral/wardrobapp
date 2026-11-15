@@ -95,7 +95,6 @@ class StringResourceParityTest {
         "color_coral",
         "subcategory_blazer",
         "subcategory_boxers",
-        "subcategory_cardigan",
         "subcategory_chinos",
         "subcategory_jeans",
         "subcategory_leggings",
