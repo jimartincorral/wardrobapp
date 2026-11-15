@@ -1,5 +1,6 @@
 package com.wardrobapp.server
 
+import com.wardrobapp.api.AgentAccess
 import com.wardrobapp.api.ApiFailure
 import com.wardrobapp.api.Flag
 import com.wardrobapp.api.ImportRequest
@@ -145,6 +146,27 @@ fun Application.wardrobeApi(
                     call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
                 } else {
                     call.respond(syncPairing(wardrobe.syncSecret.reset(), port, hostPorts.of(port), homeAddress))
+                }
+            }
+
+            // What an AI agent needs to connect to this profile, for Settings in
+            // the browser, and making a new token -- behind ingress, as the
+            // pairing code is, and for the same reasons; see AgentServer.
+            get(Routes.AGENT_ACCESS) {
+                val port = settings.agentPort
+                if (port == null) {
+                    call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
+                } else {
+                    call.respond(agentAccess(wardrobe.agentSecret.current(), port, hostPorts.of(port), homeAddress))
+                }
+            }
+
+            post(Routes.AGENT_ACCESS_RESET) {
+                val port = settings.agentPort
+                if (port == null) {
+                    call.fail(HttpStatusCode.NotFound, ApiFailure.NotFound)
+                } else {
+                    call.respond(agentAccess(wardrobe.agentSecret.reset(), port, hostPorts.of(port), homeAddress))
                 }
             }
 
@@ -482,6 +504,15 @@ private suspend inline fun <reified T : Any> ApplicationCall.respondOrNotFound(v
 }
 
 /** The pairing Settings shows, with what Home Assistant said about [port]'s mapping; see [SyncPairing]. */
+/** [syncPairing]'s twin, for the agents' port. */
+private suspend fun agentAccess(token: String, port: Int, hostPort: HostPort, homeAddress: HomeAddress) = AgentAccess(
+    token = token,
+    port = port,
+    hostPortKnown = hostPort != HostPort.Unknown,
+    hostPort = (hostPort as? HostPort.Open)?.port,
+    homeHost = if (hostPort is HostPort.Open) homeAddress.home() else null,
+)
+
 private suspend fun syncPairing(code: String, port: Int, hostPort: HostPort, homeAddress: HomeAddress) = SyncPairing(
     code = code,
     port = port,

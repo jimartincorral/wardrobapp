@@ -42,6 +42,16 @@ data class ServerSettings(
      * keeps it closed until it is given a host port in the app's settings.
      */
     val syncPort: Int? = DEFAULT_SYNC_PORT,
+    /**
+     * `WARDROBAPP_AGENT_PORT`: the port AI agents connect to over MCP, or `off`
+     * for none.
+     *
+     * A third server, for the reason sync has a second (see AgentServer): an
+     * agent does not come through ingress either. It answers only somebody
+     * holding a profile's agent token, and only at `/mcp`, and Home Assistant
+     * keeps it closed until it is given a host port, as it does sync's.
+     */
+    val agentPort: Int? = DEFAULT_AGENT_PORT,
     /** `WARDROBAPP_VERSION` and `WARDROBAPP_BUILD`: what Settings' About section shows. */
     val version: ServerVersion = ServerVersion.DEVELOPMENT,
     /**
@@ -90,6 +100,9 @@ data class ServerSettings(
          */
         const val DEFAULT_SYNC_PORT = com.wardrobapp.presentation.DEFAULT_SYNC_PORT
 
+        /** The port agents connect to, inside the container; config.yaml offers it to be mapped, as it does sync's. */
+        const val DEFAULT_AGENT_PORT = 8101
+
         fun from(environment: Map<String, String>): ServerSettings {
             fun value(name: String) = environment[name]?.trim()?.takeIf { it.isNotEmpty() }
 
@@ -108,6 +121,11 @@ data class ServerSettings(
                     null
                 } else {
                     port("WARDROBAPP_SYNC_PORT") ?: DEFAULT_SYNC_PORT
+                },
+                agentPort = if (value("WARDROBAPP_AGENT_PORT").equals("off", ignoreCase = true)) {
+                    null
+                } else {
+                    port("WARDROBAPP_AGENT_PORT") ?: DEFAULT_AGENT_PORT
                 },
                 webDirectory = value("WARDROBAPP_WEB")?.let(::File),
                 allowedClients = value("WARDROBAPP_ALLOWED_CLIENTS")

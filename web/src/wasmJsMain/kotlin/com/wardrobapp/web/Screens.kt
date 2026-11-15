@@ -22,6 +22,7 @@ import com.wardrobapp.api.HttpStatisticsSource
 import com.wardrobapp.api.HttpStorageSource
 import com.wardrobapp.api.HttpWardrobeSource
 import com.wardrobapp.api.ServerVersion
+import com.wardrobapp.api.AgentAccess
 import com.wardrobapp.api.SyncPairing
 import com.wardrobapp.data.ArchivePreview
 import com.wardrobapp.data.BackupSummary
@@ -68,6 +69,7 @@ import com.wardrobapp.ui.OutfitEditScreen
 import com.wardrobapp.ui.OutfitsScreen
 import com.wardrobapp.ui.SettingsScreen
 import com.wardrobapp.ui.StatisticsScreen
+import com.wardrobapp.ui.AgentAccessSection
 import com.wardrobapp.ui.SyncPairingSection
 import com.wardrobapp.ui.WardrobeScreen
 import io.ktor.client.HttpClient
@@ -542,6 +544,16 @@ class Screens(
             }
         }
 
+        // What an AI agent needs, asked and replaced the same way.
+        var agents by remember { mutableStateOf<AgentAccess?>(null) }
+        var agentsKnown by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            runCatching { sources.server.agentAccess() }.onSuccess {
+                agents = it
+                agentsKnown = true
+            }
+        }
+
         SettingsScreen(
             state = state,
             version = version,
@@ -593,6 +605,22 @@ class Screens(
                         }
                     },
                     homeHost = pairing?.homeHost,
+                )
+            } },
+            // Left out until the server has answered, as sync's is.
+            agentSection = if (!agentsKnown) null else { {
+                AgentAccessSection(
+                    token = agents?.token,
+                    port = agents?.port,
+                    hostPortKnown = agents?.hostPortKnown ?: false,
+                    hostPort = agents?.hostPort,
+                    browserHost = window.location.hostname,
+                    onResetConfirmed = {
+                        entry.scope.launch {
+                            runCatching { sources.server.resetAgentAccess() }.onSuccess { agents = it }
+                        }
+                    },
+                    homeHost = agents?.homeHost,
                 )
             } },
         )

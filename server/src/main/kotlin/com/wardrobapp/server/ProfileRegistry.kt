@@ -68,6 +68,12 @@ class ProfileRegistry(
     private fun secretOf(profile: Stored): SyncSecret =
         secrets.getOrPut(profile.id) { ServerWardrobe.syncSecretIn(File(dataDirectory, profile.directory)) }
 
+    /** The same for each profile's agent token: see [agentWith] and AgentServer. */
+    private val agentSecrets = mutableMapOf<String, SyncSecret>()
+
+    private fun agentSecretOf(profile: Stored): SyncSecret =
+        agentSecrets.getOrPut(profile.id) { ServerWardrobe.agentSecretIn(File(dataDirectory, profile.directory)) }
+
     /** Every profile, in the order they were made: the first is the one that was there before. */
     fun list(): List<Profile> = synchronized(lock) { stored.map { Profile(it.id, it.name) } }
 
@@ -95,6 +101,7 @@ class ProfileRegistry(
                 styleEncoder = style,
                 photoPrefix = Routes.profileBase(profile.id) + Routes.PHOTO_FILES,
                 syncSecret = secretOf(profile),
+                agentSecret = agentSecretOf(profile),
             ).also { open[id] = it }
         }
     }
@@ -110,13 +117,22 @@ class ProfileRegistry(
      * code -- a port scanner's, a phone paired with a code since reset --
      * the most expensive request the server answered.
      */
-    fun pairedWith(code: String): ServerWardrobe? {
-        val candidates = synchronized(lock) { stored.map { it.id to secretOf(it) } }
+    fun pairedWith(code: String): ServerWardrobe? = openedBy(code, ::secretOf)
+
+    /**
+     * The wardrobe whose agent token is [token], for the agent port; null if
+     * none is. Checked as [pairedWith] checks a code, and against the tokens
+     * alone: a pairing code is not an agent token, nor the other way round.
+     */
+    fun agentWith(token: String): ServerWardrobe? = openedBy(token, ::agentSecretOf)
+
+    private fun openedBy(offered: String, secretFor: (Stored) -> SyncSecret): ServerWardrobe? {
+        val candidates = synchronized(lock) { stored.map { it.id to secretFor(it) } }
         var found: String? = null
         for ((id, secret) in candidates) {
             // No early exit, so a match on the first profile takes as long as
             // one on the last.
-            if (secret.accepts(code) && found == null) found = id
+            if (secret.accepts(offered) && found == null) found = id
         }
         return found?.let(::wardrobe)
     }
@@ -184,6 +200,7 @@ class ProfileRegistry(
         save()
         open.remove(id)?.retire()
         secrets.remove(id)
+        agentSecrets.remove(id)
 
         val directory = File(dataDirectory, profile.directory)
         if (profile.directory == "profiles/${profile.id}") {

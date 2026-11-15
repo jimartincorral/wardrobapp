@@ -131,6 +131,12 @@ object Routes {
     /** POST: a new pairing code, unpairing every phone; answers the new [SyncPairing]. */
     const val SYNC_PAIRING_RESET = "api/sync/pairing/reset"
 
+    /** GET: the [AgentAccess] an AI agent needs, for Settings to show; 404 when the agents' port is off. */
+    const val AGENT_ACCESS = "api/agents"
+
+    /** POST: a new agent token, disconnecting every agent that had the old one; answers the new [AgentAccess]. */
+    const val AGENT_ACCESS_RESET = "api/agents/reset"
+
     /** POST [ImportRequest]. */
     const val IMPORT = "api/import"
 

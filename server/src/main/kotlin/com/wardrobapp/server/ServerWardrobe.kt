@@ -75,6 +75,8 @@ class ServerWardrobe(
     private val photoPrefix: String = Routes.PHOTO_FILES,
     /** The code a phone pairs with, kept beside the wardrobe it opens; see [syncSecretIn]. */
     val syncSecret: SyncSecret = syncSecretIn(dataDirectory),
+    /** The token an AI agent connects with, kept the same way; see [agentSecretIn] and AgentServer. */
+    val agentSecret: SyncSecret = agentSecretIn(dataDirectory),
 ) : AutoCloseable {
 
     private val files = wardrobeFilesIn(dataDirectory)
@@ -192,6 +194,7 @@ class ServerWardrobe(
 
     companion object {
         private const val SYNC_CODE = "sync-code"
+        private const val AGENT_TOKEN = "agent-token"
 
         /**
          * The pairing code of the wardrobe in [dataDirectory]. Its own
@@ -202,11 +205,20 @@ class ServerWardrobe(
         fun syncSecretIn(dataDirectory: File) = SyncSecret(File(dataDirectory, SYNC_CODE))
 
         /**
+         * The agent token of the wardrobe in [dataDirectory], for the same
+         * reason [syncSecretIn] is its own function. A SyncSecret too: what a
+         * pairing code needs -- made on first ask, kept in the data directory,
+         * readable only by the server, compared in constant time and forgiving
+         * of case and dashes -- is what a token needs, and only the file differs.
+         */
+        fun agentSecretIn(dataDirectory: File) = SyncSecret(File(dataDirectory, AGENT_TOKEN))
+
+        /**
          * Every file a wardrobe in [dataDirectory] keeps, and nothing else
          * there: what deleting the first profile deletes, whose directory is
          * the data directory itself and holds the list of profiles too.
-         * The pairing code's half-written copy included, should a crash have
-         * left one.
+         * The pairing code's and the agent token's half-written copies
+         * included, should a crash have left one.
          */
         fun filesIn(dataDirectory: File): List<File> {
             val files = wardrobeFilesIn(dataDirectory)
@@ -215,6 +227,8 @@ class ServerWardrobe(
                 files.imagesDir,
                 File(dataDirectory, SYNC_CODE),
                 File(dataDirectory, "$SYNC_CODE.part"),
+                File(dataDirectory, AGENT_TOKEN),
+                File(dataDirectory, "$AGENT_TOKEN.part"),
             )
         }
     }
