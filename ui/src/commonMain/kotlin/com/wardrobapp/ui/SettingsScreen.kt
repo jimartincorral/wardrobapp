@@ -187,6 +187,12 @@ fun SettingsScreen(
      */
     syncSection: (@Composable () -> Unit)? = null,
     /**
+     * Connecting an AI agent over MCP: the browser's alone, since only the
+     * server in Home Assistant has a port for agents to reach. Heading
+     * included; null on the phone, and the section is left out.
+     */
+    agentSection: (@Composable () -> Unit)? = null,
+    /**
      * Which of several wardrobes this is, and switching between them: the
      * browser's, where one Home Assistant app holds a profile per person.
      * First, since everything below it is about the profile it names. Heading
@@ -374,7 +380,7 @@ fun SettingsScreen(
         if (isExpanded()) {
             ExpandedSettings(
                 insets = insets,
-                left = listOfNotNull(profileSection, syncSection, backup, cloud),
+                left = listOfNotNull(profileSection, syncSection, agentSection, backup, cloud),
                 right = listOfNotNull(storage, styleModelSection, languages, themes, about),
             )
             return@Scaffold
@@ -413,6 +419,14 @@ fun SettingsScreen(
             // the phone's alone.
             if (syncSection != null) {
                 syncSection()
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            }
+
+            // After sync, since it is the same kind of thing: another device on
+            // the home network reaching this wardrobe through a port of its own.
+            if (agentSection != null) {
+                agentSection()
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             }

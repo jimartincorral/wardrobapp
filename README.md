@@ -182,6 +182,24 @@ Some things to know:
 - Sync is meant for your home network. If you make the port reachable from
   outside your home, put HTTPS in front of it.
 
+### Connecting an AI agent
+
+An AI agent on your home network, such as Claude Code, can use your wardrobe
+in Home Assistant over [MCP](https://modelcontextprotocol.io). It can search
+it, look at photos, ask for outfit suggestions and check what the wardrobe is
+missing. It can also save, rate and archive things, but only in ways the app
+lets you undo, and it cannot delete anything.
+
+1. In the Wardrobapp add-on's **Configuration** tab, under **Network**, give
+   port 8101 a host port (8101 is fine).
+2. Open **Wardrobe** in the sidebar, go to **Settings**, and find the address
+   and token under **AI agents**. For Claude Code there is a line ready to
+   copy into a terminal.
+
+What the agent reads goes wherever that agent sends it, so for Claude Code, to
+Anthropic. **Make a new token** in Settings disconnects every agent using the
+old one.
+
 The add-on's [own documentation](homeassistant/wardrobapp/DOCS.md) goes into
 more detail.
 

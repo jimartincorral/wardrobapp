@@ -827,6 +827,20 @@
     <string name="sync_pairing_closed">Los teléfonos aún no pueden conectar con esta aplicación. En Home Assistant, abre la pestaña Configuración de esta aplicación y, en Red, asigna un puerto del equipo al puerto %1$d (%1$d vale). Guarda y vuelve aquí para ver un código que escanear.</string>
     <string name="sync_pairing_at_home">Has abierto Home Assistant desde fuera de casa, así que este código lleva su dirección en tu red doméstica. Escanéalo como se indica abajo; el teléfono sincroniza cuando está en tu wifi.</string>
     <string name="sync_pairing_elsewhere">Para ver un código que el teléfono pueda escanear, abre Home Assistant en la dirección que usas en casa, como homeassistant.local:8123. O, en los ajustes del teléfono, escribe esa dirección con el puerto %1$d y el código de abajo.</string>
+
+    <string name="settings_section_agents">Agentes de IA</string>
+    <string name="agent_access_hint">Un agente de IA en tu red doméstica, como Claude Code, puede consultar este armario, sugerir conjuntos con él y guardar, valorar y archivar cosas por ti. Se conecta por MCP con la dirección y el token de abajo.</string>
+    <string name="agent_access_off">La conexión de agentes de IA está desactivada en este servidor.</string>
+    <string name="agent_access_closed">Los agentes aún no pueden conectar con esta aplicación. En Home Assistant, abre la pestaña Configuración de esta aplicación y, en Red, asigna un puerto del equipo al puerto %1$d (%1$d vale). Guarda y vuelve aquí para ver la dirección.</string>
+    <string name="agent_access_at_home">Has abierto Home Assistant desde fuera de casa, así que esta es su dirección en tu red doméstica: el agente también tiene que estar en tu red.</string>
+    <string name="agent_access_elsewhere">Abre Home Assistant en la dirección que usas en casa para ver aquí la dirección completa. O dale al agente esa dirección con el puerto %1$d y la ruta /mcp.</string>
+    <string name="agent_access_open_port">En Home Assistant, abre los ajustes de red de esta aplicación y asigna un puerto del equipo al puerto %1$d. Después, dale al agente la dirección de este Home Assistant con ese puerto y la ruta /mcp, y el token de abajo.</string>
+    <string name="agent_access_address">Dirección</string>
+    <string name="agent_access_token">Token de acceso</string>
+    <string name="agent_access_claude_code">Para Claude Code, ejecuta</string>
+    <string name="agent_access_reset">Crear un token nuevo</string>
+    <string name="agent_access_reset_title">¿Crear un token nuevo?</string>
+    <string name="agent_access_reset_body">Los agentes que usan el token actual dejarán de funcionar hasta que les des el nuevo.</string>
     <string name="settings_section_home_assistant">Home Assistant</string>
     <string name="profile_choose_title">¿De quién es este armario?</string>
     <string name="profile_choose_hint">Cada persona de casa puede tener su propio armario. Elige el tuyo o empieza uno nuevo. Puedes cambiar entre ellos en Ajustes.</string>

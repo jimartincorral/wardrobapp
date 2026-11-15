@@ -94,6 +94,50 @@ The sync port answers nothing but sync, and only to a phone that has the code.
 out a phone that was lost. The code travels over your home network as plain
 HTTP; if the port is reachable from outside your home, put it behind HTTPS.
 
+## Connecting an AI agent
+
+An AI agent on your home network — Claude Code, or any other client that speaks
+the [Model Context Protocol](https://modelcontextprotocol.io) (MCP) — can use
+your wardrobe: search it, look at a garment's photo, ask the app's own engine
+for outfit suggestions, see the statistics and what the wardrobe is missing,
+and save outfits, rate them and archive garments for you.
+
+1. In this app's **Configuration** tab, under **Network**, give the AI agents
+   port (8101) a host port — 8101 is fine unless something else uses it.
+2. Open **Wardrobe** in the sidebar and go to **Settings**. Under **AI agents**
+   are the address to give the agent and its token. Each wardrobe has its own
+   token, and an agent sees only the wardrobe whose token it was given, so open
+   your own first.
+3. Give both to the agent. For Claude Code, Settings shows the whole line to
+   run, which looks like this:
+
+   ```
+   claude mcp add --transport http wardrobapp http://homeassistant.local:8101/mcp --header "Authorization: Bearer YOUR-TOKEN"
+   ```
+
+   Other clients take the same two things: the address, and an
+   `Authorization: Bearer` header with the token. A client that only runs
+   local programs, such as Claude Desktop, can reach it through a bridge such
+   as `npx mcp-remote http://homeassistant.local:8101/mcp --allow-http --header "Authorization: Bearer YOUR-TOKEN"`
+   (`--allow-http` because the port is plain HTTP on your home network).
+
+The agent can change only what the app lets you undo: it can save an outfit
+(which you can delete), rate one (which you can rate again) and archive a
+garment (which you can unarchive). It cannot delete anything. Agents are told
+to say what they are about to change before changing it, but what an agent
+does is up to the agent, so read what it proposes.
+
+What the agent reads — your garments, outfits, ratings, and a scaled-down copy
+of a garment's photo when it asks for one — goes wherever that agent sends it.
+For Claude Code, that is Anthropic, under its own terms; for a model running on
+your own computer, nowhere else. Wardrobapp sends nothing to anyone itself.
+
+The agents' port answers nothing but MCP, at `/mcp`, and only to an agent that
+has the token. **Make a new token** in Settings disconnects every agent using
+that wardrobe's token at once. Like the sync port, it is plain HTTP and meant
+for your home network; if it is reachable from outside your home, put it
+behind HTTPS.
+
 ## Your data
 
 The wardrobe — its database and its photos — is kept in this app's own storage,
@@ -102,9 +146,10 @@ up your wardrobe; nothing is sent anywhere else.
 
 The browser app answers only through Home Assistant: it refuses any request
 that did not come through Home Assistant's own sign-in, and publishes no port
-of its own. The one exception is the phone sync port described above, which is
-closed until you open it, answers nothing but sync, and answers only a phone
-that has the pairing code.
+of its own. The exceptions are the phone sync port and the AI agents port
+described above, which are closed until you open them, answer nothing but sync
+and MCP respectively, and answer only a phone that has the pairing code or an
+agent that has the token.
 
 ## Importing from a link
 

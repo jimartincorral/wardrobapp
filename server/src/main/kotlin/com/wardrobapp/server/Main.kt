@@ -34,11 +34,15 @@ fun main() {
 
     frameStoredCutouts(settings.dataDirectory, profiles)
 
-    // The phones' port first, without waiting, then the browser's, which
-    // holds the process open. Two servers over the same wardrobes: see
-    // SyncServer for why sync has a port of its own.
+    // The phones' port and the agents' first, without waiting, then the
+    // browser's, which holds the process open. Three servers over the same
+    // wardrobes: see SyncServer and AgentServer for why each has a port of
+    // its own.
     settings.syncPort?.let { syncPort ->
         embeddedServer(CIO, port = syncPort) { wardrobeSync(profiles, settings.version) }.start(wait = false)
+    }
+    settings.agentPort?.let { agentPort ->
+        embeddedServer(CIO, port = agentPort) { wardrobeAgents(profiles, settings.version) }.start(wait = false)
     }
     embeddedServer(CIO, port = settings.port) { wardrobeApi(profiles, settings) }.start(wait = true)
 }

@@ -81,6 +81,16 @@ phone talks to is the one you named. **Stop syncing** forgets the pairing and
 sends nothing more; what was already synced stays in your Home Assistant until
 you delete it there.
 
+**Connecting an AI agent, in the Home Assistant app.** Off until you give its
+port a host port in Home Assistant and hand an agent the token shown in the
+browser's Settings. An agent with the token can read the wardrobe the token
+belongs to: garments, outfits, ratings, and a scaled-down copy of a garment's
+photo when it asks for one. It can also save, rate and archive things. What
+it reads goes wherever that agent sends it, under that agent's own terms. For
+an agent that uses a cloud model, such as Claude Code, that is the model's
+provider. Wardrobapp sends nothing anywhere itself, and nothing goes to the
+developer. **Make a new token** cuts every agent off at once.
+
 **Scanning a pairing code.** **Scan pairing code**, in Settings under Home
 Assistant, opens Google Play services' code scanner. It reads the code on your
 device; the app asks for no camera permission and receives only the text in the

@@ -176,7 +176,13 @@ private fun paired(profiles: ProfileRegistry) = createApplicationPlugin("Paired"
  * requests are being refused, from where, and how many, without being
  * filled by them.
  */
-internal class Refusals(private val now: () -> Long = System::currentTimeMillis) {
+internal class Refusals(
+    /** What was refused, and why, as the line puts it: the agent port uses this too, with its own words. */
+    private val refused: String = "a sync request",
+    private val because: String = "no pairing code, or the wrong one",
+    // Last, so a test can still pass its clock as a trailing lambda.
+    private val now: () -> Long = System::currentTimeMillis,
+) {
     private val lock = Any()
     private var lastWrittenAt = 0L
     private var sinceThen = 0
@@ -192,7 +198,7 @@ internal class Refusals(private val now: () -> Long = System::currentTimeMillis)
         lastWrittenAt = at
         sinceThen = 0
         buildString {
-            append("Refused a sync request from ").append(address).append(": no pairing code, or the wrong one")
+            append("Refused ").append(refused).append(" from ").append(address).append(": ").append(because)
             if (folded > 0) append(" (and ").append(folded).append(" more since the last line)")
         }
     }

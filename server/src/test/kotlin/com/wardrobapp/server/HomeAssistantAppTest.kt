@@ -68,13 +68,27 @@ class HomeAssistantAppTest {
     }
 
     @Test
-    fun `the one port offered is sync's, and it is closed until somebody opens it`() {
+    fun `the only ports offered are sync's and the agents', and they are closed until somebody opens them`() {
         // Every other port would be a way past ingress's sign-in. Sync's
-        // answers only sync, and only with the pairing code (see SyncServer),
-        // and Home Assistant leaves a port mapped to null closed.
+        // answers only sync, and only with the pairing code (see SyncServer);
+        // the agents' answers only MCP, and only with the agent token (see
+        // AgentServer); and Home Assistant leaves a port mapped to null closed.
         val ports = config.dropWhile { it != "ports:" }.drop(1).takeWhile { it.startsWith("  ") }.map { it.trim() }
-        assertEquals(listOf("${ServerSettings.DEFAULT_SYNC_PORT}/tcp: null"), ports)
+        assertEquals(
+            listOf("${ServerSettings.DEFAULT_SYNC_PORT}/tcp: null", "${ServerSettings.DEFAULT_AGENT_PORT}/tcp: null"),
+            ports,
+        )
         assertEquals(ServerSettings.DEFAULT_SYNC_PORT.toString(), environment("WARDROBAPP_SYNC_PORT"))
+        assertEquals(ServerSettings.DEFAULT_AGENT_PORT.toString(), environment("WARDROBAPP_AGENT_PORT"))
+    }
+
+    @Test
+    fun `every port offered says what it is for`() {
+        // Home Assistant shows these beside the port fields in Network
+        // settings, where a bare number is somebody guessing which to open.
+        val described = config.dropWhile { it != "ports_description:" }.drop(1).takeWhile { it.startsWith("  ") }
+            .map { it.trim().substringBefore(':') }
+        assertEquals(listOf("${ServerSettings.DEFAULT_SYNC_PORT}/tcp", "${ServerSettings.DEFAULT_AGENT_PORT}/tcp"), described)
     }
 
     @Test

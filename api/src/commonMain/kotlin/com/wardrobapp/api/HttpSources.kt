@@ -312,6 +312,12 @@ class HttpStorageSource(private val http: HttpClient) {
 
     /** A new pairing code, unpairing every phone. */
     suspend fun resetPairing(): SyncPairing = http.post(Routes.SYNC_PAIRING_RESET).body()
+
+    /** What an AI agent needs to connect, or null when the server has the agents' port switched off. */
+    suspend fun agentAccess(): AgentAccess? = orNullIfMissing { http.get(Routes.AGENT_ACCESS).body<AgentAccess>() }
+
+    /** A new agent token, disconnecting every agent that had the old one. */
+    suspend fun resetAgentAccess(): AgentAccess = http.post(Routes.AGENT_ACCESS_RESET).body()
 }
 
 /**

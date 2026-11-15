@@ -900,6 +900,25 @@
     <string name="sync_pairing_closed">Phones can't reach this app yet. In Home Assistant, open this app's Configuration tab and, under Network, give port %1$d a host port (%1$d is fine). Save, and come back here for a code to scan.</string>
     <string name="sync_pairing_at_home">You opened Home Assistant from outside your home, so this code holds its address on your home network. Scan it as below; the phone syncs when it is on your Wi-Fi.</string>
     <string name="sync_pairing_elsewhere">To show a code your phone can scan, open Home Assistant at the address you use at home, such as homeassistant.local:8123. Or, in the phone's Settings, enter that address with port %1$d, and the code below.</string>
+
+    <!--
+        Settings in the browser: connecting an AI agent over MCP. The agent is
+        set up by pasting into a terminal or a config file, so there is no QR
+        code here, only an address and a token to copy.
+    -->
+    <string name="settings_section_agents">AI agents</string>
+    <string name="agent_access_hint">An AI agent on your home network, such as Claude Code, can read this wardrobe, suggest outfits from it, and save, rate and archive things for you. It connects over MCP with the address and token below.</string>
+    <string name="agent_access_off">Connecting AI agents is switched off on this server.</string>
+    <string name="agent_access_closed">Agents can't reach this app yet. In Home Assistant, open this app's Configuration tab and, under Network, give port %1$d a host port (%1$d is fine). Save, and come back here for the address.</string>
+    <string name="agent_access_at_home">You opened Home Assistant from outside your home, so this is its address on your home network: the agent must be on your home network too.</string>
+    <string name="agent_access_elsewhere">Open Home Assistant at the address you use at home to see the full address here. Or give the agent that address with port %1$d and the path /mcp.</string>
+    <string name="agent_access_open_port">In Home Assistant, open this app's Network settings and give port %1$d a host port. Then give the agent this Home Assistant's address with that port and the path /mcp, and the token below.</string>
+    <string name="agent_access_address">Address</string>
+    <string name="agent_access_token">Token</string>
+    <string name="agent_access_claude_code">For Claude Code, run</string>
+    <string name="agent_access_reset">Make a new token</string>
+    <string name="agent_access_reset_title">Make a new token?</string>
+    <string name="agent_access_reset_body">Agents using the current token stop working until they are given the new one.</string>
     <string name="settings_section_home_assistant">Home Assistant</string>
     <string name="profile_choose_title">Whose wardrobe is this?</string>
     <string name="profile_choose_hint">Everyone at home can have a wardrobe of their own. Choose yours, or start a new one. You can switch between them in Settings.</string>
