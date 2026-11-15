@@ -41,12 +41,16 @@ val GARMENT_CATEGORIES: List<GarmentCategory> = listOf(
     GarmentCategory(
         id = "midlayer",
         label = "Mid-Layer",
-        subcategories = listOf("Blazer", "Overshirt", "Vest", "Poncho", "Cape"),
+        // Cardigan here rather than under outerwear, where the app this one
+        // replaced filed it: it is worn over a top and under a coat. Garments
+        // already saved as outerwear cardigans are moved too; see GarmentMoves
+        // in :data.
+        subcategories = listOf("Blazer", "Cardigan", "Overshirt", "Vest", "Poncho", "Cape"),
     ),
     GarmentCategory(
         id = "outerwear",
         label = "Outerwear",
-        subcategories = listOf("Jacket", "Coat", "Cardigan", "Windbreaker", "Parka"),
+        subcategories = listOf("Jacket", "Coat", "Windbreaker", "Parka"),
     ),
     GarmentCategory(
         id = "shoes",
