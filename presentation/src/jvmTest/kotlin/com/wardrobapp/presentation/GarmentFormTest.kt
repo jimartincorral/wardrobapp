@@ -392,7 +392,8 @@ class GarmentFormTest {
         assertEquals(listOf("Parka"), form.subcategories)
         assertEquals(seasonsForSubcategories(listOf("Parka")), form.seasons)
         assertEquals(GarmentAttributes(pattern = Pattern.SOLID, fit = Fit.RELAXED), form.attributes)
-        assertEquals(listOf("fleece"), form.tags)
+        assertEquals(listOf("fleece"), form.materials)
+        assertEquals(emptyList(), form.tags, "a material read is a material, not something typed")
         assertEquals("Patagonia", form.brand)
         assertTrue(form.typeRead)
     }
@@ -404,7 +405,7 @@ class GarmentFormTest {
             subcategories = listOf("Sweater"),
             seasons = listOf(Season.SUMMER),
             attributes = GarmentAttributes(fit = Fit.FITTED),
-            tags = listOf("wool"),
+            materials = listOf("wool"),
             brand = "COS",
             typeChosen = true,
             attributesChosen = true,
@@ -432,12 +433,12 @@ class GarmentFormTest {
     @Test
     fun `a category alone leaves the type empty, and a material is added once`() {
         val shoes = GarmentReading(type = ReadType("shoes", null), material = "leather")
-        val form = GarmentFormState(subcategories = listOf("Polo"), tags = listOf("Suede"))
+        val form = GarmentFormState(subcategories = listOf("Polo"), materials = listOf("suede"))
             .withReading(shoes, ::seasonsForSubcategories)
 
         assertEquals("shoes", form.category)
         assertEquals(emptyList(), form.subcategories)
-        assertEquals(listOf("Suede"), form.tags, "a material was already named")
+        assertEquals(listOf("suede"), form.materials, "a material was already chosen")
     }
 
     @Test

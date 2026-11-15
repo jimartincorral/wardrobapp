@@ -3,6 +3,7 @@ package com.wardrobapp.presentation
 import com.wardrobapp.data.DuplicateGarment
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.GarmentReading
+import com.wardrobapp.domain.MATERIALS
 import com.wardrobapp.domain.DuplicateCandidate
 import com.wardrobapp.domain.GarmentImportException
 import com.wardrobapp.domain.ImportedGarmentPreview
@@ -158,6 +159,12 @@ class GarmentFormScreenModel<Picked>(
     fun onSizeChanged(size: String) = edit { it.copy(size = size) }
 
     fun onTagsChanged(tags: List<String>) = edit { it.copy(tags = tags) }
+
+    /** Add [material] to what the garment is made of, or take it off; kept in the catalogue's order. */
+    fun onMaterialToggled(material: String) = edit { form ->
+        val toggled = form.materials.toggled(material)
+        form.copy(materials = MATERIALS.filter { it in toggled })
+    }
 
     fun onAttributesChanged(attributes: GarmentAttributes) = edit { it.copy(attributes = attributes, attributesChosen = true) }
 
@@ -614,7 +621,7 @@ class GarmentFormScreenModel<Picked>(
                     }
 
                     storedRefs = record.displayImageUris + record.displayNoBgImageUris
-                    val (customTags, seasons, attributes) = splitStructuredTags(record.tags)
+                    val (customTags, seasons, attributes, materials) = splitStructuredTags(record.tags)
                     _state.update {
                         it.copy(
                             loading = false,
@@ -626,6 +633,7 @@ class GarmentFormScreenModel<Picked>(
                                 tags = customTags,
                                 seasons = seasons,
                                 attributes = attributes,
+                                materials = materials,
                                 brand = record.brand ?: "",
                                 colorPalette = record.palette,
                                 // The garment's saved colours are a choice already

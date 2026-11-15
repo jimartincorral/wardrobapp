@@ -107,6 +107,26 @@
     <string name="action_clear_filters">Borrar todo</string>
     <string name="filter_brand">Marca</string>
     <string name="filter_size">Talla</string>
+
+    <string name="filter_section_material">Material</string>
+    <string name="material_cotton">Algodón</string>
+    <string name="material_linen">Lino</string>
+    <string name="material_wool">Lana</string>
+    <string name="material_cashmere">Cachemir</string>
+    <string name="material_denim">Vaquero</string>
+    <string name="material_leather">Cuero</string>
+    <string name="material_suede">Ante</string>
+    <string name="material_silk">Seda</string>
+    <string name="material_satin">Satén</string>
+    <string name="material_knit">Punto</string>
+    <string name="material_fleece">Forro polar</string>
+    <string name="material_polyester">Poliéster</string>
+    <string name="material_corduroy">Pana</string>
+    <string name="material_velvet">Terciopelo</string>
+    <string name="material_viscose">Viscosa</string>
+    <string name="material_nylon">Nailon</string>
+    <string name="material_elastane">Elastano</string>
+    <string name="material_acrylic">Acrílico</string>
     <string name="filter_section_archived">Prendas archivadas</string>
     <string name="filter_archived_included">Incluirlas</string>
     <string name="filter_archived_only">Solo archivadas</string>

@@ -106,6 +106,7 @@ class WardrobeScreenTest {
                 onSeasonTapped = {},
                 onOccasionTapped = {},
                 onColorTapped = onColorTapped,
+                onMaterialTapped = {},
                 onArchivedTapped = {},
                 onViewSelected = onViewSelected,
                 onCaptionSelected = onCaptionSelected,

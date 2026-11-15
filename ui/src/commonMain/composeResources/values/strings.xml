@@ -153,6 +153,27 @@
     <string name="action_clear_filters">Clear all</string>
     <string name="filter_brand">Brand</string>
     <string name="filter_size">Size</string>
+
+    <!-- What a garment is made of: the tags in MATERIALS, as words. -->
+    <string name="filter_section_material">Material</string>
+    <string name="material_cotton">Cotton</string>
+    <string name="material_linen">Linen</string>
+    <string name="material_wool">Wool</string>
+    <string name="material_cashmere">Cashmere</string>
+    <string name="material_denim">Denim</string>
+    <string name="material_leather">Leather</string>
+    <string name="material_suede">Suede</string>
+    <string name="material_silk">Silk</string>
+    <string name="material_satin">Satin</string>
+    <string name="material_knit">Knit</string>
+    <string name="material_fleece">Fleece</string>
+    <string name="material_polyester">Polyester</string>
+    <string name="material_corduroy">Corduroy</string>
+    <string name="material_velvet">Velvet</string>
+    <string name="material_viscose">Viscose</string>
+    <string name="material_nylon">Nylon</string>
+    <string name="material_elastane">Elastane</string>
+    <string name="material_acrylic">Acrylic</string>
     <!--
         Archived garments in the filter: a heading and two chips, with "neither"
         meaning the plain wardrobe. The last is also the applied-filter chip for

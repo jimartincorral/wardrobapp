@@ -72,6 +72,8 @@ data class GarmentDetailView(
     val attributes: GarmentAttributes,
     /** Tags the user typed, with the structured ones taken out. */
     val tags: List<String>,
+    /** What it is made of, by the tags in MATERIALS, in that list's order; empty when nobody said. */
+    val materials: List<String> = emptyList(),
     val backgroundAction: BackgroundAction?,
     val isAvailable: Boolean,
     /** The strings the database holds, for the caller to format. */
@@ -241,7 +243,7 @@ fun garmentDetail(garment: GarmentRecord, selectedIndex: Int = 0): GarmentDetail
         )
     }
 
-    val (customTags, seasons) = splitStructuredTags(garment.tags)
+    val (customTags, seasons, _, materials) = splitStructuredTags(garment.tags)
 
     return GarmentDetailView(
         // No first-photo fallback: the clamp above already guarantees the
@@ -267,6 +269,7 @@ fun garmentDetail(garment: GarmentRecord, selectedIndex: Int = 0): GarmentDetail
         },
         attributes = garment.toDomain().attributes,
         tags = customTags,
+        materials = materials,
         backgroundAction = backgroundActionFor(images.getOrNull(selected), cutouts.getOrNull(selected)),
         isAvailable = garment.isAvailable,
         unavailableDate = if (garment.isAvailable) null else garment.unavailableDate.orNullIfBlank(),

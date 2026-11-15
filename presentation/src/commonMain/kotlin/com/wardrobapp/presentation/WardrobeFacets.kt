@@ -2,6 +2,7 @@ package com.wardrobapp.presentation
 
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.GARMENT_CATEGORIES
+import com.wardrobapp.domain.MATERIALS
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.occasions
@@ -36,6 +37,8 @@ data class WardrobeFacets(
     val colors: List<String> = emptyList(),
     val brands: List<String> = emptyList(),
     val sizes: List<String> = emptyList(),
+    /** Materials, by the tags in MATERIALS, in that list's order. */
+    val materials: List<String> = emptyList(),
 )
 
 /**
@@ -75,6 +78,7 @@ fun wardrobeFacets(garments: List<GarmentRecord>, query: WardrobeQuery): Wardrob
 
     val tags = garments.flatMap { garment -> garment.tags.map { it.lowercase() } }.toSet()
     val seasons = Season.entries.filter { it.tag in tags || it == query.season }
+    val materials = MATERIALS.filter { it in tags || it == query.material }
 
     val occasionsPresent = garments.flatMap { it.toDomain().occasions() }.toSet()
     val occasions = Occasion.entries.filter { it in occasionsPresent || it == query.occasion }
@@ -106,5 +110,6 @@ fun wardrobeFacets(garments: List<GarmentRecord>, query: WardrobeQuery): Wardrob
         colors = named + unnamed,
         brands = brands,
         sizes = sizes,
+        materials = materials,
     )
 }

@@ -68,6 +68,7 @@ class GarmentFormScreenTest {
                 onBrandChanged = {},
                 onSizeChanged = {},
                 onTagsChanged = {},
+                onMaterialToggled = {},
                 onAttributesChanged = onAttributesChanged,
                 onSave = {},
                 onSaveAnyway = {},

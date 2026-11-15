@@ -87,6 +87,8 @@ class StringResourceParityTest {
         "language_spanish",
         // An em dash.
         "count_unknown",
+        // The same word in both languages, as a heading.
+        "filter_section_material",
         // Loanwords Spanish uses unchanged.
         "occasion_casual",
         "occasion_formal",

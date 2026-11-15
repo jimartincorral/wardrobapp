@@ -4,9 +4,11 @@ import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.data.OutfitRecord
 import com.wardrobapp.data.toStoredImageRef
 import com.wardrobapp.domain.GARMENT_CATEGORIES
+import com.wardrobapp.domain.MATERIALS
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.occasions
+import com.wardrobapp.domain.splitStructuredTags
 import com.wardrobapp.presentation.ArchivedGarments
 import com.wardrobapp.presentation.GARMENT_COLORS
 import com.wardrobapp.presentation.GarmentSort
@@ -106,7 +108,8 @@ private const val PHOTO_SIDE = 768
 private fun searchWardrobe(wardrobe: ServerWardrobe) = McpTool(
     name = "search_wardrobe",
     title = "Search the wardrobe",
-    description = "Find garments in the wardrobe. Every filter is optional and they combine with AND; with none, " +
+    description = "Find garments in the wardrobe by category, type, colour, material, season, occasion, brand or size. " +
+        "Every filter is optional and they combine with AND; with none, " +
         "this lists the garments in use, newest first. Returns compact summaries with each garment's id; " +
         "use get_garment to see one garment's photo. Archived garments (no longer worn) are left out unless " +
         "`archived` asks for them.",
@@ -117,6 +120,7 @@ private fun searchWardrobe(wardrobe: ServerWardrobe) = McpTool(
                 "One of: ${TYPES.joinToString()}.",
         ),
         "color" to stringSchema("A colour from the app's palette.", COLOR_NAMES),
+        "material" to stringSchema("Garments made of this, among others; most garments say nothing about it.", MATERIALS),
         "season" to stringSchema("Garments tagged for this season.", SEASON_TAGS),
         "occasion" to stringSchema("Garments that suit this kind of day.", OCCASION_IDS),
         "brand" to stringSchema("A brand, matched whole and ignoring case."),
@@ -142,6 +146,7 @@ private fun searchWardrobe(wardrobe: ServerWardrobe) = McpTool(
         occasion = arguments.choice("occasion", OCCASION_IDS)?.let { id -> Occasion.entries.first { it.id == id } },
         brand = arguments.text("brand").orEmpty(),
         size = arguments.text("size").orEmpty(),
+        material = arguments.choice("material", MATERIALS),
         archived = arguments.choice("archived", ARCHIVED_CHOICES.keys)?.let(ARCHIVED_CHOICES::getValue) ?: ArchivedGarments.HIDDEN,
     )
 
@@ -474,12 +479,13 @@ internal fun GarmentRecord.summary(): JsonObject = buildJsonObject {
     size?.trim()?.takeIf { it.isNotEmpty() }?.let { put("size", it) }
     putJsonArray("colors") { palette.map(::colorName).distinct().forEach { add(it) } }
 
-    val lowered = tags.map { it.trim().lowercase() }.filter { it.isNotEmpty() }
-    val seasons = lowered.filter { it in SEASON_TAGS }.distinct()
-    if (seasons.isNotEmpty()) putJsonArray("seasons") { seasons.forEach { add(it) } }
+    // The tags column carries seasons, style attributes and materials beside
+    // what somebody typed; told apart the way every screen tells them apart.
+    val structured = splitStructuredTags(tags)
+    if (structured.materials.isNotEmpty()) putJsonArray("materials") { structured.materials.forEach { add(it) } }
+    if (structured.seasons.isNotEmpty()) putJsonArray("seasons") { structured.seasons.distinct().forEach { add(it.tag) } }
     putJsonArray("occasions") { toDomain().occasions().forEach { add(it.id) } }
-    val otherTags = tags.filter { it.trim().lowercase() !in SEASON_TAGS && it.isNotBlank() }
-    if (otherTags.isNotEmpty()) putJsonArray("tags") { otherTags.forEach { add(it) } }
+    if (structured.customTags.isNotEmpty()) putJsonArray("tags") { structured.customTags.forEach { add(it) } }
 
     put("archived", !isAvailable)
     if (!isAvailable) unavailableDate?.let { put("archived_at", it) }

@@ -53,6 +53,13 @@ data class GarmentFormState(
      */
     val attributes: GarmentAttributes = GarmentAttributes.NONE,
     /**
+     * What the garment is made of, by the tags in [MATERIALS]: as many as it
+     * is, since most clothes are a blend. Kept apart from [tags] so the box
+     * somebody types tags into holds only what they typed, and joined back
+     * into the tags column on save; see MATERIALS for why it is stored there.
+     */
+    val materials: List<String> = emptyList(),
+    /**
      * Whether the category and type are somebody's choice, so a reading of the
      * photo leaves them alone. The same idea as [colorsChosen], for the same
      * reason: a new garment starts as a top because the form has to start
@@ -302,7 +309,7 @@ data class GarmentFormState(
      * The reading is a starting point, the way detected colours are, and it
      * follows their rule field by field: the type only while [typeChosen] is
      * false, the attributes only while [attributesChosen] is, the brand only
-     * into an empty field, and a material only where the tags name none. A
+     * into an empty field, and a material only while none is chosen. A
      * second reading -- of the cut-out, which shows the garment better --
      * replaces the type and attributes the first one filled, since neither was
      * anybody's choice; a brand or material already there stays, because by
@@ -330,8 +337,8 @@ data class GarmentFormState(
             next = next.copy(attributes = reading.attributes)
         }
         val material = reading.material
-        if (material != null && next.tags.none { it.lowercase() in MATERIALS }) {
-            next = next.copy(tags = next.tags + material)
+        if (material != null && next.materials.isEmpty()) {
+            next = next.copy(materials = listOf(material))
         }
         val brand = reading.brand
         if (brand != null && next.brand.isBlank()) {

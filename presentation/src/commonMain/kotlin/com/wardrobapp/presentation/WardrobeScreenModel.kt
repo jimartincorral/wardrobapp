@@ -157,6 +157,8 @@ class WardrobeScreenModel(
 
     fun onColorTapped(color: String) = narrow { it.withColor(color) }
 
+    fun onMaterialTapped(material: String) = narrow { it.withMaterial(material) }
+
     fun onArchivedTapped(choice: ArchivedGarments) = narrow { it.withArchived(choice) }
 
     /**

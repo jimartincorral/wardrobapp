@@ -140,4 +140,17 @@ class GarmentFilteringTest {
         assertEquals(listOf("dated", "undated"), list.orderedBy(GarmentSort.NEWEST).map { it.id })
         assertEquals(listOf("undated", "dated"), list.orderedBy(GarmentSort.OLDEST).map { it.id })
     }
+
+    @Test
+    fun `a material narrows to the garments made of it, however the tag was written`() {
+        val list = listOf(
+            garment("jumper", tags = listOf("wool", "winter")),
+            garment("old", tags = listOf("Wool")),
+            garment("tee", tags = listOf("cotton")),
+            garment("plain"),
+        )
+
+        assertEquals(listOf("jumper", "old"), list.filterBy(GarmentFilter(material = "wool")).map { it.id })
+        assertEquals(listOf("tee"), list.filterBy(GarmentFilter(material = "cotton")).map { it.id })
+    }
 }

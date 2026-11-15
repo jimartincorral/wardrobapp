@@ -29,6 +29,8 @@ data class WardrobeQuery(
     val brand: String = "",
     val size: String = "",
     val color: String? = null,
+    /** A material, by its tag in MATERIALS; null for any. */
+    val material: String? = null,
     /**
      * Whether archived garments are hidden, shown among the rest, or all there is.
      *
@@ -50,8 +52,8 @@ data class WardrobeQuery(
      *
      * Counts a typed-but-blank box as nothing, and counts the sort only when it is
      * not the default -- the same nine the React Native screen counts, plus
-     * archived garments either way, each as much a departure from the plain list
-     * as any of the others.
+     * a material, and archived garments either way, each as much a departure
+     * from the plain list as any of the others.
      */
     val activeFilterCount: Int
         get() = listOf(
@@ -62,6 +64,7 @@ data class WardrobeQuery(
             brand.trim().ifEmpty { null },
             size.trim().ifEmpty { null },
             color,
+            material,
             search.trim().ifEmpty { null },
             sort.takeIf { it != GarmentSort.NEWEST },
             archived.takeIf { it != ArchivedGarments.HIDDEN },
@@ -81,6 +84,7 @@ data class WardrobeQuery(
         brand = brand.trim().ifEmpty { null },
         size = size.trim().ifEmpty { null },
         color = color,
+        material = material,
     )
 
     /**
@@ -146,6 +150,9 @@ data class WardrobeQuery(
 
     fun withColor(value: String?): WardrobeQuery =
         copy(color = if (color == value) null else value)
+
+    fun withMaterial(value: String?): WardrobeQuery =
+        copy(material = if (material == value) null else value)
 
     /**
      * Pick a brand, or tap the current one again to drop it.

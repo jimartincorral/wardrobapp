@@ -25,6 +25,12 @@ data class StructuredTags(
     val seasons: List<Season>,
     /** What was set on the garment; see GarmentAttributes for why these are tags. */
     val attributes: GarmentAttributes = GarmentAttributes.NONE,
+    /**
+     * What the garment is made of, by the tags in [MATERIALS], in that list's
+     * order whatever order they were saved in, so two garments of the same
+     * materials read alike.
+     */
+    val materials: List<String> = emptyList(),
 )
 
 /**
@@ -40,6 +46,7 @@ fun mergeStructuredTags(
     customTags: List<String>,
     seasons: List<Season>,
     attributes: GarmentAttributes = GarmentAttributes.NONE,
+    materials: List<String> = emptyList(),
 ): List<String> {
     val merged = mutableListOf<String>()
     val seen = mutableSetOf<String>()
@@ -49,7 +56,12 @@ fun mergeStructuredTags(
     // or clearing one in the form would leave its old tag behind.
     val typed = customTags.map { it.trim().lowercase() }.filterNot { GarmentAttributes.isAttributeTag(it) }
 
-    for (tag in typed + seasons.map { it.tag } + attributes.toTags()) {
+    // Materials go in as the bare word every reader has always written; see
+    // MATERIALS for why. One typed into the tag box is a material too, and
+    // reads back as one.
+    val chosenMaterials = MATERIALS.filter { it in materials.map(String::lowercase) }
+
+    for (tag in typed + seasons.map { it.tag } + attributes.toTags() + chosenMaterials) {
         if (tag.isEmpty() || !seen.add(tag)) continue
         merged.add(tag)
     }
@@ -60,6 +72,7 @@ fun mergeStructuredTags(
 fun splitStructuredTags(tags: List<String>): StructuredTags {
     val customTags = mutableListOf<String>()
     val seasons = mutableListOf<Season>()
+    val materials = mutableSetOf<String>()
 
     for (rawTag in tags) {
         val tag = rawTag.trim().lowercase()
@@ -73,8 +86,19 @@ fun splitStructuredTags(tags: List<String>): StructuredTags {
         }
         if (tag in LEGACY_STRUCTURED_TAGS) continue
 
+        val material = materialOf(tag)
+        if (material != null) {
+            materials.add(material)
+            continue
+        }
+
         customTags.add(tag)
     }
 
-    return StructuredTags(customTags, seasons, GarmentAttributes.fromTags(tags))
+    return StructuredTags(
+        customTags = customTags,
+        seasons = seasons,
+        attributes = GarmentAttributes.fromTags(tags),
+        materials = MATERIALS.filter { it in materials },
+    )
 }

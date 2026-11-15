@@ -36,6 +36,7 @@ class WardrobeQueryTest {
         assertEquals(1, WardrobeQuery(brand = "Uniqlo").activeFilterCount)
         assertEquals(1, WardrobeQuery(size = "M").activeFilterCount)
         assertEquals(1, WardrobeQuery(color = "navy").activeFilterCount)
+        assertEquals(1, WardrobeQuery(material = "wool").activeFilterCount)
         assertEquals(1, WardrobeQuery(search = "wool").activeFilterCount)
         assertEquals(1, WardrobeQuery(archived = ArchivedGarments.INCLUDED).activeFilterCount)
         assertEquals(1, WardrobeQuery(archived = ArchivedGarments.ONLY).activeFilterCount)

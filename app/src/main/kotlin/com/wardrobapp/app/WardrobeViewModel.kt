@@ -49,6 +49,7 @@ class WardrobeViewModel(container: AppContainer) : ViewModel() {
     fun onSeasonTapped(season: Season) = model.onSeasonTapped(season)
     fun onOccasionTapped(occasion: Occasion) = model.onOccasionTapped(occasion)
     fun onColorTapped(color: String) = model.onColorTapped(color)
+    fun onMaterialTapped(material: String) = model.onMaterialTapped(material)
     fun onArchivedTapped(choice: ArchivedGarments) = model.onArchivedTapped(choice)
     fun onViewSelected(choice: WardrobeView) = model.onViewSelected(choice)
     fun onCaptionSelected(choice: GarmentCaption) = model.onCaptionSelected(choice)
