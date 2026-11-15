@@ -105,6 +105,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.domain.splitStructuredTags
 import com.wardrobapp.presentation.ArchivedGarments
 import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.GarmentSort
@@ -1551,9 +1552,16 @@ private fun GarmentRow(
                         maxLines = 1,
                     )
                 }
-                garment.tags.takeIf { it.isNotEmpty() }?.let { tags ->
+                // What it is made of, in words, then what somebody typed. Not the
+                // tags column as stored: it also carries seasons, style
+                // attributes and materials as bare English keys -- "summer",
+                // "fit:relaxed", "cotton" -- which this line used to show as they
+                // were, in whatever language the reader had chosen.
+                val structured = remember(garment.tags) { splitStructuredTags(garment.tags) }
+                val described = structured.materials.map { materialLabel(it) } + structured.customTags
+                described.takeIf { it.isNotEmpty() }?.let { words ->
                     Text(
-                        tags.joinToString(", "),
+                        words.joinToString(", "),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
