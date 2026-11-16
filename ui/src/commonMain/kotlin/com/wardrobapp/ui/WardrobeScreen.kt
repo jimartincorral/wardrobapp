@@ -105,6 +105,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.domain.splitStructuredTags
 import com.wardrobapp.presentation.ArchivedGarments
 import com.wardrobapp.presentation.GarmentCaption
 import com.wardrobapp.presentation.GarmentSort
@@ -130,6 +131,7 @@ import com.wardrobapp.ui.resources.filter_archived_only
 import com.wardrobapp.ui.resources.filter_remove
 import com.wardrobapp.ui.resources.filter_section_archived
 import com.wardrobapp.ui.resources.filter_section_category
+import com.wardrobapp.ui.resources.filter_section_material
 import com.wardrobapp.ui.resources.filter_section_colour
 import com.wardrobapp.ui.resources.filter_section_occasion
 import com.wardrobapp.ui.resources.filter_section_season
@@ -241,6 +243,7 @@ fun WardrobeScreen(
     onSeasonTapped: (Season) -> Unit,
     onOccasionTapped: (Occasion) -> Unit,
     onColorTapped: (String) -> Unit,
+    onMaterialTapped: (String) -> Unit,
     onArchivedTapped: (ArchivedGarments) -> Unit,
     onViewSelected: (WardrobeView) -> Unit,
     onCaptionSelected: (GarmentCaption) -> Unit,
@@ -283,6 +286,7 @@ fun WardrobeScreen(
             onSeasonTapped = onSeasonTapped,
             onOccasionTapped = onOccasionTapped,
             onColorTapped = onColorTapped,
+            onMaterialTapped = onMaterialTapped,
             onArchivedTapped = onArchivedTapped,
             onViewSelected = onViewSelected,
             onCaptionSelected = onCaptionSelected,
@@ -338,6 +342,7 @@ fun WardrobeScreen(
             onSeasonTapped = onSeasonTapped,
             onOccasionTapped = onOccasionTapped,
             onColorTapped = onColorTapped,
+            onMaterialTapped = onMaterialTapped,
             onBrandTapped = onBrandTapped,
             onSizeTapped = onSizeTapped,
             onArchivedTapped = onArchivedTapped,
@@ -429,6 +434,7 @@ fun WardrobeScreen(
             onSeasonTapped = onSeasonTapped,
             onOccasionTapped = onOccasionTapped,
             onColorTapped = onColorTapped,
+            onMaterialTapped = onMaterialTapped,
             onArchivedTapped = onArchivedTapped,
         )
     }
@@ -638,6 +644,7 @@ private fun appliedFilters(
     onSeasonTapped: (Season) -> Unit,
     onOccasionTapped: (Occasion) -> Unit,
     onColorTapped: (String) -> Unit,
+    onMaterialTapped: (String) -> Unit,
     onBrandTapped: (String) -> Unit,
     onSizeTapped: (String) -> Unit,
     onArchivedTapped: (ArchivedGarments) -> Unit,
@@ -648,6 +655,7 @@ private fun appliedFilters(
     query.season?.let { add(AppliedFilter(stringResource(it.labelRes)) { onSeasonTapped(it) }) }
     query.occasion?.let { add(AppliedFilter(stringResource(it.labelRes)) { onOccasionTapped(it) }) }
     query.color?.let { add(AppliedFilter(colorLabel(it)) { onColorTapped(it) }) }
+    query.material?.let { add(AppliedFilter(materialLabel(it)) { onMaterialTapped(it) }) }
     query.brand.trim().takeIf { it.isNotEmpty() }?.let { add(AppliedFilter(it) { onBrandTapped(it) }) }
     query.size.trim().takeIf { it.isNotEmpty() }?.let { add(AppliedFilter(it) { onSizeTapped(it) }) }
     // Named for what the list holds rather than for the chip that chose it: "Include"
@@ -1119,6 +1127,7 @@ private fun FilterSheet(
     onSeasonTapped: (Season) -> Unit,
     onOccasionTapped: (Occasion) -> Unit,
     onColorTapped: (String) -> Unit,
+    onMaterialTapped: (String) -> Unit,
     onArchivedTapped: (ArchivedGarments) -> Unit,
 ) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1193,6 +1202,7 @@ private fun FilterSheet(
                 onSeasonTapped = onSeasonTapped,
                 onOccasionTapped = onOccasionTapped,
                 onColorTapped = onColorTapped,
+                onMaterialTapped = onMaterialTapped,
                 onArchivedTapped = onArchivedTapped,
             )
         }
@@ -1257,6 +1267,7 @@ private fun FilterChoices(
     onSeasonTapped: (Season) -> Unit,
     onOccasionTapped: (Occasion) -> Unit,
     onColorTapped: (String) -> Unit,
+    onMaterialTapped: (String) -> Unit,
     onArchivedTapped: (ArchivedGarments) -> Unit,
 ) {
         // A row is left out entirely when the wardrobe has nothing to put in it
@@ -1331,6 +1342,19 @@ private fun FilterChoices(
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.testTag(colorSwatchTag(hex)),
                     )
+                }
+            }
+        }
+
+        // What the wardrobe's garments are made of, among those it holds: as
+        // the colours are, a row of what is there rather than every material
+        // the app knows, most of which would match nothing.
+        if (facets.materials.isNotEmpty()) {
+            FilterSection(stringResource(Res.string.filter_section_material), wrap) {
+                for (material in facets.materials) {
+                    FilterPill(materialLabel(material), "material-$material", query.material == material) {
+                        onMaterialTapped(material)
+                    }
                 }
             }
         }
@@ -1528,9 +1552,16 @@ private fun GarmentRow(
                         maxLines = 1,
                     )
                 }
-                garment.tags.takeIf { it.isNotEmpty() }?.let { tags ->
+                // What it is made of, in words, then what somebody typed. Not the
+                // tags column as stored: it also carries seasons, style
+                // attributes and materials as bare English keys -- "summer",
+                // "fit:relaxed", "cotton" -- which this line used to show as they
+                // were, in whatever language the reader had chosen.
+                val structured = remember(garment.tags) { splitStructuredTags(garment.tags) }
+                val described = structured.materials.map { materialLabel(it) } + structured.customTags
+                described.takeIf { it.isNotEmpty() }?.let { words ->
                     Text(
-                        tags.joinToString(", "),
+                        words.joinToString(", "),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -1700,6 +1731,7 @@ private fun ExpandedWardrobe(
     onSeasonTapped: (Season) -> Unit,
     onOccasionTapped: (Occasion) -> Unit,
     onColorTapped: (String) -> Unit,
+    onMaterialTapped: (String) -> Unit,
     onArchivedTapped: (ArchivedGarments) -> Unit,
     onViewSelected: (WardrobeView) -> Unit,
     onCaptionSelected: (GarmentCaption) -> Unit,
@@ -1738,6 +1770,7 @@ private fun ExpandedWardrobe(
             onSeasonTapped = onSeasonTapped,
             onOccasionTapped = onOccasionTapped,
             onColorTapped = onColorTapped,
+            onMaterialTapped = onMaterialTapped,
             onBrandTapped = onBrandTapped,
             onSizeTapped = onSizeTapped,
             onArchivedTapped = onArchivedTapped,
@@ -1769,6 +1802,7 @@ private fun ExpandedWardrobe(
                         onSeasonTapped = onSeasonTapped,
                         onOccasionTapped = onOccasionTapped,
                         onColorTapped = onColorTapped,
+                        onMaterialTapped = onMaterialTapped,
                         onArchivedTapped = onArchivedTapped,
                     )
                     Spacer(modifier = Modifier.width(16.dp))
@@ -1892,6 +1926,7 @@ private fun FilterPanel(
     onSeasonTapped: (Season) -> Unit,
     onOccasionTapped: (Occasion) -> Unit,
     onColorTapped: (String) -> Unit,
+    onMaterialTapped: (String) -> Unit,
     onArchivedTapped: (ArchivedGarments) -> Unit,
 ) {
     Surface(
@@ -1942,6 +1977,7 @@ private fun FilterPanel(
                     onSeasonTapped = onSeasonTapped,
                     onOccasionTapped = onOccasionTapped,
                     onColorTapped = onColorTapped,
+                    onMaterialTapped = onMaterialTapped,
                     onArchivedTapped = onArchivedTapped,
                 )
             }

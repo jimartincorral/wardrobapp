@@ -248,6 +248,7 @@ class WireTypesTest {
                 brand = "Acme",
                 size = "M",
                 color = "#112233",
+                material = "wool",
                 archived = ArchivedGarments.entries.last(),
             ),
         )
@@ -299,8 +300,9 @@ class WireTypesTest {
                 selectedImageIndex = 1,
                 category = "bottoms",
                 subcategories = listOf("jeans"),
-                tags = listOf("denim"),
+                tags = listOf("vintage"),
                 seasons = listOf(Season.entries.last()),
+                materials = listOf("denim", "elastane"),
                 brand = "Acme",
                 colorPalette = listOf("#000080"),
                 colorsChosen = true,

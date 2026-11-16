@@ -135,6 +135,7 @@ class AgentServerTest {
             brand: String = "",
             types: List<String> = emptyList(),
             seasons: List<Season> = emptyList(),
+            materials: List<String> = emptyList(),
             photo: ByteArray = realJpeg(40, 30),
         ): String {
             val before = everything()
@@ -147,6 +148,7 @@ class AgentServerTest {
                     category = category,
                     subcategories = types,
                     seasons = seasons,
+                    materials = materials,
                     brand = brand,
                     colorPalette = listOf(colour),
                     colorsChosen = true,
@@ -411,6 +413,20 @@ class AgentServerTest {
         assertEquals("Levi's", garment["brand"]!!.jsonPrimitive.content)
         assertEquals(listOf("navy"), garment["colors"]!!.jsonArray.map { it.jsonPrimitive.content })
         assertFalse(garment["archived"]!!.jsonPrimitive.boolean)
+    }
+
+    @Test
+    fun `a garment says what it is made of, and a search can ask by material`() = agentTest {
+        val jumper = addGarment(category = "tops", types = listOf("Sweater"), materials = listOf("wool", "cashmere"))
+        addGarment(category = "tops", types = listOf("T-Shirt"), materials = listOf("cotton"))
+
+        val found = call("search_wardrobe", buildJsonObject { put("material", "wool") }).json()
+        assertEquals(listOf(jumper), found.ids())
+
+        val garment = found["garments"]!!.jsonArray.single().jsonObject
+        assertEquals(listOf("wool", "cashmere"), garment["materials"]!!.jsonArray.map { it.jsonPrimitive.content })
+        // Materials are not repeated among the tags somebody typed.
+        assertNull(garment["tags"])
     }
 
     @Test

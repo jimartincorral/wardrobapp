@@ -28,6 +28,24 @@ import com.wardrobapp.ui.resources.category_shoes
 import com.wardrobapp.ui.resources.category_tops
 import com.wardrobapp.ui.resources.category_underwear
 import com.wardrobapp.ui.resources.color_beige
+import com.wardrobapp.ui.resources.material_cotton
+import com.wardrobapp.ui.resources.material_linen
+import com.wardrobapp.ui.resources.material_wool
+import com.wardrobapp.ui.resources.material_cashmere
+import com.wardrobapp.ui.resources.material_denim
+import com.wardrobapp.ui.resources.material_leather
+import com.wardrobapp.ui.resources.material_suede
+import com.wardrobapp.ui.resources.material_silk
+import com.wardrobapp.ui.resources.material_satin
+import com.wardrobapp.ui.resources.material_knit
+import com.wardrobapp.ui.resources.material_fleece
+import com.wardrobapp.ui.resources.material_polyester
+import com.wardrobapp.ui.resources.material_corduroy
+import com.wardrobapp.ui.resources.material_velvet
+import com.wardrobapp.ui.resources.material_viscose
+import com.wardrobapp.ui.resources.material_nylon
+import com.wardrobapp.ui.resources.material_elastane
+import com.wardrobapp.ui.resources.material_acrylic
 import com.wardrobapp.ui.resources.color_black
 import com.wardrobapp.ui.resources.color_blue
 import com.wardrobapp.ui.resources.color_brown
@@ -422,6 +440,37 @@ internal val COLOR_LABELS: Map<String, StringResource> = mapOf(
     "silver" to Res.string.color_silver,
     "multi" to Res.string.color_multi,
 )
+
+/**
+ * The materials, by the tag each is stored as (MATERIALS in :domain), as
+ * words. A presentation test holds the two to each other, so a material
+ * added to the list without a label here fails before it shows untranslated.
+ */
+internal val MATERIAL_LABELS: Map<String, StringResource> = mapOf(
+    "cotton" to Res.string.material_cotton,
+    "linen" to Res.string.material_linen,
+    "wool" to Res.string.material_wool,
+    "cashmere" to Res.string.material_cashmere,
+    "denim" to Res.string.material_denim,
+    "leather" to Res.string.material_leather,
+    "suede" to Res.string.material_suede,
+    "silk" to Res.string.material_silk,
+    "satin" to Res.string.material_satin,
+    "knit" to Res.string.material_knit,
+    "fleece" to Res.string.material_fleece,
+    "polyester" to Res.string.material_polyester,
+    "corduroy" to Res.string.material_corduroy,
+    "velvet" to Res.string.material_velvet,
+    "viscose" to Res.string.material_viscose,
+    "nylon" to Res.string.material_nylon,
+    "elastane" to Res.string.material_elastane,
+    "acrylic" to Res.string.material_acrylic,
+)
+
+/** A material, by its stored tag, as words; as stored for one this build does not know. */
+@Composable
+fun materialLabel(tag: String): String =
+    MATERIAL_LABELS[tag]?.let { stringResource(it) } ?: tag.humanised()
 
 /**
  * A category id as words.

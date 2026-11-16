@@ -3,6 +3,7 @@ package com.wardrobapp.presentation
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.domain.Occasion
 import com.wardrobapp.domain.Season
+import com.wardrobapp.domain.materialOf
 import com.wardrobapp.domain.occasions
 
 /**
@@ -23,6 +24,8 @@ data class GarmentFilter(
     val brand: String? = null,
     val size: String? = null,
     val color: String? = null,
+    /** A material, by its tag in MATERIALS. */
+    val material: String? = null,
 )
 
 /** Two stored colours are the same colour when their hex matches, whatever the case. */
@@ -70,6 +73,11 @@ fun List<GarmentRecord>.filterBy(filter: GarmentFilter): List<GarmentRecord> = f
     // across a wardrobe; `paletteColorFor` has always had to allow for that.
     val color = filter.color
     if (color != null && it.palette.none { hex -> hex.sameColorAs(color) }) return@filter false
+
+    // By the tag, which is where a material is kept (see MATERIALS); in any
+    // case, since an old row may have stored it as somebody typed it.
+    val material = filter.material
+    if (material != null && it.tags.none { tag -> materialOf(tag) == material }) return@filter false
 
     true
 }

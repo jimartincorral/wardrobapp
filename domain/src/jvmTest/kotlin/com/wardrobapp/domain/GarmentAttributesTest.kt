@@ -39,15 +39,15 @@ class GarmentAttributesTest {
     @Test
     fun `the split keeps attributes apart from what was typed, and the merge puts them back`() {
         val (customTags, seasons, attributes) = splitStructuredTags(
-            listOf("cotton", "summer", "formality:casual", "statement:no"),
+            listOf("vintage", "summer", "formality:casual", "statement:no"),
         )
 
-        assertEquals(listOf("cotton"), customTags)
+        assertEquals(listOf("vintage"), customTags)
         assertEquals(listOf(Season.SUMMER), seasons)
         assertEquals(GarmentAttributes(formality = Formality.CASUAL, statement = false), attributes)
 
         val merged = mergeStructuredTags(customTags, seasons, attributes)
-        assertEquals(listOf("cotton", "summer", "formality:casual", "statement:no"), merged)
+        assertEquals(listOf("vintage", "summer", "formality:casual", "statement:no"), merged)
     }
 
     @Test
@@ -55,9 +55,9 @@ class GarmentAttributesTest {
         // The typed tags handed back from the split never carry an attribute,
         // but a caller that passed the raw tags would: the attributes given are
         // the whole truth, and the old tag must not survive beside them.
-        val merged = mergeStructuredTags(listOf("wool", "formality:formal"), emptyList(), GarmentAttributes.NONE)
+        val merged = mergeStructuredTags(listOf("gift", "formality:formal"), emptyList(), GarmentAttributes.NONE)
 
-        assertEquals(listOf("wool"), merged)
+        assertEquals(listOf("gift"), merged)
     }
 
     @Test

@@ -173,4 +173,14 @@ class GarmentReadingTest {
         assertTrue("type: one of" in prompt && "material: one of" in prompt)
         assertTrue("brand:" !in prompt)
     }
+
+    @Test
+    fun `the materials care labels name by another word are read as the one they mean`() {
+        assertEquals("elastane", materialNamed("Spandex"))
+        assertEquals("elastane", materialNamed("lycra"))
+        assertEquals("viscose", materialNamed("100% rayon"))
+        assertEquals("nylon", readPageText("Polyamide Windbreaker", null).material)
+        // Still one material or none: two named is a blend.
+        assertNull(materialNamed("95% cotton, 5% spandex"))
+    }
 }

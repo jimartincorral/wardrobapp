@@ -75,6 +75,7 @@ import com.wardrobapp.domain.COMMON_SIZES
 import com.wardrobapp.domain.Fit
 import com.wardrobapp.domain.Formality
 import com.wardrobapp.domain.GARMENT_CATEGORIES
+import com.wardrobapp.domain.MATERIALS
 import com.wardrobapp.domain.GarmentAttributes
 import com.wardrobapp.domain.Pattern
 import com.wardrobapp.domain.Weight
@@ -110,6 +111,7 @@ import com.wardrobapp.ui.resources.form_save_add
 import com.wardrobapp.ui.resources.form_save_edit
 import com.wardrobapp.ui.resources.form_saving
 import com.wardrobapp.ui.resources.form_section_photos
+import com.wardrobapp.ui.resources.filter_section_material
 import com.wardrobapp.ui.resources.form_section_tags
 import com.wardrobapp.ui.resources.attribute_statement
 import com.wardrobapp.ui.resources.attribute_weight
@@ -172,6 +174,7 @@ fun GarmentFormScreen(
     onBrandChanged: (String) -> Unit,
     onSizeChanged: (String) -> Unit,
     onTagsChanged: (List<String>) -> Unit,
+    onMaterialToggled: (String) -> Unit,
     onAttributesChanged: (GarmentAttributes) -> Unit,
     onSave: () -> Unit,
     onSaveAnyway: () -> Unit,
@@ -224,6 +227,7 @@ fun GarmentFormScreen(
             onBrandChanged = onBrandChanged,
             onSizeChanged = onSizeChanged,
             onTagsChanged = onTagsChanged,
+            onMaterialToggled = onMaterialToggled,
             onAttributesChanged = onAttributesChanged,
             onSave = onSave,
             onImportUrlChanged = onImportUrlChanged,
@@ -345,6 +349,12 @@ fun GarmentFormScreen(
             item {
                 Section(stringResource(Res.string.property_colours)) {
                     Colors(form.colorPalette.toSet(), onColorToggled)
+                }
+            }
+
+            item {
+                Section(stringResource(Res.string.filter_section_material)) {
+                    Materials(form.materials, onMaterialToggled)
                 }
             }
 
@@ -481,6 +491,7 @@ private fun ExpandedGarmentForm(
     onBrandChanged: (String) -> Unit,
     onSizeChanged: (String) -> Unit,
     onTagsChanged: (List<String>) -> Unit,
+    onMaterialToggled: (String) -> Unit,
     onAttributesChanged: (GarmentAttributes) -> Unit,
     onSave: () -> Unit,
     onImportUrlChanged: (String) -> Unit,
@@ -608,6 +619,10 @@ private fun ExpandedGarmentForm(
 
                     Section(stringResource(Res.string.property_colours)) {
                         Colors(form.colorPalette.toSet(), onColorToggled)
+                    }
+
+                    Section(stringResource(Res.string.filter_section_material)) {
+                        Materials(form.materials, onMaterialToggled)
                     }
 
                     Section(stringResource(Res.string.form_section_tags)) {
@@ -1350,6 +1365,16 @@ internal fun StyleAttributes(attributes: GarmentAttributes, onChanged: (GarmentA
             modifier = Modifier.testTag(FORM_STATEMENT_CHIP),
         )
     }
+}
+
+/**
+ * What the garment is made of: every material as a chip, as many chosen as it
+ * is made of. Under the colours, since the two are what a garment is before
+ * anything about how it is worn, and what a care label states together.
+ */
+@Composable
+private fun Materials(chosen: List<String>, onToggled: (String) -> Unit) {
+    Chips(MATERIALS, chosen.toSet(), { materialLabel(it) }, onToggled)
 }
 
 /** One attribute: its name, and its values as chips of which one or none is chosen. */

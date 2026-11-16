@@ -43,32 +43,6 @@ data class GarmentReading(
 }
 
 /**
- * The materials a reading may name, as the tag each becomes.
- *
- * A closed list rather than whatever a model says, for the same reason the
- * types are: an answer is checked against it, so "100% organic cotton jersey"
- * becomes `cotton` and "probably a blend" becomes nothing, instead of a tag
- * nobody would ever type. Kept to fabrics a person picks clothes by, and short
- * enough to list in a prompt.
- */
-val MATERIALS: List<String> = listOf(
-    "cotton",
-    "linen",
-    "wool",
-    "cashmere",
-    "denim",
-    "leather",
-    "suede",
-    "silk",
-    "satin",
-    "knit",
-    "fleece",
-    "polyester",
-    "corduroy",
-    "velvet",
-)
-
-/**
  * A type as it is put to a reader that has never seen this catalogue.
  *
  * The four dress lengths and styles are stored as "Mini", "Midi", "Maxi" and
@@ -140,9 +114,11 @@ fun materialNamed(answer: String): String? {
     val name = normalised(answer)
     if (name.isEmpty()) return null
     return MATERIALS.find { normalised(it) == name }
+        ?: MATERIAL_SYNONYMS.entries.find { normalised(it.key) == name }?.value
         // "100% cotton" or "wool blend": a single listed material inside the
-        // answer is that material; two of them is a blend nobody can tag.
-        ?: MATERIALS.filter { Regex("\\b${Regex.escape(it)}\\b").containsMatchIn(answer.lowercase()) }.singleOrNull()
+        // answer is that material; two of them is a blend, and a reading names
+        // one material or none -- the form is where somebody picks several.
+        ?: materialsNamedIn(answer).map { it.first }.singleOrNull()
 }
 
 /**
@@ -353,11 +329,7 @@ fun readPageText(title: String?, details: String?): GarmentReading {
     }
     fun materialIn(text: String?): String? {
         if (text.isNullOrBlank()) return null
-        val lower = text.lowercase()
-        return MATERIALS
-            .mapNotNull { material -> Regex("\\b${Regex.escape(material)}\\b").find(lower)?.let { material to it.range.first } }
-            .minByOrNull { it.second }
-            ?.first
+        return materialsNamedIn(text).minByOrNull { it.second }?.first
     }
     return GarmentReading(
         type = typeIn(title) ?: typeIn(details),

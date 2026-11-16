@@ -171,4 +171,15 @@ class WardrobeFacetsTest {
 
         assertEquals(WardrobeFacets(), facets)
     }
+
+    @Test
+    fun `materials are offered in the catalogue's order, from what the wardrobe is made of`() {
+        val facets = wardrobeFacets(
+            listOf(garment(tags = listOf("polyester", "vintage")), garment(brand = "b", tags = listOf("Cotton"))),
+            WardrobeQuery(material = "silk"),
+        )
+
+        // Silk is chosen and matches nothing, and is offered anyway so it can be undone.
+        assertEquals(listOf("cotton", "silk", "polyester"), facets.materials)
+    }
 }

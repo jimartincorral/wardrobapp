@@ -91,6 +91,7 @@ import com.wardrobapp.ui.resources.garment_unreadable
 import com.wardrobapp.ui.resources.garment_unretire
 import com.wardrobapp.ui.resources.garment_untitled
 import com.wardrobapp.ui.resources.property_added
+import com.wardrobapp.ui.resources.filter_section_material
 import com.wardrobapp.ui.resources.property_colours
 import com.wardrobapp.ui.resources.property_occasions
 import com.wardrobapp.ui.resources.property_style
@@ -394,6 +395,13 @@ private fun GarmentBody(
             Column(modifier = Modifier.padding(top = 16.dp)) {
                 if (view.palette.isNotEmpty()) {
                     Property(stringResource(Res.string.property_colours)) { Palette(view.palette) }
+                }
+                // Beside the colours, as on the form. Left out when nobody said,
+                // rather than shown as a blank: most garments will have none.
+                if (view.materials.isNotEmpty()) {
+                    Property(stringResource(Res.string.filter_section_material)) {
+                        Value(view.materials.map { materialLabel(it) }.joinToString(", "))
+                    }
                 }
                 view.size?.let { Property(stringResource(Res.string.property_size)) { Value(it) } }
                 if (view.seasons.isNotEmpty()) {

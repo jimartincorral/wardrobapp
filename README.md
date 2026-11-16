@@ -19,8 +19,8 @@ wardrobe in step. It is available in **English and Spanish**.
 ## What it does
 
 **Catalogue your clothes.** Each garment is a photo, plus a category, type,
-colours, brand, size and tags. The colours are filled in from the photo for
-you. If you have a lot to add, choose **Add several at once**: pick a batch of
+colours, what it's made of (cotton, wool, polyester and so on, as many as it
+is), brand, size and tags. The colours are filled in from the photo for you. If you have a lot to add, choose **Add several at once**: pick a batch of
 photos, then give each one a category.
 
 **Clean photos.** **Remove background** cuts the garment out of its photo, so
@@ -53,8 +53,9 @@ down by category, colour and brand. It also shows how long the things you
 stopped wearing lasted, and which garments would complete outfits you can't put
 together yet. Tap any number to see the garments behind it.
 
-**Find things quickly.** Filter the wardrobe by any brand, size or colour you
-own. View it as a list, or as a grid of two, three or four photos across.
+**Find things quickly.** Filter the wardrobe by any brand, size, colour or
+material you own. View it as a list, or as a grid of two, three or four photos
+across.
 
 **Archive clothes without losing them.** Mark a garment **Archive this
 garment** and it stops appearing in the wardrobe and in outfit ideas, but stays

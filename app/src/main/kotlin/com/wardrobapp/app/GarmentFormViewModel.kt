@@ -64,6 +64,7 @@ class GarmentFormViewModel(
     fun onBrandChanged(brand: String) = model.onBrandChanged(brand)
     fun onSizeChanged(size: String) = model.onSizeChanged(size)
     fun onTagsChanged(tags: List<String>) = model.onTagsChanged(tags)
+    fun onMaterialToggled(material: String) = model.onMaterialToggled(material)
     fun onAttributesChanged(attributes: GarmentAttributes) = model.onAttributesChanged(attributes)
     fun onPhotoSelected(index: Int) = model.onPhotoSelected(index)
     fun onPhotoRemoved(index: Int) = model.onPhotoRemoved(index)
