@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.11.0
+
+- **AI agents**: an agent on your home network, such as Claude Code, can use
+  your wardrobe over MCP. It can search it, look at a garment's photo, get
+  outfit suggestions, see what the wardrobe is missing, and save, rate or
+  archive things, though never delete them. It has a port of its own, 8101,
+  which stays closed until you give it a host port in this app's Network
+  settings. The address, and a token for each wardrobe, are under
+  **Settings → AI agents**.
+- **Materials**: a garment can say what it is made of, such as cotton, wool or
+  polyester, as many as it is, and the wardrobe can be filtered by them.
+  Materials the app had already read from a photo or a shop's page show
+  there too.
+- **Search in plain words**, like "navy chinos for work", and the wardrobe
+  turns it into filters.
+- A new garment's type, pattern, fit and more are filled in from its photo.
+  One imported from a shop link takes its type and material from the shop's
+  description.
+- **Archived** on the home screen now opens just your archived garments, and
+  so does the archived count in Statistics. The wardrobe filter can show
+  archived garments alongside the rest or on their own, and they are called
+  "archived" everywhere.
+- Cardigans are now under Mid-Layer. Any you had saved under Outerwear move
+  there by themselves.
+- Suggested outfits always come with shoes, add a jacket or coat outside
+  summer, and include one accessory when you have one that suits. A
+  suggested sweater or hoodie comes with a T-shirt or shirt to wear under it.
+- A garment's line in the wardrobe list no longer shows seasons and style
+  settings as raw English words.
+- Adding a look no longer gets stuck on "Adding…".
+
 ## 0.10.0
 
 - **Looks I like**, under the outfit ideas: save photos of outfits you like,
