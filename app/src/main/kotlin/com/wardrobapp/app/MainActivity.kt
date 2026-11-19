@@ -66,6 +66,7 @@ import com.wardrobapp.presentation.AppDestination
 import com.wardrobapp.presentation.BULK_ADD_MINIMUM
 import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.presentation.FirstStep
+import com.wardrobapp.presentation.GarmentFormScreenModel
 import com.wardrobapp.presentation.OnboardingStep
 import com.wardrobapp.presentation.showsTasteTraining
 import com.wardrobapp.presentation.SettingsScreenState
@@ -82,6 +83,7 @@ import com.wardrobapp.presentation.usesDarkColors
 import com.wardrobapp.ui.AppVersion
 import com.wardrobapp.ui.BulkAddScreen
 import com.wardrobapp.ui.GarmentDetailScreen
+import com.wardrobapp.ui.GarmentBatch
 import com.wardrobapp.ui.GarmentFormScreen
 import com.wardrobapp.ui.HOME
 import com.wardrobapp.ui.HomeScreen
@@ -1398,11 +1400,52 @@ class MainActivity : AppCompatActivity() {
         /** An address from outside, waiting to be offered. Null when adding normally. */
         sharedLink: MutableState<String?>? = null,
     ) {
-        val model: GarmentFormViewModel = viewModel(
+        val model = viewModel<GarmentFormViewModel>(
             factory = viewModelFactory {
                 initializer { GarmentFormViewModel(container, garmentId, wanted) }
             }
-        )
+        ).model
+        val state by model.state.collectAsStateWithLifecycle()
+
+        // Leaving is the activity's business, not the model's: the model reports
+        // that it saved, and this is what that means for the back stack.
+        LaunchedEffect(state.saved) {
+            if (state.saved) navigator.popBackStack()
+        }
+
+        // Handed to the model once and then cleared, so rotating the phone or
+        // coming back to this screen does not ask about the same link again.
+        val pending = sharedLink?.value
+        LaunchedEffect(pending) {
+            if (pending != null) {
+                model.onSharedLinkReceived(pending)
+                // Safe-call assignment: `pending` being non-null implies the
+                // state is there, but only to a reader.
+                sharedLink?.value = null
+            }
+        }
+
+        GarmentFormFor(model = model, onBack = { navigator.popBackStack() })
+    }
+
+    /**
+     * The garment form, wired to a model: its photo launchers, and every field.
+     *
+     * One composable for the two places the form is drawn -- on its own, and as
+     * each garment of bulk add's queue -- so that a field added to the form is
+     * wired once and shows up in both. Bulk add had a form of its own before, and
+     * every field added here since was one it did not have.
+     *
+     * What differs between the two is decided by the caller and passed in: where
+     * back goes, and [batch], the queue around the garment when it is one of
+     * several.
+     */
+    @Composable
+    private fun GarmentFormFor(
+        model: GarmentFormScreenModel<Uri>,
+        onBack: () -> Unit,
+        batch: GarmentBatch? = null,
+    ) {
         val state by model.state.collectAsStateWithLifecycle()
 
         // Every photo comes in through here, from the gallery or from the camera:
@@ -1418,6 +1461,30 @@ class MainActivity : AppCompatActivity() {
                 // backing out of the picker, and it says so by having no error.
                 result.error != null -> model.onCropFailed()
                 else -> Unit
+            }
+        }
+
+        // The same crop screen again, for a photo already in the form: bulk add's
+        // queue brings photos that skipped it on the way in -- thirty crop screens
+        // in a row is the tedium bulk add exists to remove -- so a crop is offered
+        // per garment instead. Its own launcher because its answer replaces a
+        // photo rather than adding one; the scratch file is shared, since only one
+        // crop is ever open and its result is stored before the next can begin.
+        val recropper = rememberLauncherForActivityResult(CropImageContract()) { result ->
+            when {
+                result.isSuccessful -> result.uriContent?.let(model::onPhotoCropped)
+                // Backing out of a re-crop means the photo is fine as it is.
+                result.error != null -> model.onCropFailed()
+                else -> Unit
+            }
+        }
+
+        // Always the photo rather than the cut-out on top of it: a crop of a
+        // cut-out is a crop of a smaller photo, and the framing being chosen is
+        // the garment's own.
+        val recrop: () -> Unit = {
+            state.form.imageUris.getOrNull(state.form.selectedImageIndex)?.let { photo ->
+                recropper.launch(cropTo3by4(photo.toUri(), cropOutput, colors))
             }
         }
 
@@ -1438,29 +1505,11 @@ class MainActivity : AppCompatActivity() {
             if (taken) cropper.launch(cropTo3by4(destination, cropOutput, colors))
         }
 
-        // Leaving is the activity's business, not the model's: the model reports
-        // that it saved, and this is what that means for the back stack.
-        LaunchedEffect(state.saved) {
-            if (state.saved) navigator.popBackStack()
-        }
-
-        // Handed to the model once and then cleared, so rotating the phone or
-        // coming back to this screen does not ask about the same link again.
-        val pending = sharedLink?.value
-        LaunchedEffect(pending) {
-            if (pending != null) {
-                model.onSharedLinkReceived(pending)
-                // Safe-call assignment: `pending` being non-null implies the
-                // state is there, but only to a reader.
-                sharedLink?.value = null
-            }
-        }
-
         GarmentFormScreen(
             state = state,
             isEditing = model.isEditing,
             brandSuggestions = model::suggestionsFor,
-            onBack = { navigator.popBackStack() },
+            onBack = onBack,
             onAddPhoto = {
                 picker.launch(
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -1498,15 +1547,19 @@ class MainActivity : AppCompatActivity() {
             onSharedLinkConfirmed = model::onSharedLinkConfirmed,
             onSharedLinkDismissed = model::onSharedLinkDismissed,
             onImportProblemDismissed = model::onImportProblemDismissed,
+            batch = batch,
+            // Only in a queue; see recropper.
+            onCrop = recrop.takeIf { batch != null },
         )
     }
 
     /**
-     * Cataloguing several garments at once.
+     * Cataloguing several garments at once: a queue of photos, and the garment
+     * form opened on each in turn.
      *
      * The picker takes many photos and none of them goes through the crop screen on
      * the way in: thirty crop screens in a row is the tedium this exists to remove.
-     * Cropping is offered per garment in the queue instead, beside background
+     * Cropping is offered per garment in its form instead, beside background
      * removal, so it is a tap where it is wanted rather than a gate on every photo.
      */
     @Composable
@@ -1519,6 +1572,7 @@ class MainActivity : AppCompatActivity() {
             factory = viewModelFactory { initializer { BulkAddViewModel(container) } }
         )
         val state by model.state.collectAsStateWithLifecycle()
+        val form by model.form.collectAsStateWithLifecycle()
 
         // The one first-step the wardrobe cannot be asked about afterwards: a
         // garment added in bulk is an ordinary garment row, and nothing on it says
@@ -1538,45 +1592,23 @@ class MainActivity : AppCompatActivity() {
             ActivityResultContracts.PickMultipleVisualMedia(BulkAddState.MAX_PHOTOS)
         ) { uris -> model.onPhotosPicked(uris) }
 
-        // The same crop screen the form uses, at the same fixed 3:4. Minted per
-        // composition, as there: the contract needs its destination before it
-        // launches.
-        val cropOutput = remember { cropDestination() }
-        val colors = MaterialTheme.colorScheme
-        val cropper = rememberLauncherForActivityResult(CropImageContract()) { result ->
-            when {
-                result.isSuccessful -> result.uriContent?.let(model::onPhotoCropped)
-                // Cancelling is not a failure: it means the photo is fine as it is.
-                result.error != null -> model.onCropFailed()
-                else -> Unit
-            }
-        }
-
         BulkAddScreen(
             state = state,
+            garment = form,
             onBack = { navigator.popBackStack() },
             onChoosePhotos = {
                 picker.launch(
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                 )
             },
-            onCategorySelected = model::onCategorySelected,
-            onSubcategoryToggled = model::onSubcategoryToggled,
-            onBrandChanged = model::onBrandChanged,
-            // Always the photo rather than the cut-out on top of it: a crop of a
-            // cut-out is a crop of a smaller photo, and the framing being chosen is
-            // the garment's own.
-            onCrop = {
-                state.queue.current?.let { draft ->
-                    cropper.launch(cropTo3by4(draft.imageUri.toUri(), cropOutput, colors))
-                }
-            },
-            onRemoveBackground = model::onRemoveBackground,
-            onUndoBackground = model::onUndoBackground,
-            onSave = model::onSaveRequested,
-            onSkip = model::onSkipRequested,
             onErrorDismissed = model::onErrorDismissed,
-        )
+        ) { garment ->
+            GarmentFormFor(
+                model = garment,
+                onBack = { navigator.popBackStack() },
+                batch = GarmentBatch(queue = state.queue, onSkip = model::onSkipRequested),
+            )
+        }
     }
 
     /**

@@ -12,8 +12,6 @@ import com.wardrobapp.domain.GarmentImportException
 import com.wardrobapp.domain.ImportedGarmentPreview
 import com.wardrobapp.domain.UnsafeUrlException
 import com.wardrobapp.presentation.BackgroundEdit
-import com.wardrobapp.presentation.BulkAddSource
-import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.presentation.GarmentDetailSource
 import com.wardrobapp.presentation.GarmentFormSource
 import com.wardrobapp.presentation.GarmentFormState
@@ -257,12 +255,6 @@ class HttpInspirationSource(private val http: HttpClient) : InspirationSource {
 
     override suspend fun delete(id: String) {
         http.delete(Routes.inspiration(id))
-    }
-}
-
-class HttpBulkAddSource(private val http: HttpClient) : BulkAddSource {
-    override suspend fun save(draft: BulkAddState.Draft) {
-        http.postJson(Routes.GARMENT_BULK, draft)
     }
 }
 

@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.wardrobapp.api.HttpBulkAddSource
 import com.wardrobapp.api.HttpGarmentDetailSource
 import com.wardrobapp.api.HttpGarmentFormSource
 import com.wardrobapp.api.HttpGarmentImporter
@@ -61,6 +60,7 @@ import com.wardrobapp.ui.GarmentDetailPane
 import com.wardrobapp.data.GarmentRecord
 import com.wardrobapp.ui.BulkAddScreen
 import com.wardrobapp.ui.GarmentDetailScreen
+import com.wardrobapp.ui.GarmentBatch
 import com.wardrobapp.ui.GarmentFormScreen
 import com.wardrobapp.ui.HomeScreen
 import com.wardrobapp.ui.InspirationScreen
@@ -75,6 +75,7 @@ import com.wardrobapp.ui.WardrobeScreen
 import io.ktor.client.HttpClient
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
+import org.w3c.files.File
 import com.wardrobapp.ui.ProfileSection
 
 /** Every screen's source, answered by the server this page came from. */
@@ -95,7 +96,6 @@ class WebSources(http: HttpClient) {
     val garmentDetail = HttpGarmentDetailSource(http)
     val garmentForm = HttpGarmentFormSource(http)
     val importer = HttpGarmentImporter(http)
-    val bulkAdd = HttpBulkAddSource(http)
     val photos = BrowserPhotoWork(HttpPhotos(http)) { learnsStyle }
     val inspirations = HttpInspirationSource(http)
     val server = HttpStorageSource(http)
@@ -712,13 +712,26 @@ class Screens(
             if (state.saved) navigator.back()
         }
 
+        GarmentFormFor(entry, model, onBack = navigator::back)
+    }
+
+    /**
+     * The garment form, wired to a model. One composable for the form on its own
+     * and for each garment of bulk add's queue, so a field added to the form is
+     * wired once and appears in both -- see MainActivity's, which says why.
+     */
+    @Composable
+    private fun GarmentFormFor(entry: Entry, model: GarmentFormScreenModel<File>, onBack: () -> Unit, batch: GarmentBatch? = null) {
+        val state by model.state.collectAsState()
+
         GarmentFormScreen(
             state = state,
             isEditing = model.isEditing,
             brandSuggestions = model::suggestionsFor,
-            onBack = navigator::back,
+            onBack = onBack,
             // The browser's picker, and a phone browser's camera. The photo is
-            // stored as picked: there is no crop screen here (see PhotoTools).
+            // stored as picked: there is no crop screen here (see PhotoTools),
+            // which is also why no crop is offered in bulk add's queue.
             onAddPhoto = { entry.scope.launch { pickPhotos(multiple = false).firstOrNull()?.let(model::onPhotoPicked) } },
             onTakePhoto = {
                 entry.scope.launch { pickPhotos(multiple = false, capture = true).firstOrNull()?.let(model::onPhotoPicked) }
@@ -745,13 +758,15 @@ class Screens(
             onSharedLinkConfirmed = model::onSharedLinkConfirmed,
             onSharedLinkDismissed = model::onSharedLinkDismissed,
             onImportProblemDismissed = model::onImportProblemDismissed,
+            batch = batch,
         )
     }
 
     @Composable
     private fun BulkAdd(entry: Entry) {
-        val model = entry.model { BulkAddScreenModel(it, sources.photos, sources.bulkAdd) }
+        val model = entry.model { BulkAddScreenModel(it, sources.photos, sources.garmentForm, sources.importer) }
         val state by model.state.collectAsState()
+        val form by model.form.collectAsState()
 
         // Recorded as it happens, for the first-steps card; see MainActivity.
         val drawerful = state.queue.added >= BULK_ADD_MINIMUM
@@ -761,6 +776,7 @@ class Screens(
 
         BulkAddScreen(
             state = state,
+            garment = form,
             onBack = navigator::back,
             onChoosePhotos = {
                 entry.scope.launch {
@@ -768,17 +784,15 @@ class Screens(
                     if (picked.isNotEmpty()) model.onPhotosPicked(picked)
                 }
             },
-            onCategorySelected = model::onCategorySelected,
-            onSubcategoryToggled = model::onSubcategoryToggled,
-            onBrandChanged = model::onBrandChanged,
-            // Not offered here; see PhotoTools.
-            onCrop = {},
-            onRemoveBackground = model::onRemoveBackground,
-            onUndoBackground = model::onUndoBackground,
-            onSave = model::onSaveRequested,
-            onSkip = model::onSkipRequested,
             onErrorDismissed = model::onErrorDismissed,
-        )
+        ) { garment ->
+            GarmentFormFor(
+                entry,
+                garment,
+                onBack = navigator::back,
+                batch = GarmentBatch(queue = state.queue, onSkip = model::onSkipRequested),
+            )
+        }
     }
 }
 

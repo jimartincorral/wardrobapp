@@ -3,7 +3,6 @@ package com.wardrobapp.server
 import com.wardrobapp.api.Routes
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.request.get
-import com.wardrobapp.api.HttpBulkAddSource
 import com.wardrobapp.api.HttpGarmentDetailSource
 import com.wardrobapp.api.HttpGarmentFormSource
 import com.wardrobapp.api.HttpGarmentImporter
@@ -46,7 +45,6 @@ class ServerUnderTest(val http: HttpClient, val wardrobe: ServerWardrobe, val da
     val statistics = HttpStatisticsSource(http)
     val outfits = HttpOutfitsSource(http)
     val garmentDetail = HttpGarmentDetailSource(http)
-    val bulkAdd = HttpBulkAddSource(http)
     val garmentForm = HttpGarmentFormSource(http)
     val importer = HttpGarmentImporter(http)
     val storage = HttpStorageSource(http)

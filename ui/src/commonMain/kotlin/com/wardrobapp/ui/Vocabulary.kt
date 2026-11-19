@@ -73,7 +73,6 @@ import com.wardrobapp.ui.resources.color_yellow
 import com.wardrobapp.ui.resources.error_background_not_removed
 import com.wardrobapp.ui.resources.error_crop_failed
 import com.wardrobapp.ui.resources.error_garment_not_deleted
-import com.wardrobapp.ui.resources.error_garment_not_saved
 import com.wardrobapp.ui.resources.error_no_camera
 import com.wardrobapp.ui.resources.error_not_undone
 import com.wardrobapp.ui.resources.error_outfit_not_deleted
@@ -636,7 +635,6 @@ val ErrorFallback.messageRes: StringResource
     get() = when (this) {
         ErrorFallback.BACKGROUND_NOT_REMOVED -> Res.string.error_background_not_removed
         ErrorFallback.PHOTO_NOT_CROPPED -> Res.string.error_crop_failed
-        ErrorFallback.GARMENT_NOT_SAVED -> Res.string.error_garment_not_saved
         ErrorFallback.NO_CAMERA -> Res.string.error_no_camera
         ErrorFallback.OUTFIT_NOT_DELETED -> Res.string.error_outfit_not_deleted
         ErrorFallback.OUTFIT_NOT_SAVED -> Res.string.error_outfit_not_saved

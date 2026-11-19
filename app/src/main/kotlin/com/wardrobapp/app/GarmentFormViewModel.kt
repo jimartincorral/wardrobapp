@@ -4,14 +4,12 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wardrobapp.domain.PhantomGarment
-import com.wardrobapp.domain.GarmentAttributes
-import com.wardrobapp.domain.Season
 import com.wardrobapp.presentation.DatabaseGarmentFormSource
 import com.wardrobapp.presentation.FetchingGarmentImporter
 import com.wardrobapp.presentation.GarmentFormScreenModel
-import com.wardrobapp.presentation.GarmentFormScreenState
+import com.wardrobapp.presentation.GarmentFormSource
+import com.wardrobapp.presentation.GarmentImporter
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Adding or editing a garment.
@@ -28,6 +26,14 @@ import kotlinx.coroutines.flow.StateFlow
  * can run it too; this is the Android half: the scope that ends with the screen,
  * PhonePhotoWork for the photos, the phone's own database for the garment, and
  * :net's fetcher for URL import.
+ *
+ * Unlike the other ViewModels here it hands out its [model] rather than
+ * forwarding each call. The form is drawn from two places now -- on its own,
+ * and as each garment of bulk add's queue, where BulkAddViewModel holds the
+ * models -- and MainActivity wires both through one composable that takes the
+ * screen model. Forwarders here would be a second list of the form's callbacks
+ * to keep in step with that one, and a list kept in step by hand is how bulk add
+ * once ended up with a form missing most of its fields.
  */
 class GarmentFormViewModel(
     container: AppContainer,
@@ -37,50 +43,14 @@ class GarmentFormViewModel(
     wanted: PhantomGarment? = null,
 ) : ViewModel() {
 
-    private val model = GarmentFormScreenModel(
+    val model: GarmentFormScreenModel<Uri> = GarmentFormScreenModel(
         scope = viewModelScope,
         photos = PhonePhotoWork(container),
-        source = DatabaseGarmentFormSource(
-            garments = container.garments,
-            garmentWrites = container.garmentWrites,
-            duplicates = container.duplicates,
-            deletePhoto = container.photos::delete,
-            io = Dispatchers.IO,
-        ),
-        importer = FetchingGarmentImporter(container::importPages, container.importImages, Dispatchers.IO),
+        source = garmentFormSource(container),
+        importer = garmentImporter(container),
         garmentId = garmentId,
         wanted = wanted,
     )
-
-    val isEditing: Boolean = model.isEditing
-    val state: StateFlow<GarmentFormScreenState> = model.state
-
-    fun suggestionsFor(brand: String): List<String> = model.suggestionsFor(brand)
-    fun onSaveRequested(force: Boolean = false) = model.onSaveRequested(force)
-    fun onCategorySelected(category: String) = model.onCategorySelected(category)
-    fun onSubcategoryToggled(subcategory: String) = model.onSubcategoryToggled(subcategory)
-    fun onSeasonToggled(season: Season) = model.onSeasonToggled(season)
-    fun onColorToggled(color: String) = model.onColorToggled(color)
-    fun onBrandChanged(brand: String) = model.onBrandChanged(brand)
-    fun onSizeChanged(size: String) = model.onSizeChanged(size)
-    fun onTagsChanged(tags: List<String>) = model.onTagsChanged(tags)
-    fun onMaterialToggled(material: String) = model.onMaterialToggled(material)
-    fun onAttributesChanged(attributes: GarmentAttributes) = model.onAttributesChanged(attributes)
-    fun onPhotoSelected(index: Int) = model.onPhotoSelected(index)
-    fun onPhotoRemoved(index: Int) = model.onPhotoRemoved(index)
-    fun onPhotoPicked(source: Uri) = model.onPhotoPicked(source)
-    fun onImportUrlChanged(url: String) = model.onImportUrlChanged(url)
-    fun onImportRequested() = model.onImportRequested()
-    fun onSharedLinkReceived(url: String) = model.onSharedLinkReceived(url)
-    fun onSharedLinkConfirmed() = model.onSharedLinkConfirmed()
-    fun onSharedLinkDismissed() = model.onSharedLinkDismissed()
-    fun onImportProblemDismissed() = model.onImportProblemDismissed()
-    fun onCameraUnavailable() = model.onCameraUnavailable()
-    fun onCropFailed() = model.onCropFailed()
-    fun onRemoveBackground() = model.onRemoveBackground()
-    fun onUndoBackground() = model.onUndoBackground()
-    fun onDuplicateWarningDismissed() = model.onDuplicateWarningDismissed()
-    fun onErrorDismissed() = model.onErrorDismissed()
 
     /**
      * Whatever this screen saved -- a new garment, a new photo -- has no
@@ -94,3 +64,16 @@ class GarmentFormViewModel(
         styleIndex.refresh()
     }
 }
+
+/** Where a garment form reads and writes on the phone: its own database. Shared with bulk add's forms. */
+internal fun garmentFormSource(container: AppContainer): GarmentFormSource = DatabaseGarmentFormSource(
+    garments = container.garments,
+    garmentWrites = container.garmentWrites,
+    duplicates = container.duplicates,
+    deletePhoto = container.photos::delete,
+    io = Dispatchers.IO,
+)
+
+/** URL import for a garment form, through :net's fetcher. Shared with bulk add's forms. */
+internal fun garmentImporter(container: AppContainer): GarmentImporter =
+    FetchingGarmentImporter(container::importPages, container.importImages, Dispatchers.IO)

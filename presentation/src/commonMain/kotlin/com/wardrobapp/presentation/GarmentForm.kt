@@ -176,6 +176,26 @@ data class GarmentFormState(
     }
 
     /**
+     * Put [next] where [previous] is now, dropping [previous]'s cut-out -- or
+     * null if the form no longer holds [previous].
+     *
+     * For a re-cropped photo, which takes a moment to store. Keyed on the photo
+     * for the reason [withBackgroundRemovedFrom] is: the selection can move while
+     * the store runs, and [withImage]'s replace-the-selected would then put the
+     * crop over a different photo. The cut-out goes because it was cut from the
+     * uncropped framing and no longer describes what is there -- the same reason
+     * [withImage] clears it when replacing.
+     */
+    fun withPhotoReplaced(previous: String, next: String): GarmentFormState? {
+        val index = imageUris.indexOf(previous)
+        if (index < 0) return null
+        return copy(
+            imageUris = imageUris.mapIndexed { i, item -> if (i == index) next else item },
+            bgRemovedUris = bgRemovedUris.mapIndexed { i, item -> if (i == index) "" else item },
+        )
+    }
+
+    /**
      * Choosing a garment type implies seasons (a blazer is not summerwear), so
      * they are filled in -- but only while the user has chosen none, so an
      * explicit choice is never overwritten.

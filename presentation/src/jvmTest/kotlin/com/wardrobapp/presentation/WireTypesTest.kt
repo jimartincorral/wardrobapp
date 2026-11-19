@@ -279,21 +279,6 @@ class WireTypesTest {
         add(OutfitsScreenState.Suggestion(id = "s1", outfit = suggested, rating = 5, saved = true))
         add(BackgroundEdit(images = listOf("photos/a.jpg"), cutouts = listOf("photos/a-cut.png"), discardable = "photos/old.png"))
         add(
-            BulkAddState.Draft(
-                imageUri = "photos/a.jpg",
-                cutoutUri = "photos/a-cut.png",
-                category = "bottoms",
-                subcategories = listOf("jeans"),
-                seasons = listOf(Season.entries.last()),
-                brand = "Acme",
-                colorPalette = listOf("#000080", "#ffffff"),
-                attributes = GarmentAttributes(pattern = Pattern.STRIPES),
-                tags = listOf("denim"),
-                typeChosen = true,
-                typeRead = true,
-            ),
-        )
-        add(
             GarmentFormState(
                 imageUris = listOf("photos/a.jpg", "photos/b.jpg"),
                 bgRemovedUris = listOf("photos/a-cut.png", ""),

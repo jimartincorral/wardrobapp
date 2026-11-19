@@ -870,13 +870,12 @@
     <string name="bulk_add_menu">Add several photos</string>
     <string name="bulk_add_choose">Choose photos</string>
     <string name="bulk_add_choose_more">Add more photos</string>
-    <string name="bulk_add_intro">Pick your photos — up to %1$d at a time — and give each one a category. Colours are read from the photo; everything else can be filled in later.</string>
+    <string name="bulk_add_intro">Pick your photos — up to %1$d at a time. Each one opens the garment form in turn, with what the photo shows already filled in, and saving it brings up the next.</string>
     <string name="bulk_add_progress">%1$d of %2$d</string>
     <string name="bulk_add_save">Save and next</string>
     <string name="bulk_add_skip">Skip this photo</string>
     <string name="bulk_add_done">Done</string>
     <string name="bulk_add_crop">Crop</string>
-    <string name="bulk_add_brand">Brand (optional)</string>
     <plurals name="bulk_add_finished">
         <item quantity="one">%1$d garment added.</item>
         <item quantity="other">%1$d garments added.</item>
@@ -885,7 +884,6 @@
         <item quantity="one">%1$d photo skipped.</item>
         <item quantity="other">%1$d photos skipped.</item>
     </plurals>
-    <string name="error_garment_not_saved">That garment could not be saved.</string>
 
     <!--
         Building an outfit by hand, and changing one: the same screen, reached

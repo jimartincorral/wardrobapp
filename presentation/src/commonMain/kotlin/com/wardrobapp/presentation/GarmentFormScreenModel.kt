@@ -73,6 +73,12 @@ interface GarmentImporter {
  * Editing and adding are the same screen with a different starting state and a
  * different write at the end, which is how the React Native app has it too --
  * the alternative is two screens that drift.
+ *
+ * Adding several is the same screen again: bulk add opens one of these per
+ * photo in its queue (see BulkAddScreenModel). It had a form of its own once,
+ * asking only for a category, a type and a brand, and that is exactly the drift
+ * this paragraph is about -- every field added here since was a field bulk add
+ * did not have.
  */
 class GarmentFormScreenModel<Picked>(
     private val scope: CoroutineScope,
@@ -89,6 +95,22 @@ class GarmentFormScreenModel<Picked>(
      * and a second guess at it here could disagree with the card the reader tapped.
      */
     private val wanted: PhantomGarment? = null,
+    /**
+     * A photo already in the wardrobe's storage, for the form to start with:
+     * one of bulk add's queue, which copies every picked photo in as it arrives
+     * and opens a form like this one per photo. Treated as one this form made,
+     * so removing it from the form, or skipping the garment, deletes the file --
+     * nothing else points at it until the garment is saved.
+     */
+    private val photo: String? = null,
+    /**
+     * Called once the garment is written, beside [GarmentFormScreenState.saved].
+     *
+     * The single form's screen leaves when it sees `saved`; bulk add's queue
+     * opens the next garment instead, and a callback is how it hears without
+     * keeping a collector running on every form it has ever opened.
+     */
+    private val onSaved: () -> Unit = {},
 ) {
     private val _state = MutableStateFlow(GarmentFormScreenState())
     val state: StateFlow<GarmentFormScreenState> = _state.asStateFlow()
@@ -114,19 +136,23 @@ class GarmentFormScreenModel<Picked>(
         loadBrands()
         if (garmentId != null) {
             load(garmentId)
-        } else if (wanted != null) {
-            // Only when adding. A prefill on an edit would overwrite the garment
-            // being edited with a description of a different one.
-            _state.update {
-                it.copy(
-                    form = it.form.prefilledFor(
-                        category = wanted.category,
-                        subcategory = wanted.subcategory,
-                        colour = wanted.colorPrimary,
-                        seasonsFor = ::seasonsForSubcategories,
-                    ),
-                )
+        } else {
+            if (wanted != null) {
+                // Only when adding. A prefill on an edit would overwrite the garment
+                // being edited with a description of a different one.
+                _state.update {
+                    it.copy(
+                        form = it.form.prefilledFor(
+                            category = wanted.category,
+                            subcategory = wanted.subcategory,
+                            colour = wanted.colorPrimary,
+                            seasonsFor = ::seasonsForSubcategories,
+                        ),
+                    )
+                }
             }
+            // Also only when adding: an edit's photos are the garment's own.
+            photo?.let(::addStored)
         }
     }
 
@@ -212,8 +238,73 @@ class GarmentFormScreenModel<Picked>(
         scope.launch {
             attempt { photos.store(picked) }
                 .onSuccess { stored ->
+                    _state.update { it.copy(saving = false) }
+                    addStored(stored)
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(
+                            saving = false,
+                            error = e.message,
+                            errorFallback = ErrorFallback.PHOTO_NOT_IMPORTED,
+                            errorTitle = ErrorTitle.PHOTO,
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * A stored photo joins the form: shown, and read for its colours and what it
+     * is. Whether it was picked just now or queued by bulk add before this form
+     * existed, from here on it is the same photo.
+     */
+    private fun addStored(stored: String) {
+        created.add(stored)
+        _state.update { it.copy(form = it.form.withImage(stored), duplicates = emptyList()) }
+        detectColors()
+        readPhoto()
+    }
+
+    /**
+     * Put a re-cropped photo in place of the one it was cropped from.
+     *
+     * Bulk add's photos skip the crop screen on the way in -- thirty crop screens
+     * in a row is the tedium that screen exists to remove -- so the form offers a
+     * crop per photo while it is one of a queue. The crop screen writes to a
+     * scratch file the next crop overwrites, so the result is stored like any
+     * picked photo before the form points at it.
+     *
+     * The photo it replaces is deleted only once the new one is in place, and
+     * only if this form made it: a delete first and a failure second would leave
+     * the form pointing at nothing, and a photo the stored garment owns is the
+     * row's until the next save, the same as everywhere else here.
+     */
+    fun onPhotoCropped(cropped: Picked) {
+        val form = _state.value.form
+        val previous = form.imageUris.getOrNull(form.selectedImageIndex)?.takeIf { it.isNotEmpty() } ?: return
+        val previousCutout = form.bgRemovedUris.getOrNull(form.selectedImageIndex)
+
+        _state.update { it.copy(saving = true, error = null) }
+
+        scope.launch {
+            attempt { photos.store(cropped) }
+                .onSuccess { stored ->
                     created.add(stored)
-                    _state.update { it.copy(saving = false, form = it.form.withImage(stored), duplicates = emptyList()) }
+                    val placed = _state.value.form.withPhotoReplaced(previous, stored)
+                    if (placed == null) {
+                        // Its photo was removed while this was storing, so the
+                        // crop belongs to nothing.
+                        _state.update { it.copy(saving = false) }
+                        discardIfOurs(stored)
+                        return@onSuccess
+                    }
+                    _state.update { it.copy(saving = false, form = placed, duplicates = emptyList()) }
+                    discardIfOurs(previous)
+                    discardIfOurs(previousCutout)
+                    // A crop is a different set of pixels: what was read off the
+                    // old framing -- a doorframe's colour, a second garment at the
+                    // edge -- is an answer about a photo that no longer exists.
                     detectColors()
                     readPhoto()
                 }
@@ -228,6 +319,23 @@ class GarmentFormScreenModel<Picked>(
                     }
                 }
         }
+    }
+
+    /**
+     * Throw the garment away unsaved: every file this form made is deleted,
+     * since no row will ever point at any of them.
+     *
+     * Bulk add's skip. Suspending rather than launched on this form's scope, so
+     * that the caller -- which is done with this form and about to open the next
+     * one -- decides where the deleting happens and can wait for it. Only what
+     * this form made: an edit's own photos are the stored garment's.
+     */
+    suspend fun discard() {
+        val files = created.toList()
+        created.clear()
+        // A file left behind is not worth stopping for, and Optimize storage
+        // sweeps photos nothing points at.
+        for (file in files) attempt { photos.delete(file) }
     }
 
     // ---- URL import -----------------------------------------------------------
@@ -567,6 +675,13 @@ class GarmentFormScreenModel<Picked>(
                         } else {
                             it.copy(saving = false, saved = true, duplicates = emptyList())
                         }
+                    }
+                    if (matches.isEmpty()) {
+                        // The files are the garment's now, so nothing this form
+                        // made is its to delete any more -- a discard() after
+                        // this must not take the saved garment's photos with it.
+                        created.clear()
+                        onSaved()
                     }
                 }
                 .onFailure { e -> _state.update { it.copy(saving = false, error = e.readableMessage()) } }

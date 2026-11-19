@@ -16,7 +16,6 @@ package com.wardrobapp.presentation
 enum class ErrorFallback {
     BACKGROUND_NOT_REMOVED,
     PHOTO_NOT_CROPPED,
-    GARMENT_NOT_SAVED,
     NO_CAMERA,
     OUTFIT_NOT_DELETED,
     OUTFIT_NOT_SAVED,
