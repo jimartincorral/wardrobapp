@@ -22,7 +22,6 @@ import com.wardrobapp.data.toStoredImageRef
 import com.wardrobapp.data.wardrobeFilesIn
 import com.wardrobapp.domain.ImageFetcher
 import com.wardrobapp.net.ImportHttp
-import com.wardrobapp.presentation.DatabaseBulkAddSource
 import com.wardrobapp.presentation.DatabaseGarmentDetailSource
 import com.wardrobapp.presentation.DatabaseGarmentFormSource
 import com.wardrobapp.presentation.DatabaseHomeSource
@@ -137,7 +136,6 @@ class ServerWardrobe(
         io = io,
         recentlyDeleted = recentlyDeleted,
     )
-    val bulkAdd = DatabaseBulkAddSource(garmentWrites, photos::delete, io)
     val garmentForm = DatabaseGarmentFormSource(garments, garmentWrites, duplicates, photos::delete, io)
 
     /** Sync's view of the same database; see SyncServer. */

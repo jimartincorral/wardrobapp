@@ -5,7 +5,6 @@ import com.wardrobapp.data.toStoredImageRef
 import com.wardrobapp.data.wardrobeFilesIn
 import com.wardrobapp.domain.DuplicateCandidate
 import com.wardrobapp.presentation.BackgroundEdit
-import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.presentation.GarmentFormState
 import com.wardrobapp.presentation.HomeCounts
 import com.wardrobapp.presentation.ArchivedGarments
@@ -170,15 +169,6 @@ class GarmentRoutesTest {
         )
 
         assertEquals(listOf(cutout), garmentDetail.garment(garment.id)!!.imageUrisNoBg)
-    }
-
-    @Test
-    fun `bulk add stores a garment`() = serverTest {
-        val photo = uploadPhoto()
-
-        bulkAdd.save(BulkAddState.Draft(imageUri = photo, category = "shoes", colorPalette = listOf("#000000")))
-
-        assertEquals(listOf("shoes"), everything().map { it.category })
     }
 
     @Test

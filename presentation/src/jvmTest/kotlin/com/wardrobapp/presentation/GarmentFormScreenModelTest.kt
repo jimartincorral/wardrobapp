@@ -26,7 +26,11 @@ class GarmentFormScreenModelTest {
     private class FakePhotos : PhotoWork<String> {
         val deleted = mutableListOf<String>()
         var cutGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
-        override suspend fun store(photo: String) = "stored/$photo"
+        val unstorable = mutableSetOf<String>()
+        override suspend fun store(photo: String): String {
+            if (photo in unstorable) throw IOException("unreadable")
+            return "stored/$photo"
+        }
         override suspend fun delete(photo: String) {
             deleted += photo
         }
@@ -86,7 +90,9 @@ class GarmentFormScreenModelTest {
         importer: FakeImporter = FakeImporter(),
         garmentId: String? = null,
         wanted: PhantomGarment? = null,
-    ) = GarmentFormScreenModel(this, photos, source, importer, garmentId, wanted)
+        photo: String? = null,
+        onSaved: () -> Unit = {},
+    ) = GarmentFormScreenModel(this, photos, source, importer, garmentId, wanted, photo, onSaved)
 
     @Test
     fun `adding starts from what a gap suggested`() = runTest {
@@ -395,5 +401,110 @@ class GarmentFormScreenModelTest {
         assertEquals("outerwear", form.state.value.form.category)
         assertEquals(listOf("Jacket"), form.state.value.form.subcategories)
         assertEquals(com.wardrobapp.domain.Pattern.SOLID, form.state.value.form.attributes.pattern)
+    }
+
+    @Test
+    fun `a form opened on a stored photo starts with it, reads it, and owns it`() = runTest {
+        // Bulk add's queue: the photo is already stored when the form opens.
+        // It is the form's to delete if it is removed, since nothing else
+        // points at it yet.
+        val photos = FakePhotos().apply { readings["stored/boots.jpg"] = GarmentReading(type = ReadType("shoes", "Boots")) }
+        val form = model(photos = photos, photo = "stored/boots.jpg")
+        advanceUntilIdle()
+
+        assertEquals(listOf("stored/boots.jpg"), form.state.value.form.imageUris)
+        assertEquals("#AA0000", form.state.value.form.colorPalette.first())
+        assertEquals("shoes", form.state.value.form.category)
+
+        form.onPhotoRemoved(0)
+        advanceUntilIdle()
+        assertEquals(listOf("stored/boots.jpg"), photos.deleted)
+    }
+
+    @Test
+    fun `a re-crop replaces the photo, and the old one goes only once the new one is stored`() = runTest {
+        val photos = FakePhotos()
+        val form = model(photos = photos, photo = "stored/a.jpg")
+        advanceUntilIdle()
+        form.onRemoveBackground()
+        advanceUntilIdle()
+
+        photos.unstorable += "crop.jpg"
+        form.onPhotoCropped("crop.jpg")
+        advanceUntilIdle()
+        assertEquals(emptyList(), photos.deleted, "a crop that failed to store must not delete the photo it replaces")
+        assertEquals(ErrorFallback.PHOTO_NOT_IMPORTED, form.state.value.errorFallback)
+        assertEquals(ErrorTitle.PHOTO, form.state.value.errorTitle)
+
+        form.onErrorDismissed()
+        photos.unstorable.clear()
+        form.onPhotoCropped("crop.jpg")
+        advanceUntilIdle()
+
+        assertEquals(listOf("stored/crop.jpg"), form.state.value.form.imageUris)
+        assertEquals(listOf(""), form.state.value.form.bgRemovedUris, "the cut-out was of the old framing")
+        assertEquals(setOf("stored/a.jpg", "stored/a.jpg.nobg"), photos.deleted.toSet())
+    }
+
+    @Test
+    fun `a re-crop of a garment's own photo leaves the stored file to the save`() = runTest {
+        // The row still points at it until the edit is saved, and backing out
+        // of the edit must leave the garment as it was.
+        val photos = FakePhotos()
+        val form = model(photos = photos, garmentId = "g1")
+        advanceUntilIdle()
+
+        form.onPhotoCropped("crop.jpg")
+        advanceUntilIdle()
+
+        assertEquals(listOf("stored/crop.jpg"), form.state.value.form.imageUris)
+        assertEquals(emptyList(), photos.deleted)
+    }
+
+    @Test
+    fun `discarding deletes what the form made, and nothing the garment owns`() = runTest {
+        val photos = FakePhotos()
+        val form = model(photos = photos, garmentId = "g1")
+        advanceUntilIdle()
+        form.onPhotoPicked("new.jpg")
+        advanceUntilIdle()
+
+        form.discard()
+
+        assertEquals(listOf("stored/new.jpg"), photos.deleted)
+    }
+
+    @Test
+    fun `once saved, the photos are the garment's and a discard leaves them alone`() = runTest {
+        // Bulk add moves on after a save; a discard arriving after it must not
+        // take the saved garment's photos with it.
+        val photos = FakePhotos()
+        var saves = 0
+        val form = model(photos = photos, photo = "stored/a.jpg", onSaved = { saves++ })
+        advanceUntilIdle()
+
+        form.onSaveRequested()
+        advanceUntilIdle()
+        form.discard()
+
+        assertEquals(1, saves)
+        assertTrue(form.state.value.saved)
+        assertEquals(emptyList(), photos.deleted)
+    }
+
+    @Test
+    fun `a save stopped by the duplicate warning is not reported as saved`() = runTest {
+        val source = FakeSource().apply { matches = listOf(DuplicateGarment(testGarment("g2"))) }
+        var saves = 0
+        val form = model(source = source, photo = "stored/a.jpg", onSaved = { saves++ })
+        advanceUntilIdle()
+
+        form.onSaveRequested()
+        advanceUntilIdle()
+        assertEquals(0, saves)
+
+        form.onSaveRequested(force = true)
+        advanceUntilIdle()
+        assertEquals(1, saves)
     }
 }

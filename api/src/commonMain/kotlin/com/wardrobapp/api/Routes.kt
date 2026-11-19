@@ -44,9 +44,6 @@ object Routes {
     /** POST a WardrobeQuery: the wardrobe list, filtered and ordered. */
     const val GARMENT_SEARCH = "api/garments/search"
 
-    /** POST a bulk add draft: one more garment. */
-    const val GARMENT_BULK = "api/garments/bulk"
-
     /** POST a DuplicateCandidate: the garments it looks like. */
     const val GARMENT_DUPLICATES = "api/garments/duplicates"
 

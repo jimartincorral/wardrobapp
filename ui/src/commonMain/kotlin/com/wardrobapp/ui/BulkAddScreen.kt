@@ -1,38 +1,28 @@
 package com.wardrobapp.ui
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,21 +32,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
@@ -64,31 +47,20 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.wardrobapp.domain.GARMENT_CATEGORIES
-import com.wardrobapp.domain.garmentCategory
 import com.wardrobapp.presentation.BulkAddScreenState
 import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.ui.resources.Res
 import com.wardrobapp.ui.resources.action_back
 import com.wardrobapp.ui.resources.action_close
-import com.wardrobapp.ui.resources.background_cutting
-import com.wardrobapp.ui.resources.background_remove
-import com.wardrobapp.ui.resources.background_undo
-import com.wardrobapp.ui.resources.bulk_add_brand
 import com.wardrobapp.ui.resources.bulk_add_choose
 import com.wardrobapp.ui.resources.bulk_add_choose_more
-import com.wardrobapp.ui.resources.bulk_add_crop
 import com.wardrobapp.ui.resources.bulk_add_done
 import com.wardrobapp.ui.resources.bulk_add_finished
 import com.wardrobapp.ui.resources.bulk_add_intro
 import com.wardrobapp.ui.resources.bulk_add_progress
-import com.wardrobapp.ui.resources.bulk_add_save
-import com.wardrobapp.ui.resources.bulk_add_skip
 import com.wardrobapp.ui.resources.bulk_add_skipped
 import com.wardrobapp.ui.resources.bulk_add_title
 import com.wardrobapp.ui.resources.error_action_failed
-import com.wardrobapp.ui.resources.filter_section_category
-import com.wardrobapp.ui.resources.filter_section_type
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -107,31 +79,35 @@ const val BULK_ADD_CROP = "bulk-add-crop"
 /**
  * Cataloguing several garments from several photos.
  *
- * One screen with three faces: nothing picked yet, a photo waiting to be told
- * what it is, and a finished batch. Which one shows is a question about the
- * queue, answered in :presentation, rather than a mode this screen keeps.
+ * Three faces: nothing picked yet, a garment being filled in, and a finished
+ * batch. The middle one is not drawn here. It is the ordinary garment form,
+ * with [GarmentBatch] around it, and the caller draws it through [form] because
+ * the caller is what holds the form's model and wires every field of it -- the
+ * same wiring the single form has, which is the whole point. This screen draws
+ * the two faces on either side of it, and the one failure that belongs to the
+ * queue rather than to any garment: photos that could not be copied in.
+ *
+ * [garment] is whatever identifies the garment on screen -- its form's model --
+ * and the form is keyed on it. A new garment is then a new form in every way
+ * the screen keeps for itself: scrolled back to the top rather than left at the
+ * save button the last one was saved from, and with no half-typed tag carried
+ * over from the garment before.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BulkAddScreen(
+fun <G : Any> BulkAddScreen(
     state: BulkAddScreenState,
+    garment: G?,
     onBack: () -> Unit,
     onChoosePhotos: () -> Unit,
-    onCategorySelected: (String) -> Unit,
-    onSubcategoryToggled: (String) -> Unit,
-    onBrandChanged: (String) -> Unit,
-    onCrop: () -> Unit,
-    onRemoveBackground: () -> Unit,
-    onUndoBackground: () -> Unit,
-    onSave: () -> Unit,
-    onSkip: () -> Unit,
     onErrorDismissed: () -> Unit,
+    form: @Composable (G) -> Unit,
 ) {
-    state.errorText()?.let { error ->
+    state.errorFallback?.let { reason ->
         AlertDialog(
             onDismissRequest = onErrorDismissed,
             title = { Text(stringResource(Res.string.error_action_failed)) },
-            text = { Text(error) },
+            text = { Text(stringResource(reason.messageRes)) },
             confirmButton = {
                 TextButton(onClick = onErrorDismissed) {
                     Text(stringResource(Res.string.action_close))
@@ -140,56 +116,32 @@ fun BulkAddScreen(
         )
     }
 
-    if (isExpanded()) {
-        ExpandedBulkAdd(
-            state = state,
-            onBack = onBack,
-            onChoosePhotos = onChoosePhotos,
-            onCategorySelected = onCategorySelected,
-            onSubcategoryToggled = onSubcategoryToggled,
-            onBrandChanged = onBrandChanged,
-            onCrop = onCrop,
-            onRemoveBackground = onRemoveBackground,
-            onUndoBackground = onUndoBackground,
-            onSave = onSave,
-            onSkip = onSkip,
-        )
+    // A garment first, even when more photos are still being copied in: the
+    // first garment can be filled in while the rest arrive, which is the
+    // difference between a queue and a wait.
+    if (garment != null) {
+        key(garment) { form(garment) }
         return
     }
 
-    Scaffold(
-        topBar = { BulkTopBar(onBack) },
-    ) { insets ->
-        val queue = state.queue
-        val draft = queue.current
+    val queue = state.queue
 
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth().padding(insets),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            when {
-                // A draft first, even when more photos are still being copied in:
-                // the first garment can be filled in while the rest arrive, which
-                // is the difference between a queue and a wait.
-                draft != null -> draftItems(
-                    queue = queue,
-                    draft = draft,
-                    saving = state.saving,
-                    removingBackground = state.removingBackground,
-                    onCategorySelected = onCategorySelected,
-                    onSubcategoryToggled = onSubcategoryToggled,
-                    onBrandChanged = onBrandChanged,
-                    onCrop = onCrop,
-                    onRemoveBackground = onRemoveBackground,
-                    onUndoBackground = onUndoBackground,
-                    onSave = onSave,
-                    onSkip = onSkip,
-                )
-
-                queue.isFinished -> finishedItems(queue, state.importing, onChoosePhotos, onBack)
-
-                else -> startItems(state.importing, onChoosePhotos)
+    Scaffold(topBar = { BulkTopBar(onBack) }) { insets ->
+        // One column on a phone and on a desktop alike, held to a reading width
+        // there: with no photo to show beside them, these are a few lines and a
+        // button or two, and a sentence stretched across a monitor is not one
+        // anybody reads.
+        Box(modifier = Modifier.fillMaxSize().padding(insets), contentAlignment = Alignment.TopCenter) {
+            LazyColumn(
+                modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (queue.isFinished) {
+                    finishedItems(queue, state.importing, onChoosePhotos, onBack)
+                } else {
+                    startItems(state.importing, onChoosePhotos)
+                }
             }
         }
     }
@@ -212,378 +164,6 @@ private fun LazyListScope.startItems(importing: Boolean, onChoosePhotos: () -> U
                 Text(stringResource(Res.string.bulk_add_choose))
             }
         }
-    }
-}
-
-/**
- * One photo, waiting to be told what it is.
- *
- * The category is what is asked for, because it is the thing the photo cannot
- * answer and the suggestion engine cannot do without. Type and brand sit next to
- * it since they are a tap each while the garment is in front of you.
- *
- * Cropping and background removal are offered here rather than deferred to the
- * garment's own form: they are what decides how the garment *looks* in every list
- * it will ever appear in, and a photo left as it came off the camera is the one
- * thing a later edit is least likely to go back and fix. Both are a tap, and
- * neither is required. What is left for the form is only what a photo cannot show
- * -- size, tags, a second photo.
- */
-private fun LazyListScope.draftItems(
-    queue: BulkAddState,
-    draft: BulkAddState.Draft,
-    /** A garment being written. Not "photos still arriving": those must not block a tap. */
-    saving: Boolean,
-    removingBackground: Boolean,
-    onCategorySelected: (String) -> Unit,
-    onSubcategoryToggled: (String) -> Unit,
-    onBrandChanged: (String) -> Unit,
-    onCrop: () -> Unit,
-    onRemoveBackground: () -> Unit,
-    onUndoBackground: () -> Unit,
-    onSave: () -> Unit,
-    onSkip: () -> Unit,
-) {
-    item {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                stringResource(Res.string.bulk_add_progress, queue.position, queue.total),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag(BULK_ADD_PROGRESS),
-            )
-
-            // "4 of 12" is a fact; the bar is how much is left, which is the thing
-            // somebody halfway through a drawerful actually wants to know.
-            LinearProgressIndicator(
-                progress = { (queue.position - 1).toFloat() / queue.total.coerceAtLeast(1) },
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                drawStopIndicator = {},
-                modifier = Modifier.fillMaxWidth().height(4.dp),
-            )
-
-            Filmstrip(queue)
-        }
-    }
-
-    item {
-        DraftPhoto(
-            draft = draft,
-            saving = saving,
-            removingBackground = removingBackground,
-            onCrop = onCrop,
-            onRemoveBackground = onRemoveBackground,
-            onUndoBackground = onUndoBackground,
-        )
-    }
-
-    item {
-        Section(stringResource(Res.string.filter_section_category)) {
-            Chips(GARMENT_CATEGORIES.map { it.id }, setOf(draft.category), { categoryLabel(it) }) {
-                onCategorySelected(it)
-            }
-            // No wait shown: each photo is read as it joins the queue, mostly
-            // long before it reaches the screen.
-            ReadFromPhoto(reading = false, read = draft.typeRead && !draft.typeChosen)
-        }
-    }
-
-    garmentCategory(draft.category)?.let { category ->
-        item {
-            Section(stringResource(Res.string.filter_section_type)) {
-                Chips(
-                    category.subcategories,
-                    draft.subcategories.toSet(),
-                    { garmentTypeLabel(it) },
-                ) {
-                    onSubcategoryToggled(it)
-                }
-            }
-        }
-    }
-
-    item {
-        OutlinedTextField(
-            value = draft.brand,
-            onValueChange = onBrandChanged,
-            label = { Text(stringResource(Res.string.bulk_add_brand)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-
-    item {
-        // Side by side, and different weights, because they are not two versions
-        // of the same move: one writes a garment and one throws a photo away.
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            OutlinedButton(
-                onClick = onSkip,
-                enabled = !saving,
-                modifier = Modifier.height(44.dp),
-            ) {
-                Icon(Glyph.SkipNext, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(
-                    stringResource(Res.string.bulk_add_skip),
-                    modifier = Modifier.padding(start = 6.dp),
-                )
-            }
-
-            val press = remember { MutableInteractionSource() }
-
-            Button(
-                onClick = onSave,
-                enabled = !saving,
-                interactionSource = press,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(CTA_HEIGHT)
-                    .pressScale(press)
-                    .testTag(BULK_ADD_SAVE),
-            ) {
-                Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text(
-                    stringResource(Res.string.bulk_add_save),
-                    style = ctaLabel(),
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
-        }
-    }
-}
-
-/**
- * The photo being described, large, with what can be done to it on top.
- *
- * Shared by both layouts: the phone's column and the desktop's photo column.
- */
-@Composable
-private fun DraftPhoto(
-    draft: BulkAddState.Draft,
-    saving: Boolean,
-    removingBackground: Boolean,
-    onCrop: () -> Unit,
-    onRemoveBackground: () -> Unit,
-    onUndoBackground: () -> Unit,
-) {
-    // Keyed on the photo, so advancing the queue slides the finished garment
-    // out to the left and lands the next one from the right. Without it the
-    // photo simply becomes a different photo, and the one thing this screen
-    // has to make obvious -- that a garment was written and the queue moved --
-    // is invisible.
-    AnimatedContent(
-        targetState = draft.displayUri,
-        transitionSpec = {
-            (slideInHorizontally(springGentle()) { it / 3 } + fadeIn(springGentle()))
-                .togetherWith(
-                    slideOutHorizontally(springGentle()) { -(it * 7) / 10 } +
-                        scaleOut(springGentle(), targetScale = 0.8f) +
-                        fadeOut(springGentle())
-                )
-        },
-        label = "bulk-advance",
-    ) { uri ->
-        Box(modifier = Modifier.fillMaxWidth()) {
-            AsyncImage(
-                model = uri,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(3f / 4f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(photoSurface()),
-            )
-
-            // On the photo rather than under it. These two act on the picture,
-            // and the picture is the biggest thing on the screen: a row of
-            // words below it read as belonging to the category chips.
-            PhotoActions(
-                hasCutout = draft.cutoutUri.isNotEmpty(),
-                busy = saving,
-                removingBackground = removingBackground,
-                onCrop = onCrop,
-                onRemoveBackground = onRemoveBackground,
-                onUndoBackground = onUndoBackground,
-                modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
-            )
-
-            // What was read off the photo, shown rather than asked about: a
-            // palette worth arguing with is worth the garment's own form, and
-            // stopping to argue is what this screen exists to avoid.
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
-            ) {
-                for (hex in draft.colorPalette) {
-                    hex.toComposeColor()?.let { ColorSwatch(it, size = 24.dp) }
-                }
-            }
-        }
-    }
-}
-
-/**
- * The queue, as a strip of frames.
- *
- * The point is that a drawerful has an end. "4 of 12" says so in words; twelve
- * frames say so at a glance, with the one being worked on larger than the rest.
- *
- * The finished ones are drawn as empty frames rather than as their photos, and
- * that is a limit of the state rather than a choice: the queue holds what is
- * *left*, and a draft is dropped the moment it becomes a garment. Dimmed to a
- * third, an empty frame reads as "done" -- which is what it is -- and keeping
- * every photo alive to grey it out afterwards would mean holding a drawerful of
- * bitmaps to decorate a progress bar.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun Filmstrip(queue: BulkAddState, wrap: Boolean = false) {
-    val frames: @Composable () -> Unit = { Frames(queue) }
-
-    if (wrap) {
-        // Wrapping on a desktop, where a column 440dp wide holds a dozen frames
-        // a line and the whole drawerful is in view without a scroll.
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth().padding(4.dp),
-        ) { frames() }
-    } else {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        ) { frames() }
-    }
-}
-
-/** The strip's frames, for whichever row holds them. */
-@Composable
-private fun Frames(queue: BulkAddState) {
-    val done = queue.position - 1
-
-    repeat(queue.total) { index ->
-        val current = index == done
-        val frame = Modifier
-            .width(30.dp)
-            .aspectRatio(3f / 4f)
-            .clip(RoundedCornerShape(4.dp))
-
-        Box(
-            modifier = if (current) {
-                // The one on screen, a fifth again as large and outlined, so
-                // the strip has a position in it and not just a length.
-                frame
-                    .graphicsLayer { scaleX = 1.22f; scaleY = 1.22f }
-                    .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
-            } else {
-                frame.alpha(if (index < done) 0.32f else 1f)
-            }.background(photoSurface()),
-        ) {
-            queue.drafts.getOrNull(index - done)?.let { draft ->
-                AsyncImage(
-                    model = draft.displayUri,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
-    }
-}
-
-/**
- * What can be done to the photo before it becomes a garment.
- *
- * Undo replaces Remove once there is a cut-out, rather than sitting beside it: two
- * buttons where one applies is how somebody removes a background twice. Cropping
- * stays offered either way and clears the cut-out when used, because a cut-out of
- * the uncropped photo no longer describes what is there.
- */
-@Composable
-private fun PhotoActions(
-    hasCutout: Boolean,
-    busy: Boolean,
-    removingBackground: Boolean,
-    onCrop: () -> Unit,
-    onRemoveBackground: () -> Unit,
-    onUndoBackground: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    if (removingBackground) {
-        GlassChip(modifier = modifier) {
-            CircularProgressIndicator(modifier = Modifier.size(16.dp))
-            Text(
-                stringResource(Res.string.background_cutting),
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.padding(start = 8.dp),
-            )
-        }
-        return
-    }
-
-    // Only what the platform can do; see PhotoTools. Undoing a cut-out always
-    // can, so that chip stays whenever there is one to undo.
-    val tools = LocalPhotoTools.current
-
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
-        if (tools.crops) GlassChip(
-            onClick = onCrop.takeIf { !busy },
-            modifier = Modifier.testTag(BULK_ADD_CROP),
-        ) {
-            Icon(Glyph.Crop, contentDescription = null, modifier = Modifier.size(16.dp))
-            Text(
-                stringResource(Res.string.bulk_add_crop),
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.padding(start = 6.dp),
-            )
-        }
-
-        if (hasCutout || tools.removesBackgrounds) GlassChip(
-            onClick = (if (hasCutout) onUndoBackground else onRemoveBackground).takeIf { !busy },
-        ) {
-            Icon(Glyph.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
-            Text(
-                stringResource(
-                    if (hasCutout) Res.string.background_undo else Res.string.background_remove
-                ),
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.padding(start = 6.dp),
-            )
-        }
-    }
-}
-
-/**
- * A control that sits on top of a photo.
- *
- * Its own surface rather than a plain text button, because what is behind it is a
- * photograph: a label with no ground under it is legible over a white shirt and
- * gone over a black coat. `surfaceContainerHigh` at nine tenths keeps some of the
- * photo visible through it, which is what says the chip belongs to the picture
- * and not to the form below it.
- */
-@Composable
-private fun GlassChip(
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
-    content: @Composable RowScope.() -> Unit,
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = CircleShape,
-        modifier = if (onClick == null) modifier else modifier.clickable(onClick = onClick),
-    ) {
-        Row(
-            modifier = Modifier.height(36.dp).padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            content = content,
-        )
     }
 }
 
@@ -633,11 +213,6 @@ private fun LazyListScope.finishedItems(
     }
 }
 
-/** The exception's own words where there are any, the fallback otherwise. */
-@Composable
-private fun BulkAddScreenState.errorText(): String? =
-    error ?: errorFallback?.let { stringResource(it.messageRes) }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BulkTopBar(onBack: () -> Unit) {
@@ -655,181 +230,104 @@ private fun BulkTopBar(onBack: () -> Unit) {
 }
 
 /**
- * The queue on a desktop-width window: the photo on the left, what it is on the
- * right.
+ * Where in the queue the garment on screen is, for the top of its form.
  *
- * Side by side for the reason the garment form is: the photo is what every
- * choice on the right is a choice about, and the phone's column scrolls it away
- * as soon as you reach the type chips. The start and the finish have no photo to
- * show and use the right-hand column alone, so the words stay where the
- * category chips were and the eye does not have to go looking for them.
+ * "4 of 12" is a fact; the bar is how much is left, which is the thing somebody
+ * halfway through a drawerful actually wants to know; and the strip is the
+ * queue itself, so the drawerful visibly has an end.
+ *
+ * [onScreen] is the photo the form is showing, for the strip's current frame.
+ * It comes from the form rather than the queue because the form owns it now --
+ * cropped, cut out or replaced, the frame shows what the garment will be saved
+ * with, not the photo as it was picked.
  */
 @Composable
-private fun ExpandedBulkAdd(
-    state: BulkAddScreenState,
-    onBack: () -> Unit,
-    onChoosePhotos: () -> Unit,
-    onCategorySelected: (String) -> Unit,
-    onSubcategoryToggled: (String) -> Unit,
-    onBrandChanged: (String) -> Unit,
-    onCrop: () -> Unit,
-    onRemoveBackground: () -> Unit,
-    onUndoBackground: () -> Unit,
-    onSave: () -> Unit,
-    onSkip: () -> Unit,
-) {
-    Scaffold(topBar = { BulkTopBar(onBack) }) { insets ->
-        val queue = state.queue
-        val draft = queue.current
+internal fun BatchProgress(queue: BulkAddState, onScreen: String?, wrap: Boolean = false) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            stringResource(Res.string.bulk_add_progress, queue.position, queue.total),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag(BULK_ADD_PROGRESS),
+        )
 
-        Box(modifier = Modifier.fillMaxSize().padding(insets), contentAlignment = Alignment.TopCenter) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(40.dp),
-                modifier = Modifier
-                    .widthIn(max = 1160.dp)
-                    .fillMaxSize()
-                    .padding(horizontal = 24.dp),
-            ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier
-                        .width(440.dp)
-                        .fillMaxHeight()
-                        .verticalScroll(rememberScrollState())
-                        .padding(vertical = 16.dp),
-                ) {
-                    if (draft != null) {
-                        Filmstrip(queue, wrap = true)
-                        DraftPhoto(
-                            draft = draft,
-                            saving = state.saving,
-                            removingBackground = state.removingBackground,
-                            onCrop = onCrop,
-                            onRemoveBackground = onRemoveBackground,
-                            onUndoBackground = onUndoBackground,
-                        )
-                    }
-                }
+        LinearProgressIndicator(
+            progress = { queue.done.toFloat() / queue.total.coerceAtLeast(1) },
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            drawStopIndicator = {},
+            modifier = Modifier.fillMaxWidth().height(4.dp),
+        )
 
-                LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                    contentPadding = PaddingValues(vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    when {
-                        draft != null -> expandedDraftItems(
-                            queue = queue,
-                            draft = draft,
-                            saving = state.saving,
-                            onCategorySelected = onCategorySelected,
-                            onSubcategoryToggled = onSubcategoryToggled,
-                            onBrandChanged = onBrandChanged,
-                            onSave = onSave,
-                            onSkip = onSkip,
-                        )
-
-                        queue.isFinished -> finishedItems(queue, state.importing, onChoosePhotos, onBack)
-
-                        else -> startItems(state.importing, onChoosePhotos)
-                    }
-                }
-            }
-        }
+        Filmstrip(queue, onScreen, wrap)
     }
 }
 
-/** The right-hand column while a photo waits: the phone's choices, without the photo. */
-private fun LazyListScope.expandedDraftItems(
-    queue: BulkAddState,
-    draft: BulkAddState.Draft,
-    saving: Boolean,
-    onCategorySelected: (String) -> Unit,
-    onSubcategoryToggled: (String) -> Unit,
-    onBrandChanged: (String) -> Unit,
-    onSave: () -> Unit,
-    onSkip: () -> Unit,
-) {
-    item {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                stringResource(Res.string.bulk_add_intro, BulkAddState.MAX_PHOTOS),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                stringResource(Res.string.bulk_add_progress, queue.position, queue.total),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag(BULK_ADD_PROGRESS),
-            )
-        }
-    }
+/**
+ * The queue, as a strip of frames, the one being worked on larger than the rest.
+ *
+ * The finished ones are drawn as empty frames rather than as their photos, and
+ * that is a limit of the state rather than a choice: the queue holds what is
+ * *left*, and a photo leaves it the moment its form opens. Dimmed to a third,
+ * an empty frame reads as "done" -- which is what it is -- and keeping every
+ * photo around to grey it out afterwards would mean holding a drawerful of
+ * bitmaps to decorate a progress bar.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Filmstrip(queue: BulkAddState, onScreen: String?, wrap: Boolean) {
+    val frames: @Composable () -> Unit = { Frames(queue, onScreen) }
 
-    item {
-        Section(stringResource(Res.string.filter_section_category)) {
-            Chips(GARMENT_CATEGORIES.map { it.id }, setOf(draft.category), { categoryLabel(it) }) {
-                onCategorySelected(it)
-            }
-            // No wait shown: each photo is read as it joins the queue, mostly
-            // long before it reaches the screen.
-            ReadFromPhoto(reading = false, read = draft.typeRead && !draft.typeChosen)
-        }
-    }
-
-    garmentCategory(draft.category)?.let { category ->
-        item {
-            Section(stringResource(Res.string.filter_section_type)) {
-                Chips(category.subcategories, draft.subcategories.toSet(), { garmentTypeLabel(it) }) {
-                    onSubcategoryToggled(it)
-                }
-            }
-        }
-    }
-
-    item {
-        OutlinedTextField(
-            value = draft.brand,
-            onValueChange = onBrandChanged,
-            label = { Text(stringResource(Res.string.bulk_add_brand)) },
-            singleLine = true,
-            modifier = Modifier.widthIn(max = 420.dp).fillMaxWidth(),
-        )
-    }
-
-    item {
-        // Throwing a photo away as a text button, beside a filled save: on the
-        // phone the two share the width and the skip needs an outline to read as a
-        // button at all; here each is its own size and the weight says which is
-        // which.
+    if (wrap) {
+        // Wrapping on a desktop, where a column 400dp wide holds a dozen frames
+        // a line and the whole drawerful is in view without a scroll.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(4.dp),
+        ) { frames() }
+    } else {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        ) { frames() }
+    }
+}
+
+/** The strip's frames, for whichever row holds them. */
+@Composable
+private fun Frames(queue: BulkAddState, onScreen: String?) {
+    val done = queue.done
+
+    repeat(queue.total) { index ->
+        val current = index == done
+        val frame = Modifier
+            .width(30.dp)
+            .aspectRatio(3f / 4f)
+            .clip(RoundedCornerShape(4.dp))
+
+        Box(
+            modifier = if (current) {
+                // The one on screen, a fifth again as large and outlined, so the
+                // strip has a position in it and not just a length.
+                frame
+                    .graphicsLayer { scaleX = 1.22f; scaleY = 1.22f }
+                    .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+            } else {
+                frame.alpha(if (index < done) 0.32f else 1f)
+            }.background(photoSurface()),
         ) {
-            TextButton(
-                onClick = onSkip,
-                enabled = !saving,
-                modifier = Modifier.height(44.dp),
-            ) {
-                Icon(Glyph.SkipNext, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(stringResource(Res.string.bulk_add_skip), modifier = Modifier.padding(start = 6.dp))
+            val photo = when {
+                index < done -> null
+                current -> onScreen
+                else -> queue.waiting.getOrNull(index - done - 1)
             }
-
-            val press = remember { MutableInteractionSource() }
-
-            Button(
-                onClick = onSave,
-                enabled = !saving,
-                interactionSource = press,
-                modifier = Modifier
-                    .widthIn(min = 240.dp)
-                    .height(CTA_HEIGHT)
-                    .pressScale(press)
-                    .testTag(BULK_ADD_SAVE),
-            ) {
-                Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text(
-                    stringResource(Res.string.bulk_add_save),
-                    style = ctaLabel(),
-                    modifier = Modifier.padding(start = 8.dp),
+            if (photo != null) {
+                AsyncImage(
+                    model = photo,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }

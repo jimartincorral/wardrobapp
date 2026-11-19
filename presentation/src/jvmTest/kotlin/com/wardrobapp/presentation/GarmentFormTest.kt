@@ -155,6 +155,27 @@ class GarmentFormTest {
     }
 
     @Test
+    fun `a re-crop replaces the photo it was cropped from, wherever it now is, and drops its cut-out`() {
+        // The cut-out was of the old framing. And the selection may have moved
+        // while the crop was being stored, so "the selected one" is not the
+        // photo to replace.
+        val started = form(listOf("a.jpg", "b.jpg"), cutouts = listOf("a-cut.png", "b-cut.png"), selected = 1)
+
+        val cropped = started.withPhotoReplaced("a.jpg", "a-crop.jpg")
+
+        assertEquals(listOf("a-crop.jpg", "b.jpg"), cropped?.imageUris)
+        assertEquals(listOf("", "b-cut.png"), cropped?.bgRemovedUris)
+        assertEquals(1, cropped?.selectedImageIndex)
+    }
+
+    @Test
+    fun `a re-crop of a photo since removed belongs to nothing`() {
+        val removed = form(listOf("a.jpg", "b.jpg")).withoutImageAt(0)
+
+        assertEquals(null, removed.withPhotoReplaced("a.jpg", "a-crop.jpg"))
+    }
+
+    @Test
     fun `collapsing stores the cut-out and hands back the original to delete`() {
         // Saving space is the point of removing a background, so keeping both
         // files would make every removal cost storage rather than save it.

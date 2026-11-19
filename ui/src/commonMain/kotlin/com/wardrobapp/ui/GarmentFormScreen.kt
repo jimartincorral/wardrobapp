@@ -64,6 +64,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
@@ -83,6 +84,7 @@ import com.wardrobapp.domain.SIZE_CHIPS
 import com.wardrobapp.domain.Season
 import com.wardrobapp.domain.garmentCategory
 import com.wardrobapp.presentation.BackgroundAction
+import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.presentation.GARMENT_COLORS
 import com.wardrobapp.presentation.GarmentFormScreenState
 import com.wardrobapp.presentation.backgroundActionFor
@@ -93,6 +95,10 @@ import com.wardrobapp.ui.resources.action_close
 import com.wardrobapp.ui.resources.background_cutting
 import com.wardrobapp.ui.resources.background_remove
 import com.wardrobapp.ui.resources.background_undo
+import com.wardrobapp.ui.resources.bulk_add_crop
+import com.wardrobapp.ui.resources.bulk_add_save
+import com.wardrobapp.ui.resources.bulk_add_skip
+import com.wardrobapp.ui.resources.bulk_add_title
 import com.wardrobapp.ui.resources.duplicate_add_anyway
 import com.wardrobapp.ui.resources.duplicate_review
 import com.wardrobapp.ui.resources.duplicate_title
@@ -148,11 +154,32 @@ import org.jetbrains.compose.resources.stringResource
 const val GARMENT_FORM_LIST = "garment-form-list"
 
 /**
+ * What the form adds when it is one garment of several: bulk add's queue.
+ *
+ * The form is otherwise exactly the one for adding a single garment -- that is
+ * the point of drawing it here rather than in a screen of bulk add's own, which
+ * is what bulk add once had and how it came to offer three of the form's
+ * fields. What the queue changes is only what is around them: where in the
+ * queue this is, a save that means "and the next one", and a way past this
+ * photo without saving it.
+ */
+class GarmentBatch(
+    val queue: BulkAddState,
+    /** Throw this garment away, photo and all, and move on. */
+    val onSkip: () -> Unit,
+)
+
+/**
  * Adding or editing a garment.
  *
  * Layout only. Which types a category offers, what a tag is, whether the palette
  * may be emptied and which seasons a type implies were all decided in :domain and
  * :presentation before anything reached here.
+ *
+ * [batch] when the garment is one of bulk add's queue; see [GarmentBatch].
+ * [onCrop], re-cropping the selected photo, is offered only where it is passed:
+ * a photo added here goes through the crop screen on its way in, and only
+ * bulk add's queue brings photos that have not.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -185,6 +212,8 @@ fun GarmentFormScreen(
     onSharedLinkConfirmed: () -> Unit,
     onSharedLinkDismissed: () -> Unit,
     onImportProblemDismissed: () -> Unit,
+    batch: GarmentBatch? = null,
+    onCrop: (() -> Unit)? = null,
 ) {
     val form = state.form
 
@@ -232,12 +261,14 @@ fun GarmentFormScreen(
             onSave = onSave,
             onImportUrlChanged = onImportUrlChanged,
             onImportRequested = onImportRequested,
+            batch = batch,
+            onCrop = onCrop,
         )
         return
     }
 
     Scaffold(
-        topBar = { FormTopBar(isEditing, onBack) },
+        topBar = { FormTopBar(isEditing, batch != null, onBack) },
     ) { insets ->
         if (state.missing) {
             Box(
@@ -257,11 +288,20 @@ fun GarmentFormScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            // Where in the queue this garment is, above everything else: the
+            // first thing to see when the next garment opens is that it is the
+            // next one.
+            if (batch != null) {
+                item { BatchProgress(batch.queue, onScreen = form.displayedPreviewUri()) }
+            }
+
             // Only when adding. An import replaces every photo in the form, which
             // on an edit would mean quietly discarding the garment's own -- and
             // the app this replaced offers it on the add screen alone for the same
-            // reason.
-            if (!isEditing) {
+            // reason. Not in bulk add's queue either, for the same reason again:
+            // every garment there arrives with its photo, and an import would
+            // throw away the very photo the queue opened the form on.
+            if (!isEditing && batch == null) {
                 item {
                     Section(stringResource(Res.string.import_section)) {
                         ImportFromLink(
@@ -314,6 +354,12 @@ fun GarmentFormScreen(
                             running = state.removingBackground,
                             onRemove = onRemoveBackground,
                             onUndo = onUndoBackground,
+                            // Only with a photo selected: "Remove background" is
+                            // drawn on an empty form too, harmlessly, but a crop of
+                            // nothing would open the crop screen on nothing.
+                            onCrop = onCrop?.takeIf {
+                                !state.saving && !form.imageUris.getOrNull(form.selectedImageIndex).isNullOrEmpty()
+                            },
                         )
                     }
                 }
@@ -383,7 +429,37 @@ fun GarmentFormScreen(
             }
 
             item {
-                SaveButton(state, isEditing, onSave, Modifier.fillMaxWidth())
+                if (batch == null) {
+                    SaveButton(state, isEditing, onSave, Modifier.fillMaxWidth())
+                } else {
+                    // Side by side, and different weights, because they are not
+                    // two versions of the same move: one writes a garment and one
+                    // throws a photo away.
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        OutlinedButton(
+                            onClick = batch.onSkip,
+                            enabled = !state.saving,
+                            modifier = Modifier.height(44.dp),
+                        ) {
+                            Icon(Glyph.SkipNext, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text(
+                                stringResource(Res.string.bulk_add_skip),
+                                modifier = Modifier.padding(start = 6.dp),
+                            )
+                        }
+                        SaveButton(
+                            state,
+                            isEditing,
+                            onSave,
+                            Modifier.weight(1f).testTag(BULK_ADD_SAVE),
+                            next = true,
+                        )
+                    }
+                }
             }
         }
     }
@@ -391,12 +467,16 @@ fun GarmentFormScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FormTopBar(isEditing: Boolean, onBack: () -> Unit) {
+private fun FormTopBar(isEditing: Boolean, inBatch: Boolean, onBack: () -> Unit) {
     TopAppBar(
         title = {
             Text(
                 stringResource(
-                    if (isEditing) Res.string.form_title_edit else Res.string.form_title_add
+                    when {
+                        inBatch -> Res.string.bulk_add_title
+                        isEditing -> Res.string.form_title_edit
+                        else -> Res.string.form_title_add
+                    }
                 )
             )
         },
@@ -434,6 +514,8 @@ private fun SaveButton(
     isEditing: Boolean,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Whether saving opens the next garment of a queue, which the label should say. */
+    next: Boolean = false,
 ) {
     val press = remember { MutableInteractionSource() }
 
@@ -447,6 +529,7 @@ private fun SaveButton(
         Text(
             when {
                 state.saving -> stringResource(Res.string.form_saving)
+                next -> stringResource(Res.string.bulk_add_save)
                 isEditing -> stringResource(Res.string.form_save_edit)
                 else -> stringResource(Res.string.form_save_add)
             },
@@ -496,11 +579,13 @@ private fun ExpandedGarmentForm(
     onSave: () -> Unit,
     onImportUrlChanged: (String) -> Unit,
     onImportRequested: () -> Unit,
+    batch: GarmentBatch?,
+    onCrop: (() -> Unit)?,
 ) {
     val form = state.form
 
     Scaffold(
-        topBar = { FormTopBar(isEditing, onBack) },
+        topBar = { FormTopBar(isEditing, batch != null, onBack) },
         bottomBar = {
             if (!state.missing) {
                 Surface(color = MaterialTheme.colorScheme.surface) {
@@ -511,8 +596,33 @@ private fun ExpandedGarmentForm(
                             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            TextButton(onClick = onBack) { Text(stringResource(Res.string.action_cancel)) }
-                            SaveButton(state, isEditing, onSave, Modifier.widthIn(min = 240.dp))
+                            if (batch == null) {
+                                TextButton(onClick = onBack) { Text(stringResource(Res.string.action_cancel)) }
+                                SaveButton(state, isEditing, onSave, Modifier.widthIn(min = 240.dp))
+                            } else {
+                                // Skip where Cancel was: in a queue the way out is
+                                // the back arrow, and what the footer needs is the
+                                // way past this one photo. A text button beside a
+                                // filled save, so the weight says which is which.
+                                TextButton(
+                                    onClick = batch.onSkip,
+                                    enabled = !state.saving,
+                                    modifier = Modifier.height(44.dp),
+                                ) {
+                                    Icon(Glyph.SkipNext, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Text(
+                                        stringResource(Res.string.bulk_add_skip),
+                                        modifier = Modifier.padding(start = 6.dp),
+                                    )
+                                }
+                                SaveButton(
+                                    state,
+                                    isEditing,
+                                    onSave,
+                                    Modifier.widthIn(min = 240.dp).testTag(BULK_ADD_SAVE),
+                                    next = true,
+                                )
+                            }
                         }
                     }
                 }
@@ -543,6 +653,12 @@ private fun ExpandedGarmentForm(
                         .verticalScroll(rememberScrollState())
                         .padding(vertical = 16.dp),
                 ) {
+                    // Over the photos, wrapping: a column this wide holds a dozen
+                    // frames a line, so the whole drawerful is in view at once.
+                    if (batch != null) {
+                        BatchProgress(batch.queue, onScreen = form.displayedPreviewUri(), wrap = true)
+                    }
+
                     Section(stringResource(Res.string.form_section_photos)) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             val uris = form.galleryItems().map { it.uri }
@@ -558,6 +674,7 @@ private fun ExpandedGarmentForm(
                                 onAdd = onAddPhoto,
                                 onRemove = onRemoveBackground,
                                 onUndo = onUndoBackground,
+                                onCrop = onCrop,
                             )
 
                             Photos(
@@ -576,8 +693,8 @@ private fun ExpandedGarmentForm(
 
                     // Under the photos rather than first, as the phone has it: the
                     // photos are already in view on the left, and an import is what
-                    // fills them.
-                    if (!isEditing) {
+                    // fills them. Not on an edit nor in a queue; see the phone's.
+                    if (!isEditing && batch == null) {
                         Section(stringResource(Res.string.import_section)) {
                             ImportFromLink(
                                 state = state.urlImport,
@@ -652,11 +769,11 @@ private fun ExpandedGarmentForm(
 }
 
 /**
- * The selected photo, large, with its cut-out offer on it: the desktop form's.
+ * The selected photo, large, with its cut-out offer on it -- and the crop, in
+ * bulk add's queue: the desktop form's.
  *
- * On the photo rather than under the row of them, as the bulk-add queue does it,
- * because here the photo is big enough to hold a control without the control
- * covering the garment. Before there is any photo it is the way to add one --
+ * On the photo rather than under the row of them, because here the photo is big
+ * enough to hold a control without the control covering the garment. Before there is any photo it is the way to add one --
  * an empty frame that does nothing would be the largest thing on the screen
  * saying nothing.
  */
@@ -669,6 +786,7 @@ private fun SelectedPhoto(
     onAdd: () -> Unit,
     onRemove: () -> Unit,
     onUndo: () -> Unit,
+    onCrop: (() -> Unit)?,
 ) {
     val frame = Modifier.fillMaxWidth().aspectRatio(3f / 4f).clip(RoundedCornerShape(16.dp))
 
@@ -703,48 +821,80 @@ private fun SelectedPhoto(
         val tools = LocalPhotoTools.current
         val offered = running || action == BackgroundAction.UNDO ||
             (action == BackgroundAction.REMOVE && tools.removesBackgrounds)
+        // Not while the background is being cut: a crop then would leave the
+        // cut-out with no photo to land on.
+        val crop = onCrop?.takeIf { tools.crops && !running && !busy }
 
-        if (offered) {
-            Surface(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(12.dp)
-                    .then(
-                        if (running) {
-                            Modifier
-                        } else {
-                            Modifier
-                                .clickCursor()
-                                .clickable(onClick = if (action == BackgroundAction.UNDO) onUndo else onRemove)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+        ) {
+            if (crop != null) {
+                PhotoChip(
+                    label = stringResource(Res.string.bulk_add_crop),
+                    onClick = crop,
+                    modifier = Modifier.testTag(BULK_ADD_CROP),
+                ) {
+                    Icon(Glyph.Crop, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
+            }
+
+            if (offered) {
+                PhotoChip(
+                    label = stringResource(
+                        when {
+                            running -> Res.string.background_cutting
+                            action == BackgroundAction.UNDO -> Res.string.background_undo
+                            else -> Res.string.background_remove
                         }
                     ),
-            ) {
-                Row(
-                    modifier = Modifier.height(32.dp).padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                    onClick = when {
+                        running -> null
+                        action == BackgroundAction.UNDO -> onUndo
+                        else -> onRemove
+                    },
                 ) {
                     if (running) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                     } else {
                         Icon(Glyph.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
-                    Text(
-                        stringResource(
-                            when {
-                                running -> Res.string.background_cutting
-                                action == BackgroundAction.UNDO -> Res.string.background_undo
-                                else -> Res.string.background_remove
-                            }
-                        ),
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
                 }
             }
+        }
+    }
+}
+
+/**
+ * A control that sits on the desktop's large photo: its own ground, so it reads
+ * over a white shirt and a black coat alike, and a little of the photo through
+ * it, so it reads as the photo's. No click, and no pointer, while [onClick] is
+ * null -- a wait is shown in the same place as the action it is waiting on.
+ */
+@Composable
+private fun PhotoChip(
+    label: String,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    icon: @Composable () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = if (onClick == null) modifier else modifier.clickCursor().clickable(onClick = onClick),
+    ) {
+        Row(
+            modifier = Modifier.height(32.dp).padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            icon()
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(start = 8.dp),
+            )
         }
     }
 }
@@ -764,17 +914,39 @@ private fun BackgroundControl(
     running: Boolean,
     onRemove: () -> Unit,
     onUndo: () -> Unit,
+    /** Re-crop the selected photo, where that is offered; see GarmentFormScreen. */
+    onCrop: (() -> Unit)? = null,
 ) {
+    val tools = LocalPhotoTools.current
     // Nothing to offer once a cut-out has replaced the photo it came from: there
-    // is no original left, and a button there would destroy the only copy.
-    if (action == null && !running) return
-    // Nor a removal the platform cannot do; see PhotoTools.
-    if (action == BackgroundAction.REMOVE && !running && !LocalPhotoTools.current.removesBackgrounds) return
+    // is no original left, and a button there would destroy the only copy. Nor a
+    // removal the platform cannot do; see PhotoTools.
+    val background = running || action == BackgroundAction.UNDO ||
+        (action == BackgroundAction.REMOVE && tools.removesBackgrounds)
+    // The crop leads, since a crop clears a cut-out and so comes first when both
+    // are wanted -- and stands down while one is being cut, which would leave the
+    // cut-out no photo to land on.
+    val crop = onCrop?.takeIf { tools.crops && !running }
+
+    if (!background && crop == null) return
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(top = 8.dp),
     ) {
+        if (crop != null) {
+            CutOutChip(
+                label = stringResource(Res.string.bulk_add_crop),
+                onClick = crop,
+                icon = Glyph.Crop,
+                // Its own gap rather than the row's, which would also open up the
+                // spinner and its words below while a background is cut.
+                modifier = Modifier.testTag(BULK_ADD_CROP).padding(end = 8.dp),
+            )
+        }
+
+        if (!background) return@Row
+
         when {
             running -> {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp))
@@ -799,15 +971,20 @@ private fun BackgroundControl(
     }
 }
 
-/** The cut-out offer, under the photo row: a 36dp outlined chip with its glyph. */
+/** An offer under the photo row -- the cut-out, or a crop: a 36dp outlined chip with its glyph. */
 @Composable
-private fun CutOutChip(label: String, onClick: () -> Unit) {
+private fun CutOutChip(
+    label: String,
+    onClick: () -> Unit,
+    icon: Painter = Glyph.AutoFixHigh,
+    modifier: Modifier = Modifier,
+) {
     OutlinedButton(
         onClick = onClick,
         contentPadding = PaddingValues(horizontal = 12.dp),
-        modifier = Modifier.height(36.dp),
+        modifier = modifier.height(36.dp),
     ) {
-        Icon(Glyph.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
         Text(label, modifier = Modifier.padding(start = 6.dp))
     }
 }
@@ -815,9 +992,10 @@ private fun CutOutChip(label: String, onClick: () -> Unit) {
 /**
  * A labelled block of a form.
  *
- * Internal rather than private because the bulk-add queue asks for a category
- * and a type the same way this form does, and two spellings of the same heading
- * is how one screen ends up looking like a different app.
+ * Internal rather than private because the outfit editor asks for an occasion
+ * and seasons the same way this form asks for a category and a type, and two
+ * spellings of the same heading is how one screen ends up looking like a
+ * different app.
  */
 @Composable
 internal fun Section(title: String, content: @Composable () -> Unit) {
@@ -831,7 +1009,7 @@ internal fun Section(title: String, content: @Composable () -> Unit) {
     }
 }
 
-/** A row of choices, wrapping. Shared with the bulk-add queue, as [Section] is. */
+/** A row of choices, wrapping. Shared with the outfit editor, as [Section] is. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun <T> Chips(
@@ -1304,7 +1482,7 @@ private fun DetectingColors() {
  * type is tapped, since it is then nobody's guess.
  */
 @Composable
-internal fun ReadFromPhoto(reading: Boolean, read: Boolean) {
+private fun ReadFromPhoto(reading: Boolean, read: Boolean) {
     when {
         reading -> Row(
             verticalAlignment = Alignment.CenterVertically,

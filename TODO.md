@@ -19,9 +19,11 @@ One app now: the Kotlin one. Anything below is built once.
   can be pointed at one garment to build around. Rating no longer forces a save --
   rated-only outfits are archived, so the learning is kept without the list
   filling up.
-- Bulk add: several photos in, a queue that asks each one for a category, cropping
-  and background removal offered per garment, and a garment written per
-  confirmation.
+- Bulk add: several photos in, and the whole garment form opened on each in turn,
+  already read from its photo, with cropping offered beside background removal
+  and a garment written per confirmation. It asked each photo for only a
+  category, a type and a brand at first, in a form of its own, and that form fell
+  further behind the real one with every field the real one gained.
 - Learning more than pairs from a rating: each garment's own record, and which
   kinds of colour pairing this wardrobe's owner actually likes, both blended
   towards the built-in defaults in proportion to the evidence behind them. The

@@ -16,7 +16,6 @@ import com.wardrobapp.api.SyncPairing
 import com.wardrobapp.api.WireJson
 import com.wardrobapp.data.resolveImageRef
 import com.wardrobapp.domain.DuplicateCandidate
-import com.wardrobapp.presentation.BulkAddState
 import com.wardrobapp.presentation.OutfitDraft
 import com.wardrobapp.presentation.OutfitsScreenState.Suggestion
 import com.wardrobapp.presentation.SuggestionRequest
@@ -209,12 +208,6 @@ private fun Route.garments() {
     }
 
     post(Routes.GARMENT_SEARCH) { call.respond(wardrobe.wardrobe.garments(call.receive<WardrobeQuery>())) }
-
-    post(Routes.GARMENT_BULK) {
-        wardrobe.bulkAdd.save(call.receive<BulkAddState.Draft>())
-        wardrobe.style?.refresh()
-        call.respond(HttpStatusCode.NoContent)
-    }
 
     post(Routes.GARMENT_DUPLICATES) {
         call.respond(wardrobe.garmentForm.duplicatesOf(call.receive<DuplicateCandidate>()))
